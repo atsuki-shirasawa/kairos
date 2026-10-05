@@ -17,7 +17,7 @@ export type ColumnKey =
   | "trouble"
   | "model";
 
-/** Typed so that both languages name every column of `COLUMNS` in components/SessionList.tsx. */
+/** Typed so that both languages name every column of `COLUMNS` in components/list/columns.tsx. */
 const columns = (c: Record<ColumnKey, { label: string; title?: string }>) => c;
 
 /** Copy for the summary's table (session list): column labels, sorting, totals and cost notes. */

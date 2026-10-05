@@ -12,9 +12,6 @@ export const PALETTE = (["p0", "p1", "p2", "p3", "p4", "p5", "p6", "p7"] as cons
   },
 }));
 
-/** A stored project color (`p0`–`p7`). */
-export type PaletteKey = (typeof PALETTE)[number]["key"];
-
 /**
  * Project color as a CSS value. The stored color is a key `p0`–`p7` (its value depends on the theme).
  * Without one, colors are assigned in turn by ID.

@@ -21,5 +21,5 @@ Log text is untrusted (it may contain text copied from web pages). `src/web/src/
 
 - shadcn/ui primitives live in `src/web/src/components/ui/`; add new ones there rather than styling Radix directly in feature components
 - Tailwind v4 (CSS-first config in `src/web/src/index.css`, no `tailwind.config.js`). Check the latest docs with context7
-- Keyboard shortcuts are handled in `App.tsx` and listed in the "⋯" menu (`Toolbar.tsx`); keep both in sync
+- Keyboard shortcuts are mapped in `lib/shortcuts.ts`, handled in `hooks/useKeyboardShortcuts.ts` and listed in the "⋯" menu (`components/toolbar/AppMenu.tsx`); keep both in sync
 - To see a change in the browser, use `/verify-ui` (runs against the fixtures)

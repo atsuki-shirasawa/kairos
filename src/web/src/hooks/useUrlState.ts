@@ -68,14 +68,14 @@ function write(s: UrlState, push: boolean): void {
   else history.replaceState(null, "", url);
 }
 
+/** Patches the view state and rewrites the URL. `push: true` adds a history entry. */
+export type UrlStateUpdate = (patch: Partial<UrlState>, opts?: { push?: boolean }) => void;
+
 /**
  * The view state and a patch function that also rewrites the URL.
  * Pass `push: true` for steps the back button should undo (opening a block, a search hit).
  */
-export function useUrlState(): [
-  UrlState,
-  (patch: Partial<UrlState>, opts?: { push?: boolean }) => void,
-] {
+export function useUrlState(): [UrlState, UrlStateUpdate] {
   const [state, setState] = useState(read);
 
   useEffect(() => {

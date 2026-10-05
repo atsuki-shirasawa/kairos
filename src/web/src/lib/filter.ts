@@ -21,9 +21,6 @@ export const BRIEF_PROMPTS = 2;
 /** Whether a temporary filter (keyword, outcome) is active. Hiding conditions don't count. */
 export const isFocused = (f: Filter) => f.q.trim() !== "" || f.outcome;
 
-/** Whether any condition, including hiding quick questions, is active. */
-export const isFiltered = (f: Filter) => isFocused(f) || f.hideBrief;
-
 /**
  * Sessions with few prompts and no file edits, commits or PRs.
  * A single request that delegated a large task still has edits, so it stays.
@@ -46,6 +43,31 @@ export function hideSessions(
       (s.projectId === null || !projects.get(s.projectId)?.hidden) &&
       !(filter.hideBrief && isBrief(s)),
   );
+}
+
+/**
+ * Why a period with sessions shows none of them: every one is in a hidden project, or the rest
+ * are quick questions being hidden. null when there are no sessions at all.
+ */
+export function hiddenReason(
+  sessions: CalendarSession[],
+  projects: Map<number, Project>,
+): "project" | "brief" | null {
+  if (sessions.length === 0) return null;
+  return hideSessions(sessions, projects, NO_FILTER).length === 0 ? "project" : "brief";
+}
+
+/**
+ * `projects` plus those in `extra` it doesn't know yet. Sessions from another period may belong to
+ * projects not seen in this one, and those still need their hidden flag.
+ */
+export function withProjects(
+  projects: Map<number, Project>,
+  extra: Project[],
+): Map<number, Project> {
+  const all = new Map(projects);
+  for (const p of extra) if (!all.has(p.id)) all.set(p.id, p);
+  return all;
 }
 
 /** Whether a block (a section of a session) passes the current filter. */

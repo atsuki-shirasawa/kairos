@@ -1,12 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import type { Activity, CalendarSession, Project } from "../../src/shared/api.ts";
 import {
+  hiddenReason,
   hideSessions,
   hitKey,
   isBrief,
   NO_FILTER,
   narrowSessions,
   segmentMatcher,
+  withProjects,
 } from "../../src/web/src/lib/filter.ts";
 
 const NONE: Activity = {
@@ -171,5 +173,35 @@ describe("narrowSessions", () => {
   test("returns fully matching sessions as-is (no extra re-renders)", () => {
     const list = [session("a")];
     expect(narrowSessions(list, () => true)[0]).toBe(list[0]);
+  });
+});
+
+describe("hiddenReason", () => {
+  test("no sessions at all: nothing was hidden", () => {
+    expect(hiddenReason([], projects)).toBeNull();
+  });
+
+  test("every session in a hidden project: the project hid them", () => {
+    expect(hiddenReason([session("a", { projectId: 2 })], projects)).toBe("project");
+  });
+
+  test("some sessions outside hidden projects: hiding quick questions hid them", () => {
+    const sessions = [session("a", { projectId: 2 }), session("b", { promptCount: 1 })];
+    expect(hiddenReason(sessions, projects)).toBe("brief");
+  });
+});
+
+describe("withProjects", () => {
+  test("adds unknown projects and keeps the known ones as they are", () => {
+    const stale = project(1, "renamed", true);
+    const all = withProjects(projects, [stale, project(3, "docs", true)]);
+    expect(all.get(1)?.name).toBe("app");
+    expect(all.get(3)?.hidden).toBe(true);
+    expect(all.size).toBe(3);
+  });
+
+  test("leaves the original map untouched", () => {
+    withProjects(projects, [project(3, "docs")]);
+    expect(projects.has(3)).toBe(false);
   });
 });

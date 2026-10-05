@@ -55,7 +55,7 @@ function uniquePrs(blocks: DayBlock[]): Artifact[] {
 }
 
 /** Busy time per day, summed. Blocks are clipped per day, so overlaps are removed day by day. */
-function busyByDay(blocks: DayBlock[]): number {
+export function busyByDay(blocks: DayBlock[]): number {
   let total = 0;
   for (const list of Map.groupBy(blocks, (b) => b.dayStart).values()) total += busyMs(list);
   return total;

@@ -1,29 +1,27 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { CalendarGrid } from "@/components/CalendarGrid.tsx";
 import { SessionDrawer } from "@/components/SessionDrawer.tsx";
 import { SessionList } from "@/components/SessionList.tsx";
 import { SummaryTabs, SummaryView } from "@/components/SummaryView.tsx";
 import { Toolbar } from "@/components/Toolbar.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { useCalendar, useRecaps, useSearch, useSummaryLangSync } from "@/hooks/queries.ts";
+import { useCalendar, useSummaryLangSync } from "@/hooks/queries.ts";
+import { useBlockStepping, useCloseDrawer } from "@/hooks/useBlockNavigation.ts";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts.ts";
 import { useLiveUpdates } from "@/hooks/useLiveUpdates.ts";
 import { useNow } from "@/hooks/useNow.ts";
+import {
+  useFilteredSessions,
+  usePreviousPeriod,
+  useRecapBodies,
+} from "@/hooks/usePeriodSessions.ts";
 import { useTheme } from "@/hooks/useTheme.ts";
 import { useUrlState } from "@/hooks/useUrlState.ts";
 import { useLocale } from "@/i18n/index.ts";
 import { appMessages } from "@/i18n/messages/app.tsx";
 import { dateLabel, rangeOf, shift, startOfDay } from "@/lib/dates.ts";
-import {
-  type Filter,
-  hideSessions,
-  hitKey,
-  isFocused,
-  NO_FILTER,
-  narrowSessions,
-  segmentMatcher,
-} from "@/lib/filter.ts";
-import { orderedBlocks, selectedSegment, stepBlock } from "@/lib/navigation.ts";
+import { type Filter, hiddenReason, isFocused } from "@/lib/filter.ts";
 import { buildReport } from "@/lib/report.ts";
 
 /**
@@ -41,119 +39,47 @@ export function App() {
     [state.view, state.anchor],
   );
   const calendar = useCalendar(from, to);
-  // The summary compares with the period before, so fetch it only there
-  const before = useMemo(
-    () => rangeOf(state.view, shift(state.view, state.anchor, -1)),
-    [state.view, state.anchor],
-  );
-  const previous = useCalendar(before.from, before.to, state.layout === "summary");
-  // Written recaps go into the copied report from any layout (shared with the summary view's query)
-  const recapList = useRecaps(from, to, true).data?.recaps;
-  const recapBodies = useMemo(
-    () => new Map((recapList ?? []).flatMap((r) => (r.body ? [[r.projectId, r.body]] : []))),
-    [recapList],
-  );
-
   const projects = calendar.data?.projects ?? [];
   const projectMap = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
   const sessions = calendar.data?.sessions ?? [];
-  const visible = useMemo(
-    () => hideSessions(calendar.data?.sessions ?? [], projectMap, state.filter),
-    [calendar.data, projectMap, state.filter],
+  const { visible, matches, focused, search } = useFilteredSessions(
+    calendar.data?.sessions,
+    projectMap,
+    state.filter,
   );
-  const search = useSearch(state.filter.q);
-  // Blocks the server found by text the calendar doesn't hold (summary body, prompts, PRs...)
-  const hitKeys = useMemo(
-    () =>
-      new Set(
-        search.current ? (search.data?.hits ?? []).map((h) => hitKey(h.sessionId, h.start)) : [],
-      ),
-    [search.current, search.data],
+  const previousSessions = usePreviousPeriod(
+    state.view,
+    state.anchor,
+    projectMap,
+    state.filter,
+    state.layout === "summary",
   );
-  const matches = useMemo(
-    () => segmentMatcher(state.filter, projectMap, hitKeys),
-    [state.filter, projectMap, hitKeys],
-  );
-  const focused = useMemo(() => narrowSessions(visible, matches), [visible, matches]);
-  // keepPreviousData would hand over an older period while the new one loads; compare only when current
-  const previousData =
-    previous.data && previous.data.from === before.from && !previous.isPlaceholderData
-      ? previous.data
-      : null;
-  const previousSessions = useMemo(() => {
-    if (!previousData) return null;
-    // Projects only seen last period still need their hidden flag
-    const all = new Map(projectMap);
-    for (const p of previousData.projects) if (!all.has(p.id)) all.set(p.id, p);
-    return { days: before.days, sessions: hideSessions(previousData.sessions, all, state.filter) };
-  }, [previousData, projectMap, before.days, state.filter]);
+  const recapBodies = useRecapBodies(from, to);
   const setFilter = useCallback((filter: Filter) => update({ filter }), [update]);
 
-  // Step to the previous/next block in time order (j / k and the drawer's ↑ ↓). Doesn't push
-  // history, so the back button isn't stuck walking through every step.
-  // While filtering, only matching blocks are visited
-  const ordered = useMemo(() => orderedBlocks(focused, from, to), [focused, from, to]);
-  const currentAt = selectedSegment(visible, state.session, state.at)?.start ?? state.at;
-  const current = state.session && currentAt !== null ? { id: state.session, at: currentAt } : null;
-  const prev = stepBlock(ordered, current, -1);
-  const next = stepBlock(ordered, current, 1);
-  const goTo = useCallback(
-    (b: { id: string; at: number } | null) => b && update({ session: b.id, at: b.at }),
-    [update],
-  );
-
-  // On close, return focus to the block (row) that was open, so keyboard navigation can continue
-  const closeDrawer = useCallback(() => {
-    const el = document.querySelector<HTMLElement>(
-      "main button[data-selected], main tr[data-selected] button, main li[data-selected] button",
-    );
-    update({ session: null, at: null });
-    el?.focus({ preventScroll: true });
-  }, [update]);
+  const { prev, next, goTo } = useBlockStepping({
+    focused,
+    visible,
+    from,
+    to,
+    session: state.session,
+    at: state.at,
+    update,
+  });
+  const closeDrawer = useCloseDrawer(update);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
-
-  // ← → previous/next period, t today, w / d week/day, c / s calendar/summary, l the summary's table, j / k next/previous
-  // block, / search, Esc close details, ? the "⋯" menu. The list shown to users is SHORTCUTS in
-  // Toolbar.tsx. Inside the date picker (data-date-picker) arrow keys move between days, so skip them here
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (
-        e.metaKey ||
-        e.ctrlKey ||
-        e.altKey ||
-        target?.closest("input, textarea, [contenteditable], [data-date-picker]")
-      )
-        return;
-      if (e.key === "ArrowLeft") update({ anchor: shift(state.view, state.anchor, -1) });
-      else if (e.key === "ArrowRight") update({ anchor: shift(state.view, state.anchor, 1) });
-      else if (e.key === "t") update({ anchor: startOfDay(Date.now()) });
-      else if (e.key === "w") update({ view: "week" });
-      else if (e.key === "d") update({ view: "day" });
-      else if (e.key === "c") update({ layout: "calendar" });
-      else if (e.key === "l") update({ layout: "list" });
-      else if (e.key === "s") update({ layout: "summary" });
-      else if (e.key === "j") goTo(next ?? null);
-      else if (e.key === "k") goTo(prev ?? null);
-      // On some keyboard layouts Shift+/ still arrives as "/", so accept both
-      else if (e.key === "?" || (e.key === "/" && e.shiftKey)) setMenuOpen((v) => !v);
-      else if (e.key === "/") searchRef.current?.focus();
-      // While a popover (list, projects) is open, Esc only closes it (tooltips don't count).
-      // At this point Radix hasn't closed it yet, so its content is still in the DOM
-      else if (
-        e.key === "Escape" &&
-        state.session &&
-        !document.querySelector("[data-slot=popover-content]")
-      )
-        closeDrawer();
-      else return;
-      e.preventDefault();
-    };
-    addEventListener("keydown", onKey);
-    return () => removeEventListener("keydown", onKey);
-  }, [state.view, state.anchor, state.session, update, goTo, prev, next, closeDrawer]);
+  useKeyboardShortcuts({
+    state,
+    update,
+    prev,
+    next,
+    goTo,
+    closeDrawer,
+    toggleMenu: () => setMenuOpen((v) => !v),
+    focusSearch: () => searchRef.current?.focus(),
+  });
 
   // Calendar and list render the same data differently, so they get the same props
   const body = {
@@ -242,30 +168,17 @@ export function App() {
             <EmptyNotice
               period={period}
               progress={progress}
-              hiddenBy={
-                sessions.length === 0
-                  ? null
-                  : hideSessions(sessions, projectMap, NO_FILTER).length === 0
-                    ? "project"
-                    : "brief"
-              }
+              hiddenBy={hiddenReason(sessions, projectMap)}
               prev={calendar.data.prev}
               next={calendar.data.next}
               onJump={(t) => update({ anchor: startOfDay(t) })}
             />
           )}
           {visible.length > 0 && focused.length === 0 && isFocused(state.filter) && (
-            <Notice>
-              <p>{m.noMatch(period)}</p>
-              <Button
-                variant="outline"
-                size="xs"
-                className="mt-2"
-                onClick={() => setFilter({ ...state.filter, q: "", outcome: false })}
-              >
-                {m.clearFilter}
-              </Button>
-            </Notice>
+            <NoMatchNotice
+              period={period}
+              onClear={() => setFilter({ ...state.filter, q: "", outcome: false })}
+            />
           )}
         </main>
         {state.session && (
@@ -333,6 +246,20 @@ function EmptyNotice({
   );
 }
 
+/** The filter left nothing of a period that has work: say so and offer to clear it. */
+function NoMatchNotice({ period, onClear }: { period: "week" | "day"; onClear: () => void }) {
+  const m = appMessages();
+  return (
+    <Notice>
+      <p>{m.noMatch(period)}</p>
+      <Button variant="outline" size="xs" className="mt-2" onClick={onClear}>
+        {m.clearFilter}
+      </Button>
+    </Notice>
+  );
+}
+
+/** A status message floating over the top of the period body. */
 function Notice({ children }: { children: React.ReactNode }) {
   return (
     <div className="pointer-events-none absolute inset-x-0 top-24 flex justify-center px-4">
