@@ -1,13 +1,14 @@
 import type { HealthResponse } from "@shared/api.ts";
 import { useEffect, useState } from "react";
+import { api } from "./lib/api.ts";
 
 export function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/health")
-      .then((res) => res.json() as Promise<HealthResponse>)
+    api
+      .health()
       .then(setHealth)
       .catch((e: unknown) => setError(String(e)));
   }, []);

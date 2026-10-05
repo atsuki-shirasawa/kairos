@@ -30,7 +30,7 @@ const [command] = positionals;
 
 switch (values.help ? undefined : command) {
   case "serve":
-    serve();
+    await serve({ claudeDir: values["claude-dir"], dbPath: values.db });
     break;
   case "ingest":
     ingest(values["claude-dir"], values.db);

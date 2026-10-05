@@ -54,11 +54,11 @@ P3（UI）と P4（要約）は P2 の後に並行して進められる。
 
 | ID | タスク | 完了条件 | 規模 |
 |---|---|---|---|
-| P2-1 | Hono サーバーの骨組みとセキュリティ middleware（Host 検証・CSP・書き込み時の Origin と Content-Type 検証） | 不正な Host と別 Origin の POST が拒否されるテストが通る | S |
-| P2-2 | `GET /api/calendar` と `GET /api/projects` / `PATCH /api/projects/:id` | 1 週間分の取得が 50ms 以内 | S |
-| P2-3 | `GET /api/sessions/:id` と `/messages`（カーソルでページング） | 1000 件超の会話を分割して取得できる | S |
-| P2-4 | Watcher と SSE（`/api/events`）: ファイル変更 → 取り込み → 通知 | 作業中のセッションに発言すると数秒以内にイベントが届く | M |
-| P2-5 | `src/shared` に API の型を定義し、フロントの fetch ラッパーで使う | 型を変えるとサーバーとフロントの両方で型エラーになる | S |
+| ✅ P2-1 | Hono サーバーの骨組みとセキュリティ middleware（Host 検証・CSP・書き込み時の Origin と Content-Type 検証） | 不正な Host と別 Origin の POST が拒否されるテストが通る | S |
+| ✅ P2-2 | `GET /api/calendar` と `GET /api/projects` / `PATCH /api/projects/:id` | 1 週間分の取得が 50ms 以内 | S |
+| ✅ P2-3 | `GET /api/sessions/:id` と `/messages`（カーソルでページング） | 1000 件超の会話を分割して取得できる | S |
+| ✅ P2-4 | Watcher と SSE（`/api/events`）: ファイル変更 → 取り込み → 通知 | 作業中のセッションに発言すると数秒以内にイベントが届く | M |
+| ✅ P2-5 | `src/shared` に API の型を定義し、フロントの fetch ラッパーで使う | 型を変えるとサーバーとフロントの両方で型エラーになる | S |
 
 ## P3 UI（→ M2）
 

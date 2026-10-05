@@ -110,7 +110,34 @@ export class Ingester {
     return { files: files.length, changed, sessions, ms: performance.now() - started };
   }
 
-  private listFiles(): string[] {
+  /**
+   * scan と同じだが、一定時間ごとに処理を手放してサーバーの応答を止めない。
+   * 起動直後の初回取り込み（数秒かかる）をバックグラウンドで進めるのに使う。
+   */
+  async scanAsync(
+    onProgress?: (done: number, total: number) => void,
+    sliceMs = 30,
+  ): Promise<ScanStats> {
+    const started = performance.now();
+    const files = this.listFiles();
+    const sessions = new Set<string>();
+    let changed = 0;
+    let sliceStart = performance.now();
+    for (const [i, path] of files.entries()) {
+      const touched = this.ingestFile(path);
+      for (const sid of touched) sessions.add(sid);
+      if (touched.length) changed += 1;
+      if (performance.now() - sliceStart > sliceMs) {
+        onProgress?.(i + 1, files.length);
+        await Bun.sleep(0);
+        sliceStart = performance.now();
+      }
+    }
+    onProgress?.(files.length, files.length);
+    return { files: files.length, changed, sessions, ms: performance.now() - started };
+  }
+
+  listFiles(): string[] {
     if (!existsSync(this.projectsDir)) return [];
     const main: string[] = [];
     const sub: string[] = [];
