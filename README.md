@@ -7,6 +7,8 @@ A personal web app that turns your Claude Code session history into a calendar, 
 - Starts in the background whenever you launch Claude Code
 - The UI is in English by default; Japanese can be selected from the "⋯" menu (saved per browser)
 
+![Kairos architecture](docs/images/architecture.png)
+
 Design docs: [Requirements](docs/requirements.md) / [Architecture](docs/architecture.md) / [Design](docs/design.md) / [Tasks](docs/tasks.md)
 
 ## Setup

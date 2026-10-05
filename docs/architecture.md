@@ -4,6 +4,10 @@ Last updated: 2026-10-05 / Related: [Requirements](requirements.md) / [Tasks](ta
 
 ## 1. Overview
 
+![Kairos architecture](images/architecture.png)
+
+The image is rendered with [Archify](https://github.com/tt-a1i/archify) from [`images/architecture.archify.json`](images/architecture.archify.json); the Mermaid chart below has the full set of flows.
+
 ```mermaid
 flowchart LR
     subgraph CC["Claude Code"]

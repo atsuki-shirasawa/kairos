@@ -1,0 +1,196 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Kairos architecture",
+    "quality_profile": "showcase",
+    "viewBox": [1180, 620]
+  },
+  "components": [
+    {
+      "id": "hook",
+      "type": "external",
+      "label": "SessionStart hook",
+      "sublabel": "Claude Code",
+      "pos": [40, 120],
+      "size": [150, 64]
+    },
+    {
+      "id": "logs",
+      "type": "database",
+      "label": "Session logs",
+      "sublabel": "projects/**/*.jsonl",
+      "pos": [40, 300],
+      "size": [150, 64],
+      "tag": "read-only"
+    },
+    {
+      "id": "launcher",
+      "type": "frontend",
+      "label": "kairos ensure",
+      "sublabel": "CLI + PID file",
+      "pos": [250, 120],
+      "size": [150, 64]
+    },
+    {
+      "id": "watcher",
+      "type": "backend",
+      "label": "Watcher",
+      "sublabel": "fs.watch + debounce",
+      "pos": [250, 300],
+      "size": [150, 64]
+    },
+    {
+      "id": "ingester",
+      "type": "backend",
+      "label": "Ingester",
+      "sublabel": "classify + segments",
+      "pos": [460, 300],
+      "size": [150, 64]
+    },
+    {
+      "id": "sqlite",
+      "type": "database",
+      "label": "SQLite",
+      "sublabel": "kairos.db",
+      "pos": [670, 300],
+      "size": [150, 64]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "API (Hono)",
+      "sublabel": "REST + SSE + static",
+      "pos": [880, 300],
+      "size": [150, 64],
+      "tag": "127.0.0.1:4319"
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "Web UI",
+      "sublabel": "React calendar",
+      "pos": [880, 470],
+      "size": [150, 64]
+    },
+    {
+      "id": "summarizer",
+      "type": "backend",
+      "label": "Summarizer",
+      "sublabel": "queue, concurrency 1",
+      "pos": [460, 470],
+      "size": [150, 64]
+    },
+    {
+      "id": "claude",
+      "type": "external",
+      "label": "claude -p",
+      "sublabel": "haiku, no side effects",
+      "brand": "claude",
+      "pos": [250, 470],
+      "size": [150, 64]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Claude Code",
+      "wraps": ["hook", "logs"]
+    },
+    {
+      "kind": "region",
+      "label": "kairos serve (one Bun process)",
+      "wraps": ["watcher", "ingester", "sqlite", "api", "summarizer"]
+    }
+  ],
+  "connections": [
+    {
+      "id": "hook-launcher",
+      "from": "hook",
+      "to": "launcher",
+      "label": "on start"
+    },
+    {
+      "id": "launcher-api",
+      "from": "launcher",
+      "to": "api",
+      "label": "health check / spawn",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "top"
+    },
+    {
+      "id": "logs-watcher",
+      "from": "logs",
+      "to": "watcher",
+      "label": "change"
+    },
+    {
+      "id": "watcher-ingester",
+      "from": "watcher",
+      "to": "ingester",
+      "label": "paths"
+    },
+    {
+      "id": "ingester-sqlite",
+      "from": "ingester",
+      "to": "sqlite",
+      "label": "upsert",
+      "variant": "emphasis"
+    },
+    {
+      "id": "sqlite-api",
+      "from": "sqlite",
+      "to": "api",
+      "label": "queries"
+    },
+    {
+      "id": "api-web",
+      "from": "api",
+      "to": "web",
+      "label": "REST + SSE",
+      "variant": "emphasis",
+      "labelAt": [955, 417]
+    },
+    {
+      "id": "ingester-summarizer",
+      "from": "ingester",
+      "to": "summarizer",
+      "label": "touched",
+      "variant": "dashed",
+      "labelAt": [535, 417]
+    },
+    {
+      "id": "summarizer-claude",
+      "from": "summarizer",
+      "to": "claude",
+      "label": "excerpt"
+    },
+    {
+      "id": "summarizer-sqlite",
+      "from": "summarizer",
+      "to": "sqlite",
+      "label": "summaries"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Ingest",
+      "items": [
+        "Reads only the appended part of each log, from the offset in ingest_state",
+        "Original logs are never written"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Summaries",
+      "items": ["One claude -p at a time, per calendar section", "Output language follows the UI"]
+    },
+    {
+      "dot": "rose",
+      "title": "Local only",
+      "items": ["Bound to 127.0.0.1 with Host validation", "Writes need JSON and the same Origin"]
+    }
+  ]
+}
