@@ -205,6 +205,21 @@ describe("README のシナリオ", () => {
     expect(st && st.size - st.offset).toBe(60);
   });
 
+  test("11. PR の題名: gh pr create の題名を PR に付け、pr-link の前後どちらでも保つ", () => {
+    const prs = db
+      .query<{ ref: string; title: string | null }, [string]>(
+        "SELECT ref, title FROM artifacts WHERE session_id = ? AND kind = 'pr' ORDER BY ref",
+      )
+      .all(SID.prTitles);
+    expect(prs).toEqual([
+      { ref: "https://github.com/me/app/pull/43", title: "feat: パスワード再設定メールを送る" },
+      { ref: "https://github.com/me/app/pull/44", title: "fix: リンクの有効期限を 30 分にする" },
+      // 題名が実行時に決まるものは使わず、pr-link の番号とリポジトリにする
+      { ref: "https://github.com/me/app/pull/45", title: "#45 me/app" },
+    ]);
+    expect(segments(SID.prTitles)).toEqual([[min(540), min(546)]]);
+  });
+
   test("10. 別プロジェクト・翌日", () => {
     const s = session(SID.blog);
     expect(s.project).toBe("/Users/me/dev/blog");

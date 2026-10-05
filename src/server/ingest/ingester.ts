@@ -11,6 +11,7 @@ import {
   resolveProject,
   worktreeName,
 } from "./project.ts";
+import { GH_PR_CREATE_RE, prTitleOf, prUrlIn } from "./prs.ts";
 import { readNewLines } from "./reader.ts";
 import {
   clip,
@@ -26,7 +27,7 @@ import {
 import { DEFAULT_GAP_MS, toSegments } from "./segments.ts";
 
 /** 解釈ルールを変えたら上げる。上がると、元ログが残っているファイルは読み直される。 */
-export const PARSER_VERSION = 2;
+export const PARSER_VERSION = 3;
 /**
  * DB から計算し直せる派生データ（集計・作業ブロック・起動時の cwd からのプロジェクトの割り当て）の
  * 計算方法を変えたら上げる。上がると全セッションを計算し直す。元ログが消えたセッションも作り直せる。
@@ -64,6 +65,8 @@ interface FileState {
   autoTurn: boolean;
   /** 結果待ちの git commit。tool_use id → コマンド。 */
   pendingCommits: Record<string, string>;
+  /** 結果待ちの gh pr create。tool_use id → 題名。 */
+  pendingPrs: Record<string, string>;
 }
 
 interface Ctx {
@@ -202,7 +205,7 @@ export class Ingester {
     this.db.transaction(() => {
       this.q.ensureSession.run(file.sessionId);
       let fileId: number;
-      let state: FileState = { autoTurn: false, pendingCommits: {} };
+      let state: FileState = { autoTurn: false, pendingCommits: {}, pendingPrs: {} };
       if (st) {
         fileId = st.id;
         if (res.restarted) {
@@ -378,6 +381,7 @@ export class Ingester {
         toolUseId,
         isError,
       });
+      if (toolUseId) this.attachPrTitle(ctx, toolUseId, result, output, isError || interrupted, ts);
       const command = toolUseId ? ctx.state.pendingCommits[toolUseId] : undefined;
       if (!toolUseId || command === undefined) return;
       delete ctx.state.pendingCommits[toolUseId];
@@ -387,6 +391,27 @@ export class Ingester {
       const ref = commit.sha ?? `subject:${commit.subject}`;
       this.q.insertArtifact.run(ctx.sessionId, "commit", ref, commit.subject, ts, ctx.fileId);
     });
+  }
+
+  /**
+   * gh pr create の結果から作った PR の URL を知り、覚えておいた題名を付ける。
+   * pr-link が先に来ていれば題名だけ書き換え、後から来る pr-link では上書きしない。
+   */
+  private attachPrTitle(
+    ctx: Ctx,
+    toolUseId: string,
+    result: Rec | undefined,
+    output: string,
+    failed: boolean,
+    ts: number | null,
+  ): void {
+    const title = ctx.state.pendingPrs[toolUseId];
+    if (title === undefined) return;
+    delete ctx.state.pendingPrs[toolUseId];
+    if (failed) return;
+    const pr = rec(rec(result?.gitOperation)?.pr);
+    const url = pr ? (pr.action === "created" ? str(pr.url) : undefined) : prUrlIn(output);
+    if (url) this.q.upsertPrTitle.run(ctx.sessionId, url, title, ts, ctx.fileId);
   }
 
   private handleAssistant(ctx: Ctx, r: Rec, ts: number | null, seq: number): void {
@@ -415,6 +440,8 @@ export class Ingester {
         if (name === "Bash" && toolUseId && GIT_COMMIT_RE.test(command)) {
           ctx.state.pendingCommits[toolUseId] = command.slice(0, LIMIT.short);
         }
+        const prTitle = name === "Bash" && GH_PR_CREATE_RE.test(command) && prTitleOf(command);
+        if (toolUseId && prTitle) ctx.state.pendingPrs[toolUseId] = prTitle.slice(0, LIMIT.short);
       }
       // thinking は保存しない
     });
@@ -616,6 +643,10 @@ function prepareStatements(db: Database) {
       `INSERT OR IGNORE INTO messages
          (id, session_id, agent_id, file_id, seq, ts, kind, text, tool_name, tool_use_id, is_error, is_scheduled, meta)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ),
+    upsertPrTitle: p(
+      `INSERT INTO artifacts (session_id, kind, ref, title, ts, file_id) VALUES (?, 'pr', ?, ?, ?, ?)
+       ON CONFLICT(session_id, kind, ref) DO UPDATE SET title = excluded.title`,
     ),
     insertArtifact: p(
       "INSERT OR IGNORE INTO artifacts (session_id, kind, ref, title, ts, file_id) VALUES (?, ?, ?, ?, ?, ?)",

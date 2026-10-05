@@ -11,4 +11,5 @@ export const SID = {
   continuedTo: "99999999-9999-4999-8999-999999999999",
   partial: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   blog: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+  prTitles: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
 } as const;

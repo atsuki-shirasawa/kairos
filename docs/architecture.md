@@ -87,7 +87,7 @@ sequenceDiagram
 | ツール出力 | 先頭 4KB で切り詰める |
 | thinking・画像 | 保存しない |
 | コミット | `git commit` を含む Bash 呼び出しが成功したもの |
-| PR | `pr-link` レコード |
+| PR | `pr-link` レコード。題名は `gh pr create` の `--title` から取り、結果の `gitOperation.pr` の URL で結び付ける |
 
 判定ルールの根拠と、ルールごとの fixture は [tests/fixtures/README.md](../tests/fixtures/README.md) にまとめた。
 

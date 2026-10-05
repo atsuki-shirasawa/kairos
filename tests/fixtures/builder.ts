@@ -229,6 +229,40 @@ export class LogBuilder {
     return id;
   }
 
+  /**
+   * `gh pr create` の一往復と `pr-link` レコード。結果の `toolUseResult.gitOperation.pr` に
+   * 作った PR の番号と URL が入る（題名は入らない）。`pr-link` は結果の前に来ることも後に来ることもある。
+   */
+  ghPrCreate(
+    minute: number,
+    command: string,
+    pr: { number: number; repository: string },
+    opts: { linkFirst?: boolean } = {},
+  ): string {
+    const url = `https://github.com/${pr.repository}/pull/${pr.number}`;
+    const link = () =>
+      this.meta("pr-link", {
+        prNumber: pr.number,
+        prUrl: url,
+        prRepository: pr.repository,
+        timestamp: at(minute),
+      });
+    const id = this.toolUse(minute, "Bash", { command, description: "Create pull request" });
+    if (opts.linkFirst) link();
+    this.toolResult(minute, id, url, {
+      result: {
+        stdout: url,
+        stderr: "",
+        interrupted: false,
+        isImage: false,
+        noOutputExpected: false,
+        gitOperation: { pr: { action: "created", number: pr.number, url } },
+      },
+    });
+    if (!opts.linkFirst) link();
+    return id;
+  }
+
   // ------------------------------------------------------------------ system
 
   system(minute: number, subtype: string, fields: Rec = {}): Rec {

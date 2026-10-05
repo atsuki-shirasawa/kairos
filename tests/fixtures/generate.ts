@@ -301,6 +301,34 @@ function blog(): void {
   write(BLOG, b);
 }
 
+// ---------------------------------------------------------------- 11. PR の題名
+function prTitles(): void {
+  const b = new LogBuilder(SID.prTitles, APP);
+  header(b);
+  b.prompt(540, "パスワード再設定の PR を 3 つに分けて作って");
+  // --title "…"。pr-link は結果の後
+  b.ghPrCreate(
+    541,
+    'git push -u origin HEAD && gh pr create --base main --title "feat: パスワード再設定メールを送る" --body "$(cat <<\'EOF\'\n## 概要\n- 再設定用のリンクを送る\nEOF\n)"',
+    { number: 43, repository: "me/app" },
+  );
+  // -t '…'。pr-link が結果より先に来る
+  b.ghPrCreate(
+    543,
+    "gh pr create -t 'fix: リンクの有効期限を 30 分にする' -b '期限切れの扱いを直す' --draft",
+    { number: 44, repository: "me/app" },
+    { linkFirst: true },
+  );
+  // 題名が実行時に決まる（$(…)）ので使わない
+  b.ghPrCreate(545, 'gh pr create --title "$(head -1 .pr-title)" --body-file .pr-body', {
+    number: 45,
+    repository: "me/app",
+  });
+  b.text(546, "PR を 3 つ作りました。");
+  b.turnEnd(546);
+  write(APP, b);
+}
+
 if (import.meta.main) {
   rmSync(ROOT, { recursive: true, force: true });
   for (const scenario of [
@@ -314,6 +342,7 @@ if (import.meta.main) {
     continued,
     partial,
     blog,
+    prTitles,
   ]) {
     scenario();
   }
