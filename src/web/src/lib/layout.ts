@@ -1,44 +1,45 @@
-// カレンダーの日の列に、作業ブロックを重ならないように並べる。
-// Google カレンダーと同じく、開始が見出し 1 行ぶん以上離れていれば同じ列に少しずらして重ね、
-// 開始がほぼ同時で見出しがぶつかるときだけ横に分ける。横に分けると週表示で列が細くなりすぎるため。
+// Lays out work blocks in a calendar day column so they don't hide each other.
+// Like Google Calendar, blocks whose starts are at least one heading line apart stack in the same
+// column with a small offset; only blocks starting almost together (headings would collide) go side
+// by side. Splitting into columns more often would make them too narrow in the week view.
 import type { CalendarSegment, CalendarSession, Span } from "@shared/api.ts";
 import { DAY, MINUTE } from "./dates.ts";
 
 /**
- * 短すぎるブロックも見出しが 1 行読めるよう、描画上はこの長さを最低限確保する。
- * 重ねるときも、前のブロックの見出しが隠れないようこの長さだけ開始をずらす。
+ * Minimum drawn length, so even very short blocks show one line of heading.
+ * When stacking, the next block must start at least this much later so the heading below stays visible.
  */
 export const MIN_BLOCK_MS = 25 * MINUTE;
 
 export interface PlacedBlock {
   session: CalendarSession;
-  /** 元のセクション（見出しと、切る前の開始・終了）。 */
+  /** The original section (heading, and start/end before clipping to the day). */
   segment: CalendarSegment;
-  /** この日の 0 時（絶対時刻）。 */
+  /** Midnight of this day (absolute time). */
   dayStart: number;
-  /** 日の 0 時からの開始・終了（ミリ秒）。日をまたぐブロックは日ごとに切る。 */
+  /** Start/end in ms since midnight. Blocks spanning midnight are clipped per day. */
   start: number;
   end: number;
-  /** 前の日から続いている／次の日へ続く。 */
+  /** Continues from the previous day / into the next day. */
   continuesBefore: boolean;
   continuesAfter: boolean;
-  /** 横に分けたときの列と、まとまり全体の列数。 */
+  /** Column when split side by side, and the number of columns in the cluster. */
   col: number;
   cols: number;
-  /** 右隣の空いている列へ広げる数（1 なら自分の列だけ）。 */
+  /** How many columns it spans into free columns on the right (1 = its own only). */
   span: number;
-  /** 同じ列で下に重なっているブロックの数。その数だけ右にずらし、上に描く。 */
+  /** Number of blocks underneath in the same column. Shifted right by that much and drawn on top. */
   depth: number;
-  /** 上に別のブロックが重なり始める時刻（日の 0 時から）。見出しはそこまでに収める。 */
+  /** When another block starts covering this one (since midnight). The heading must fit above it. */
   coveredFrom: number | null;
 }
 
-/** 日の中に切り出した作業ブロック（配置の前）。リスト表示でもこのまま使う。 */
+/** A work block clipped to a day, before layout. The list view uses it as is. */
 export type DayBlock = Omit<PlacedBlock, "col" | "cols" | "span" | "depth" | "coveredFrom">;
 
 const visualEnd = (b: { start: number; end: number }) => Math.max(b.end, b.start + MIN_BLOCK_MS);
 
-/** `dayStart` の日にかかる作業ブロックを、日の範囲で切って開始順に返す。 */
+/** Work blocks overlapping the day at `dayStart`, clipped to the day and sorted by start. */
 export function blocksOfDay(
   sessions: CalendarSession[],
   dayStart: number,
@@ -60,13 +61,13 @@ export function blocksOfDay(
       });
     }
   }
-  // 長いものを先に置くと、短いものがその上に重なって見出しが両方読める
+  // Longer blocks first, so shorter ones stack on top and both headings stay readable
   return items.sort((a, b) => a.start - b.start || b.end - a.end);
 }
 
 /**
- * 作業ブロックが 1 つでも載る日（0 時）。重なりの判定は `blocksOfDay` と同じにし、
- * 点の付いた日を開くと必ず何か表示されるようにする。非表示のプロジェクトのものは数えない。
+ * Days (midnight) with at least one work block. Uses the same overlap test as `blocksOfDay`, so
+ * opening a day marked with a dot always shows something. Hidden projects don't count.
  */
 export function recordedDays(
   spans: Span[],
@@ -77,7 +78,7 @@ export function recordedDays(
   return new Set(days.filter((d) => visible.some((s) => s.end >= d && s.start < d + DAY)));
 }
 
-/** `dayStart` の日に表示するブロックを、重なりを考えて配置する。 */
+/** Places the blocks shown on the day at `dayStart`, taking overlaps into account. */
 export function layoutDay(
   sessions: CalendarSession[],
   dayStart: number,
@@ -92,7 +93,7 @@ export function layoutDay(
     const all = columns.flat();
     for (const b of all) {
       b.cols = columns.length;
-      // 右の列に見た目で重なるブロックがなければ、そこまで広げる
+      // Widen into columns on the right as long as nothing there visually overlaps
       let span = 1;
       while (
         b.col + span < columns.length &&
@@ -107,8 +108,8 @@ export function layoutDay(
 
   for (const item of items) {
     if (item.start >= clusterEnd) closeCluster();
-    // 列の最後のブロックと開始が見出し 1 行ぶん離れていれば、その列に重ねられる。
-    // 重ねられる列のうち、下に残っているブロックがいちばん少ない列を選ぶ（空いた列なら全幅で置ける）
+    // A block can stack in a column if it starts at least one heading line after the column's last block.
+    // Of those columns, pick the one with the fewest blocks still underneath (a free column gives full width)
     let col = -1;
     let depth = 0;
     columns.forEach((c, i) => {
@@ -129,7 +130,7 @@ export function layoutDay(
   return placed;
 }
 
-/** ブロックの和集合の長さ。並行して進めたセッションを二重に数えないよう、重なりは 1 回だけ数える。 */
+/** Length of the union of blocks. Overlaps count once, so parallel sessions are not double counted. */
 export function busyMs(blocks: Pick<DayBlock, "start" | "end">[]): number {
   const sorted = [...blocks].sort((a, b) => a.start - b.start);
   let total = 0;

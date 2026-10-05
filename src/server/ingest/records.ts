@@ -1,4 +1,4 @@
-// jsonl レコードを型安全に読むための小さなヘルパー。
+// Small helpers for reading jsonl records type-safely.
 
 export type Rec = Record<string, unknown>;
 
@@ -24,7 +24,7 @@ export function parseTs(v: unknown): number | null {
   return Number.isNaN(t) ? null : t;
 }
 
-/** message.content（文字列 or ブロック配列）から本文テキストを取り出す。 */
+/** Extracts the text from message.content (a string or an array of blocks). */
 export function contentText(content: unknown): string {
   if (typeof content === "string") return content;
   return list(content)
@@ -39,7 +39,7 @@ export function contentText(content: unknown): string {
     .join("\n");
 }
 
-/** tool_result の content（文字列 or ブロック配列）を文字列にする。 */
+/** Turns tool_result content (a string or an array of blocks) into a string. */
 export function toolResultText(content: unknown): string {
   if (typeof content === "string") return content;
   return list(content)
@@ -54,7 +54,7 @@ export function toolResultText(content: unknown): string {
     .join("\n");
 }
 
-/** `limit` 文字で切り詰め、切った量を書き添える。 */
+/** Truncates to `limit` characters and notes how much was cut. */
 export function clip(text: string, limit: number): string {
   if (text.length <= limit) return text;
   return `${text.slice(0, limit)}\n… (${(text.length - limit).toLocaleString("en-US")} more characters)`;

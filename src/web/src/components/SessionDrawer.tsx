@@ -15,6 +15,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button.tsx";
 import { useRequestSummary, useSession } from "@/hooks/queries.ts";
+import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { dateLabel, durationLabel, hhmm, isSameDay, relativeDay } from "@/lib/dates.ts";
 import {
@@ -33,45 +34,47 @@ import { Markdown } from "./Markdown.tsx";
 
 interface Props {
   id: string;
-  /** 選んだセクションの開始時刻。null なら最後のセクション。 */
+  /** Start of the selected section. null means the last section. */
   at: number | null;
   onClose: () => void;
   onSelect: (id: string, at: number | null) => void;
-  /** 時刻順で前・次の作業へ移る。端なら null。 */
+  /** Move to the previous / next work in time order. null at either end. */
   onPrev: (() => void) | null;
   onNext: (() => void) | null;
 }
 
-/** 右側の詳細。見出しは上に固定し、その下に要約 → セッションの流れ → 成果 → 会話 → 数字を並べる。 */
+/** The detail pane on the right. The heading stays pinned; below it: summary → session flow → outcomes → conversation → numbers. */
 export function SessionDrawer({ id, at, onClose, onSelect, onPrev, onNext }: Props) {
+  const t = drawerMessages();
   const { data, isPending, isError, error } = useSession(id);
-  // 会話と数字は補助の情報なので畳んでおく。開いたらドロワーを閉じるまで開いたままにする
-  // （j / k で別の作業へ移っても、同じ見え方で比べられるように）
+  // Conversation and numbers are secondary, so they start collapsed. Once opened they stay open until
+  // the drawer closes (so moving with j / k keeps the same view for comparison)
   const [showConversation, setShowConversation] = useState(false);
   const [showNumbers, setShowNumbers] = useState(false);
   const section = data
     ? (data.sections.find((x) => x.start === at) ?? data.sections.at(-1) ?? null)
     : null;
 
-  // 狭い画面ではカレンダーの上に重ねるので、開いたらフォーカスをドロワーへ移す
+  // On narrow screens the drawer overlays the calendar, so move focus into it on open
   const asideRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (matchMedia("(width < 64rem)").matches) asideRef.current?.focus();
   }, []);
 
-  // 別の作業へ移ったら先頭（要約）から見せる。j / k で続けて読むときに、前の位置が残らないように。
-  // 会話を開いているときは、会話が選んだ時間の発言へ移すので触らない
+  // When moving to other work, start from the top (the summary) so the previous scroll position
+  // does not carry over while reading with j / k. With the conversation open, leave it alone:
+  // the conversation scrolls itself to the selected time
   const scrollRef = useRef<HTMLDivElement>(null);
   const conversationOpen = useRef(showConversation);
   conversationOpen.current = showConversation;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: 選んだ作業が変わったときだけ動かす
+  // biome-ignore lint/correctness/useExhaustiveDependencies: run only when the selected work changes
   useEffect(() => {
     if (!conversationOpen.current) scrollRef.current?.scrollTo({ top: 0 });
   }, [id, at]);
 
   return (
     <>
-      {/* 狭い画面で重ねたときだけ、背景を暗くして外側のクリックで閉じられるようにする */}
+      {/* Only when overlaid on narrow screens: dim the backdrop and close on outside click */}
       <div className="fixed inset-0 z-20 bg-black/30 lg:hidden" onClick={onClose} aria-hidden />
       <aside
         ref={asideRef}
@@ -81,11 +84,11 @@ export function SessionDrawer({ id, at, onClose, onSelect, onPrev, onNext }: Pro
           "max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-30 max-lg:max-w-md max-lg:shadow-2xl",
           "lg:w-[26rem] xl:w-[30rem]",
         )}
-        aria-label="セッションの詳細"
+        aria-label={t.ariaDetail}
       >
-        {/* 見出しはスクロールさせない。会話まで下りても、どの作業の詳細かが分かるように */}
+        {/* The heading does not scroll, so it stays clear which work this is even deep in the conversation */}
         <header className="shrink-0 border-b px-4 pt-2 pb-4">
-          {/* 1 行目にどこの作業か（プロジェクト・worktree・ブランチ）と操作を置き、見出しに幅を回す */}
+          {/* The first line holds where the work happened (project, worktree, branch) and the controls, leaving width for the heading */}
           <div className="flex h-9 items-center gap-2">
             <div className="min-w-0 flex-1">
               {data && (
@@ -98,8 +101,8 @@ export function SessionDrawer({ id, at, onClose, onSelect, onPrev, onNext }: Pro
                 size="icon-sm"
                 onClick={onPrev ?? undefined}
                 disabled={!onPrev}
-                aria-label="前の作業（k）"
-                title="前の作業（k）"
+                aria-label={t.prev}
+                title={t.prev}
               >
                 <ChevronUp />
               </Button>
@@ -108,8 +111,8 @@ export function SessionDrawer({ id, at, onClose, onSelect, onPrev, onNext }: Pro
                 size="icon-sm"
                 onClick={onNext ?? undefined}
                 disabled={!onNext}
-                aria-label="次の作業（j）"
-                title="次の作業（j）"
+                aria-label={t.next}
+                title={t.next}
               >
                 <ChevronDown />
               </Button>
@@ -117,8 +120,8 @@ export function SessionDrawer({ id, at, onClose, onSelect, onPrev, onNext }: Pro
                 variant="ghost"
                 size="icon-sm"
                 onClick={onClose}
-                aria-label="詳細を閉じる（Esc）"
-                title="詳細を閉じる（Esc）"
+                aria-label={t.close}
+                title={t.close}
               >
                 <X />
               </Button>
@@ -131,12 +134,8 @@ export function SessionDrawer({ id, at, onClose, onSelect, onPrev, onNext }: Pro
           className="min-h-0 flex-1 overflow-y-auto px-5 pt-5 pb-10"
           data-drawer-scroll
         >
-          {isPending && <p className="text-muted-foreground text-sm">読み込み中…</p>}
-          {isError && (
-            <p className="text-destructive text-sm">
-              セッションを読み込めませんでした: {error.message}
-            </p>
-          )}
+          {isPending && <p className="text-muted-foreground text-sm">{t.loading}</p>}
+          {isError && <p className="text-destructive text-sm">{t.loadFailed(error.message)}</p>}
           {data && (
             <Detail
               key={data.id}
@@ -164,7 +163,7 @@ function DetailHeader({
 }) {
   const headline = section?.headline ?? s.title;
   return (
-    // 左の色の線で、カレンダーのどのブロックの詳細かを結びつける
+    // The colored line on the left ties this detail to its block on the calendar
     <div className="mt-1 border-l-[3px] pl-3" style={{ borderColor: projectColor(s.project) }}>
       <h2
         className="line-clamp-2 text-balance font-semibold text-[17px] leading-snug tracking-tight"
@@ -199,9 +198,10 @@ function Detail({
   showNumbers: boolean;
   onShowNumbers: (show: boolean) => void;
 }) {
+  const t = drawerMessages();
   const [agent, setAgent] = useState<string | null>(null);
   const multiSection = section !== null && s.sections.length > 1;
-  // 開いた状態で別のブロックへ移ったときも、選んだ時間の会話から見せる
+  // Even when moving to another block while open, show the conversation from the selected time
   const [jump, setJump] = useState<{ ts: number; key: number } | null>(
     multiSection && section ? { ts: section.start, key: 0 } : null,
   );
@@ -210,7 +210,8 @@ function Detail({
     onShowConversation(true);
   };
 
-  // 開いた会話は下へ読み込み続けるので、その後ろに置くと数字にたどり着けない。開いているときは会話の前に出す
+  // An open conversation keeps loading downward, so numbers placed after it would be unreachable.
+  // While it is open, put them before the conversation
   const numbers = (
     <Numbers session={s} section={section} open={showNumbers} onOpen={onShowNumbers} />
   );
@@ -231,16 +232,16 @@ function Detail({
 
       {showConversation ? (
         <Block
-          title="会話"
+          title={t.conversation}
           action={
             <div className="flex items-center gap-1">
               {multiSection && agent === null && (
                 <Button variant="outline" size="xs" onClick={openConversation}>
-                  この時間の会話へ
+                  {t.jumpToSection}
                 </Button>
               )}
               <Button variant="ghost" size="xs" onClick={() => onShowConversation(false)}>
-                畳む
+                {t.collapse}
               </Button>
             </div>
           }
@@ -255,9 +256,9 @@ function Detail({
           className="flex w-full items-center gap-1.5 rounded-md border border-dashed px-3 py-2 text-left text-muted-foreground text-sm hover:bg-accent hover:text-foreground"
         >
           <ChevronRight className="size-4 shrink-0" />
-          {multiSection ? "この時間の会話を表示" : "会話を表示"}
+          {multiSection ? t.showSectionConversation : t.showConversation}
           {s.subagents.length > 0 && (
-            <span className="ml-auto text-xs">サブエージェント {s.subagents.length}</span>
+            <span className="ml-auto text-xs">{t.subagentCount(s.subagents.length)}</span>
           )}
         </button>
       )}
@@ -268,8 +269,9 @@ function Detail({
 }
 
 /**
- * 使用量と活動。振り返りの主役（何をしたか）ではないので畳んでおき、要点だけを 1 行で見せる。
- * 要件定義でコスト・トークンの分析はスコープ外としており、作業が数字に埋もれないようにするため。
+ * Usage and activity. Not the main point of looking back (what was done), so it starts collapsed
+ * with just the key figures on one line. Cost and token analysis is out of scope in the requirements,
+ * and this keeps the work from being buried in numbers.
  */
 function Numbers({
   session: s,
@@ -282,6 +284,7 @@ function Numbers({
   open: boolean;
   onOpen: (open: boolean) => void;
 }) {
+  const t = drawerMessages();
   const u = section ? section.usage : s.usage;
   const trouble = section ? troubleCount(section.activity) : 0;
   if (!u && !section) return null;
@@ -294,15 +297,15 @@ function Numbers({
         className="flex w-full items-center gap-1.5 rounded-md border border-dashed px-3 py-2 text-left text-muted-foreground text-sm hover:bg-accent hover:text-foreground"
       >
         <ChevronRight className="size-4 shrink-0" />
-        数字
+        {t.numbers}
         <span className="ml-auto truncate font-num text-xs">
           {[
-            u && `${tokensLabel(u.tokens)} トークン`,
+            u && t.tokens(tokensLabel(u.tokens)),
             u && `${u.unpriced ? "~" : ""}${costLabel(u.costUsd)}`,
-            trouble > 0 && `つまずき ${trouble}`,
+            trouble > 0 && t.troubleCount(trouble),
           ]
             .filter(Boolean)
-            .join("・")}
+            .join(t.sep)}
         </span>
       </button>
     );
@@ -313,7 +316,7 @@ function Numbers({
         section={section}
         action={
           <Button variant="ghost" size="xs" onClick={() => onOpen(false)} aria-expanded>
-            畳む
+            {t.collapse}
           </Button>
         }
       />
@@ -322,9 +325,7 @@ function Numbers({
   );
 }
 
-const COST_NOTE = "API の料金表で換算した目安（サブスクリプションでの支払いとは一致しない）";
-
-/** 選んだ時間のトークン使用量と内訳。区間が複数あれば、セッション全体の合計も添える。 */
+/** Token usage and breakdown for the selected period. With several periods, the session total is added too. */
 function UsageBlock({
   session: s,
   section,
@@ -334,53 +335,53 @@ function UsageBlock({
   section: Section | null;
   action?: React.ReactNode;
 }) {
+  const t = drawerMessages();
   const u = section ? section.usage : s.usage;
   const rate = u ? cacheRate(u) : null;
   const showTotal = s.usage && section && (s.sections.length > 1 || u?.tokens !== s.usage.tokens);
   return (
-    <Block title={section ? "この時間の使用量" : "使用量"} action={action}>
+    <Block title={section ? t.sectionUsage : t.usage} action={action}>
       {u ? (
         <>
           <dl className="grid grid-cols-4 gap-2">
-            <Stat label="トークン" value={tokensLabel(u.tokens)} />
+            <Stat label={t.statTokens} value={tokensLabel(u.tokens)} />
             <Stat
-              label="API 料金換算"
+              label={t.statCost}
               value={`${u.unpriced ? "~" : ""}${costLabel(u.costUsd)}`}
-              title={u.unpriced ? `${COST_NOTE}。料金の分からないモデルの分を含まない` : COST_NOTE}
+              title={u.unpriced ? t.costNoteUnpriced : t.costNote}
             />
             <Stat
-              label="キャッシュ"
+              label={t.statCache}
               value={rate === null ? "—" : `${Math.round(rate * 100)}%`}
-              title="入力のうちキャッシュから読んだ割合"
+              title={t.statCacheNote}
             />
-            <Stat label="発言" value={String(section?.promptCount ?? s.promptCount)} />
+            <Stat label={t.statPrompts} value={String(section?.promptCount ?? s.promptCount)} />
           </dl>
           <p className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 font-num text-muted-foreground text-xs">
-            <span>入力 {tokensLabel(u.input)}</span>
-            <span>出力 {tokensLabel(u.output)}</span>
-            <span>キャッシュ読み込み {tokensLabel(u.cacheRead)}</span>
-            <span>書き込み {tokensLabel(u.cacheWrite)}</span>
+            <span>{t.input(tokensLabel(u.input))}</span>
+            <span>{t.output(tokensLabel(u.output))}</span>
+            <span>{t.cacheRead(tokensLabel(u.cacheRead))}</span>
+            <span>{t.cacheWrite(tokensLabel(u.cacheWrite))}</span>
             {u.model && <span>{modelLabel(u.model)}</span>}
           </p>
         </>
       ) : (
-        <p className="text-muted-foreground text-sm">
-          この時間のトークン使用量の記録はありません。
-        </p>
+        <p className="text-muted-foreground text-sm">{t.noUsage}</p>
       )}
       {showTotal && s.usage && <SessionTotal session={s} usage={s.usage} />}
     </Block>
   );
 }
 
-/** 選んだ時間にしたこと。数が 0 のものも並べ、何もなかったことが分かるようにする。 */
+/** What happened in the selected period. Zero counts are listed too, so it is clear nothing happened. */
 function ActivityBlock({ section }: { section: Section }) {
+  const t = drawerMessages();
   const a = section.activity;
   const span = section.end - section.start;
   const trouble = troubleCount(a);
   const items: [string, React.ReactNode, string?][] = [
     [
-      "Claude の稼働",
+      t.claudeTime,
       a.claudeMs === null ? (
         "—"
       ) : (
@@ -393,14 +394,14 @@ function ActivityBlock({ section }: { section: Section }) {
           )}
         </>
       ),
-      "Claude がターンを進めていた時間（考える・ツールを動かす）。括弧はこの時間の長さに対する割合",
+      t.claudeTimeNote,
     ],
-    ["コミット・PR", `${a.commits}・${a.prs}`],
-    ["編集したファイル", a.filesEdited],
-    ["ツール呼び出し", a.toolCalls, "サブエージェントの分を含む"],
-    ["サブエージェント", a.subagents],
+    [t.commitsPrs, t.commitsPrsValue(a.commits, a.prs)],
+    [t.filesEdited, a.filesEdited],
+    [t.toolCalls, a.toolCalls, t.toolCallsNote],
+    [t.subagents, a.subagents],
     [
-      "つまずき",
+      t.trouble,
       <span key="t" className={cn(trouble > 0 && "text-warn")}>
         {trouble}
         {trouble > 0 && (
@@ -409,13 +410,13 @@ function ActivityBlock({ section }: { section: Section }) {
           </span>
         )}
       </span>,
-      "ツールのエラー・人による中断・API のエラー",
+      t.troubleNote,
     ],
-    ["会話の圧縮", a.compactions, "compaction の回数"],
-    ["effort", a.effort ?? "—", "出力トークンがいちばん多い effort"],
+    [t.compactions, a.compactions, t.compactionsNote],
+    ["effort", a.effort ?? "—", t.effortNote],
   ];
   return (
-    <Block title="この時間の活動">
+    <Block title={t.sectionActivity}>
       <dl className="grid grid-cols-3 gap-x-4 gap-y-2.5 text-sm">
         {items.map(([label, value, title]) => (
           <div key={label} className="min-w-0">
@@ -433,13 +434,13 @@ function ActivityBlock({ section }: { section: Section }) {
 }
 
 function SessionTotal({ session: s, usage }: { session: SessionDetail; usage: Usage }) {
+  const t = drawerMessages();
   return (
     <p className="mt-3 border-t pt-2 text-muted-foreground text-xs">
-      セッション全体（{s.sections.length} 区間
-      {s.scheduledRuns > 0 && `・自動実行 ${s.scheduledRuns} 回を含む`}）:{" "}
-      <span className="font-medium font-num text-foreground">{tokensLabel(usage.tokens)}</span>{" "}
-      トークン・
-      <Hint className="font-medium font-num text-foreground" text={COST_NOTE}>
+      {t.sessionTotal(s.sections.length, s.scheduledRuns)}
+      <span className="font-medium font-num text-foreground">{tokensLabel(usage.tokens)}</span>
+      {t.sessionTotalTokens}
+      <Hint className="font-medium font-num text-foreground" text={t.costNote}>
         {usage.unpriced ? "~" : ""}
         {costLabel(usage.costUsd)}
       </Hint>
@@ -460,12 +461,12 @@ function Stat({ label, value, title }: { label: string; value: string; title?: s
   );
 }
 
-/** 区間がこれより多いときは、選んだ区間の前後だけを出して残りは畳む。 */
+/** With more periods than this, show only those around the selected one and collapse the rest. */
 const FLOW_LIMIT = 6;
 
 /**
- * セッションの流れ（全区間の見出し）と、セッション全体についての補足。
- * 要約のない区間は最初の発言がそのまま入って長くなるので、1 行に抑えて控えめに出す。
+ * The session flow (headings of every period) and notes about the whole session.
+ * Periods without a summary use the first prompt verbatim and run long, so they are kept to one muted line.
  */
 function Flow({
   session: s,
@@ -476,6 +477,7 @@ function Flow({
   section: Section | null;
   onSelect: Props["onSelect"];
 }) {
+  const t = drawerMessages();
   const [expanded, setExpanded] = useState(false);
   const multiDay = s.sections.some((x) => !isSameDay(x.start, s.sections[0]?.start ?? 0));
   const current = section ? s.sections.indexOf(section) : s.sections.length - 1;
@@ -492,16 +494,16 @@ function Flow({
 
   return (
     <Block
-      title="セッションの流れ"
+      title={t.flow}
       action={
         s.sections.length > FLOW_LIMIT ? (
           <Button variant="ghost" size="xs" onClick={() => setExpanded((v) => !v)}>
-            {expanded ? "前後だけ表示" : `すべて表示（${s.sections.length}）`}
+            {expanded ? t.showAround : t.showAll(s.sections.length)}
           </Button>
         ) : null
       }
     >
-      {hiddenBefore > 0 && <Hidden count={hiddenBefore} where="前" />}
+      {hiddenBefore > 0 && <Hidden count={hiddenBefore} where="before" />}
       {s.sections.length > 1 && (
         <ol className="space-y-0.5">
           {shown.map((x) => {
@@ -524,7 +526,7 @@ function Flow({
                       multiDay ? "w-24" : "w-[4.5rem]",
                     )}
                   >
-                    {/* 日をまたぐセッションでは、最初の区間も含めてすべてに日付を付ける */}
+                    {/* In sessions spanning days, every period gets a date, including the first */}
                     {multiDay &&
                       `${new Date(x.start).getMonth() + 1}/${new Date(x.start).getDate()} `}
                     {hhmm(x.start)}–{hhmm(x.end)}
@@ -544,7 +546,7 @@ function Flow({
           })}
         </ol>
       )}
-      {hiddenAfter > 0 && <Hidden count={hiddenAfter} where="後" />}
+      {hiddenAfter > 0 && <Hidden count={hiddenAfter} where="after" />}
 
       {s.awaySummary && <AwaySummary text={s.awaySummary} />}
 
@@ -556,7 +558,7 @@ function Flow({
               className="text-primary hover:underline"
               onClick={() => onSelect(s.continuedFrom ?? "", null)}
             >
-              前のセッションへ
+              {t.prevSession}
             </button>
           )}
           {s.continuedIn && (
@@ -565,7 +567,7 @@ function Flow({
               className="text-primary hover:underline"
               onClick={() => onSelect(s.continuedIn ?? "", null)}
             >
-              続きのセッションへ
+              {t.nextSession}
             </button>
           )}
         </div>
@@ -574,7 +576,7 @@ function Flow({
   );
 }
 
-/** Claude Code が残した振り返り。長く英語のことも多いので、3 行に抑えて開けるようにする。 */
+/** The recap Claude Code left behind. Often long, so it is clamped to 3 lines and expandable. */
 function AwaySummary({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
   return (
@@ -584,39 +586,41 @@ function AwaySummary({ text }: { text: string }) {
       aria-expanded={open}
       className="mt-3 block w-full border-l-2 pl-3 text-left text-muted-foreground text-xs leading-relaxed hover:text-foreground"
     >
-      <span className="mb-0.5 block font-medium">Claude Code の振り返り</span>
+      <span className="mb-0.5 block font-medium">{drawerMessages().awaySummary}</span>
       <span className={cn("block", !open && "line-clamp-3")}>{text}</span>
     </button>
   );
 }
 
-function Hidden({ count, where }: { count: number; where: "前" | "後" }) {
+function Hidden({ count, where }: { count: number; where: "before" | "after" }) {
+  const t = drawerMessages();
   return (
     <p className="px-2 py-0.5 text-muted-foreground text-xs">
-      {where === "前" ? "︙ この前に" : "︙ この後に"} {count} 区間
+      {where === "before" ? t.hiddenBefore(count) : t.hiddenAfter(count)}
     </p>
   );
 }
 
-/** この時間の成果は最初にこの件数だけ出し、残りは畳む。会話までの距離を縮めるため。 */
+/** Show this many outcomes for the period up front and collapse the rest, to keep the conversation close. */
 const OUTCOME_LIMIT = 5;
 
-/** 成果。選んだ時間のものを先に出し、セッション全体のものは畳んでおく。 */
+/** Outcomes. Those from the selected period come first; the rest of the session is collapsed. */
 function Outcomes({ session: s, section }: { session: SessionDetail; section: Section }) {
+  const t = drawerMessages();
   const all = [...s.prs, ...s.commits];
   const inSection = (a: Artifact) =>
     a.ts !== null && a.ts >= section.start && a.ts <= section.end + ARTIFACT_GRACE_MS;
   const here = all.filter(inSection);
   const rest = all.filter((a) => !inSection(a));
   return (
-    <Block title="この時間の成果">
+    <Block title={t.sectionOutcomes}>
       {here.length > 0 ? (
         <>
           <ArtifactList items={here.slice(0, OUTCOME_LIMIT)} />
           {here.length > OUTCOME_LIMIT && (
             <details className="mt-1.5">
               <summary className="cursor-pointer text-muted-foreground text-xs">
-                ほか {here.length - OUTCOME_LIMIT} 件
+                {t.moreItems(here.length - OUTCOME_LIMIT)}
               </summary>
               <div className="mt-1.5">
                 <ArtifactList items={here.slice(OUTCOME_LIMIT)} />
@@ -625,12 +629,12 @@ function Outcomes({ session: s, section }: { session: SessionDetail; section: Se
           )}
         </>
       ) : (
-        <p className="text-muted-foreground text-sm">この時間のコミットや PR はありません。</p>
+        <p className="text-muted-foreground text-sm">{t.noOutcomes}</p>
       )}
       {rest.length > 0 && (
         <details className="group mt-3">
           <summary className="cursor-pointer text-muted-foreground text-xs">
-            セッション全体の成果（ほか {rest.length} 件）
+            {t.sessionOutcomes(rest.length)}
           </summary>
           <div className="mt-2">
             <ArtifactList items={rest} />
@@ -665,8 +669,9 @@ function ArtifactList({ items }: { items: Artifact[] }) {
 }
 
 /**
- * PR のリンク。番号は URL から取り、題名と並べる。題名が取れなかった PR（`--fill` で作ったものなど）は
- * 「#番号 リポジトリ」になっているので、リポジトリ名を補助として出す。
+ * A PR link. The number comes from the URL and sits beside the title. PRs whose title could not be
+ * captured (e.g. created with `--fill`) are stored as "#number repository", so the repository name is
+ * shown as a secondary label.
  */
 function PrLink({ artifact: a }: { artifact: Artifact }) {
   const num = /\/pull\/(\d+)/.exec(a.ref)?.[1];
@@ -690,9 +695,9 @@ function PrLink({ artifact: a }: { artifact: Artifact }) {
 }
 
 /**
- * 会話の切り替え。メインと、サブエージェントを選ぶ 1 つの選択欄を 1 行に並べる。
- * サブエージェントは数十になることがあり、タブにすると会話が下へ押し出されるため。
- * 選択欄では、選んだ時間に動いたものを先に出す。
+ * Switches the conversation: "Main" plus a single select for subagents, on one line.
+ * There can be dozens of subagents, and tabs would push the conversation down.
+ * The select lists those that ran in the selected period first.
  */
 function AgentTabs({
   session: s,
@@ -705,6 +710,7 @@ function AgentTabs({
   agent: string | null;
   onChange: (agent: string | null) => void;
 }) {
+  const t = drawerMessages();
   if (s.subagents.length === 0) return null;
   const during = (a: Subagent) =>
     section !== null &&
@@ -718,7 +724,7 @@ function AgentTabs({
   const option = (a: Subagent) => (
     <option key={a.id} value={a.id}>
       {a.startedAt ? `${hhmm(a.startedAt)} ` : ""}
-      {a.agentType ?? "サブエージェント"}
+      {a.agentType ?? t.subagent}
       {a.description ? `: ${a.description}` : ""}
     </option>
   );
@@ -727,10 +733,10 @@ function AgentTabs({
     <div className="mb-3 space-y-1.5">
       <div className="flex items-center gap-1.5">
         <Tab active={agent === null} onClick={() => onChange(null)}>
-          メイン
+          {t.main}
         </Tab>
         <select
-          aria-label="サブエージェントの会話"
+          aria-label={t.ariaSubagent}
           className={cn(
             "min-w-0 flex-1 truncate rounded-full border bg-transparent px-2.5 py-0.5 text-xs",
             selected ? "border-primary text-foreground" : "text-muted-foreground",
@@ -738,10 +744,10 @@ function AgentTabs({
           value={agent ?? ""}
           onChange={(e) => onChange(e.target.value || null)}
         >
-          <option value="">サブエージェント（{s.subagents.length}）</option>
-          {here.length > 0 && <optgroup label="この時間">{here.map(option)}</optgroup>}
+          <option value="">{t.subagentOption(s.subagents.length)}</option>
+          {here.length > 0 && <optgroup label={t.thisPeriod}>{here.map(option)}</optgroup>}
           {others.length > 0 && (
-            <optgroup label={here.length > 0 ? "ほかの時間" : "このセッション"}>
+            <optgroup label={here.length > 0 ? t.otherPeriods : t.thisSession}>
               {others.map(option)}
             </optgroup>
           )}
@@ -749,15 +755,16 @@ function AgentTabs({
       </div>
       {selected?.description && (
         <p className="text-muted-foreground text-xs">
-          {selected.agentType ?? "サブエージェント"}への依頼: {selected.description}
+          {t.subagentTask(selected.agentType ?? t.subagent, selected.description)}
         </p>
       )}
     </div>
   );
 }
 
-/** 選んだセクションの要約。なければ作るボタン。短いセクションはその旨を出す。 */
+/** Summary of the selected section, or a button to make one. Short sections say so. */
 function SectionSummary({ session: s, section }: { session: SessionDetail; section: Section }) {
+  const t = drawerMessages();
   const request = useRequestSummary(s.id);
   const busy = section.pending || request.isPending;
   const button = (label: string, Icon: typeof Sparkles) => (
@@ -768,19 +775,19 @@ function SectionSummary({ session: s, section }: { session: SessionDetail; secti
       disabled={busy}
     >
       <Icon className={cn(busy && "animate-spin motion-reduce:animate-none")} />
-      {busy ? "要約を作成中…" : label}
+      {busy ? t.summarizing : label}
     </Button>
   );
 
   return (
     <Block
-      title="この時間の要約"
+      title={t.sectionSummary}
       emphasis
-      action={section.body ? button("作り直す", RefreshCw) : null}
+      action={section.body ? button(t.regenerate, RefreshCw) : null}
     >
       {section.body ? (
         <>
-          {/* ドロワーで一番読む部分なので、ここだけ面と藍の線で浮かせる */}
+          {/* The most-read part of the drawer, so only this gets a surface and an indigo line */}
           <div className="rounded-r-lg border-primary border-l-[3px] bg-accent/60 py-3 pr-4 pl-4">
             <Markdown
               issueBaseUrl={issueBaseUrl(s.project?.repo)}
@@ -790,20 +797,16 @@ function SectionSummary({ session: s, section }: { session: SessionDetail; secti
             </Markdown>
           </div>
           <p className="mt-2 text-muted-foreground text-xs">
-            {section.stale && "要約の後も作業が続いています。"}
-            {section.model && `${section.model} で作成`}
+            {section.stale && t.staleSummary}
+            {section.model && t.madeWith(section.model)}
           </p>
         </>
       ) : (
         <div className="space-y-2">
           <p className="text-muted-foreground text-sm">
-            {busy
-              ? "要約を作っています（20 秒ほどかかります）。"
-              : section.summarizable
-                ? "まだ要約はありません。作業が止まって 30 分たつと自動で作ります。"
-                : "短い作業なので、最初の発言を見出しにしています。"}
+            {busy ? t.summarizingNote : section.summarizable ? t.noSummaryYet : t.shortSection}
           </p>
-          {!busy && button(section.summarizable ? "いま要約する" : "要約する", Sparkles)}
+          {!busy && button(section.summarizable ? t.summarizeNow : t.summarize, Sparkles)}
         </div>
       )}
       {section.error && !busy && <SummaryFailure error={section.error} />}
@@ -813,25 +816,26 @@ function SectionSummary({ session: s, section }: { session: SessionDetail; secti
 }
 
 function SummaryFailure({ error }: { error: string }) {
+  const t = drawerMessages();
   return (
     <div className="mt-2 space-y-1 text-xs">
-      <p className="text-destructive">要約できませんでした。{summaryHint(error)}</p>
-      <p className="break-words text-muted-foreground">詳細: {error}</p>
+      <p className="text-destructive">{t.summaryFailed(summaryHint(error))}</p>
+      <p className="break-words text-muted-foreground">{t.summaryFailedDetail(error)}</p>
     </div>
   );
 }
 
-/** 要約の失敗理由（`claude -p` のエラー出力）から、次にすることを案内する。 */
+/**
+ * Suggests what to do next from the failure reason (the error output of `claude -p`).
+ * Matches the server's own (English) messages.
+ */
 function summaryHint(error: string): string {
-  if (/not logged in|log ?in|authenticat/i.test(error))
-    return "Claude Code にログインしていません。ターミナルで claude を起動してログインしてから、もう一度要約してください。";
-  if (error.includes("claude コマンドが見つかりません"))
-    return "claude コマンドが見つかりません。Claude Code をインストールしてから、kairos restart で起動し直してください。";
-  if (error.includes("以内に終わりませんでした"))
-    return "時間がかかりすぎました。少し待ってから、もう一度要約してください。";
-  if (/rate.?limit|usage limit|overloaded|\b(429|529)\b/i.test(error))
-    return "利用上限か混雑で断られました。時間をおいて、もう一度要約してください。";
-  return "時間をおいて、もう一度要約してください。続くときは ~/Library/Logs/kairos/server.log を確認してください。";
+  const t = drawerMessages();
+  if (/not logged in|log ?in|authenticat/i.test(error)) return t.hintLogin;
+  if (/claude command not found/i.test(error)) return t.hintNoClaude;
+  if (/did not finish within|timed out/i.test(error)) return t.hintTimeout;
+  if (/rate.?limit|usage limit|overloaded|\b(429|529)\b/i.test(error)) return t.hintRateLimit;
+  return t.hintOther;
 }
 
 function Block({
@@ -841,14 +845,14 @@ function Block({
   children,
 }: {
   title: string;
-  /** 主役のブロック。見出しを藍にする */
+  /** The main block. Its heading is indigo */
   emphasis?: boolean;
   action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <section>
-      {/* 見出しの右に罫線を伸ばし、ブロックの境目を面ではなく線で示す */}
+      {/* A rule extends right of the heading, marking block boundaries with a line rather than a surface */}
       <div className="mb-3 flex min-h-7 items-center gap-3">
         <h3
           className={cn(
@@ -882,7 +886,7 @@ function Tab({ active, children, ...props }: { active: boolean } & React.Compone
   );
 }
 
-/** プロジェクト・worktree・ブランチを 1 行に収める。長いものは省略し、全体はツールチップで読む。 */
+/** Fits project, worktree and branch on one line. Long parts are truncated; the tooltip has the full text. */
 function ProjectLine({
   project,
   label,
@@ -905,7 +909,7 @@ function ProjectLine({
         style={{ background: projectColor(project) }}
       />
       <span className="shrink-0 font-medium text-foreground">
-        {project?.name ?? "プロジェクト不明"}
+        {project?.name ?? drawerMessages().unknownProject}
       </span>
       {label && (
         <>
@@ -923,8 +927,9 @@ function ProjectLine({
   );
 }
 
-/** 選んだ時間。日付は今日・昨日なら言葉で出し、長さとコストを点で区切って並べる。 */
+/** The selected period. Today / yesterday are shown as words, followed by duration and cost separated by dots. */
 function SectionTime({ session: s, section }: { session: SessionDetail; section: Section }) {
+  const t = drawerMessages();
   const sameDay = isSameDay(section.start, section.end);
   const last = section === s.sections.at(-1);
   const day = relativeDay(section.start) ?? dateLabel(section.start);
@@ -935,11 +940,11 @@ function SectionTime({ session: s, section }: { session: SessionDetail; section:
     <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 font-num text-muted-foreground text-xs">
       <span className="rounded-md bg-muted px-1.5 py-0.5 text-foreground">{range}</span>
       <span className="whitespace-nowrap">{durationLabel(section.end - section.start)}</span>
-      {/* 区間の番号は「セッションの流れ」で分かるので出さず、要点の数字としてコストだけ添える */}
+      {/* The period number is visible in the session flow, so only cost is added as the key figure */}
       {section.usage && (
         <>
           <span aria-hidden>·</span>
-          <Hint text={COST_NOTE} className="whitespace-nowrap">
+          <Hint text={t.costNote} className="whitespace-nowrap">
             {section.usage.unpriced ? "~" : ""}
             {costLabel(section.usage.costUsd)}
           </Hint>
@@ -948,7 +953,7 @@ function SectionTime({ session: s, section }: { session: SessionDetail; section:
       {s.active && last && (
         <span className="inline-flex items-center gap-1 whitespace-nowrap text-primary">
           <span className="size-1.5 animate-pulse rounded-full bg-primary motion-reduce:animate-none" />
-          作業中
+          {t.active}
         </span>
       )}
     </p>

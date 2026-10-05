@@ -1,11 +1,11 @@
-// セクション（作業ブロック）の要約に関する決まりごと。サーバーとフロントで共有する。
+// Rules for summarizing sections (work blocks). Shared by the server and the web app.
 
-/** これ以上の長さか、これ以上の発言があるセクションだけ LLM で要約する。 */
+/** Only sections at least this long, or with at least this many prompts, are summarized by the LLM. */
 export const SUMMARY_MIN_DURATION_MS = 10 * 60_000;
 export const SUMMARY_MIN_PROMPTS = 2;
-/** 最後の活動からこの時間たったセクションを「終わった」とみなし、要約する。 */
+/** A section counts as finished, and gets summarized, once this long has passed since its last activity. */
 export const SECTION_IDLE_MS = 30 * 60_000;
-/** 自動で要約するのは、この日数以内に終わったセクションだけ。それより前は開いたときに作る。 */
+/** Only sections that finished within this many days are summarized automatically; older ones are done when opened. */
 export const AUTO_SUMMARY_DAYS = 7;
 
 export function isSummarizable(section: {

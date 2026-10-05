@@ -1,97 +1,97 @@
-# Kairos 要件定義
+# Kairos Requirements
 
-最終更新: 2026-10-05
+Last updated: 2026-10-05
 
-> **Kairos（カイロス）**: ギリシャ語で「意味のある時間」。時計が刻む量的な時間 *chronos* に対し、*kairos* は「何かが起きた時」を指す。カレンダーの時刻に「その時何をしたか」という意味を与えるアプリ、という意図で命名した。
+> **Kairos**: Greek for "the meaningful moment". In contrast to *chronos*, the quantitative time a clock ticks off, *kairos* refers to "the time when something happened". The name reflects the intent of an app that gives the times on a calendar a meaning: what you did then.
 
-関連文書: [構成](architecture.md) / [タスク分解](tasks.md)
+Related: [Architecture](architecture.md) / [Tasks](tasks.md)
 
-## 1. 背景
+## 1. Background
 
-Claude Code のセッション履歴（`~/.claude/projects/**/*.jsonl`）から、「この日・この時間帯に何をしていたか」をカレンダーで振り返れる個人用 Web アプリを作る。
+Build a personal web app that lets you look back, on a calendar, on what you were doing on a given day and during a given time slot, based on Claude Code session history (`~/.claude/projects/**/*.jsonl`).
 
 
-### 1.1 引き継ぐ点
+### 1.1 What we carry over
 
-- jsonl を読み取り専用で解析する。ファイル offset を保持して差分だけ読み、`uuid` で重複を除く
-- 一定時間（既定 15 分）操作が途切れたら作業ブロックを分割する
-- ファイル監視によるライブ更新
-- ログ中の `git commit` / PR リンクを成果として拾う
-- ローカル限定のセキュリティ（`127.0.0.1` のみで待ち受け、Host ヘッダ検証、CSP で外部リソースを遮断）
-- 改造で効果を確認した 2 点
-  - `turnOrigin: "scheduled"` のターン（`/loop`・cron の自動実行）は描画しない
-  - 要約は `claude -p --model haiku --no-session-persistence` で生成する（API キー不要、要約の実行自体がセッション履歴に残らない）
+- Parse jsonl read-only. Keep the file offset, read only the new part, and deduplicate by `uuid`
+- Split work blocks when activity pauses for a while (15 minutes by default)
+- Live updates via file watching
+- Pick up `git commit` / PR links in the logs as outcomes
+- Local-only security (listen only on `127.0.0.1`, validate the Host header, block external resources with CSP)
+- Two changes we verified while modifying it
+  - Don't draw turns with `turnOrigin: "scheduled"` (automatic runs from `/loop` and cron)
+  - Generate summaries with `claude -p --model haiku --no-session-persistence` (no API key needed, and running the summary isn't itself recorded in session history)
 
-### 1.2 解決したい課題
+### 1.2 Problems we want to solve
 
-| 課題 | 内容 |
+| Problem | Details |
 |---|---|
-| 機能過多 | コスト・キャッシュ率・effort・compaction・ツール集計・状態チェック等がツールバーと詳細パネルに並び、「何をしたか」が埋もれる |
-| 視認性 | 週表示でブロックが細く、タイトルがほとんど読めない |
-| デザイン | 見た目が古い。UI は英語のみ |
-| 永続化なし | ログは約 30 日で自動削除されるため、それより前は見られない |
-| 起動の遅さ | 起動のたびに全ログ（約 895MB）を読み直し、約 8 秒かかる |
-| 要約待ち | 要約はクリック後に生成するため、毎回 20 秒前後待つ |
+| Too many features | Cost, cache rate, effort, compaction, tool stats, status checks, etc. crowd the toolbar and detail panel, burying "what you did" |
+| Readability | Blocks are narrow in the week view and titles are barely readable |
+| Design | Looks dated. The UI is English only |
+| No persistence | Logs are deleted automatically after about 30 days, so anything older can't be viewed |
+| Slow startup | Re-reads all logs (about 895MB) on every start, taking about 8 seconds |
+| Waiting for summaries | Summaries are generated after clicking, so every time you wait about 20 seconds |
 
-## 2. 目的とスコープ
+## 2. Goals and scope
 
-**目的**: 「この日・この時間に何をしていたか」を一目で振り返れること。
+**Goal**: See at a glance what you were doing on a given day and at a given time.
 
-**スコープ外**
+**Out of scope**
 
-- コスト・トークンの分析
-- チーム共有、外部公開
-- セッションの操作（resume 等）
-- 複数マシンでの同期、配布
+- Cost and token analysis
+- Team sharing, public access
+- Operating on sessions (resume, etc.)
+- Syncing across machines, distribution
 
-## 3. 機能要件
+## 3. Functional requirements
 
 ### 3.1 MVP
 
-| # | 機能 | 内容 |
+| # | Feature | Details |
 |---|---|---|
-| F1 | 取り込み | jsonl を差分で読み、SQLite に保存する。元ログが削除されても DB に残る。初回は全件取り込み |
-| F2 | 除外 | 自動実行のターン、人のプロンプトがない headless セッション、指定プロジェクトを除外する |
-| F3 | カレンダー | 週・日表示。同じ期間を日ごとのリストでも見られる。作業ブロック（セクション）をプロジェクト別に色分けし、ブロックにはそのセクションの AI 要約の見出しを表示する（未生成なら最初の発言の 1 行目） |
-| F4 | 詳細ドロワー | ブロックをクリックすると右から開く。上から順に、選んだセクションの要約・セッションの流れ（全セクションの見出し）・その時間の成果（コミットと PR）・会話（最初は畳んでおき、開くと選んだ時間からチャット形式で出す。ツール呼び出しは折りたたみ）・数字（使用量と活動。畳んでおき、要点だけ 1 行で出す）。`j` / `k` で時刻順に前後の作業へ移れる |
-| F5 | AI 要約 | **セクション（カレンダーのブロック）単位**で、終わったものをバックグラウンドで自動生成して DB に保存する。形式は「見出し・目的・やったこと・結果」。手動で生成・再生成もできる |
-| F6 | 自動起動 | Claude Code の SessionStart hook で起動する。起動済みなら何もしない。ポートは固定 |
-| F7 | ライブ更新 | 作業中のセッションをリアルタイムに反映する |
+| F1 | Ingest | Read jsonl incrementally and store it in SQLite. Data stays in the DB even after the original logs are deleted. The first run ingests everything |
+| F2 | Exclusion | Exclude automatic-run turns, headless sessions with no human prompt, and specified projects |
+| F3 | Calendar | Week and day views. The same period can also be shown as a per-day list. Work blocks (sections) are colored by project, and each block shows the headline of that section's AI summary (or the first line of the first prompt if none has been generated yet) |
+| F4 | Detail drawer | Clicking a block opens it from the right. From top to bottom: the selected section's summary, the session flow (headlines of all sections), the outcomes of that time (commits and PRs), the conversation (collapsed at first; when opened, shown chat-style from the selected time, with tool calls collapsed), and numbers (usage and activity; collapsed, with only the key points on one line). `j` / `k` move to the previous/next work block in time order |
+| F5 | AI summaries | **Per section (calendar block)**: finished sections are summarized automatically in the background and stored in the DB. The format is "headline, goal, what was done, result". Summaries can also be generated or regenerated manually. The output language is set on the server (`--summary-lang <en\|ja>`, default English) |
+| F6 | Auto start | Started from Claude Code's SessionStart hook. Does nothing if already running. Fixed port |
+| F7 | Live updates | Reflect in-progress sessions in real time |
 
-### 3.2 後回し
+### 3.2 Deferred
 
-- 全文検索
-- 日次・週次の振り返りレポート（Slack・Jira に貼れる形）
-- 月表示のヒートマップ
-- Codex など他ツールのログ対応
-- ブロックへのメモ・タグ
+- Full-text search
+- Daily/weekly review reports (in a form you can paste into Slack or Jira)
+- Monthly heat map
+- Support for logs from other tools such as Codex
+- Notes and tags on blocks
 
-## 4. 非機能要件
+## 4. Non-functional requirements
 
-| 項目 | 要件 |
+| Item | Requirement |
 |---|---|
-| 起動速度 | DB から表示するため、1 秒以内に画面を出す。取り込みはバックグラウンドで進める |
-| ログ形式の変化 | パーサーにバージョンを持たせ、上げたら DB を再構築できる |
-| プライバシー | 外部に送るのは `claude -p` に渡す要約用の抜粋のみ。`~/.claude` には書き込まない |
-| UI | 画面は「カレンダー＋ドロワー」に絞る。ツールバーは表示切替・日付移動（前後・今日・日付ピッカー）・検索（キーワード）・絞り込み（プロジェクト・成果あり・ちょっとした質問を隠す）に絞り、テーマとキーボード操作の一覧は「⋯」メニューにしまう。日本語 UI、ライト・ダーク対応（既定は OS に従う） |
-| 運用 | 個人の Mac 1 台で使う |
+| Startup speed | Show the screen within 1 second by rendering from the DB. Ingest proceeds in the background |
+| Log format changes | Give the parser a version; bumping it allows rebuilding the DB |
+| Privacy | The only thing sent externally is the excerpt passed to `claude -p` for summaries. Never write to `~/.claude` |
+| UI | Keep the screen to "calendar + drawer". The toolbar is limited to view switching, date navigation (previous/next, today, date picker), search (keyword) and filters (projects, with outcomes, hide quick questions); theme, language and the keyboard shortcut list are tucked into the "⋯" menu. English UI by default with Japanese available; light and dark themes (follows the OS by default) |
+| Operation | Used on one personal Mac |
 
-## 5. 技術スタック
+## 5. Tech stack
 
-| 層 | 採用 |
+| Layer | Choice |
 |---|---|
-| ランタイム | Bun |
-| API サーバー | Hono |
-| DB | SQLite（`bun:sqlite`） |
-| フロントエンド | React + Vite |
-| スタイル | Tailwind CSS + shadcn/ui |
-| カレンダー描画 | 自作（CSS Grid）。見た目を作り込むためライブラリは使わない |
-| ライブ更新 | ファイル監視 + Server-Sent Events |
-| 要約 | `claude` CLI をサブプロセスで実行 |
+| Runtime | Bun |
+| API server | Hono |
+| DB | SQLite (`bun:sqlite`) |
+| Frontend | React + Vite |
+| Styling | Tailwind CSS + shadcn/ui |
+| Calendar rendering | Custom (CSS Grid). No library, so we can polish the look |
+| Live updates | File watching + Server-Sent Events |
+| Summaries | Run the `claude` CLI as a subprocess |
 
-TypeScript で統一し、API の型をフロントとサーバーで共有する。
+Everything is TypeScript, and the API types are shared between the frontend and the server.
 
-## 6. データモデル（案）
+## 6. Data model (draft)
 
 ```
 projects      (id, path, name, repo, color, hidden)
@@ -102,26 +102,26 @@ subagents     (id, session_id, agent_type, description, tool_use_id)
 messages      (session_id + id=uuid, agent_id, file_id, seq, ts, kind, text, tool_name, tool_use_id,
                is_error, is_scheduled, is_copy, meta)
 artifacts     (session_id + kind=commit|pr + ref, title, ts, file_id, is_copy)
-segments      (session_id, start, end)        -- messages から再計算できる
+segments      (session_id, start, end)        -- can be recomputed from messages
 summaries     (session_id, headline, body, model, covered_until, created_at)
 ingest_state  (path, session_id, agent_id, offset, size, ino, parser_version, state)
 ```
 
-実装は [src/server/db/index.ts](../src/server/db/index.ts)。続きのセッションは前のセッションの会話を同じ uuid でコピーして始まるため、メッセージの一意性はセッション単位とし、コピーには `is_copy` を立てて集計から除く。
+Implemented in [src/server/db/index.ts](../src/server/db/index.ts). A continued session starts with a copy of the previous session's conversation under the same uuids, so message uniqueness is per session, and copies are flagged with `is_copy` and excluded from aggregates.
 
-### 6.1 保存する内容
+### 6.1 What we store
 
-生の jsonl を丸ごと残すとほぼ GB 単位で増え続けるため、次の方針にする（暫定）。
+Keeping the raw jsonl in full would grow by gigabytes, so we follow this policy (provisional).
 
-- 残す: ユーザーのプロンプト、Claude の返答、ツール名と入力の概要、コミット・PR、要約
-- 切り詰める: ツールの出力は先頭数 KB まで
-- 残さない: thinking、添付画像
+- Keep: user prompts, Claude's replies, tool names and a summary of their input, commits and PRs, summaries
+- Truncate: tool output, up to the first few KB
+- Don't keep: thinking, attached images
 
-## 7. 決定事項（暫定案を採用）
+## 7. Decisions (provisional proposals adopted)
 
-| # | 論点 | 決定 |
+| # | Question | Decision |
 |---|---|---|
-| 1 | 要約を自動生成する条件 | セクション単位。最後の活動から 30 分たったセクション（後ろに次のセクションがあれば即時）を要約する。10 分未満かつ発言 1 回以下の短いセクションは本文を作らず、LLM で見出しだけを作る。セッション全体の要約は作らない（2026-10-05 に変更） |
-| 2 | 初回取り込み時の要約範囲 | 直近 7 日分を自動で生成する。それより前は、ドロワーを開いたときに生成する |
-| 3 | 作業ブロックを分ける間隔 | 15 分。設定で変更できるようにする |
-| 4 | プロジェクトの同一視 | `<repo>/.claude/worktrees/<name>` は親リポジトリと同じプロジェクトにまとめ、worktree 名は補助ラベルとして残す。git の remote（origin）があれば名前はリポジトリ名にし、同じ remote の別のクローンも 1 つにまとめる（ディレクトリ名がリポジトリ名と違えば補助ラベルに残す）。remote は `.git/config` を読むだけで、git コマンドは実行しない |
+| 1 | When to generate summaries automatically | Per section. Summarize sections 30 minutes after their last activity (immediately if a later section follows). For short sections (under 10 minutes and at most one prompt), don't write a body; generate only a headline with the LLM. Don't summarize whole sessions (changed on 2026-10-05) |
+| 2 | Summary range on first ingest | Generate automatically for the last 7 days. Older ones are generated when the drawer is opened |
+| 3 | Gap that splits work blocks | 15 minutes. Make it configurable |
+| 4 | Treating projects as the same | Group `<repo>/.claude/worktrees/<name>` with the parent repository as one project, keeping the worktree name as a secondary label. If there is a git remote (origin), name the project after the repository and merge other clones of the same remote into one (if the directory name differs from the repository name, keep it as a secondary label). The remote is found by reading `.git/config` only; no git commands are run |

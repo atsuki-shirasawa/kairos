@@ -1,9 +1,9 @@
-// Bash の git commit 呼び出しから、作られたコミットの SHA と件名を取り出す。
+// Extracts the SHA and subject of commits created by Bash git commit calls.
 
 export const GIT_COMMIT_RE = /\bgit\s+(?:-[Cc]\s+\S+\s+)*commit\b/;
-/** 通常の出力: `[main 1a2b3c4] feat: add login form`（初回は `(root-commit)` が入る） */
+/** Normal output: `[main 1a2b3c4] feat: add login form` (the first commit includes `(root-commit)`) */
 const BRACKET_RE = /^\[[^\]\n]+? (?:\(root-commit\) )?([0-9a-f]{7,40})\] (.+)$/m;
-/** `git log --oneline` の行: `1a2b3c4 feat: add login form` */
+/** A `git log --oneline` line: `1a2b3c4 feat: add login form` */
 const ONELINE_RE = /^([0-9a-f]{7,40}) (.+)$/gm;
 
 export interface Commit {
@@ -12,9 +12,9 @@ export interface Commit {
 }
 
 /**
- * コミットを特定できなければ null。`--amend` は既存のコミットの書き換えなので数えない。
- * 実ログでは `git commit -q`（出力なし）の後に `git log --oneline` で確かめる使い方が多いため、
- * 件名はコマンドの `-m` やヒアドキュメントから取り、SHA は出力の oneline 行から探す。
+ * null if the commit cannot be identified. `--amend` rewrites an existing commit, so it is not counted.
+ * Real logs often run `git commit -q` (no output) and then check with `git log --oneline`, so
+ * the subject comes from the command's `-m` or heredoc, and the SHA from a oneline row in the output.
  */
 export function extractCommit(command: string, output: string): Commit | null {
   if (!GIT_COMMIT_RE.test(command) || /\s--amend\b/.test(command)) return null;
@@ -31,12 +31,12 @@ export function extractCommit(command: string, output: string): Commit | null {
     const hit = lines.find((l) => l.subject === subject);
     return { sha: hit?.sha ?? null, subject };
   }
-  // -F でファイルから渡したときなど件名が分からない場合は、続けて git log を見ていればその先頭
+  // If the subject is unknown (e.g. passed from a file with -F), use the top git log row if one follows
   if (/\bgit\b[^|;&]*\blog\b/.test(command) && lines[0]) return lines[0];
   return null;
 }
 
-/** `-m "…"` / `-m '…'` / `-m "$(cat <<'EOF' … EOF)"` の 1 行目。 */
+/** First line of `-m "…"` / `-m '…'` / `-m "$(cat <<'EOF' … EOF)"`. */
 function messageOf(command: string): string | null {
   const heredoc = /-m\s+"\$\(cat\s+<<-?\s*'?(\w+)'?\s*\n([\s\S]*?)\n\s*\1\b/.exec(command);
   if (heredoc?.[2]) return firstLine(heredoc[2]);

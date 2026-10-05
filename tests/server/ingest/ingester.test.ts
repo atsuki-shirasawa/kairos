@@ -52,8 +52,8 @@ function count(sql: string, ...params: string[]): number {
   return db.query<{ n: number }, string[]>(sql).get(...params)?.n ?? 0;
 }
 
-describe("README のシナリオ", () => {
-  test("1. basic: タイトル・作業ブロック・成果物・振り返り文", () => {
+describe("README scenarios", () => {
+  test("1. basic: title, work blocks, artifacts, recap", () => {
     const s = session(SID.basic);
     expect(s).toMatchObject({
       project: "/Users/me/dev/app",
@@ -76,7 +76,7 @@ describe("README のシナリオ", () => {
     ]);
   });
 
-  test("1. basic: thinking は保存せず、ツール呼び出しは名前と要約を持つ", () => {
+  test("1. basic: thinking is not stored; tool calls keep a name and summary", () => {
     expect(
       count(
         "SELECT COUNT(*) AS n FROM messages WHERE session_id = ? AND text LIKE '%既存のフォーム部品%'",
@@ -91,13 +91,13 @@ describe("README のシナリオ", () => {
     expect(tool).toEqual({ tool_name: "Bash", text: "ls src/components" });
   });
 
-  test("2. loop: 自動実行は数えるが、作業ブロックには描かない", () => {
+  test("2. loop: automatic runs are counted but not drawn as work blocks", () => {
     expect(session(SID.loop)).toMatchObject({ prompt_count: 2, scheduled_runs: 4 });
     expect(segments(SID.loop)).toEqual([
       [min(0), min(1)],
       [min(150), min(151)],
     ]);
-    // 自動実行中に届いた通知も自動実行のターンに含める
+    // Notifications arriving during an automatic run belong to that run's turn
     expect(
       count(
         "SELECT COUNT(*) AS n FROM messages WHERE session_id = ? AND kind = 'notification' AND is_scheduled = 1",
@@ -106,11 +106,11 @@ describe("README のシナリオ", () => {
     ).toBe(1);
   });
 
-  test("3. headless: 人の発言が 0 件", () => {
+  test("3. headless: zero user prompts", () => {
     expect(session(SID.headless).prompt_count).toBe(0);
   });
 
-  test("4. worktree で起動: 親リポジトリにまとめてラベルを付ける", () => {
+  test("4. started in a worktree: grouped under the parent repository with a label", () => {
     expect(session(SID.worktree)).toMatchObject({
       project: "/Users/me/dev/app",
       label: "fix-header",
@@ -118,7 +118,7 @@ describe("README のシナリオ", () => {
     expect(segments(SID.worktree)).toEqual([[min(200), min(202)]]);
   });
 
-  test("5. 途中で worktree に移動: プロジェクトは起動時の cwd、ラベルは移動先", () => {
+  test("5. moved into a worktree midway: project from the startup cwd, label from the destination", () => {
     expect(session(SID.relocated)).toMatchObject({
       project: "/Users/me/dev/app",
       label: "refactor-api",
@@ -126,7 +126,7 @@ describe("README のシナリオ", () => {
     expect(segments(SID.relocated)).toEqual([[min(240), min(243)]]);
   });
 
-  test("6. サブエージェント: メタ情報と会話を取り込み、親の作業ブロックには混ぜない", () => {
+  test("6. subagents: ingests metadata and conversation without mixing them into the parent's work blocks", () => {
     const sub = db
       .query("SELECT id, agent_type, description, tool_use_id FROM subagents WHERE session_id = ?")
       .all(SID.subagent);
@@ -147,7 +147,7 @@ describe("README のシナリオ", () => {
     expect(segments(SID.subagent)).toEqual([[min(300), min(305.5)]]);
   });
 
-  test("7. compaction: /compact は発言に数え、要約とコマンド出力は数えない", () => {
+  test("7. compaction: /compact counts as a prompt; the summary and command output do not", () => {
     expect(session(SID.compaction).prompt_count).toBe(3);
     expect(
       count(
@@ -161,7 +161,7 @@ describe("README のシナリオ", () => {
     ]);
   });
 
-  test("8. 続きのセッション: 前のセッションのコピーと重複を除く", () => {
+  test("8. continued session: excludes copies of and duplicates from the previous session", () => {
     expect(session(SID.continuedFrom)).toMatchObject({
       prompt_count: 1,
       continued_in: SID.continuedTo,
@@ -177,7 +177,7 @@ describe("README のシナリオ", () => {
     ).toBe(2);
   });
 
-  test("8. 続きのセッション: 続き側を先に取り込んでも結果は同じ", () => {
+  test("8. continued session: same result when the continuation is ingested first", () => {
     const fresh = setup();
     const dir = join(fresh.projectsDir, "-Users-me-dev-app");
     expect(fresh.ingester.ingestFile(join(dir, `${SID.continuedTo}.jsonl`))).toEqual([
@@ -195,7 +195,7 @@ describe("README のシナリオ", () => {
     expect(prompts(SID.continuedTo)).toBe(1);
   });
 
-  test("9. 書きかけの行: 完全な行だけ取り込み、offset は途切れた行の先頭", () => {
+  test("9. partial line: ingests only complete lines; offset points at the start of the cut line", () => {
     expect(count("SELECT COUNT(*) AS n FROM messages WHERE session_id = ?", SID.partial)).toBe(2);
     const st = db
       .query<{ offset: number; size: number }, [string]>(
@@ -205,7 +205,7 @@ describe("README のシナリオ", () => {
     expect(st && st.size - st.offset).toBe(60);
   });
 
-  test("11. PR の題名: gh pr create の題名を PR に付け、pr-link の前後どちらでも保つ", () => {
+  test("11. PR title: attaches the gh pr create title, keeping it whether pr-link comes before or after", () => {
     const prs = db
       .query<{ ref: string; title: string | null }, [string]>(
         "SELECT ref, title FROM artifacts WHERE session_id = ? AND kind = 'pr' ORDER BY ref",
@@ -214,13 +214,13 @@ describe("README のシナリオ", () => {
     expect(prs).toEqual([
       { ref: "https://github.com/me/app/pull/43", title: "feat: パスワード再設定メールを送る" },
       { ref: "https://github.com/me/app/pull/44", title: "fix: リンクの有効期限を 30 分にする" },
-      // 題名が実行時に決まるものは使わず、pr-link の番号とリポジトリにする
+      // Titles decided at run time are not used; fall back to the pr-link number and repository
       { ref: "https://github.com/me/app/pull/45", title: "#45 me/app" },
     ]);
     expect(segments(SID.prTitles)).toEqual([[min(540), min(546)]]);
   });
 
-  test("12. usage: 分かれた応答は message.id ごとに 1 件、出力は最大値、合成レコードは数えない", () => {
+  test("12. usage: split responses become one per message.id, output is the max, synthetic records are not counted", () => {
     const rows = db
       .query<Record<string, unknown>, [string]>(
         `SELECT model, input, output, cache_read, cache_write_5m, cache_write_1h FROM usage
@@ -247,18 +247,18 @@ describe("README のシナリオ", () => {
     ]);
   });
 
-  test("8. 続きのセッション: 前のセッションの応答のコピーはトークンに数えない", () => {
+  test("8. continued session: copied responses from the previous session do not count as tokens", () => {
     const own = (id: string) =>
       count(
         "SELECT COALESCE(SUM(input + output + cache_read + cache_write_5m + cache_write_1h), 0) AS n FROM usage WHERE session_id = ? AND is_copy = 0",
         id,
       );
-    // 内訳のない cache_creation_input_tokens は 5 分の書き込みとみなす
+    // cache_creation_input_tokens without a breakdown count as 5-minute writes
     expect(own(SID.continuedFrom)).toBe(24_800);
     expect(own(SID.continuedTo)).toBe(24_800);
   });
 
-  test("12. usage: effort を応答ごとに、ターンの所要時間をメインのセッションに記録する", () => {
+  test("12. usage: records effort per response and turn durations on the main session", () => {
     expect(
       db
         .query<{ effort: string }, [string]>(
@@ -276,7 +276,7 @@ describe("README のシナリオ", () => {
     ).toEqual([{ ts: min(603), duration_ms: 170_000 }]);
   });
 
-  test("8. 続きのセッション: コピーしたターンの所要時間は数えない", () => {
+  test("8. continued session: durations of copied turns are not counted", () => {
     const own = (id: string) =>
       count(
         "SELECT COALESCE(SUM(duration_ms), 0) AS n FROM turns WHERE session_id = ? AND is_copy = 0",
@@ -286,15 +286,15 @@ describe("README のシナリオ", () => {
     expect(own(SID.continuedTo)).toBe(30_000);
   });
 
-  test("10. 別プロジェクト・翌日", () => {
+  test("10. another project, next day", () => {
     const s = session(SID.blog);
     expect(s.project).toBe("/Users/me/dev/blog");
     expect(new Date(s.started_at ?? 0).toISOString()).toBe("2026-09-29T01:00:00.000Z");
   });
 });
 
-describe("プロジェクトの同一視（git の remote）", () => {
-  // app と blog が同じリポジトリの別のクローンだったとする
+describe("project identity (git remote)", () => {
+  // Suppose app and blog are different clones of the same repository
   const remotes: Record<string, string> = {
     "/Users/me/dev/app": "git@github.com:me/webapp.git",
     "/Users/me/dev/blog": "https://github.com/me/webapp.git",
@@ -304,31 +304,31 @@ describe("プロジェクトの同一視（git の remote）", () => {
     d.query("SELECT path, name, repo, color FROM projects ORDER BY id").all();
   const resetDerived = () => db.query("DELETE FROM kv WHERE key = 'derived_version'").run();
 
-  test("同じ remote のディレクトリは 1 つのプロジェクトにまとめ、リポジトリ名で呼ぶ", () => {
+  test("groups directories with the same remote into one project named after the repository", () => {
     const fresh = setup(lookup);
     fresh.ingester.scan();
     expect(projects(fresh.db)).toEqual([
       { path: "/Users/me/dev/app", name: "webapp", repo: "github.com/me/webapp", color: null },
-      // remote のないディレクトリ（headless のシナリオ）は今までどおりディレクトリ名
+      // A directory without a remote (the headless scenario) keeps its directory name
       { path: "/Users/me/tmp/probe", name: "probe", repo: null, color: null },
     ]);
     const label = (id: string) =>
       fresh.db
         .query<{ label: string | null }, [string]>("SELECT label FROM sessions WHERE id = ?")
         .get(id)?.label;
-    // ディレクトリ名がリポジトリ名と違うので、どのクローンでの作業かをラベルに残す
+    // The directory name differs from the repository name, so the label tells which clone
     expect(label(SID.basic)).toBe("app");
     expect(label(SID.blog)).toBe("blog");
-    // worktree やログに残った worktree 名はそちらを優先する
+    // A worktree, or a worktree name in the log, takes precedence
     expect(label(SID.worktree)).toBe("fix-header");
     expect(label(SID.relocated)).toBe("refactor-api");
   });
 
-  test("決め方が変わったら既存のセッションも付け直し、色を引き継いで空のプロジェクトを消す", () => {
+  test("when the rules change, reassigns existing sessions, keeps colors and deletes empty projects", () => {
     db.query("UPDATE projects SET color = 'p3' WHERE path = '/Users/me/dev/app'").run();
     resetDerived();
     expect(new Ingester(db, projectsDir, undefined, lookup).refreshAllIfOutdated()).toBe(true);
-    // blog のプロジェクトは空になったので消える
+    // The blog project is now empty, so it is deleted
     expect(projects(db)).toEqual([
       { path: "/Users/me/dev/app", name: "webapp", repo: "github.com/me/webapp", color: "p3" },
       { path: "/Users/me/tmp/probe", name: "probe", repo: null, color: null },
@@ -337,7 +337,7 @@ describe("プロジェクトの同一視（git の remote）", () => {
     expect(session(SID.relocated).label).toBe("refactor-api");
   });
 
-  test("ディレクトリが消えて判断できないセッションは付け直さない", () => {
+  test("does not reassign sessions whose directory is gone", () => {
     resetDerived();
     new Ingester(db, projectsDir, undefined, () => undefined).refreshAllIfOutdated();
     expect(projects(db)).toHaveLength(3);
@@ -345,15 +345,15 @@ describe("プロジェクトの同一視（git の remote）", () => {
   });
 });
 
-describe("差分取り込み", () => {
-  test("変更がなければ 2 回目は何もしない", () => {
+describe("incremental ingest", () => {
+  test("the second run does nothing without changes", () => {
     const before = count("SELECT COUNT(*) AS n FROM messages");
     const stats = ingester.scan();
     expect(stats.changed).toBe(0);
     expect(count("SELECT COUNT(*) AS n FROM messages")).toBe(before);
   });
 
-  test("書きかけの行が書き終わったら、その行から続きを読む", () => {
+  test("resumes from a partial line once it is complete", () => {
     const dir = join(projectsDir, "-Users-me-dev-app");
     const file = join(dir, readdirSync(dir).find((f) => f.startsWith(SID.partial)) ?? "");
     const rest = `${JSON.stringify({ type: "assistant", uuid: "half-written", timestamp: "2026-09-28T08:02:00.000Z", message: { content: [{ type: "text", text: "書きかけ" }] } }).slice(60)}\n`;
@@ -363,7 +363,7 @@ describe("差分取り込み", () => {
     expect(session(SID.partial).ended_at).toBe(min(482));
   });
 
-  test("自動実行の状態はファイルの読み込みをまたいで引き継ぐ", () => {
+  test("carries automatic-run state across reads of a file", () => {
     const dir = join(projectsDir, "-Users-me-dev-app");
     const file = join(dir, `${SID.loop}.jsonl`);
     const base = { sessionId: SID.loop, cwd: "/Users/me/dev/app" };
@@ -383,7 +383,7 @@ describe("差分取り込み", () => {
     expect(segments(SID.loop)).toHaveLength(2);
   });
 
-  test("ファイルが置き換えられたら、そのファイル由来のデータを入れ直す", () => {
+  test("re-imports a file's data when the file is replaced", () => {
     const file = join(projectsDir, "-Users-me-dev-blog", `${SID.blog}.jsonl`);
     writeFileSync(
       file,
@@ -394,7 +394,7 @@ describe("差分取り込み", () => {
     expect(session(SID.blog).title).toBe("やり直し");
   });
 
-  test("元ログが消えても DB のデータは残る", () => {
+  test("DB data stays when the source log is deleted", () => {
     const before = count("SELECT COUNT(*) AS n FROM messages WHERE session_id = ?", SID.blog);
     rmSync(join(projectsDir, "-Users-me-dev-blog"), { recursive: true });
     ingester.scan();

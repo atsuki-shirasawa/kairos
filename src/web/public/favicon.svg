@@ -1,7 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <title>Kairos</title>
-  <!-- Kairos の印。時刻の列と同じ「夜明け → 夕方 → 夜」の円を、斜めの刃で切る。
-       好機の神 Kairos は剃刀の刃の上に立つとされ、その一瞬を切り取ることを表す -->
+  <!-- The Kairos mark: a circle in the time column's "dawn → dusk → night" colors, cut by a
+       diagonal blade. Kairos, god of the opportune moment, is said to stand on a razor's edge;
+       the cut stands for seizing that moment -->
   <defs>
     <linearGradient id="g" x1="0.3" y1="0" x2="0.7" y2="1">
       <stop offset="0" stop-color="#c4d0ea"/>

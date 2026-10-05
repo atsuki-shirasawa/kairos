@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { CalendarSession } from "../../src/shared/api.ts";
 import { orderedBlocks, selectedSegment, stepBlock } from "../../src/web/src/lib/navigation.ts";
 
-const DAY0 = new Date(2026, 9, 5).getTime(); // 2026-10-05（月）0 時
+const DAY0 = new Date(2026, 9, 5).getTime(); // 2026-10-05 (Mon) 00:00
 const at = (h: number) => DAY0 + h * 3_600_000;
 
 function session(id: string, ...spans: [number, number][]): CalendarSession {
@@ -43,13 +43,13 @@ function session(id: string, ...spans: [number, number][]): CalendarSession {
 const sessions = [
   session("a", [at(9), at(10)], [at(14), at(15)]),
   session("b", [at(11), at(12)]),
-  // 前の日から続くブロックは期間に入れ、期間の後に始まるものは入れない
+  // A block continuing from the previous day is included; one starting after the period is not
   session("c", [at(-2), at(1)], [at(30), at(31)]),
 ];
 const list = orderedBlocks(sessions, DAY0, DAY0 + 24 * 3_600_000);
 
 describe("orderedBlocks", () => {
-  test("期間にかかるブロックをセッションをまたいで開始順に並べる", () => {
+  test("sorts blocks in the period by start across sessions", () => {
     expect(list.map((b) => `${b.id}@${(b.at - DAY0) / 3_600_000}`)).toEqual([
       "c@-2",
       "a@9",
@@ -60,25 +60,25 @@ describe("orderedBlocks", () => {
 });
 
 describe("stepBlock", () => {
-  test("前後のブロックへ移り、端では null を返す", () => {
+  test("steps to adjacent blocks and returns null at the ends", () => {
     expect(stepBlock(list, { id: "a", at: at(9) }, 1)).toEqual({ id: "b", at: at(11) });
     expect(stepBlock(list, { id: "a", at: at(9) }, -1)).toEqual({ id: "c", at: at(-2) });
     expect(stepBlock(list, { id: "a", at: at(14) }, 1)).toBeNull();
   });
 
-  test("何も選んでいなければ、次へは最初・前へは最後を選ぶ", () => {
+  test("with nothing selected, next picks the first and previous the last", () => {
     expect(stepBlock(list, null, 1)).toEqual({ id: "c", at: at(-2) });
     expect(stepBlock(list, null, -1)).toEqual({ id: "a", at: at(14) });
   });
 
-  test("期間の外のブロックを選んでいるときは、時刻で近いものへ移る", () => {
+  test("with a block outside the period selected, moves to the nearest by time", () => {
     expect(stepBlock(list, { id: "c", at: at(30) }, -1)).toEqual({ id: "a", at: at(14) });
     expect(stepBlock(list, { id: "x", at: at(10.5) }, 1)).toEqual({ id: "b", at: at(11) });
   });
 });
 
 describe("selectedSegment", () => {
-  test("at が null ならセッションの最後のブロックを返す", () => {
+  test("returns the session's last block when at is null", () => {
     expect(selectedSegment(sessions, "a", null)?.start).toBe(at(14));
     expect(selectedSegment(sessions, "a", at(9))?.start).toBe(at(9));
     expect(selectedSegment(sessions, "z", null)).toBeNull();

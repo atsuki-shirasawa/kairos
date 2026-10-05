@@ -44,7 +44,7 @@ function session(
     id,
     projectId: opts.projectId === undefined ? 1 : opts.projectId,
     label: opts.label ?? null,
-    title: `${id} のタイトル`,
+    title: `${id} title`,
     startedAt: 0,
     endedAt: segments.length * 1000,
     promptCount: opts.promptCount ?? 5,
@@ -67,11 +67,11 @@ const projects = new Map([
 ]);
 
 describe("isBrief", () => {
-  test("発言が少なく、書き換えも成果もないセッションはちょっとした質問", () => {
+  test("a session with few prompts, no edits and no outcome is a quick question", () => {
     expect(isBrief(session("a", { promptCount: 2 }))).toBe(true);
   });
 
-  test("発言が少なくても、ファイルを書き換えていれば残す", () => {
+  test("few prompts but file edits: kept", () => {
     const s = session("a", {
       promptCount: 1,
       segments: [{ headline: "x" }, { headline: "y", activity: { filesEdited: 3 } }],
@@ -79,7 +79,7 @@ describe("isBrief", () => {
     expect(isBrief(s)).toBe(false);
   });
 
-  test("発言が多ければ、書き換えがなくても残す", () => {
+  test("many prompts: kept even without edits", () => {
     expect(isBrief(session("a", { promptCount: 3 }))).toBe(false);
   });
 });
@@ -92,7 +92,7 @@ describe("hideSessions", () => {
     session("brief", { promptCount: 1 }),
   ];
 
-  test("非表示のプロジェクトはいつも除き、プロジェクト不明は残す", () => {
+  test("always drops hidden projects and keeps sessions with no project", () => {
     expect(hideSessions(list, projects, NO_FILTER).map((s) => s.id)).toEqual([
       "app",
       "unknown",
@@ -100,7 +100,7 @@ describe("hideSessions", () => {
     ]);
   });
 
-  test("ちょっとした質問は、隠すと決めたときだけ除く", () => {
+  test("drops quick questions only when hiding them", () => {
     const shown = hideSessions(list, projects, { ...NO_FILTER, hideBrief: true });
     expect(shown.map((s) => s.id)).toEqual(["app", "unknown"]);
   });
@@ -110,8 +110,8 @@ describe("segmentMatcher", () => {
   const s = session("a", {
     label: "fix-login",
     segments: [
-      { headline: "ログイン画面の修正", activity: { commits: 1 } },
-      { headline: "README の更新" },
+      { headline: "Fix the login screen", activity: { commits: 1 } },
+      { headline: "Update the README" },
     ],
   });
   const match = (filter: Partial<typeof NO_FILTER>) => {
@@ -119,43 +119,43 @@ describe("segmentMatcher", () => {
     return s.segments.filter((g) => m(s, g)).map((g) => g.headline);
   };
 
-  test("条件がなければすべて合う", () => {
+  test("everything matches without conditions", () => {
     expect(match({})).toHaveLength(2);
   });
 
-  test("キーワードは見出しを大文字小文字を区別せずに探す", () => {
-    expect(match({ q: "readme" })).toEqual(["README の更新"]);
+  test("keywords match headlines case-insensitively", () => {
+    expect(match({ q: "readme" })).toEqual(["Update the README"]);
   });
 
-  test("空白で区切った語はすべて含むものだけにする", () => {
-    expect(match({ q: "ログイン 修正" })).toEqual(["ログイン画面の修正"]);
-    expect(match({ q: "ログイン README" })).toEqual([]);
+  test("space-separated words must all match", () => {
+    expect(match({ q: "screen login" })).toEqual(["Fix the login screen"]);
+    expect(match({ q: "screen README" })).toEqual([]);
   });
 
-  test("タイトル・worktree 名・プロジェクト名にもかかる", () => {
-    expect(match({ q: "タイトル" })).toHaveLength(2);
+  test("also matches title, worktree name and project name", () => {
+    expect(match({ q: "title" })).toHaveLength(2);
     expect(match({ q: "fix-login" })).toHaveLength(2);
     expect(match({ q: "APP" })).toHaveLength(2);
   });
 
-  test("成果ありはコミットか PR のあるブロックだけ", () => {
-    expect(match({ outcome: true })).toEqual(["ログイン画面の修正"]);
+  test("outcome keeps only blocks with a commit or PR", () => {
+    expect(match({ outcome: true })).toEqual(["Fix the login screen"]);
   });
 });
 
 describe("narrowSessions", () => {
-  test("合うブロックだけを残し、1 つもないセッションは除く", () => {
+  test("keeps only matching blocks and drops sessions with none", () => {
     const list = [
-      session("a", { segments: [{ headline: "テスト追加" }, { headline: "リリース" }] }),
-      session("b", { segments: [{ headline: "調査" }] }),
+      session("a", { segments: [{ headline: "Add tests" }, { headline: "Release" }] }),
+      session("b", { segments: [{ headline: "Investigate" }] }),
     ];
-    const m = segmentMatcher({ ...NO_FILTER, q: "テスト" }, projects);
+    const m = segmentMatcher({ ...NO_FILTER, q: "tests" }, projects);
     const out = narrowSessions(list, m);
     expect(out.map((s) => s.id)).toEqual(["a"]);
-    expect(out[0]?.segments.map((g) => g.headline)).toEqual(["テスト追加"]);
+    expect(out[0]?.segments.map((g) => g.headline)).toEqual(["Add tests"]);
   });
 
-  test("すべて合うセッションはそのまま返す（再描画を増やさない）", () => {
+  test("returns fully matching sessions as-is (no extra re-renders)", () => {
     const list = [session("a")];
     expect(narrowSessions(list, () => true)[0]).toBe(list[0]);
   });

@@ -3,12 +3,12 @@ import { join } from "node:path";
 import type { Ingester } from "./ingester.ts";
 
 const DEBOUNCE_MS = 300;
-/** 監視イベントの取りこぼしに備えて、この間隔で全体を走査し直す（差分がなければ一瞬で終わる）。 */
+/** In case watch events are missed, rescan everything at this interval (instant when nothing changed). */
 const RESCAN_MS = 60_000;
 
 /**
- * projects ディレクトリを監視し、変更のあったファイルを取り込む。
- * `onChange` には表示が変わりうるセッションの ID が渡る。
+ * Watches the projects directory and ingests changed files.
+ * `onChange` receives the IDs of sessions whose display may change.
  */
 export function watchProjects(ingester: Ingester, onChange: (ids: string[]) => void): () => void {
   const pending = new Set<string>();

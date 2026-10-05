@@ -1,110 +1,112 @@
-# Kairos タスク分解
+# Kairos Task Breakdown
 
-最終更新: 2026-10-05 / 関連: [要件定義](requirements.md) / [構成](architecture.md)
+Last updated: 2026-10-05 / Related: [Requirements](requirements.md) / [Architecture](architecture.md)
 
-規模の目安: **S** = 半日以内、**M** = 1 日程度、**L** = 2〜3 日
+Size estimates: **S** = half a day or less, **M** = about a day, **L** = 2–3 days
 
-## マイルストーン
+## Milestones
 
-| # | マイルストーン | 到達状態 |
+| # | Milestone | State reached |
 |---|---|---|
-| M1 | データが DB に入る | `kairos ingest` で全ログが SQLite に入り、CLI でセッション一覧を確認できる |
-| M2 | カレンダーで見られる | ブラウザで週・日表示とドロワーが動き、ライブ更新される |
-| M3 | 要約が付く | 止まったセッションに要約が自動で付き、ブロックの見出しになる |
-| M4 | 毎日使える | Claude Code を起動すると自動で立ち上がる |
+| M1 | Data in the DB | `kairos ingest` loads all logs into SQLite, and the session list can be checked from the CLI |
+| M2 | Viewable on a calendar | Week and day views and the drawer work in the browser, with live updates |
+| M3 | Summaries attached | Idle sessions get summaries automatically, which become block headlines |
+| M4 | Usable every day | Starts automatically when Claude Code launches |
 
 ```mermaid
 flowchart LR
-    P0["P0 土台"] --> P1["P1 取り込み"] --> M1(("M1"))
+    P0["P0 Foundation"] --> P1["P1 Ingest"] --> M1(("M1"))
     M1 --> P2["P2 API"] --> P3["P3 UI"] --> M2(("M2"))
-    M1 --> P4["P4 要約"]
+    M1 --> P4["P4 Summaries"]
     P2 --> P4
     M2 --> M3(("M3"))
     P4 --> M3
-    M3 --> P5["P5 自動起動"] --> M4(("M4"))
-    M4 --> P6["P6 仕上げ"]
+    M3 --> P5["P5 Auto start"] --> M4(("M4"))
+    M4 --> P6["P6 Polish"]
 ```
 
-P3（UI）と P4（要約）は P2 の後に並行して進められる。
+P3 (UI) and P4 (summaries) can proceed in parallel after P2.
 
-## P0 土台
+## P0 Foundation
 
-| ID | タスク | 完了条件 | 規模 |
+| ID | Task | Done when | Size |
 |---|---|---|---|
-| ✅ P0-1 | Bun + TypeScript のプロジェクト作成（`src/{cli,server,shared,web}`）、`tsconfig` の strict 化 | `bun run typecheck` が通る | S |
-| ✅ P0-2 | Lint・フォーマット（Biome）とテスト（`bun test`）の設定 | `bun run check` で lint・型・テストが一括で走る | S |
-| ✅ P0-3 | Vite + React + Tailwind + shadcn/ui の初期設定。開発時は Vite から API へプロキシ | `bun run dev` で空の画面と API が同時に起動する | S |
-| ✅ P0-4 | 実ログの形を調べ、架空データで fixture を作る（通常・`/loop`・headless・worktree・サブエージェント・compaction・書きかけ行） | `tests/fixtures/` に 7 種類以上そろう | M |
+| ✅ P0-1 | Create the Bun + TypeScript project (`src/{cli,server,shared,web}`), make `tsconfig` strict | `bun run typecheck` passes | S |
+| ✅ P0-2 | Set up lint and formatting (Biome) and tests (`bun test`) | `bun run check` runs lint, types and tests together | S |
+| ✅ P0-3 | Initial setup of Vite + React + Tailwind + shadcn/ui. In development, Vite proxies to the API | `bun run dev` starts an empty screen and the API together | S |
+| ✅ P0-4 | Study the shape of real logs and build fixtures from fictional data (normal, `/loop`, headless, worktree, subagent, compaction, half-written line) | At least 7 kinds in `tests/fixtures/` | M |
 
-## P1 取り込み（→ M1）
+## P1 Ingest (→ M1)
 
-| ID | タスク | 完了条件 | 規模 |
+| ID | Task | Done when | Size |
 |---|---|---|---|
-| ✅ P1-1 | DB スキーマとマイグレーション（[要件定義 §6](requirements.md#6-データモデル案)） | 空の DB から最新スキーマが作られ、2 回実行しても壊れない | S |
-| ✅ P1-2 | jsonl リーダー: offset からの差分読み込み、末尾の書きかけ行の保留 | 追記・書きかけ・ファイル置き換えのテストが通る | M |
-| ✅ P1-3 | レコード分類: 人のプロンプト / コマンド / ツール結果 / 自動実行 / 通知 / compaction | fixture の全レコードが期待どおりに分類される | M |
-| ✅ P1-4 | 正規化と保存: messages（ツール出力 4KB 切り詰め、thinking 除外）、uuid での重複排除 | 同じファイルを 2 回取り込んでも件数が変わらない | M |
-| ✅ P1-5 | プロジェクト解決: worktree を親リポジトリにまとめる | `.claude/worktrees/loop` が `langgraph-demo` に属する | S |
-| ✅ P1-6 | 成果物の抽出: 成功した `git commit` と PR リンク | fixture のコミット・PR がすべて拾える | S |
-| ✅ P1-7 | Segmenter: 自動実行ターンを除いて作業ブロックを作る | `/loop` の fixture で自動実行分のブロックができない | S |
-| ✅ P1-8 | セッション集計: タイトル・開始・終了・プロンプト数・状態、headless の判定 | headless の fixture がカレンダー対象外になる | S |
-| ✅ P1-9 | `kairos ingest` コマンド（初回の全件取り込み、進捗表示）と `PARSER_VERSION` による再取り込み | 実環境の全ログ（約 895MB）を取り込める。2 回目は差分のみで数秒以内に終わる | M |
+| ✅ P1-1 | DB schema and migrations ([Requirements §6](requirements.md#6-data-model-draft)) | The latest schema is created from an empty DB and running twice doesn't break it | S |
+| ✅ P1-2 | jsonl reader: incremental read from the offset, holding back a half-written trailing line | Tests for appends, half-written lines and file replacement pass | M |
+| ✅ P1-3 | Record classification: human prompt / command / tool result / automatic run / notification / compaction | Every fixture record is classified as expected | M |
+| ✅ P1-4 | Normalize and store: messages (tool output truncated to 4KB, thinking excluded), deduplication by uuid | Ingesting the same file twice doesn't change the counts | M |
+| ✅ P1-5 | Project resolution: group worktrees with the parent repository | `.claude/worktrees/loop` belongs to `langgraph-demo` | S |
+| ✅ P1-6 | Artifact extraction: successful `git commit`s and PR links | All commits and PRs in the fixtures are picked up | S |
+| ✅ P1-7 | Segmenter: build work blocks excluding automatic-run turns | No blocks are created for automatic runs in the `/loop` fixture | S |
+| ✅ P1-8 | Session aggregates: title, start, end, prompt count, state, headless detection | The headless fixture is excluded from the calendar | S |
+| ✅ P1-9 | The `kairos ingest` command (full first ingest, progress display) and re-ingest via `PARSER_VERSION` | Can ingest all real logs (about 895MB). The second run reads only the difference and finishes within seconds | M |
 
 ## P2 API
 
-| ID | タスク | 完了条件 | 規模 |
+| ID | Task | Done when | Size |
 |---|---|---|---|
-| ✅ P2-1 | Hono サーバーの骨組みとセキュリティ middleware（Host 検証・CSP・書き込み時の Origin と Content-Type 検証） | 不正な Host と別 Origin の POST が拒否されるテストが通る | S |
-| ✅ P2-2 | `GET /api/calendar` と `GET /api/projects` / `PATCH /api/projects/:id` | 1 週間分の取得が 50ms 以内 | S |
-| ✅ P2-3 | `GET /api/sessions/:id` と `/messages`（カーソルでページング） | 1000 件超の会話を分割して取得できる | S |
-| ✅ P2-4 | Watcher と SSE（`/api/events`）: ファイル変更 → 取り込み → 通知 | 作業中のセッションに発言すると数秒以内にイベントが届く | M |
-| ✅ P2-5 | `src/shared` に API の型を定義し、フロントの fetch ラッパーで使う | 型を変えるとサーバーとフロントの両方で型エラーになる | S |
+| ✅ P2-1 | Hono server skeleton and security middleware (Host validation, CSP, Origin and Content-Type checks on writes) | Tests that reject an invalid Host and a cross-origin POST pass | S |
+| ✅ P2-2 | `GET /api/calendar` and `GET /api/projects` / `PATCH /api/projects/:id` | Fetching a week takes under 50ms | S |
+| ✅ P2-3 | `GET /api/sessions/:id` and `/messages` (cursor pagination) | A conversation with over 1000 messages can be fetched in pages | S |
+| ✅ P2-4 | Watcher and SSE (`/api/events`): file change → ingest → notification | Posting in an in-progress session delivers an event within seconds | M |
+| ✅ P2-5 | Define API types in `src/shared` and use them in the frontend's fetch wrapper | Changing a type causes type errors on both the server and the frontend | S |
 
-## P3 UI（→ M2）
+## P3 UI (→ M2)
 
-| ID | タスク | 完了条件 | 規模 |
+| ID | Task | Done when | Size |
 |---|---|---|---|
-| ✅ P3-1 | レイアウトとテーマ（ツールバー・カレンダー・ドロワーの 3 領域、ライト・ダーク、日本語） | OS の設定に合わせてテーマが切り替わる | S |
-| ✅ P3-2 | 週表示グリッド（CSS Grid、現在時刻線、今日の強調、初期表示で作業の多い時間帯へスクロール） | 1 週間分のブロックが正しい位置・高さに描かれる | M |
-| ✅ P3-3 | 重なりレイアウト: 同時刻のブロックを横に並べる | 同時に 3 セッション動いていた時間帯が重ならずに見える | M |
-| ✅ P3-4 | ブロックの表示: プロジェクト色、見出し、高さに応じた省略、ホバーで全文 | 15 分程度の短いブロックでも見出しの先頭が読める | S |
-| ✅ P3-5 | 日表示と、日付移動・今日へ戻る・キーボード操作（←→ / t / Esc） | 週と日を切り替えても選択中のセッションが保たれる | S |
-| ✅ P3-6 | 詳細ドロワー: 見出し・メタ情報・要約・コミットと PR | ブロックをクリックすると開き、URL の `?session=` と同期する | M |
-| ✅ P3-7 | 会話ビュー: チャット形式、Markdown 描画（サニタイズ）、ツール呼び出しの折りたたみ、無限スクロール | 長い会話でも固まらずにスクロールできる | M |
-| ✅ P3-8 | プロジェクト絞り込み（表示・非表示、色の変更） | 非表示にしたプロジェクトがリロード後も消えたまま | S |
-| ✅ P3-9 | SSE によるライブ更新（ブロックの伸長、要約の差し込み） | 画面を開いたまま作業するとブロックが伸びていく | S |
+| ✅ P3-1 | Layout and theme (three areas: toolbar, calendar, drawer; light and dark; Japanese) | The theme switches to match the OS setting | S |
+| ✅ P3-2 | Week grid (CSS Grid, current-time line, today highlighted, initial scroll to the busiest hours) | A week of blocks is drawn at the right position and height | M |
+| ✅ P3-3 | Overlap layout: place blocks at the same time side by side | A time slot with 3 concurrent sessions is visible without overlap | M |
+| ✅ P3-4 | Block display: project color, headline, truncation by height, full text on hover | The start of the headline is readable even for a short ~15-minute block | S |
+| ✅ P3-5 | Day view, date navigation, back to today, keyboard shortcuts (←→ / t / Esc) | The selected session is kept when switching between week and day | S |
+| ✅ P3-6 | Detail drawer: headline, metadata, summary, commits and PRs | Clicking a block opens it, synced with `?session=` in the URL | M |
+| ✅ P3-7 | Conversation view: chat style, Markdown rendering (sanitized), collapsed tool calls, infinite scroll | Scrolling doesn't freeze even in long conversations | M |
+| ✅ P3-8 | Project filter (show/hide, change color) | A hidden project stays hidden after reload | S |
+| ✅ P3-9 | Live updates via SSE (blocks grow, summaries slot in) | Working with the screen open makes blocks grow | S |
+| ✅ P3-10 | English UI with a Japanese option (`src/web/src/i18n`; "⋯" menu, saved per browser) | All UI copy comes from the en/ja dictionaries and English is the default | M |
 
-## P4 要約（→ M3）
+## P4 Summaries (→ M3)
 
-2026-10-05 に、要約の単位をセッションからセクション（カレンダーのブロック）に変更した。
+On 2026-10-05, the unit of summaries changed from sessions to sections (calendar blocks).
 
-| ID | タスク | 完了条件 | 規模 |
+| ID | Task | Done when | Size |
 |---|---|---|---|
-| ✅ P4-1 | 抜粋の生成: セクション内の依頼・返答・ツール概要を最大 6 万字に。超えたら先頭と末尾を優先 | 長いセクションでも上限内に収まり、最初の依頼と最後の結果が含まれる | S |
-| ✅ P4-2 | `claude -p` の実行ラッパー（タイムアウト、エラー整形、副作用を防ぐフラグ） | 実行してもカレンダーにセッションが増えない。未ログイン時にエラー内容が返る | S |
-| ✅ P4-3 | 要約キュー: 終わったセクション & 直近 7 日を自動で積む、短いセクションは除く、並列数 1、再試行 3 回 | 作業を止めて 30 分後に要約が付く | M |
-| ✅ P4-4 | 優先キュー: ドロワーから要約を依頼（短いセクション・7 日より前・再生成） | 古いセクションを開いてボタンを押すと要約が表示される | S |
-| ✅ P4-5 | 要約が古いことの検知（`covered_until < end`）と UI 上の表示 | セクションが続いた後に「要約の後も作業が続いています」が出る | S |
-| ✅ P4-6 | セクションの見出しをカレンダーのブロックとドロワー（セッションの流れ）に反映 | 要約が付くとブロックの表示が見出しに変わる | S |
-| P4-7 | プロンプトの調整（実データ 10 件程度で見出し・本文の質を確認） | 見出しだけで作業内容がわかる | S |
+| ✅ P4-1 | Build the excerpt: requests, replies and tool summaries in the section, up to 60k characters. If over, prefer the head and tail | Even long sections fit within the limit and include the first request and the final result | S |
+| ✅ P4-2 | Wrapper for running `claude -p` (timeout, error formatting, flags that prevent side effects) | Running it doesn't add a session to the calendar. When not logged in, the error is returned | S |
+| ✅ P4-3 | Summary queue: automatically queue finished sections from the last 7 days, skip short sections, concurrency 1, 3 retries | A summary appears 30 minutes after you stop working | M |
+| ✅ P4-4 | Priority queue: request a summary from the drawer (short sections, older than 7 days, regenerate) | Opening an old section and pressing the button shows a summary | S |
+| ✅ P4-5 | Detect stale summaries (`covered_until < end`) and show it in the UI | After a section continues, a note that work continued after the summary appears | S |
+| ✅ P4-6 | Reflect section headlines in calendar blocks and the drawer (session flow) | Once a summary is attached, the block shows the headline | S |
+| P4-7 | Tune the prompt (check headline and body quality on about 10 real examples) | The headline alone tells you what the work was | S |
+| ✅ P4-8 | Summary language setting (`--summary-lang <en\|ja>`, default `en`) | New summaries are written in the configured language; existing ones are kept | S |
 
-## P5 自動起動（→ M4）
+## P5 Auto start (→ M4)
 
-| ID | タスク | 完了条件 | 規模 |
+| ID | Task | Done when | Size |
 |---|---|---|---|
-| ✅ P5-1 | `kairos serve`（取り込み → 監視 → 要約 → API を順に起動、ログをファイルに出力） | 単独で起動・終了でき、終了時に DB を正しく閉じる | S |
-| ✅ P5-2 | `kairos ensure`（health 確認、PID ファイル、デタッチ起動） | 連続で 10 回呼んでもプロセスは 1 つだけ | S |
-| ✅ P5-3 | SessionStart hook の設定と、`bun link` によるコマンドのインストール手順 | Claude Code を起動するとサーバーが立ち上がる。hook がセッション起動を遅らせない（100ms 以内に戻る） | S |
-| ✅ P5-4 | README（セットアップ、使い方、データの場所、削除方法） | README だけで別の環境に導入できる | S |
+| ✅ P5-1 | `kairos serve` (starts ingest → watching → summaries → API in order, logs to a file) | Starts and stops on its own and closes the DB correctly on exit | S |
+| ✅ P5-2 | `kairos ensure` (health check, PID file, detached start) | Calling it 10 times in a row leaves only one process | S |
+| ✅ P5-3 | SessionStart hook setup and instructions for installing the command with `bun link` | Launching Claude Code starts the server. The hook doesn't delay session start (returns within 100ms) | S |
+| ✅ P5-4 | README (setup, usage, data locations, removal) | The README alone is enough to install on another machine | S |
 
-## P6 仕上げ
+## P6 Polish
 
-| ID | タスク | 完了条件 | 規模 |
+| ID | Task | Done when | Size |
 |---|---|---|---|
-| P6-1 | 空の状態・エラー状態（ログなし、取り込み中、要約失敗）の表示 | 各状態で次に何をすればよいかが表示される | S |
-| P6-2 | 性能確認（初回取り込み時間、起動から表示まで、DB サイズ） | 起動から表示まで 1 秒以内。結果を docs に記録 | S |
-| ✅ P6-3 | `cleanupPeriodDays` についての注意を README に追記（Kairos があれば表示は消えないが、元ログが消えたセッションは `PARSER_VERSION` を上げても読み直せないこと） | README に記載がある | S |
+| P6-1 | Empty and error states (no logs, ingesting, summary failed) | Each state tells you what to do next | S |
+| P6-2 | Performance check (first ingest time, start to display, DB size) | Start to display within 1 second. Results recorded in docs | S |
+| ✅ P6-3 | Note about `cleanupPeriodDays` in the README (with Kairos the display doesn't disappear, but sessions whose original logs are gone can't be re-read even after bumping `PARSER_VERSION`) | The README mentions it | S |
 
-## 後回し（要件定義 §3.2）
+## Deferred (Requirements §3.2)
 
-全文検索 / 日次・週次レポート / 月表示ヒートマップ / Codex 対応 / メモ・タグ
+Full-text search / daily and weekly reports / monthly heat map / Codex support / notes and tags

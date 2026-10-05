@@ -1,0 +1,38 @@
+import { defineMessages } from "../index.ts";
+
+export const conversationMessages = defineMessages({
+  en: {
+    loading: "Loading conversation…",
+    loadFailed: (message: string) => `Couldn't load the conversation: ${message}`,
+    empty: "No conversation recorded.",
+    loadingMore: "Loading more…",
+    loadMore: "Load more",
+    you: "You",
+    compacted: "Conversation compacted here",
+    interrupted: "Interrupted",
+    error: (text: string) => `Error: ${text}`,
+    scheduled: "Scheduled",
+    notification: "Notification",
+    peer: "From another agent",
+    failed: "Failed",
+    result: "Result",
+    image: (alt: string) => `[Image: ${alt}]`,
+  },
+  ja: {
+    loading: "会話を読み込み中…",
+    loadFailed: (message: string) => `会話を読み込めませんでした: ${message}`,
+    empty: "会話の記録がありません。",
+    loadingMore: "続きを読み込み中…",
+    loadMore: "続きを読み込む",
+    you: "あなた",
+    compacted: "ここで会話が圧縮されました",
+    interrupted: "中断しました",
+    error: (text: string) => `エラー: ${text}`,
+    scheduled: "自動実行",
+    notification: "通知",
+    peer: "他のエージェントから",
+    failed: "失敗",
+    result: "結果",
+    image: (alt: string) => `[画像: ${alt}]`,
+  },
+});

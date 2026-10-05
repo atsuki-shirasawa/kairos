@@ -2,6 +2,8 @@ import type { Activity, CalendarSession, Project, Usage } from "@shared/api.ts";
 import { ArrowDown, ArrowUp, GitCommitHorizontal, GitPullRequest } from "lucide-react";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import type { ListSort } from "@/hooks/useUrlState.ts";
+import { formatMessages } from "@/i18n/messages/format.ts";
+import { type ColumnKey, listMessages } from "@/i18n/messages/list.tsx";
 import { projectColor } from "@/lib/colors.ts";
 import { dateLabel, durationLabel, hhmm, isSameDay, relativeDay, startOfDay } from "@/lib/dates.ts";
 import type { SegmentMatch } from "@/lib/filter.ts";
@@ -9,6 +11,7 @@ import {
   cacheRate,
   costLabel,
   modelLabel,
+  numberLabel,
   tokensLabel,
   troubleCount,
   troubleDetail,
@@ -24,28 +27,27 @@ interface Props {
   sessions: CalendarSession[];
   projects: Map<number, Project>;
   selectedId: string | null;
-  /** 選んだセクションの開始時刻。null ならそのセッションの行をすべて選択表示にする。 */
+  /** Start of the selected section. When null, every row of that session shows as selected. */
   selectedAt: number | null;
   now: number;
-  /** 絞り込みの条件に合うか。表は合計と並べ替えで読むので、合わない行は出さない。 */
+  /** Whether a row matches the filter. The table is read through totals and sorting, so non-matching rows are left out. */
   matches: SegmentMatch;
   onSelect: (id: string, at: number) => void;
   onOpenDay: (day: number) => void;
-  /** 並べ替え。URL に保存し、戻るボタンやリロードでも保つ。 */
+  /** Sort order. Kept in the URL so it survives Back and reloads. */
   sort: ListSort;
   onSort: (sort: ListSort) => void;
 }
 
-const COST_NOTE = "API の料金表で換算した目安（サブスクリプションでの支払いとは一致しない）";
-
-/** 表の数の列。狭いとき（ドロワーを開いたときなど）は横にスクロールする。 */
+/**
+ * Number columns of the table. When narrow (e.g. with the drawer open) the table scrolls sideways.
+ * Labels and tooltips come from `listMessages().columns`, looked up by `key` at render time.
+ */
 interface Column {
-  key: string;
-  label: string;
-  /** 列の幅（rem）。 */
+  key: ColumnKey;
+  /** Column width (rem). */
   width: number;
-  title?: string;
-  /** 並べ替えに使う値。ないものは並べ替えない。 */
+  /** Value to sort by. Columns without one are not sortable. */
   sort?: (b: DayBlock) => number;
   cell: (b: DayBlock) => React.ReactNode;
   total: (t: Totals) => React.ReactNode;
@@ -57,7 +59,6 @@ const dash = <span className="text-muted-foreground/60">—</span>;
 const COLUMNS: Column[] = [
   {
     key: "duration",
-    label: "長さ",
     width: 5,
     sort: (b) => b.end - b.start,
     cell: (b) => durationLabel(b.end - b.start),
@@ -65,10 +66,7 @@ const COLUMNS: Column[] = [
   },
   {
     key: "claude",
-    label: "Claude",
     width: 5,
-    title:
-      "Claude がターンを進めていた時間（考える・ツールを動かす）。残りは人が読む・考える時間。日の合計は並行したセッションの分も足した延べ",
     sort: (b) => activityOf(b)?.claudeMs ?? -1,
     cell: (b) => {
       const ms = activityOf(b)?.claudeMs;
@@ -78,15 +76,13 @@ const COLUMNS: Column[] = [
   },
   {
     key: "prompts",
-    label: "発言",
-    width: 3,
+    width: 4.5,
     sort: (b) => (counted(b) ? b.segment.promptCount : -1),
     cell: (b) => (counted(b) ? b.segment.promptCount : ""),
     total: (t) => t.blocks.reduce((n, b) => n + (counted(b) ? b.segment.promptCount : 0), 0),
   },
   {
     key: "tokens",
-    label: "トークン",
     width: 4,
     sort: (b) => usageOf(b)?.tokens ?? -1,
     cell: (b) => <TokensCell usage={usageOf(b)} />,
@@ -94,18 +90,14 @@ const COLUMNS: Column[] = [
   },
   {
     key: "cost",
-    label: "コスト",
     width: 4,
-    title: COST_NOTE,
     sort: (b) => usageOf(b)?.costUsd ?? -1,
     cell: (b) => <CostCell usage={usageOf(b)} />,
     total: (t) => <CostCell usage={t.usage} />,
   },
   {
     key: "cache",
-    label: "キャッシュ",
     width: 5,
-    title: "入力のうちキャッシュから読んだ割合",
     sort: (b) => {
       const u = usageOf(b);
       return u ? (cacheRate(u) ?? -1) : -1;
@@ -115,9 +107,7 @@ const COLUMNS: Column[] = [
   },
   {
     key: "outcomes",
-    label: "成果",
     width: 5,
-    title: "コミットと PR の数",
     sort: (b) => {
       const a = activityOf(b);
       return a ? a.prs * 1000 + a.commits : -1;
@@ -127,19 +117,15 @@ const COLUMNS: Column[] = [
   },
   {
     key: "files",
-    label: "編集",
     width: 3.5,
-    title: "書き換えたファイルの数",
     sort: (b) => activityOf(b)?.filesEdited ?? -1,
     cell: (b) => <FilesCell activity={activityOf(b)} />,
-    // 日をまたいで同じファイルを触ることもあるので、合計は「延べ」になる
+    // The same file may be edited on several days, so the total is a running count
     total: (t) => <FilesCell activity={t.activity} />,
   },
   {
     key: "trouble",
-    label: "つまずき",
     width: 4.5,
-    title: "ツールのエラー・中断・API のエラーの合計",
     sort: (b) => {
       const a = activityOf(b);
       return a ? troubleCount(a) : -1;
@@ -149,7 +135,6 @@ const COLUMNS: Column[] = [
   },
   {
     key: "model",
-    label: "モデル",
     width: 6,
     align: "left",
     cell: (b) => <ModelCell usage={usageOf(b)} activity={activityOf(b)} />,
@@ -159,22 +144,22 @@ const COLUMNS: Column[] = [
 
 type SortKey = "start" | string;
 
-/** 時刻の列の幅（rem）。作業の列はこの右に固定する。 */
+/** Width of the time column (rem). The work column is pinned right next to it. */
 const TIME_REM = 7;
-/** 作業の列に最低限残す幅（rem）。表全体がこれより狭くなるときは横にスクロールする。 */
+/** Minimum width kept for the work column (rem). The table scrolls sideways below that. */
 const WORK_MIN_REM = 18;
 const TABLE_MIN_REM = TIME_REM + WORK_MIN_REM + COLUMNS.reduce((n, c) => n + c.width, 0);
 
 /**
- * 時刻と作業の列は左に固定し、横にスクロールしてもどの行か分かるようにする。
- * 固定した列は下が透けないよう、行の地色（--row）で塗る。
+ * The time and work columns stay pinned left, so the row stays identifiable while scrolling sideways.
+ * Pinned cells are painted with the row background (--row) so nothing shows through.
  */
 const STICKY_TIME = "sticky left-0 z-[1] bg-[var(--row)]";
 const STICKY_WORK = "sticky left-28 z-[1] bg-[var(--row)] shadow-[1px_0_0_var(--border)]";
 
 /**
- * 期間の作業ブロックを表で並べる。時刻順のときは日ごとにまとめて日の合計を出し、
- * ほかの列で並べ替えたときは期間全体を 1 つの表にする（どの作業が重かったかを探すため）。
+ * Work blocks of the period as a table. Sorted by time, they are grouped by day with daily totals;
+ * sorted by another column, the whole period is one table (to find which work was heaviest).
  */
 export function SessionList({
   days,
@@ -198,7 +183,7 @@ export function SessionList({
           day,
           blocks: blocksOfDay(sessions, day).filter((b) => matches(b.session, b.segment)),
         }))
-        // 今日より後の空の日は並べても読むものがない。過去の空の日は、休んだ日として残す
+        // Empty days after today have nothing to read. Empty past days stay, as days off
         .filter((g) => g.blocks.length > 0 || startOfDay(now) >= g.day),
     [days, sessions, now, matches],
   );
@@ -210,32 +195,33 @@ export function SessionList({
   }, [all, sort]);
   const firstDay = days[0] ?? 0;
 
-  // 期間を移ったら先頭から見せる
-  // biome-ignore lint/correctness/useExhaustiveDependencies: 期間（firstDay）が変わったときだけ動かす
+  // Moving to another period starts from the top
+  // biome-ignore lint/correctness/useExhaustiveDependencies: run only when the period (firstDay) changes
   useLayoutEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 });
   }, [firstDay]);
 
-  // 選んだ行が画面の外なら見える位置まで動かす（カレンダーから切り替えたとき、j / k で移ったときなど）。
-  // 期間を移ったときも、先頭へ戻した後で選んだ行を探す
-  // biome-ignore lint/correctness/useExhaustiveDependencies: 選択と期間が変わったときだけ動かす
+  // Scroll the selected row into view if it's off screen (after switching from the calendar, moving with j / k, etc.).
+  // After a period change too, look for it once scrolled back to the top
+  // biome-ignore lint/correctness/useExhaustiveDependencies: run only when the selection or period changes
   useLayoutEffect(() => {
     const el = scrollRef.current?.querySelector("tr[data-selected]") ?? null;
     reveal(scrollRef.current, el, theadRef.current?.offsetHeight ?? 0);
   }, [selectedId, selectedAt, firstDay]);
 
-  // 記録がまったくないときは、空の表を出さず案内（App の EmptyNotice）だけを見せる
+  // With no records at all, skip the empty table and show only the notice (EmptyNotice in App)
   if (all.length === 0) return <div className="min-h-0 flex-1 bg-card" />;
 
   const onSort = (key: SortKey) =>
     setSort(
       key === "start"
         ? { key, desc: false }
-        : // 数の列は大きい順から。同じ列をもう一度押すと逆にする
+        : // Number columns start largest first. Clicking the same column again reverses it
           { key, desc: sort.key === key ? !sort.desc : true },
     );
   const rowProps = { projects, selectedId, selectedAt, onSelect };
   const span = COLUMNS.length + 2;
+  const m = listMessages();
 
   return (
     <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto bg-card">
@@ -254,30 +240,31 @@ export function SessionList({
         <thead ref={theadRef} className="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--border)]">
           <tr className="text-muted-foreground text-xs [--row:var(--card)]">
             <SortHeader
-              label="時刻"
+              label={m.time}
               sortKey="start"
               sort={sort}
               onSort={onSort}
               align="left"
               className={STICKY_TIME}
             />
-            <th className={cn("px-2 py-2 text-left font-normal", STICKY_WORK)}>作業</th>
-            {COLUMNS.map((c) =>
-              c.sort ? (
+            <th className={cn("px-2 py-2 text-left font-normal", STICKY_WORK)}>{m.work}</th>
+            {COLUMNS.map((c) => {
+              const { label, title } = m.columns[c.key];
+              return c.sort ? (
                 <SortHeader
                   key={c.key}
-                  label={c.label}
+                  label={label}
                   sortKey={c.key}
                   sort={sort}
                   onSort={onSort}
-                  title={c.title}
+                  title={title}
                 />
               ) : (
                 <th key={c.key} className="px-2 py-2 text-left font-normal">
-                  <Hint text={c.title}>{c.label}</Hint>
+                  <Hint text={title}>{label}</Hint>
                 </th>
-              ),
-            )}
+              );
+            })}
           </tr>
         </thead>
         {sort.key === "start" ? (
@@ -293,8 +280,8 @@ export function SessionList({
               {blocks.length === 0 ? (
                 <tr className="border-b">
                   <td colSpan={span} className="px-4 py-2 text-muted-foreground text-xs">
-                    {/* 横にスクロールしても見えるよう、文言だけ左に固定する */}
-                    <span className="sticky left-4">記録なし</span>
+                    {/* Pin just the text left so it stays visible while scrolling sideways */}
+                    <span className="sticky left-4">{m.noRecords}</span>
                   </td>
                 </tr>
               ) : (
@@ -349,7 +336,7 @@ function SortHeader({
         <button
           type="button"
           onClick={() => onSort(sortKey)}
-          aria-label={`${label}で並べ替え`}
+          aria-label={listMessages().sortBy(label)}
           className={cn(
             "flex w-full items-center gap-0.5 whitespace-nowrap px-2 py-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2",
             align === "right" ? "justify-end" : "justify-start pl-4",
@@ -364,39 +351,42 @@ function SortHeader({
   );
 }
 
-/** 期間全体の合計。表の上に 1 行で出す。 */
+/** Totals for the whole period, as one line above the table. */
 function PeriodSummary({ blocks, days }: { blocks: DayBlock[]; days: number }) {
   const { usage, activity } = totalsOf(blocks);
-  // 日ごとに切ったブロックなので、日ごとに重なりを除いて足す
+  const m = listMessages();
+  // Blocks are clipped per day, so remove overlaps per day before adding up
   const byDay = Map.groupBy(blocks, (b) => b.dayStart);
   const busy = [...byDay.values()].reduce((sum, list) => sum + busyMs(list), 0);
   return (
     <p className="sticky left-0 flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 pt-3 pb-2 text-muted-foreground text-xs">
       <span>
-        {days === 1 ? "この日" : "この週"}: <Strong>{blocks.length}</Strong> 件・作業{" "}
-        <Strong>{durationLabel(busy)}</Strong>
+        {m.period(
+          days === 1,
+          blocks.length,
+          <Strong>{blocks.length}</Strong>,
+          <Strong>{durationLabel(busy)}</Strong>,
+        )}
         {activity?.claudeMs ? (
-          <>
-            （
-            <Hint text="並行して進めたセッションの分も足すので、作業時間より長くなることがある">
-              Claude 延べ <Strong>{durationLabel(activity.claudeMs)}</Strong>
-            </Hint>
-            ）
-          </>
+          <Hint text={m.claudeTotalNote}>
+            {m.claudeTotal(<Strong>{durationLabel(activity.claudeMs)}</Strong>)}
+          </Hint>
         ) : null}
       </span>
       {usage && (
-        <Hint text={COST_NOTE}>
-          <Strong>{tokensLabel(usage.tokens)}</Strong> トークン・API 料金換算{" "}
-          <Strong>
-            {usage.unpriced ? "~" : ""}
-            {costLabel(usage.costUsd)}
-          </Strong>
+        <Hint text={m.costNote}>
+          {m.tokensCost(
+            <Strong>{tokensLabel(usage.tokens)}</Strong>,
+            <Strong>
+              {usage.unpriced ? "~" : ""}
+              {costLabel(usage.costUsd)}
+            </Strong>,
+          )}
         </Hint>
       )}
       {activity && (activity.commits > 0 || activity.prs > 0) && (
         <span>
-          コミット <Strong>{activity.commits}</Strong>・PR <Strong>{activity.prs}</Strong>
+          {m.commitsPrs(<Strong>{activity.commits}</Strong>, <Strong>{activity.prs}</Strong>)}
         </span>
       )}
     </p>
@@ -439,7 +429,7 @@ function DayRow({
             "rounded-sm font-medium text-sm hover:underline focus-visible:outline-2 focus-visible:outline-ring",
             today ? "text-primary" : "text-foreground",
           )}
-          title="この日を表示"
+          title={listMessages().showDay}
         >
           <span className="font-num">{dateLabel(day)}</span>
         </button>
@@ -454,7 +444,9 @@ function DayRow({
           </span>
         )}
         {blocks.length > 0 && (
-          <span className="ml-2 font-num text-muted-foreground">{blocks.length} 件</span>
+          <span className="ml-2 font-num text-muted-foreground">
+            {formatMessages().blocks(blocks.length)}
+          </span>
         )}
       </th>
       {COLUMNS.map((c) => (
@@ -486,15 +478,17 @@ function Row({
   const selected =
     session.id === selectedId && (selectedAt === null || segment.start === selectedAt);
   const isLast = segment.end >= Math.max(...session.segments.map((g) => g.end));
-  // 要約前の見出しは最初の発言そのままなので控えめにする（カレンダーと同じ扱い）
+  // Before summarizing, the heading is just the first prompt, so tone it down (same as the calendar)
   const dim = !segment.summarized && !(session.active && isLast);
+  const m = listMessages();
+  const f = formatMessages();
 
   return (
     <tr
-      // 行のどこを押しても開く。キーボードでは見出しのボタンから開け、そのクリックもここに届く
+      // Clicking anywhere on the row opens it. Keyboard users open it from the heading button, whose click bubbles here
       onClick={() => onSelect(session.id, segment.start)}
       data-selected={selected || undefined}
-      // 地色は --row で持ち、固定した列も同じ色で塗る（ホバー・選択の色も揃う）
+      // The background lives in --row so pinned cells match it (including hover and selection colors)
       className={cn(
         "cursor-pointer border-b bg-[var(--row)] align-top",
         selected
@@ -508,7 +502,7 @@ function Row({
         {hhmm(dayStart + start)}–{hhmm(dayStart + end)}
         {(block.continuesBefore || block.continuesAfter) && (
           <span className="block text-muted-foreground">
-            {block.continuesBefore ? "前日から" : "翌日へ"}
+            {block.continuesBefore ? m.fromPreviousDay : m.toNextDay}
           </span>
         )}
       </td>
@@ -528,13 +522,13 @@ function Row({
               {session.active && isLast && (
                 <span
                   className="ml-1.5 inline-block size-1.5 animate-pulse rounded-full bg-[var(--c)] align-middle motion-reduce:animate-none"
-                  title="作業中"
+                  title={f.working}
                 />
               )}
             </button>
             <span className="truncate text-muted-foreground text-xs">
-              {project?.name ?? "プロジェクト不明"}
-              {session.label ? `（${session.label}）` : ""}
+              {project?.name ?? f.unknownProject}
+              {session.label ? f.sessionLabel(session.label) : ""}
               {session.title !== segment.headline && ` · ${session.title}`}
             </span>
           </div>
@@ -564,19 +558,20 @@ function Cell({ column: c, children }: { column: Column; children: React.ReactNo
 
 function TokensCell({ usage: u }: { usage: Usage | null }) {
   if (!u) return dash;
-  const detail = [
-    `入力 ${u.input.toLocaleString()}`,
-    `出力 ${u.output.toLocaleString()}`,
-    `キャッシュ読み込み ${u.cacheRead.toLocaleString()}`,
-    `キャッシュ書き込み ${u.cacheWrite.toLocaleString()}`,
-  ].join(" / ");
+  const detail = listMessages().tokensDetail(
+    numberLabel(u.input),
+    numberLabel(u.output),
+    numberLabel(u.cacheRead),
+    numberLabel(u.cacheWrite),
+  );
   return <Hint text={detail}>{tokensLabel(u.tokens)}</Hint>;
 }
 
 function CostCell({ usage: u }: { usage: Usage | null }) {
   if (!u) return dash;
+  const m = listMessages();
   return (
-    <Hint text={u.unpriced ? `${COST_NOTE}。料金の分からないモデルの分を含まない` : COST_NOTE}>
+    <Hint text={u.unpriced ? m.costNoteUnpriced : m.costNote}>
       {u.unpriced ? "~" : ""}
       {costLabel(u.costUsd)}
     </Hint>
@@ -593,7 +588,7 @@ function OutcomesCell({ activity: a }: { activity: Activity | null }) {
   return (
     <Hint
       className="inline-flex items-center justify-end gap-2"
-      text={`コミット ${a.commits}・PR ${a.prs}`}
+      text={formatMessages().commitsPrs(a.commits, a.prs)}
     >
       {a.commits > 0 && (
         <span className="inline-flex items-center gap-0.5">
@@ -613,11 +608,7 @@ function OutcomesCell({ activity: a }: { activity: Activity | null }) {
 
 function FilesCell({ activity: a }: { activity: Activity | null }) {
   if (!a || a.filesEdited === 0) return null;
-  return (
-    <Hint text={`ツール呼び出し ${a.toolCalls} 回・サブエージェント ${a.subagents}`}>
-      {a.filesEdited}
-    </Hint>
-  );
+  return <Hint text={listMessages().filesDetail(a.toolCalls, a.subagents)}>{a.filesEdited}</Hint>;
 }
 
 function TroubleCell({ activity: a }: { activity: Activity | null }) {

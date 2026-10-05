@@ -9,7 +9,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* 方向「藍の時刻」: 時刻の列を時間帯の色にし、それ以外は静かに保つ。値の一覧は docs/design.md */
+/* Direction "Indigo hours": the time column takes the colors of the time of day; everything else stays quiet. Values are listed in docs/design.md */
 @theme inline {
   --font-sans: "IBM Plex Sans JP", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
   --font-heading: var(--font-sans);
@@ -72,16 +72,16 @@
   --dusk: #efc98a;
   --night: #3a4a7c;
 
-  /* 注意を引く数字（つまずきなど）の文字色。黄土を暗くして白地でも読めるコントラストにする */
+  /* Text color for numbers that need attention (troubles etc.). Darkened ochre for contrast on white */
   --warn: #8a6420;
 
-  /* 作業ブロックの地にプロジェクトの色を混ぜる割合。通常・ホバー・選択・要約前 */
+  /* How much project color is mixed into a block's fill: normal, hover, selected, not yet summarized */
   --mix-block: 20%;
   --mix-block-hover: 32%;
   --mix-block-selected: 42%;
   --mix-block-dim: 9%;
 
-  /* プロジェクトの色（岩絵具）: 群青・緑青・黄土・藤・桜鼠・鉄・若竹・弁柄 */
+  /* Project colors (mineral pigments): gunjō, rokushō, ōdo, fuji, sakuranezumi, tetsu, wakatake, bengara */
   --p0: #4f6faf;
   --p1: #3f8f80;
   --p2: #c0923a;
@@ -118,7 +118,7 @@
 
   --warn: #d1a650;
 
-  /* 紺の地に 20% では灰色に濁ってプロジェクトを見分けられないので、ダークでは多めに混ぜる */
+  /* At 20% on navy the colors turn muddy grey and projects become indistinguishable, so dark mode mixes more */
   --mix-block: 32%;
   --mix-block-hover: 44%;
   --mix-block-selected: 50%;

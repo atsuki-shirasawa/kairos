@@ -1,4 +1,5 @@
-// 日付の計算と表示。時刻はブラウザのローカル時刻（JST を想定）で扱う。
+// Date arithmetic and labels. Times are in the browser's local time zone.
+import { dateMessages } from "@/i18n/messages/dates.ts";
 
 export const MINUTE = 60_000;
 export const HOUR = 60 * MINUTE;
@@ -7,29 +8,27 @@ export const DAY = 24 * HOUR;
 export type View = "week" | "day";
 export type Layout = "calendar" | "list";
 
-const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const;
-
 export function startOfDay(t: number): number {
   const d = new Date(t);
   d.setHours(0, 0, 0, 0);
   return d.getTime();
 }
 
-/** 日付を足す。夏時間はないが、念のため Date の日付演算で行う。 */
+/** Adds days. Uses Date's calendar arithmetic rather than fixed 24h steps, so DST shifts are safe. */
 export function addDays(t: number, n: number): number {
   const d = new Date(t);
   d.setDate(d.getDate() + n);
   return d.getTime();
 }
 
-/** 週の始まり（月曜 0 時）。 */
+/** Start of the week (Monday, midnight). */
 export function startOfWeek(t: number): number {
   const d = new Date(startOfDay(t));
   const offset = (d.getDay() + 6) % 7;
   return addDays(d.getTime(), -offset);
 }
 
-/** 表示中の期間 [from, to) と、その中の日の 0 時の一覧。 */
+/** The displayed period [from, to) and the midnight of each day in it. */
 export function rangeOf(view: View, anchor: number): { from: number; to: number; days: number[] } {
   const from = view === "week" ? startOfWeek(anchor) : startOfDay(anchor);
   const n = view === "week" ? 7 : 1;
@@ -42,7 +41,7 @@ export function shift(view: View, anchor: number, dir: -1 | 1): number {
 }
 
 export function weekday(t: number): string {
-  return WEEKDAYS[new Date(t).getDay()] ?? "";
+  return dateMessages().weekdays[new Date(t).getDay()] ?? "";
 }
 
 export function isSameDay(a: number, b: number): boolean {
@@ -54,7 +53,7 @@ export function hhmm(t: number): string {
   return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-/** ISO 8601 の週番号（月曜始まり、その年の最初の木曜を含む週が第 1 週）。 */
+/** ISO 8601 week number (weeks start Monday; week 1 contains the year's first Thursday). */
 export function isoWeek(t: number): number {
   const d = new Date(startOfDay(t));
   d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
@@ -68,9 +67,10 @@ export function isoWeek(t: number): number {
 }
 
 /**
- * 期間の見出し。日の数字はカレンダーの列に出ているので、見出しは月を主役にする。
- * 年は今年なら省く（`dateLabel` と同じ）。週番号は見出しには出さず、日付ピッカーとツールチップで示す。
- * 週: { title: "9月 – 10月", year: null, week: "W40" }、日: { title: "10月5日", sub: "月曜日", year: null }
+ * Heading for the period. Day numbers already appear on the calendar columns, so the month leads.
+ * The year is omitted for the current year (as in `dateLabel`). The week number is not part of the
+ * title; the date picker and tooltip show it.
+ * Week: { title: "Sep – Oct", year: null, week: "W40" }, day: { title: "Oct 5", sub: "Monday", year: null }
  */
 export function rangeTitle(
   view: View,
@@ -87,27 +87,28 @@ export function rangeTitle(
       : b.getFullYear() === a.getFullYear()
         ? String(a.getFullYear())
         : `${a.getFullYear()} – ${b.getFullYear()}`;
+  const m = dateMessages();
   if (view === "day")
     return {
-      title: `${a.getMonth() + 1}月${a.getDate()}日`,
-      sub: `${weekday(from)}曜日`,
+      title: m.monthDay(a.getMonth(), a.getDate()),
+      sub: m.weekdaysLong[a.getDay()] ?? "",
       year,
       week: null,
     };
   const months =
     b.getMonth() === a.getMonth()
-      ? `${a.getMonth() + 1}月`
-      : `${a.getMonth() + 1}月 – ${b.getMonth() + 1}月`;
+      ? m.month(a.getMonth())
+      : m.monthRange(a.getMonth(), b.getMonth());
   return { title: months, sub: null, year, week: `W${isoWeek(from)}` };
 }
 
-/** 月の 1 日の 0 時。 */
+/** Midnight on the first of the month. */
 export function startOfMonth(t: number): number {
   const d = new Date(t);
   return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
 }
 
-/** 月を足す。月末の日付は、移った先の月末に丸める（1/31 の 1 か月後は 2/28）。 */
+/** Adds months, clamping to the end of the target month (one month after 1/31 is 2/28). */
 export function addMonths(t: number, n: number): number {
   const d = new Date(t);
   const day = d.getDate();
@@ -119,8 +120,8 @@ export function addMonths(t: number, n: number): number {
 }
 
 /**
- * 日付ピッカーの 1 か月分。月曜始まりの週ごとに並べ、前後の月の日で埋める。
- * 行数は月によって 4〜6 で変わる（ポップオーバーの高さが少し動くが、空の行を出すよりよい）。
+ * One month for the date picker, as Monday-first weeks padded with days of the adjacent months.
+ * It has 4–6 rows depending on the month (the popover height shifts a bit, but that beats empty rows).
  */
 export function monthWeeks(month: number): number[][] {
   const first = startOfMonth(month);
@@ -131,27 +132,29 @@ export function monthWeeks(month: number): number[][] {
   return weeks;
 }
 
-/** 日付の短い表記。「10/5 月」。今年でなければ年を付ける（「2025/10/5 日」）。 */
+/** Short date: "Mon, Oct 5". Adds the year when it isn't the current one ("Sun, Oct 5, 2025"). */
 export function dateLabel(t: number, now = Date.now()): string {
   const d = new Date(t);
-  const md = `${d.getMonth() + 1}/${d.getDate()} ${weekday(t)}`;
-  return d.getFullYear() === new Date(now).getFullYear() ? md : `${d.getFullYear()}/${md}`;
+  const year = d.getFullYear() === new Date(now).getFullYear() ? null : d.getFullYear();
+  return dateMessages().dateLabel(weekday(t), d.getMonth(), d.getDate(), year);
 }
 
-/** 今日・昨日なら言葉で返す。それ以外は null。 */
+/** "Today" or "Yesterday" when it applies, otherwise null. */
 export function relativeDay(t: number, now = Date.now()): string | null {
   const diff = Math.round((startOfDay(now) - startOfDay(t)) / DAY);
-  return diff === 0 ? "今日" : diff === 1 ? "昨日" : null;
+  const m = dateMessages();
+  return diff === 0 ? m.today : diff === 1 ? m.yesterday : null;
 }
 
 export function durationLabel(ms: number): string {
   const m = Math.max(1, Math.round(ms / MINUTE));
-  if (m < 60) return `${m}分`;
+  const msg = dateMessages();
+  if (m < 60) return msg.minutes(m);
   const h = Math.floor(m / 60);
-  return m % 60 ? `${h}時間${m % 60}分` : `${h}時間`;
+  return m % 60 ? msg.hoursMinutes(h, m % 60) : msg.hours(h);
 }
 
-/** URL に載せる日付（YYYY-MM-DD）。 */
+/** Date for the URL (YYYY-MM-DD). */
 export function toISODate(t: number): string {
   const d = new Date(t);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;

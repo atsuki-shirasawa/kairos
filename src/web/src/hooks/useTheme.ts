@@ -4,7 +4,7 @@ export type Theme = "system" | "light" | "dark";
 
 const KEY = "kairos.theme";
 
-/** 保存した設定を読む。プライベートウィンドウなどで読めなければ OS に従う。 */
+/** Reads the saved choice. Follows the OS when storage is unavailable (private windows etc.). */
 function load(): Theme {
   try {
     const v = localStorage.getItem(KEY);
@@ -15,8 +15,8 @@ function load(): Theme {
 }
 
 /**
- * テーマの設定と、それに合わせた <html> の .dark の付け外し。
- * 「自動」のときは OS の設定の変化にも追従する。設定はこのブラウザにだけ保存する。
+ * The theme setting, and toggling .dark on <html> to match.
+ * "system" also follows OS changes live. The choice is saved in this browser only.
  */
 export function useTheme(): [Theme, (theme: Theme) => void] {
   const [theme, setTheme] = useState<Theme>(load);
@@ -39,7 +39,7 @@ export function useTheme(): [Theme, (theme: Theme) => void] {
       if (next === "system") localStorage.removeItem(KEY);
       else localStorage.setItem(KEY, next);
     } catch {
-      // 保存できなくても、開いている間は切り替わっていればよい
+      // Not persisted, but the switch still applies while the page stays open
     }
   }, []);
 

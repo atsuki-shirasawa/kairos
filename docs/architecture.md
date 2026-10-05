@@ -1,8 +1,8 @@
-# Kairos 構成
+# Kairos Architecture
 
-最終更新: 2026-10-05 / 関連: [要件定義](requirements.md) / [タスク分解](tasks.md)
+Last updated: 2026-10-05 / Related: [Requirements](requirements.md) / [Tasks](tasks.md)
 
-## 1. 全体像
+## 1. Overview
 
 ```mermaid
 flowchart LR
@@ -11,49 +11,49 @@ flowchart LR
         LOGS[("~/.claude/projects/**/*.jsonl")]
     end
 
-    subgraph SERVER["kairos serve（Bun プロセス・127.0.0.1:4319）"]
-        WATCH["Watcher<br/>ファイル監視"]
-        ING["Ingester<br/>差分読み込み・正規化"]
+    subgraph SERVER["kairos serve (Bun process, 127.0.0.1:4319)"]
+        WATCH["Watcher<br/>file watching"]
+        ING["Ingester<br/>incremental read, normalization"]
         DB[("SQLite<br/>kairos.db")]
-        SUM["Summarizer<br/>要約キュー"]
-        API["API（Hono）<br/>REST + SSE"]
-        STATIC["静的配信<br/>ビルド済み Web"]
+        SUM["Summarizer<br/>summary queue"]
+        API["API (Hono)<br/>REST + SSE"]
+        STATIC["Static serving<br/>built web UI"]
     end
 
     CLAUDE["claude -p --model haiku<br/>--no-session-persistence"]
-    WEB["Web UI（React）<br/>カレンダー + ドロワー"]
+    WEB["Web UI (React)<br/>calendar + drawer"]
 
-    HOOK -- "kairos ensure<br/>未起動なら起動" --> SERVER
-    LOGS -- "変更通知" --> WATCH
+    HOOK -- "kairos ensure<br/>start if not running" --> SERVER
+    LOGS -- "change notification" --> WATCH
     WATCH --> ING
-    LOGS -- "追記分を読む（読み取り専用）" --> ING
+    LOGS -- "read appended part (read-only)" --> ING
     ING --> DB
-    ING -- "セッション更新" --> SUM
-    SUM -- "抜粋を渡す" --> CLAUDE
-    CLAUDE -- "要約" --> SUM
+    ING -- "session updated" --> SUM
+    SUM -- "pass excerpt" --> CLAUDE
+    CLAUDE -- "summary" --> SUM
     SUM --> DB
     DB --> API
-    ING -- "更新イベント" --> API
-    SUM -- "要約完了イベント" --> API
+    ING -- "update event" --> API
+    SUM -- "summary done event" --> API
     API <--> WEB
     STATIC --> WEB
 ```
 
-プロセスは `kairos serve` 1 つだけで、取り込み・要約・API・静的配信をまとめて受け持つ。
+There is only one process, `kairos serve`, which handles ingest, summaries, the API and static serving together.
 
-## 2. コンポーネント
+## 2. Components
 
-| コンポーネント | 責務 | 主な実装 |
+| Component | Responsibility | Main implementation |
 |---|---|---|
-| Launcher | `kairos ensure`: `/api/health` を確認し、応答がなければ `kairos serve` をデタッチ起動する。PID ファイルで二重起動を防ぐ | `src/cli` |
-| Watcher | `~/.claude/projects` を再帰監視し、変更のあった jsonl を Ingester に渡す。短時間の連続変更はまとめる（debounce） | `fs.watch`（recursive） |
-| Ingester | `ingest_state` の offset から追記分だけ読む。末尾の書きかけ行は次回に回す。レコードを分類・正規化して保存する | `src/server/ingest` |
-| Segmenter | 人が起点のターンの活動時刻から作業ブロックを作る（15 分で分割）。セッション更新のたびに再計算する | `src/server/ingest/segments.ts` |
-| Summarizer | 要約が必要なセッションをキューに積み、1 件ずつ `claude -p` を実行する | `src/server/summarize` |
-| API | カレンダー・詳細・会話・要約・プロジェクト設定の REST と、更新通知の SSE | Hono |
-| Web UI | 週・日のカレンダー、詳細ドロワー、絞り込み（プロジェクト・キーワードなど） | React + Tailwind + shadcn/ui |
+| Launcher | `kairos ensure`: checks `/api/health` and, if there's no response, starts `kairos serve` detached. A PID file prevents double starts | `src/cli` |
+| Watcher | Watches `~/.claude/projects` recursively and hands changed jsonl files to the Ingester. Bursts of changes are coalesced (debounce) | `fs.watch` (recursive) |
+| Ingester | Reads only the appended part from the offset in `ingest_state`. A half-written trailing line is left for next time. Classifies, normalizes and stores records | `src/server/ingest` |
+| Segmenter | Builds work blocks from the activity times of human-initiated turns (split at 15 minutes). Recomputed on every session update | `src/server/ingest/segments.ts` |
+| Summarizer | Queues sessions that need summaries and runs `claude -p` one at a time | `src/server/summarize` |
+| API | REST for the calendar, details, conversations, summaries and project settings, plus SSE for update notifications | Hono |
+| Web UI | Week and day calendar, detail drawer, filters (projects, keywords, etc.). English by default, Japanese selectable (`src/web/src/i18n`) | React + Tailwind + shadcn/ui |
 
-## 3. 取り込みの流れ
+## 3. Ingest flow
 
 ```mermaid
 sequenceDiagram
@@ -64,42 +64,42 @@ sequenceDiagram
     participant UI as Web UI
 
     W->>I: changed(path)
-    I->>DB: ingest_state(path) の offset を取得
-    I->>I: offset 以降を読む（末尾の書きかけ行は除く）
-    I->>I: 分類・正規化（scheduled / headless / worktree）
-    I->>DB: messages・artifacts を upsert（uuid で重複排除）
-    I->>DB: sessions・segments を再計算
-    I->>DB: offset を更新
+    I->>DB: get the offset from ingest_state(path)
+    I->>I: read from the offset (excluding a half-written trailing line)
+    I->>I: classify and normalize (scheduled / headless / worktree)
+    I->>DB: upsert messages and artifacts (deduplicated by uuid)
+    I->>DB: recompute sessions and segments
+    I->>DB: update the offset
     I-->>UI: SSE: sessions.updated [id]
     I->>S: touched(sessionId)
 ```
 
-### 3.1 正規化ルール
+### 3.1 Normalization rules
 
-| ルール | 判定 |
+| Rule | Criterion |
 |---|---|
-| 人の発言 | `type=user` かつ `origin.kind=human`（`promptSource` は問わない。`sdk` もデスクトップアプリ等からの人の入力）。スラッシュコマンドを含む |
-| 自動実行ターン | `turnOrigin=scheduled` の user レコードから、次の人の発言まで。`messages.is_scheduled=1` とし、作業ブロックの計算から除く。`task-notification` と `peer` はターンの扱いを変えない |
-| headless セッション | 人のプロンプトが 0 件。カレンダーには出さない |
-| worktree | 起動時の cwd が `<repo>/.claude/worktrees/<name>` なら project は `<repo>`、`<name>` を補助ラベルにする。途中の `relocated` / `worktree-state` は補助ラベルにだけ反映する |
-| タイトル | `custom-title` > `agent-name` > `ai-title` > 最初の人の発言 |
-| 振り返り文 | `system/away_summary` を保存し、AI 要約ができるまでの仮表示に使う |
-| ツール出力 | 先頭 4KB で切り詰める |
-| thinking・画像 | 保存しない |
-| コミット | `git commit` を含む Bash 呼び出しが成功したもの |
-| PR | `pr-link` レコード。題名は `gh pr create` の `--title` から取り、結果の `gitOperation.pr` の URL で結び付ける |
-| トークン使用量 | assistant レコードの `message.usage` を `message.id` ごとに 1 件（`output_tokens` は最大値）として `usage` に保存する。サブエージェントの分も親のセッションに入れる。作業ブロックごとに、その時間内の分を合計して返す |
-| 活動 | 作業ブロックの時間内の messages・artifacts から数える。成果（コミット・PR、終わりから 5 分まで）、編集したファイル（Edit / Write などの対象の異なり数）、ツール呼び出し、サブエージェント、つまずき（ツールのエラー・中断・API のエラー）、会話の圧縮 |
-| Claude の稼働・effort | `system/turn_duration` の `durationMs` を `turns` に、応答の `effort` を `usage.effort` に保存する。続きのセッションのコピーは uuid で除く |
-| コスト | API の料金表（`src/server/pricing.ts`）で換算した目安。サブスクリプションで使っているときの実際の支払いとは一致しない |
+| Human prompt | `type=user` and `origin.kind=human` (any `promptSource`; `sdk` is also human input, e.g. from the desktop app). Includes slash commands |
+| Automatic-run turn | From a user record with `turnOrigin=scheduled` until the next human prompt. Set `messages.is_scheduled=1` and exclude from work-block computation. `task-notification` and `peer` don't change how a turn is treated |
+| Headless session | Zero human prompts. Not shown on the calendar |
+| Worktree | If the launch cwd is `<repo>/.claude/worktrees/<name>`, the project is `<repo>` and `<name>` becomes a secondary label. A later `relocated` / `worktree-state` only affects the secondary label |
+| Title | `custom-title` > `agent-name` > `ai-title` > the first human prompt |
+| Recap | Store `system/away_summary` and use it as a placeholder until the AI summary is ready |
+| Tool output | Truncated to the first 4KB |
+| Thinking and images | Not stored |
+| Commit | A successful Bash call containing `git commit` |
+| PR | A `pr-link` record. The title comes from `--title` of `gh pr create` and is linked by the URL in the result's `gitOperation.pr` |
+| Token usage | Store the assistant record's `message.usage` in `usage`, one row per `message.id` (with the maximum `output_tokens`). Subagent usage goes into the parent session. Returned per work block as the sum within its time range |
+| Activity | Counted from messages and artifacts within the work block's time range: outcomes (commits and PRs, up to 5 minutes after the end), files edited (distinct targets of Edit / Write, etc.), tool calls, subagents, stumbles (tool errors, interrupts, API errors), conversation compactions |
+| Claude's working time and effort | Store `durationMs` of `system/turn_duration` in `turns`, and the response's `effort` in `usage.effort`. Copies in continued sessions are excluded by uuid |
+| Cost | An estimate converted with the API price list (`src/server/pricing.ts`). It won't match what you actually pay when using a subscription |
 
-判定ルールの根拠と、ルールごとの fixture は [tests/fixtures/README.md](../tests/fixtures/README.md) にまとめた。
+The evidence for each rule and the fixture for each rule are collected in [tests/fixtures/README.md](../tests/fixtures/README.md).
 
-パーサーには `PARSER_VERSION` を持たせる。`ingest_state.parser_version` と一致しないファイルは、元ログが残っていれば読み直す。
+The parser has a `PARSER_VERSION`. Files whose `ingest_state.parser_version` doesn't match are re-read if the original log still exists.
 
-## 4. 要約の流れ
+## 4. Summary flow
 
-要約はセクション（カレンダーの 1 ブロック）単位。1 セッションが最大 15 ブロックに分かれる実データでは、セッション単位の要約だと同じ見出しが並んでしまうため。
+Summaries are per section (one calendar block). With real data, a single session splits into as many as 15 blocks, so per-session summaries would repeat the same headline.
 
 ```mermaid
 sequenceDiagram
@@ -108,62 +108,63 @@ sequenceDiagram
     participant C as claude CLI
     participant UI as Web UI
 
-    loop 1 分ごと + 取り込みのたび
-        S->>DB: 要約対象のセクションを探す（新しいものから）
-        Note over S,DB: 10 分以上 or 発言 2 回以上<br/>かつ 終わっている（最後の活動から 30 分 or 後ろに次のセクション）<br/>かつ 要約なし or covered_until < end<br/>かつ 直近 7 日以内
+    loop every minute + on every ingest
+        S->>DB: find sections to summarize (newest first)
+        Note over S,DB: 10+ minutes or 2+ prompts<br/>and finished (30 minutes since last activity or a later section exists)<br/>and no summary or covered_until < end<br/>and within the last 7 days
     end
-    S->>DB: そのセクションの messages から抜粋を作る（最大 6 万字・先頭と末尾を優先）
-    S->>C: プロンプト（セッション名・それまでのセクションの見出し・抜粋）
-    C-->>S: 見出し + 本文（Markdown）
-    S->>DB: summaries を upsert（キーは session_id + start、covered_until = end）
+    S->>DB: build an excerpt from the section's messages (up to 60k characters, head and tail first)
+    S->>C: prompt (session name, headlines of earlier sections, excerpt)
+    C-->>S: headline + body (Markdown)
+    S->>DB: upsert summaries (key: session_id + start, covered_until = end)
     S-->>UI: SSE: summary.updated
 ```
 
-- 並列数は 1。失敗したら理由を記録し、1 分・2 分・4 分おいて最大 3 回まで再試行する
-- 短いセクション（10 分未満かつ発言 1 回以下）は、自動では見出しだけを作る。`summaries` に本文を空文字で保存し、API では要約なし（`body: null`）として返す
-- 短いセクションの本文と 7 日より前のセクションは、ドロワーのボタン（`POST /api/sessions/:id/sections/:start/summary`）で優先キューへ積める
-- 見出しのないセクション（7 日より前・作業中・生成前）は、取り込み時に計算する `segments.fallback_title`（最初の発言、なければ Claude の最後の返答の 1 行目）を出す
-- `claude` は専用の作業ディレクトリで実行し、`--no-session-persistence`・`--tools ""`・`--strict-mcp-config`・`--setting-sources project` を付けて副作用をなくす
+- Concurrency is 1. On failure the reason is recorded and it retries up to 3 times after 1, 2 and 4 minutes
+- For short sections (under 10 minutes and at most one prompt), only a headline is generated automatically. The body is stored in `summaries` as an empty string and returned by the API as no summary (`body: null`)
+- The body of short sections and sections older than 7 days can be pushed to the priority queue with the button in the drawer (`POST /api/sessions/:id/sections/:start/summary`)
+- Sections without a headline (older than 7 days, in progress, not yet generated) show `segments.fallback_title`, computed at ingest (the first prompt, or failing that the first line of Claude's last reply)
+- The summary language is set with `--summary-lang <en|ja>` (default `en`). Changing it doesn't touch existing summaries; they can be regenerated from the drawer
+- `claude` runs in a dedicated working directory with `--no-session-persistence`, `--tools ""`, `--strict-mcp-config` and `--setting-sources project` to eliminate side effects
 
 ## 5. API
 
-| メソッド | パス | 内容 |
+| Method | Path | Description |
 |---|---|---|
-| GET | `/api/health` | 起動確認（Launcher が使う） |
-| GET | `/api/calendar?from&to` | 期間内のセッションと、そのセクション（開始・終了・見出し・発言数・トークン使用量・活動） |
-| GET | `/api/spans?from&to` | 期間と重なる作業ブロックの開始・終了・プロジェクトだけ。日付ピッカーの「記録のある日」の点に使い、日への振り分けは画面のローカル時刻で行う |
-| GET | `/api/sessions/:id` | セッション詳細（セクションごとの要約・成果物・サブエージェント） |
-| GET | `/api/sessions/:id/messages?cursor&limit` | 会話をページングで取得 |
-| POST | `/api/sessions/:id/sections/:start/summary` | セクションの要約の生成・再生成を優先キューに積む（202） |
-| GET | `/api/projects` | プロジェクト一覧（色・非表示フラグ） |
-| PATCH | `/api/projects/:id` | 色・非表示の変更 |
-| GET | `/api/events` | SSE（`sessions.updated` / `summary.updated` / `ingest.progress`） |
+| GET | `/api/health` | Liveness check (used by the Launcher) |
+| GET | `/api/calendar?from&to` | Sessions in the period and their sections (start, end, headline, prompt count, token usage, activity) |
+| GET | `/api/spans?from&to` | Only the start, end and project of work blocks overlapping the period. Used for the "days with records" dots in the date picker; assigning to days is done in the UI's local time |
+| GET | `/api/sessions/:id` | Session details (per-section summaries, artifacts, subagents) |
+| GET | `/api/sessions/:id/messages?cursor&limit` | Paginated conversation |
+| POST | `/api/sessions/:id/sections/:start/summary` | Push generating or regenerating a section's summary onto the priority queue (202) |
+| GET | `/api/projects` | List of projects (color, hidden flag) |
+| PATCH | `/api/projects/:id` | Change color or hidden |
+| GET | `/api/events` | SSE (`sessions.updated` / `summary.updated` / `ingest.progress`) |
 
-書き込み系（POST / PATCH）は `Content-Type: application/json` と同一 Origin を必須にする。全リクエストで Host ヘッダが `127.0.0.1` か `localhost` であることを検証する。
+Write routes (POST / PATCH) require `Content-Type: application/json` and the same Origin. Every request's Host header must be `127.0.0.1` or `localhost`.
 
-リクエストとレスポンスの型は `src/shared` に置き、サーバーとフロントで共有する。
+Request and response types live in `src/shared` and are shared by the server and the frontend.
 
-## 6. 画面構成
+## 6. Screen layout
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ Kairos   [週|日]  ‹ 今日 ›  2026年10月 第1週     [絞り込み▾]     │
+│ Kairos   [Week|Day]  ‹ Today ›  October 2026  W40  [Filter▾] │
 ├──────┬───────────────────────────────────┬───────────────────┤
-│ 時刻 │  月   火   水   木   金   土   日  │ 詳細ドロワー        │
-│ 9:00 │ ┌──┐                              │ 見出し              │
-│      │ │要│ ┌──┐                         │ プロジェクト・時間   │
-│10:00 │ │約│ │  │                         │ ─ 要約 ─           │
-│      │ └──┘ └──┘                         │ 目的 / やったこと… │
-│      │                                   │ ─ 会話 ─           │
-│      │                                   │ ─ コミット・PR ─   │
+│ Time │ Mon  Tue  Wed  Thu  Fri  Sat  Sun │ Detail drawer     │
+│ 9:00 │ ┌──┐                              │ Headline          │
+│      │ │Su│ ┌──┐                         │ Project, time     │
+│10:00 │ │mm│ │  │                         │ ─ Summary ─       │
+│      │ └──┘ └──┘                         │ Goal / Done …     │
+│      │                                   │ ─ Conversation ─  │
+│      │                                   │ ─ Commits, PRs ─  │
 └──────┴───────────────────────────────────┴───────────────────┘
 ```
 
-- 同じ時間帯に重なるブロックは、Google カレンダーと同じく横に並べる
-- ブロックには要約の見出しを出す。高さが足りなければ見出しだけにし、ホバーで全文を出す
-- ドロワーは URL（`?session=`）と同期し、リロードしても開いたままにする
+- Blocks that overlap in time are placed side by side, as in Google Calendar
+- Blocks show the summary headline. If there isn't enough height, only the headline is shown, with the full text on hover
+- The drawer is synced with the URL (`?session=`) and stays open across reloads
 
-## 7. ディレクトリ構成
+## 7. Directory layout
 
 ```
 kairos/
@@ -171,21 +172,21 @@ kairos/
 ├── src/
 │   ├── cli/            # kairos serve / ensure / ingest / summarize
 │   ├── server/
-│   │   ├── db/         # スキーマ・マイグレーション・クエリ
+│   │   ├── db/         # schema, migrations, queries
 │   │   ├── ingest/     # watcher, reader, parser, normalize, segments
-│   │   ├── summarize/  # queue, digest, claude 実行
-│   │   └── api/        # Hono ルート、SSE、セキュリティ middleware
-│   ├── shared/         # API 型・定数
-│   └── web/            # React アプリ（Vite）
-├── tests/fixtures/     # 匿名化した jsonl サンプル
+│   │   ├── summarize/  # queue, digest, running claude
+│   │   └── api/        # Hono routes, SSE, security middleware
+│   ├── shared/         # API types and constants
+│   └── web/            # React app (Vite); i18n/ holds the UI messages
+├── tests/fixtures/     # anonymized jsonl samples
 └── package.json
 ```
 
-## 8. 保存場所
+## 8. Storage locations
 
-| 種類 | パス |
+| Kind | Path |
 |---|---|
 | DB | `~/Library/Application Support/kairos/kairos.db` |
-| ログ | `~/Library/Logs/kairos/server.log` |
+| Log | `~/Library/Logs/kairos/server.log` |
 | PID | `~/Library/Application Support/kairos/kairos.pid` |
-| 要約用作業ディレクトリ | `~/Library/Application Support/kairos/summarizer/` |
+| Working directory for summaries | `~/Library/Application Support/kairos/summarizer/` |

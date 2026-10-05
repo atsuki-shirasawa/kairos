@@ -10,6 +10,7 @@ import { Ingester } from "./ingest/ingester.ts";
 import { watchProjects } from "./ingest/watcher.ts";
 import { DATA_DIR, DEFAULT_CLAUDE_DIR, DEFAULT_DB_PATH } from "./paths.ts";
 import { runClaude } from "./summarize/claude.ts";
+import type { SummaryLang } from "./summarize/prompt.ts";
 import { DEFAULT_MODEL, Summarizer } from "./summarize/summarizer.ts";
 
 const WEB_DIST = join(import.meta.dir, "../../dist/web");
@@ -18,14 +19,16 @@ export interface ServeOptions {
   port?: number;
   claudeDir?: string;
   dbPath?: string;
-  /** 要約に使うモデル（claude --model に渡す）。 */
+  /** Model used for summaries (passed to claude --model). */
   summaryModel?: string;
-  /** false なら要約を自動では作らない（ドロワーから頼んだときだけ作る）。 */
+  /** Language summaries are written in (default: English). */
+  summaryLang?: SummaryLang;
+  /** When false, summaries are not made automatically (only when requested from the drawer). */
   autoSummary?: boolean;
 }
 
 /**
- * サーバーを起動する。DB にあるデータですぐに応答を始め、取り込みと監視はその後ろで進める。
+ * Starts the server. It answers right away from what is already in the DB; ingest and watching run behind it.
  */
 export async function serve(opts: ServeOptions = {}): Promise<void> {
   const db = openDb(opts.dbPath ?? DEFAULT_DB_PATH);
@@ -38,14 +41,15 @@ export async function serve(opts: ServeOptions = {}): Promise<void> {
     {
       model,
       auto: opts.autoSummary ?? true,
+      ...(opts.summaryLang ? { lang: opts.summaryLang } : {}),
       onUpdated: (t) =>
         events.publish({ type: "summary.updated", sessionId: t.sessionId, start: t.start }),
     },
   );
   const app = createApp({ db, events, summarizer });
 
-  // ビルド済みの Web があれば配信する。開発中は Vite が配信し、/api だけここへプロキシされる。
-  // 画面は / だけ（状態はクエリで持つ）なので、SPA 用のフォールバックは置かない。
+  // Serve the built web app if there is one. In development Vite serves it and proxies only /api here.
+  // The UI is only / (state lives in the query string), so there is no SPA fallback.
   if (existsSync(WEB_DIST)) app.use("/*", serveStatic({ root: WEB_DIST }));
 
   let server: ReturnType<typeof Bun.serve>;
@@ -54,10 +58,10 @@ export async function serve(opts: ServeOptions = {}): Promise<void> {
       hostname: HOST,
       port: opts.port ?? PORT,
       fetch: app.fetch,
-      idleTimeout: 0, // SSE の接続を切らない
+      idleTimeout: 0, // Keep SSE connections open
     });
   } catch (e) {
-    // 別のプロセスがポートを使っている（多くは、すでに起動している Kairos）
+    // Another process holds the port (usually a Kairos that is already running)
     console.error(`kairos: cannot listen on ${HOST}:${opts.port ?? PORT}:`, e);
     db.close();
     process.exit(1);
@@ -65,7 +69,7 @@ export async function serve(opts: ServeOptions = {}): Promise<void> {
   writePid(process.pid);
   log(`serving http://${HOST}:${server.port}/ (pid ${process.pid})`);
   if (!existsSync(WEB_DIST))
-    log("画面がビルドされていません。`bun run build` を実行してください（API だけ動きます）");
+    log("web UI is not built; run `bun run build` (only the API is available)");
 
   const stats = await ingester.scanAsync((done, total) =>
     events.publish({ type: "ingest.progress", done, total }),

@@ -2,6 +2,9 @@ import type { CalendarSession, Project } from "@shared/api.ts";
 import { ArrowDown, ArrowUp, GitCommitHorizontal, GitPullRequest } from "lucide-react";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip.tsx";
+import { calendarMessages } from "@/i18n/messages/calendar.ts";
+import { dateMessages } from "@/i18n/messages/dates.ts";
+import { formatMessages } from "@/i18n/messages/format.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { DAY, dateLabel, durationLabel, HOUR, hhmm, isSameDay, weekday } from "@/lib/dates.ts";
 import type { SegmentMatch } from "@/lib/filter.ts";
@@ -12,26 +15,26 @@ import { reveal } from "@/lib/reveal.ts";
 import { counted, totalsOf } from "@/lib/totals.ts";
 import { cn } from "@/lib/utils.ts";
 
-/** 1 時間の最小の高さ。これより低いと短いブロックの見出しが読めない。 */
+/** Minimum height of an hour. Any lower and headings of short blocks become unreadable. */
 const MIN_HOUR_PX = 48;
-/** 開いたときに見せる時間帯（時）。画面の高さにこの範囲が収まるよう 1 時間の高さを決め、中央に置く。 */
+/** Hours shown on open. The hour height is chosen so this range fits the screen, and it is centered. */
 const VIEW_START = 8;
 const VIEW_END = 20;
 const GUTTER = "3.5rem";
 const GUTTER_PX = 56;
 /**
- * 作業のある日の列がこれより細くなるときは、選んだ日とその前後だけを広げる。
- * ドロワーを開くと週の 7 列が 60px ほどになり、見出しが 2〜5 文字しか読めなくなるため。
+ * When columns of busy days get narrower than this, only the selected day and its neighbors are widened.
+ * With the drawer open, the 7 week columns shrink to about 60px and headings show only a few characters.
  */
 const FOCUS_BELOW_PX = 150;
-/** 同じ列で重ねたブロックを右にずらす幅。下のブロックの左端の色が見えるようにする。 */
+/** Right offset for stacked blocks, so the colored left edge of the block below stays visible. */
 const INDENT_PX = 8;
-/** Tailwind がクラス名を拾えるよう、行数ごとのクラスを書き下しておく。 */
+/** Spelled out per line count so Tailwind can pick up the class names. */
 const LINE_CLAMP = ["", "line-clamp-1", "line-clamp-2", "line-clamp-3"] as const;
 
 /**
- * 時刻の列の地色。夜（藍）→ 夜明け → 昼（地色）→ 夕方（琥珀）→ 夜。
- * 位置は 24 時間に対する割合で指定する。
+ * Background of the time column: night (indigo) → dawn → day (base) → dusk (amber) → night.
+ * Stops are fractions of 24 hours.
  */
 const SKY = `linear-gradient(to bottom,
   var(--night) 0%, var(--night) ${(4.5 / 24) * 100}%,
@@ -49,19 +52,19 @@ interface Props {
   sessions: CalendarSession[];
   projects: Map<number, Project>;
   selectedId: string | null;
-  /** 選んだセクションの開始時刻。null ならそのセッションのブロックをすべて選択表示にする。 */
+  /** Start of the selected section. When null, every block of that session shows as selected. */
   selectedAt: number | null;
   now: number;
-  /** 絞り込みの条件に合うか。合わないブロックは、日の流れが分かるよう消さずに薄く描く。 */
+  /** Whether a block matches the filter. Non-matching blocks are faded, not removed, to keep the shape of the day. */
   matches: SegmentMatch;
   onSelect: (id: string, at: number) => void;
   onOpenDay: (day: number) => void;
 }
 
-/** 画面の外（上下）にあるブロックの案内。 */
+/** Hint for blocks scrolled out of view (above or below). */
 interface Edge {
   count: number;
-  /** いちばん近いブロックの時刻（表示用）と、そこへ動かすときのスクロール位置。 */
+  /** Time of the nearest block (for display), and the scroll position that brings it into view. */
   time: number;
   scrollTo: number;
 }
@@ -82,15 +85,15 @@ export function CalendarGrid({
   const columns = useMemo(() => days.map((day) => layoutDay(sessions, day)), [days, sessions]);
   const firstDay = days[0] ?? 0;
 
-  // 選んだブロックが画面の外なら見える位置まで動かす（リストから切り替えたとき、j / k で移ったときなど）
+  // Scroll the selected block into view if it's off screen (after switching from the list, moving with j / k, etc.)
   const revealSelected = useCallback(() => {
     const el = scrollRef.current?.querySelector("[data-selected]");
     reveal(scrollRef.current, el ?? null);
   }, []);
 
-  // 期間が変わったら、見せる時間帯の真ん中が画面の中央に来るようにスクロールする。
-  // 高さが変わったときも合わせ直す（測る前の仮の高さで一度スクロールしてしまうため）
-  // biome-ignore lint/correctness/useExhaustiveDependencies: 期間（firstDay）が変わったときにも動かす
+  // When the period changes, center the middle of the shown hours on screen.
+  // Redo it when the height changes too (the first scroll uses a provisional height before measuring)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: also run when the period (firstDay) changes
   useLayoutEffect(() => {
     if (!scrollRef.current) return;
     const center = ((VIEW_START + VIEW_END) / 2) * hourPx;
@@ -98,10 +101,10 @@ export function CalendarGrid({
     revealSelected();
   }, [firstDay, hourPx, viewportPx, revealSelected]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: 選択が変わったときだけ動かす
+  // biome-ignore lint/correctness/useExhaustiveDependencies: run only when the selection changes
   useLayoutEffect(revealSelected, [selectedId, selectedAt, revealSelected]);
 
-  // 見せる時間帯の外（夜遅く・朝早く）の作業は、そのままでは気づけないので上下の端に案内を出す
+  // Work outside the shown hours (late night, early morning) is easy to miss, so hint at it on the top/bottom edge
   const [edges, setEdges] = useState<{ above: Edge | null; below: Edge | null }>({
     above: null,
     below: null,
@@ -115,7 +118,7 @@ export function CalendarGrid({
     const y1 = (b: PlacedBlock) =>
       y0(b) + (Math.max(b.end - b.start, MIN_BLOCK_MS) / HOUR) * hourPx;
     const all = columns.flat();
-    // 日をまたいで比べるので、時刻は日の 0 時からの値で比べる。いちばん画面に近いものへ動かす
+    // Compared across days, so use times since midnight. Jump to the one nearest the view
     const above = all.filter((b) => y1(b) <= top + 4).sort((a, b) => b.end - a.end);
     const below = all.filter((b) => y0(b) >= bottom - 4).sort((a, b) => a.start - b.start);
     const a = above[0];
@@ -130,11 +133,11 @@ export function CalendarGrid({
       sameEdge(prev.above, next.above) && sameEdge(prev.below, next.below) ? prev : next,
     );
   }, [columns, hourPx]);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: 高さが変わったときも測り直す
+  // biome-ignore lint/correctness/useExhaustiveDependencies: measure again when the height changes
   useLayoutEffect(measureEdges, [measureEdges, viewportPx]);
 
-  // 作業のない日（今日より後の日など）は細くし、作業のある日に幅を回す。
-  // すべて空なら均等にする（fr の合計が 1 未満だと余白が残るため）
+  // Days without work (e.g. after today) get narrow, leaving the width to busy days.
+  // If all are empty, keep them even (fr values summing below 1 would leave a gap)
   const anyBusy = columns.some((c) => c.length > 0);
   const busyCount = columns.filter((c) => c.length > 0).length;
   const focusIndex = useMemo(() => {
@@ -150,7 +153,7 @@ export function CalendarGrid({
     return "minmax(0, 1fr)";
   });
   const template = { gridTemplateColumns: `${GUTTER} ${tracks.join(" ")}` };
-  // 列の幅が変わるときは動きで見せ、どの日が広がったかを追えるようにする
+  // Animate column width changes so it's easy to follow which day widened
   const animate = "transition-[grid-template-columns] duration-200 motion-reduce:transition-none";
 
   return (
@@ -161,7 +164,7 @@ export function CalendarGrid({
           <DayHeader
             key={day}
             day={day}
-            // 日の合計は、絞り込みに合う作業だけで数える
+            // Day totals count only work that matches the filter
             blocks={(columns[i] ?? []).filter((b) => matches(b.session, b.segment))}
             today={isSameDay(day, now)}
             onOpen={() => onOpenDay(day)}
@@ -223,9 +226,9 @@ export function CalendarGrid({
 }
 
 /**
- * 日の見出し。日付の下に、その日の作業時間と成果だけを 1 行で添える（リストの日の合計の簡略版）。
- * ほかの数字（件数・Claude の稼働・トークン・コスト・つまずき）はツールチップに回し、
- * カレンダーが数字で埋まらないようにする。列が細いとき（ドロワーを開いたときなど）は 1 行目だけにする。
+ * Day header. Below the date, one line with the day's working time and results (a short form of the
+ * list's daily totals). Other numbers (blocks, Claude time, tokens, cost, snags) go to the tooltip so
+ * the calendar doesn't fill up with numbers. Narrow columns (e.g. with the drawer open) show only line 1.
  */
 function DayHeader({
   day,
@@ -244,20 +247,24 @@ function DayHeader({
   const commits = activity?.commits ?? 0;
   const prs = activity?.prs ?? 0;
   const trouble = activity ? troubleCount(activity) : 0;
+  const m = calendarMessages();
+  const f = formatMessages();
 
   const button = (
     <button
       type="button"
       onClick={onOpen}
       className="@container flex min-h-14 min-w-0 flex-col justify-center overflow-hidden border-l px-2.5 py-1 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
-      aria-label={`${dateLabel(day)}を日表示で開く`}
+      aria-label={m.openDay(dateLabel(day))}
     >
       <span className="flex items-baseline gap-1.5 whitespace-nowrap">
-        {/* 月の初日だけ月を添え、週の途中で月が変わったことが分かるようにする */}
+        {/* Show the month on the 1st only, so a month change mid-week stands out */}
         {d.getDate() === 1 && (
-          <span className="font-num text-muted-foreground text-xs">{d.getMonth() + 1}月</span>
+          <span className="font-num text-muted-foreground text-xs">
+            {dateMessages().monthShort(d.getMonth())}
+          </span>
         )}
-        {/* 今日は数字を藍の丸で囲む（カレンダーアプリで見慣れた印） */}
+        {/* Circle today's number in indigo (the familiar calendar-app mark) */}
         <span
           className={cn(
             "font-num font-semibold text-lg leading-7",
@@ -287,9 +294,9 @@ function DayHeader({
               {prs}
             </span>
           )}
-          {/* 日表示のように広いときだけ、件数とコストも並べる */}
+          {/* Only when wide (as in the day view), add the block count and cost */}
           <span className="@min-[20rem]:inline-flex hidden gap-2">
-            <span>{blocks.filter(counted).length} 件</span>
+            <span>{f.blocks(blocks.filter(counted).length)}</span>
             {usage && (
               <span>
                 {usage.unpriced ? "~" : ""}
@@ -309,22 +316,24 @@ function DayHeader({
       <TooltipContent side="bottom" className="flex-col items-start gap-0.5 font-num">
         <p className="font-medium">{dateLabel(day)}</p>
         <p className="opacity-80">
-          {blocks.filter(counted).length} 件・作業 {durationLabel(busy)}
-          {activity?.claudeMs ? `（Claude 延べ ${durationLabel(activity.claudeMs)}）` : ""}
+          {m.blocksWork(f.blocks(blocks.filter(counted).length), durationLabel(busy))}
+          {activity?.claudeMs ? m.claudeTotal(durationLabel(activity.claudeMs)) : ""}
         </p>
         {usage && (
           <p className="opacity-80">
-            {tokensLabel(usage.tokens)} トークン・API 料金換算 {usage.unpriced ? "~" : ""}
-            {costLabel(usage.costUsd)}
+            {m.tokensCost(
+              tokensLabel(usage.tokens),
+              `${usage.unpriced ? "~" : ""}${costLabel(usage.costUsd)}`,
+            )}
           </p>
         )}
         {(commits > 0 || prs > 0 || trouble > 0) && (
           <p className="opacity-80">
-            コミット {commits}・PR {prs}
-            {trouble > 0 && `・つまずき ${trouble}`}
+            {f.commitsPrs(commits, prs)}
+            {trouble > 0 && `${f.separator}${f.trouble(trouble)}`}
           </p>
         )}
-        <p className="opacity-60">クリックで日表示</p>
+        <p className="opacity-60">{m.clickForDay}</p>
       </TooltipContent>
     </Tooltip>
   );
@@ -343,10 +352,11 @@ function EdgeButton({
   onClick: (top: number) => void;
 }) {
   const Icon = where === "above" ? ArrowUp : ArrowDown;
+  const m = calendarMessages();
   const text =
     where === "above"
-      ? `${hhmm(edge.time)} までに ${edge.count} 件`
-      : `${hhmm(edge.time)} から ${edge.count} 件`;
+      ? m.edgeAbove(hhmm(edge.time), edge.count)
+      : m.edgeBelow(hhmm(edge.time), edge.count);
   return (
     <button
       type="button"
@@ -355,7 +365,7 @@ function EdgeButton({
         "absolute left-1/2 z-20 inline-flex -translate-x-1/2 items-center gap-1 rounded-full border bg-popover px-3 py-1 font-num text-muted-foreground text-xs shadow-sm hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring",
         where === "above" ? "top-2" : "bottom-2",
       )}
-      aria-label={`画面の${where === "above" ? "上" : "下"}にある作業へ移る（${text}）`}
+      aria-label={m.edgeAria(where === "above", text)}
     >
       <Icon className="size-3" />
       {text}
@@ -364,9 +374,9 @@ function EdgeButton({
 }
 
 /**
- * スクロール領域の大きさから 1 時間の高さを決める。見せる時間帯がちょうど収まる高さにし、
- * 低い画面では最小の高さで止める。ウィンドウの大きさが変わったら測り直す。
- * 幅は、ドロワーを開いて列が細くなったかを判断するのに使う。
+ * Derives the hour height from the scroll area: just enough for the shown hours to fit, but never
+ * below the minimum on short screens. Re-measures when the window resizes.
+ * The width tells whether opening the drawer made the columns narrow.
  */
 function useGridSize(ref: React.RefObject<HTMLDivElement | null>) {
   const [size, setSize] = useState({ hourPx: MIN_HOUR_PX, viewportPx: 0, widthPx: 0 });
@@ -420,7 +430,7 @@ function DayColumn({
         backgroundImage: `repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px ${hourPx}px)`,
       }}
     >
-      {/* 現在時刻の線はブロックの下に描く。直前の短いブロックを隠さないため */}
+      {/* Draw the current-time line under the blocks, so it doesn't hide a short block just before it */}
       {today && (
         <div
           className="pointer-events-none absolute inset-x-0 h-0.5 bg-primary"
@@ -464,19 +474,22 @@ function Block({
 }) {
   const { session, start, end, col, cols, span, depth } = block;
   const height = (Math.max(end - start, MIN_BLOCK_MS) / HOUR) * hourPx - 2;
-  // 最低限の高さ（MIN_BLOCK_MS）でも 1 行は入るよう、短いときは余白を詰める
+  // Tighten the padding on short blocks so one line fits even at the minimum height (MIN_BLOCK_MS)
   const short = height < 34;
-  // 上に別のブロックが重なるなら、見出しはそこまでに見えている高さに収める
+  // If another block covers this one, fit the heading into the part still visible
   const visible =
     block.coveredFrom === null ? height : ((block.coveredFrom - start) / HOUR) * hourPx;
   const lines = Math.max(1, Math.min(3, Math.floor((visible - 8) / 16.5)));
   const label = block.segment.headline;
   const range = `${hhmm(block.dayStart + start)}–${hhmm(block.dayStart + end)}`;
   const working = session.active && isLastSegment(block);
-  // 要約前のブロックは最初の発言（「ごめん、別セッション宛てでした」など）がそのまま見出しになり、
-  // 要約のある作業と並ぶと雑音になる。地と文字を控えめにする。作業中のものは要約を待っているだけなので除く
+  // Before summarizing, the heading is the raw first prompt ("sorry, meant for another session", etc.),
+  // which is noise next to summarized work. Tone down background and text. In-progress work is
+  // just waiting for its summary, so it is excluded
   const dim = !block.segment.summarized && !working;
-  const projectName = project?.name ?? "プロジェクト不明";
+  const m = calendarMessages();
+  const f = formatMessages();
+  const projectName = project?.name ?? f.unknownProject;
 
   return (
     <Tooltip>
@@ -486,14 +499,14 @@ function Block({
           onClick={() => onSelect(session.id, block.segment.start)}
           aria-pressed={selected}
           data-selected={selected || undefined}
-          aria-label={`${label}、${projectName}、${dateLabel(block.dayStart)} ${range}`}
+          aria-label={m.blockAria(label, projectName, dateLabel(block.dayStart), range)}
           className={cn(
-            // 地は淡い色、左端だけ濃い色。時刻列のグラデーションより目立たせない
+            // Pale background with a strong left edge. Kept quieter than the time column gradient
             "absolute flex flex-col gap-0.5 overflow-hidden rounded-r-md rounded-l-[3px] border-l-[3px] pr-1.5 pl-1.5 text-left",
             short ? "py-px" : "py-1",
-            // 重ねたブロックは地色の縁で下のブロックと分ける
+            // Stacked blocks get a base-colored outline to separate them from the one below
             depth > 0 && "shadow-[0_0_0_1px_var(--card)]",
-            // oklab で混ぜると、紺の地でも色味が灰色に濁りにくい
+            // Mixing in oklab keeps hues from turning gray on the dark navy background
             dim
               ? "bg-[color-mix(in_oklab,var(--c)_var(--mix-block-dim),var(--card))] text-muted-foreground"
               : "bg-[color-mix(in_oklab,var(--c)_var(--mix-block),var(--card))] text-foreground",
@@ -504,7 +517,7 @@ function Block({
             selected && "outline-2 outline-foreground outline-offset-1",
             block.continuesBefore && "rounded-t-none",
             block.continuesAfter && "rounded-b-none",
-            // 絞り込みに合わないものは形だけ残す。触れたときと選んだときは元に戻して読めるようにする
+            // Non-matching blocks keep only their shape. Restore them on hover/focus and when selected so they stay readable
             faded &&
               !selected &&
               "opacity-30 transition-opacity hover:opacity-100 focus-visible:opacity-100 motion-reduce:transition-none",
@@ -515,7 +528,7 @@ function Block({
               height,
               left: `calc(${(col / cols) * 100}% + ${2 + depth * INDENT_PX}px)`,
               width: `calc(${(span / cols) * 100}% - ${4 + depth * INDENT_PX}px)`,
-              // 後から始まったものほど上に描く。選択中も、上に重なったブロックは隠さない
+              // Later blocks draw on top. Even when selected, a block never hides the ones stacked over it
               zIndex: 1 + depth * 2 + (selected ? 1 : 0),
               borderLeftColor: "var(--c)",
               "--c": projectColor(project),
@@ -538,7 +551,7 @@ function Block({
           {working && (
             <span
               className="absolute right-1.5 bottom-1.5 size-1.5 animate-pulse rounded-full bg-[var(--c)] motion-reduce:animate-none"
-              title="作業中"
+              title={f.working}
             />
           )}
         </button>
@@ -547,19 +560,19 @@ function Block({
         <p className="font-medium">{label}</p>
         <p className="opacity-80">
           {projectName}
-          {session.label ? `（${session.label}）` : ""}
+          {session.label ? f.sessionLabel(session.label) : ""}
         </p>
         <p className="font-num opacity-80">
-          {range}（{durationLabel(block.end - block.start)}）
+          {m.rangeDuration(range, durationLabel(block.end - block.start))}
         </p>
-        {faded && <p className="opacity-60">絞り込みの条件に合いません</p>}
-        {dim && <p className="opacity-60">要約前のため、最初の発言を見出しにしています</p>}
+        {faded && <p className="opacity-60">{m.notMatching}</p>}
+        {dim && <p className="opacity-60">{m.notSummarized}</p>}
       </TooltipContent>
     </Tooltip>
   );
 }
 
-/** セッションの最後の作業ブロック（「作業中」の印はここにだけ付ける）。 */
+/** Whether this is the session's last work block (only it gets the "in progress" mark). */
 function isLastSegment(block: PlacedBlock): boolean {
   const last = Math.max(...block.session.segments.map((g) => g.end));
   return block.segment.end >= last && block.dayStart + block.end >= block.segment.end;

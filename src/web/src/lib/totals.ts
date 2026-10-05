@@ -1,11 +1,11 @@
-// 日・期間の合計。カレンダーの日の見出しとリストの合計の行で同じ数え方をする。
+// Day and period totals. The calendar day header and the list total rows count the same way.
 import type { Activity, Usage } from "@shared/api.ts";
 import { sumActivity, sumUsage } from "./format.ts";
 import type { DayBlock } from "./layout.ts";
 
 /**
- * 日をまたぐブロックは日ごとに分けるが、数は最初の日にだけ載せる（合計で二重に数えないため）。
- * 長さだけは、その日の分を数える。
+ * Blocks spanning midnight are split per day, but their numbers count only on the first day (so
+ * totals don't double count). Only the duration counts per day.
  */
 export const counted = (b: DayBlock) => !b.continuesBefore;
 export const usageOf = (b: DayBlock): Usage | null => (counted(b) ? b.segment.usage : null);

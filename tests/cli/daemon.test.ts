@@ -1,4 +1,4 @@
-// 実際に CLI を別プロセスで動かし、バックグラウンド起動・二重起動の防止・停止を確かめる。
+// Runs the real CLI in a separate process to check background start, duplicate-start prevention and stop.
 import { afterAll, expect, test } from "bun:test";
 import { cpSync, existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -37,7 +37,7 @@ afterAll(() => {
   run("stop");
 });
 
-test("ensure は何も出力せずにすぐ戻り、同時に呼んでもサーバーは 1 つだけ", async () => {
+test("ensure returns immediately without output, and concurrent calls start only one server", async () => {
   const procs = Array.from({ length: 5 }, () =>
     Bun.spawn(["bun", CLI, "ensure", ...args], { env, stdout: "pipe", stderr: "pipe" }),
   );
@@ -58,16 +58,16 @@ test("ensure は何も出力せずにすぐ戻り、同時に呼んでもサー�
     .filter(Boolean);
   expect(servers).toEqual([String(pid)]);
 
-  // 動いていれば、確認だけですぐ戻る
+  // If running, it only checks and returns immediately
   const again = run("ensure");
   expect(again.out).toBe("");
   expect(again.code).toBe(0);
-  expect(run("status").out).toContain("動いています");
+  expect(run("status").out).toContain("Running");
 }, 30_000);
 
-test("stop で止まり、PID ファイルも消える", async () => {
-  expect(run("stop").out).toContain("止めました");
+test("stop stops the server and removes the PID file", async () => {
+  expect(run("stop").out).toContain("Stopped.");
   expect(existsSync(join(root, "data", "kairos.pid"))).toBe(false);
-  expect(run("status").out).toContain("止まっています");
-  expect(run("stop").out).toContain("動いていませんでした");
+  expect(run("status").out).toContain("Not running");
+  expect(run("stop").out).toContain("Was not running");
 }, 30_000);

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { fromISODate, type Layout, startOfDay, toISODate, type View } from "@/lib/dates.ts";
 import { type Filter, NO_FILTER } from "@/lib/filter.ts";
 
-/** リストの並べ替え。`start` は時刻順（日ごとにまとめる）、ほかは列のキー。 */
+/** List sort. `start` is time order (grouped by day); the others are column keys. */
 export interface ListSort {
   key: string;
   desc: boolean;
@@ -10,21 +10,21 @@ export interface ListSort {
 
 export const DEFAULT_SORT: ListSort = { key: "start", desc: false };
 
-/** 表示状態。URL（?view=&layout=&date=&session=&sort=&q=&outcome=&brief=）と同期し、リロードや戻るボタンでも保たれる。 */
+/** View state. Synced with the URL (?view=&layout=&date=&session=&sort=&q=&outcome=&brief=), so it survives reloads and the back button. */
 export interface UrlState {
   view: View;
-  /** 期間の中身をカレンダーで描くか、リストで並べるか。 */
+  /** Whether the period is drawn as a calendar or listed. */
   layout: Layout;
-  /** 表示中の日（0 時）。週表示ではその日を含む週を表示する。 */
+  /** The shown day (midnight). Week view shows the week containing it. */
   anchor: number;
   session: string | null;
-  /** 選んだセクションの開始時刻。null ならセッション全体。 */
+  /** Start of the selected section. null means the whole session. */
   at: number | null;
   sort: ListSort;
   filter: Filter;
 }
 
-/** `-cost` は大きい順、`cost` は小さい順。 */
+/** `-cost` is descending, `cost` ascending. */
 function readSort(v: string | null): ListSort {
   const m = /^(-?)([a-z]+)$/.exec(v ?? "");
   if (!m?.[2] || m[2] === "start") return DEFAULT_SORT;

@@ -20,29 +20,37 @@ const human = { origin: { kind: "human" } };
 
 describe("classifyUser", () => {
   test.each<[string, Record<string, unknown>, UserKind]>([
-    ["typed のプロンプト", user("hi", { ...human, promptSource: "typed" }), "prompt"],
-    ["sdk 経由でも人の入力ならプロンプト", user("hi", { ...human, promptSource: "sdk" }), "prompt"],
-    ["スラッシュコマンド", user("<command-name>/loop</command-name>", human), "command"],
+    ["typed prompt", user("hi", { ...human, promptSource: "typed" }), "prompt"],
     [
-      "人の origin でも < で始まる出力は meta",
+      "human input via the sdk is still a prompt",
+      user("hi", { ...human, promptSource: "sdk" }),
+      "prompt",
+    ],
+    ["slash command", user("<command-name>/loop</command-name>", human), "command"],
+    [
+      "output starting with < is meta even with a human origin",
       user("<local-command-stdout>x</local-command-stdout>", human),
       "meta",
     ],
-    ["自動実行", user("# /loop tick", { isMeta: true, turnOrigin: "scheduled" }), "scheduled"],
+    ["automatic run", user("# /loop tick", { isMeta: true, turnOrigin: "scheduled" }), "scheduled"],
     [
-      "タスク通知",
+      "task notification",
       user("<task-notification>…", { origin: { kind: "task-notification" } }),
       "notification",
     ],
     ["peer", user("Another Claude session…", { isMeta: true, origin: { kind: "peer" } }), "peer"],
     [
-      "中断",
+      "interrupt",
       user([{ type: "text", text: "[Request interrupted by user for tool use]" }]),
       "interrupt",
     ],
-    ["ツール結果", user([{ type: "tool_result", tool_use_id: "t", content: "ok" }]), "tool_result"],
-    ["compaction の要約", user("Summary", { isCompactSummary: true }), "compact_summary"],
-    ["origin なし（claude -p など）", user("Run this", { promptSource: "sdk" }), "meta"],
+    [
+      "tool result",
+      user([{ type: "tool_result", tool_use_id: "t", content: "ok" }]),
+      "tool_result",
+    ],
+    ["compaction summary", user("Summary", { isCompactSummary: true }), "compact_summary"],
+    ["no origin (claude -p etc.)", user("Run this", { promptSource: "sdk" }), "meta"],
   ])("%s", (_name, r, expected) => {
     expect(classifyUser(r)).toBe(expected);
   });
@@ -65,7 +73,7 @@ describe("resolveProject", () => {
   };
   const lookup = (dir: string) => remotes[dir] ?? null;
 
-  test("worktree は親リポジトリにまとめ、名前をラベルにする", () => {
+  test("groups a worktree under its parent repository and labels it with its name", () => {
     expect(resolveProject("/Users/me/dev/app/.claude/worktrees/fix-x/sub", noRemote)).toEqual({
       path: "/Users/me/dev/app",
       name: "app",
@@ -73,7 +81,7 @@ describe("resolveProject", () => {
       repo: null,
     });
   });
-  test("通常のディレクトリはそのまま", () => {
+  test("a plain directory stays as is", () => {
     expect(resolveProject("/Users/me/dev/app/", noRemote)).toEqual({
       path: "/Users/me/dev/app",
       name: "app",
@@ -81,20 +89,20 @@ describe("resolveProject", () => {
       repo: null,
     });
   });
-  test("remote があればリポジトリ名にし、違うディレクトリ名はラベルに残す", () => {
+  test("uses the repository name with a remote, keeping a different directory name as the label", () => {
     expect(resolveProject("/Users/me/dev/app", lookup)).toEqual({
       path: "/Users/me/dev/app",
       name: "webapp",
       label: "app",
       repo: "github.com/me/webapp",
     });
-    // 別のクローンでも鍵は同じ。ディレクトリ名がリポジトリ名と同じならラベルは付けない
+    // Another clone gets the same key. No label when the directory name matches the repository name
     expect(resolveProject("/Users/me/tmp/webapp", lookup)).toMatchObject({
       name: "webapp",
       label: null,
       repo: "github.com/me/webapp",
     });
-    // worktree では worktree 名を優先する
+    // In a worktree, the worktree name wins
     expect(resolveProject("/Users/me/dev/app/.claude/worktrees/fix-x", lookup)).toMatchObject({
       name: "webapp",
       label: "fix-x",
@@ -103,7 +111,7 @@ describe("resolveProject", () => {
 });
 
 describe("parseRemote", () => {
-  test("https・scp 形式・ssh の URL から同じ鍵を取り出す", () => {
+  test("extracts the same key from https, scp-style and ssh URLs", () => {
     for (const url of [
       "https://github.com/Owner/repo.git",
       "git@github.com:Owner/repo.git",
@@ -112,22 +120,22 @@ describe("parseRemote", () => {
     ])
       expect(parseRemote(url)).toEqual({ key: "github.com/Owner/repo", name: "repo" });
   });
-  test("URL の認証情報は鍵に含めない", () => {
+  test("keeps URL credentials out of the key", () => {
     expect(parseRemote("https://x-access-token:secret@github.com/o/r.git")).toEqual({
       key: "github.com/o/r",
       name: "r",
     });
   });
-  test("認証情報やクエリが残りうる形の URL はまとめに使わない", () => {
+  test("does not group by URLs whose shape may leave credentials or queries", () => {
     expect(parseRemote("user:ghp_ABC@github.com/o/r")).toBeNull();
     expect(parseRemote("https://github.com/o/r%3Ftoken%3Dabc")).toBeNull();
-    // scp 形式でも、クエリ以降は鍵に入れない
+    // Even scp-style, nothing from the query on goes into the key
     expect(parseRemote("git@github.com:o/r.git?token=abc")).toEqual({
       key: "github.com/o/r",
       name: "r",
     });
   });
-  test("ローカルパスの remote は使わない", () => {
+  test("ignores local-path remotes", () => {
     expect(parseRemote("/srv/git/repo.git")).toBeNull();
     expect(parseRemote("file:///srv/git/repo.git")).toBeNull();
   });
@@ -138,13 +146,13 @@ describe("readGitRemote", () => {
   const config = (url: string) =>
     `[core]\n\tbare = false\n[remote "upstream"]\n\turl = https://example.com/u/x\n[remote "origin"]\n\turl = ${url}\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n`;
 
-  test("リポジトリの .git/config から origin を読む", () => {
+  test("reads origin from the repository's .git/config", () => {
     const repo = join(root, "repo");
     mkdirSync(join(repo, ".git"), { recursive: true });
     writeFileSync(join(repo, ".git", "config"), config("git@github.com:o/r.git"));
     expect(readGitRemote(repo)).toBe("git@github.com:o/r.git");
   });
-  test("worktree の .git ファイルから共通の config をたどる", () => {
+  test("follows a worktree's .git file to the common config", () => {
     const main = join(root, "main");
     const wtGit = join(main, ".git", "worktrees", "wt");
     mkdirSync(wtGit, { recursive: true });
@@ -155,7 +163,7 @@ describe("readGitRemote", () => {
     writeFileSync(join(wt, ".git"), `gitdir: ${wtGit}\n`);
     expect(readGitRemote(wt)).toBe("https://github.com/o/main.git");
   });
-  test("FIFO や大きすぎるファイルは読まない（同期の読み込みで固まらないように）", () => {
+  test("does not read FIFOs or oversized files (so synchronous reads cannot hang)", () => {
     const fifo = join(root, "fifo");
     mkdirSync(fifo);
     Bun.spawnSync(["mkfifo", join(fifo, ".git")]);
@@ -165,11 +173,11 @@ describe("readGitRemote", () => {
     const padded = (n: number) => `${"#".repeat(n)}\n${config("git@github.com:o/r.git")}`;
     writeFileSync(join(big, ".git", "config"), padded(MAX_GIT_FILE));
     expect(readGitRemote(big)).toBeNull();
-    // ブランチの多いリポジトリの config（100KB 超）は読める
+    // The config of a repository with many branches (over 100KB) can be read
     writeFileSync(join(big, ".git", "config"), padded(200 * 1024));
     expect(readGitRemote(big)).toBe("git@github.com:o/r.git");
   });
-  test("git でなければ null、ディレクトリがなければ判断できない（undefined）", () => {
+  test("null when not a git directory, undefined when the directory is gone", () => {
     const plain = join(root, "plain");
     mkdirSync(plain);
     expect(readGitRemote(plain)).toBeNull();
@@ -177,7 +185,7 @@ describe("readGitRemote", () => {
   });
 });
 
-test("toSegments は間隔より長く空いたところで区切る", () => {
+test("toSegments splits where the gap is longer than the interval", () => {
   const m = 60_000;
   expect(toSegments([0, 5 * m, 10 * m, 60 * m, 62 * m], 15 * m)).toEqual([
     [0, 10 * m],

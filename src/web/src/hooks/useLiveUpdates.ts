@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { subscribe } from "@/lib/api.ts";
 
-/** サーバーからの更新通知を受けて、関係するデータを取り直す。取り込みの進み具合を返す。 */
+/** Refetches affected data on server update events. Returns the import progress. */
 export function useLiveUpdates(): { done: number; total: number } | null {
   const client = useQueryClient();
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);

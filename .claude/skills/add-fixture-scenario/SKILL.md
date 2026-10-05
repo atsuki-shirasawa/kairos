@@ -1,30 +1,30 @@
 ---
 name: add-fixture-scenario
-description: Claude Code の新しいログ形式（未知のレコード type、origin、システムメッセージなど）に対応するため、テスト用 fixture にシナリオを足し、期待値表とテストを更新する。取り込みの解釈ルールを変える・増やすときに使う。
+description: Adds a scenario to the test fixtures, and updates the expectations table and tests, to handle a new Claude Code log format (an unknown record type, origin, system message, etc.). Use when changing or adding ingest interpretation rules.
 ---
 
-# fixture シナリオを追加する
+# Add a fixture scenario
 
-Kairos の取り込みは「fixture の README にある期待値表」が受け入れ基準。解釈ルールを変えるときは、必ず先にシナリオを足してからコードを直す。
+Kairos's ingest is accepted against "the expectations table in the fixture README". When changing interpretation rules, always add the scenario first, then fix the code.
 
-## 手順
+## Steps
 
-1. **形を確かめる**: 実ログ（`~/.claude/projects/**/*.jsonl`）で対象のレコードを数件探し、キーの有無と値の種類を確かめる。実ログは読むだけ。本文・パス・PR 番号などをそのまま fixture に写さない（すべて架空にする）
-2. **builder を拡張する**: 新しいレコードの形が必要なら `tests/fixtures/builder.ts` の `LogBuilder` にメソッドを足す。既存のメソッドの出力は変えない（既存シナリオの期待値が崩れる）
-3. **シナリオを足す**
-   - 既存シナリオに混ぜられるなら、そのシナリオの関数に追記する（その場合は期待値の変化も README に反映する）
-   - 独立させるなら `tests/fixtures/ids.ts` の `SID` に ID を足し（`cccccccc-cccc-4ccc-8ccc-cccccccccccc` の形）、`generate.ts` に `// ---- N. 名前` の見出し付きで関数を書き、末尾のシナリオ配列に加える
-   - 時刻は基準時刻（2026-09-28 00:00 UTC）からの分。既存シナリオと作業ブロックが重ならない時間帯を選ぶ
-4. **生成する**: `bun tests/fixtures/generate.ts`（`tests/fixtures/claude/` は直接編集しない。hook でもブロックされる）
-5. **期待値を書く**: `tests/fixtures/README.md` のシナリオ表に行を足す。調査で確定したルールなら「判定ルール」表にも根拠付きで足す。`docs/architecture.md` §3.1 の正規化ルールも合わせる
-6. **テストを書く**: `tests/server/ingest/ingester.test.ts` の `describe("README のシナリオ")` に `test("N. 名前: 何を確かめるか")` を足す。分類だけの話なら `classify.test.ts`
-7. **実装する**: テストが落ちることを確かめてから、`src/server/ingest/` を直す
-8. **バージョンを上げる**（`src/server/ingest/ingester.ts`）
-   - jsonl の解釈が変わる → `PARSER_VERSION`
-   - messages からの集計・作業ブロックの計算だけが変わる → `DERIVED_VERSION`
-9. **確認**: `bun run check` が通ること
+1. **Check the shape**: Find a few of the target records in real logs (`~/.claude/projects/**/*.jsonl`) and check which keys exist and what types the values have. Real logs are read-only. Don't copy text, paths, PR numbers, etc. into the fixtures as-is (make everything fictional)
+2. **Extend the builder**: If a new record shape is needed, add a method to `LogBuilder` in `tests/fixtures/builder.ts`. Don't change the output of existing methods (it would break the expectations of existing scenarios)
+3. **Add the scenario**
+   - If it fits into an existing scenario, add it to that scenario's function (and reflect the changed expectations in the README)
+   - If it stands alone, add an ID to `SID` in `tests/fixtures/ids.ts` (in the form `cccccccc-cccc-4ccc-8ccc-cccccccccccc`), write a function in `generate.ts` under a `// ---- N. Name` heading, and add it to the scenario array at the end
+   - Times are minutes from the base time (2026-09-28 00:00 UTC). Pick a time range whose work blocks don't overlap existing scenarios
+4. **Generate**: `bun tests/fixtures/generate.ts` (don't edit `tests/fixtures/claude/` directly; a hook also blocks it)
+5. **Write the expectations**: Add a row to the scenario table in `tests/fixtures/README.md`. If it's a rule confirmed by the study, also add it to the "Rules" table with its evidence. Keep `docs/architecture.md` §3.1 Normalization rules in sync
+6. **Write the test**: Add `test("N. Name: what it checks")` to `describe` for the README scenarios in `tests/server/ingest/ingester.test.ts`. If it's only about classification, use `classify.test.ts`
+7. **Implement**: Confirm the test fails, then fix `src/server/ingest/`
+8. **Bump the version** (`src/server/ingest/ingester.ts`)
+   - The interpretation of jsonl changes → `PARSER_VERSION`
+   - Only aggregation from messages or work-block computation changes → `DERIVED_VERSION`
+9. **Verify**: `bun run check` passes
 
-## 終わったら伝えること
+## Report when done
 
-- 追加したシナリオと期待値（README の行）
-- 上げたバージョンと、実環境で起きること（`PARSER_VERSION` なら元ログが残っているファイルの読み直し）
+- The scenario added and its expectations (the README row)
+- The version bumped and what happens in the real environment (for `PARSER_VERSION`, files whose original logs remain are re-read)

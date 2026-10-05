@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { createApp } from "../../src/server/api/app.ts";
 import { EventHub } from "../../src/server/events.ts";
 import { buildDigest } from "../../src/server/summarize/digest.ts";
-import { buildPrompt, parseSummary } from "../../src/server/summarize/prompt.ts";
+import { buildPrompt, buildTitlePrompt, parseSummary } from "../../src/server/summarize/prompt.ts";
 import { Summarizer } from "../../src/server/summarize/summarizer.ts";
 import type { SessionDetail } from "../../src/shared/api.ts";
 import { SUMMARY_MIN_DURATION_MS, SUMMARY_MIN_PROMPTS } from "../../src/shared/sections.ts";
@@ -22,7 +22,7 @@ beforeEach(() => {
   db = s.db;
   prompts = [];
   reply = async () =>
-    "# PR の作成とタイトル変更\n\n- 目的: PR を出す\n- やったこと: e2e を流して PR #42 を作成\n- 結果: 完了";
+    "# Creating the PR and renaming it\n\n- Goal: open a PR\n- Done: ran e2e and created PR #42\n- Outcome: finished";
   now = min(10_000);
   summarizer = new Summarizer(
     db,
@@ -41,7 +41,7 @@ const summaryOf = (sid: string, start: number) =>
     )
     .get(sid, start);
 
-/** 短いセクションに見出しを付けた扱いにする。本文まで作る対象の選び方だけを見るため。 */
+/** Marks short sections as already titled, to look only at how full-summary targets are picked. */
 const skipTitles = () =>
   db.run(
     `INSERT INTO summaries
@@ -50,7 +50,7 @@ const skipTitles = () =>
   );
 
 describe("Summarizer", () => {
-  test("自動の対象は終わったセクション。短いものは見出しだけ、長いか発言の多いものは本文まで", () => {
+  test("automatic targets are finished sections: short ones get a headline, long or busy ones a full summary", () => {
     const picked: string[] = [];
     for (let t = summarizer.next(); t; t = summarizer.next()) {
       picked.push(`${t.sessionId.slice(0, 4)}@${(t.start - min(0)) / 60_000}:${t.mode}`);
@@ -59,39 +59,39 @@ describe("Summarizer", () => {
         t.start,
       );
     }
-    // 本文まで作るのは basic の 45 分台（発言 2）と compaction の 380 分台（発言 2）だけ
+    // Only basic at 45 min (2 prompts) and compaction at 380 min (2 prompts) get a full summary
     expect(picked.filter((p) => p.endsWith(":summary")).sort()).toEqual([
       "1111@45:summary",
       "7777@380:summary",
     ]);
-    // loop の 150 分台（発言 1・1 分）のような短いセクションは見出しだけ
+    // Short sections like loop at 150 min (1 prompt, 1 minute) get only a headline
     expect(picked).toContain("2222@150:title");
     expect(picked).toContain("1111@0:title");
   });
 
-  test("要約して保存し、もう一度は選ばない", async () => {
+  test("summarizes, saves, and does not pick the section again", async () => {
     skipTitles();
     const target = { sessionId: SID.basic, start: min(45) };
     expect(await summarizer.summarize(target)).toBe(true);
     expect(summaryOf(SID.basic, min(45))).toEqual({
-      headline: "PR の作成とタイトル変更",
-      body: "- 目的: PR を出す\n- やったこと: e2e を流して PR #42 を作成\n- 結果: 完了",
+      headline: "Creating the PR and renaming it",
+      body: "- Goal: open a PR\n- Done: ran e2e and created PR #42\n- Outcome: finished",
       covered_until: min(50.2),
     });
     expect(summarizer.next()).toMatchObject({ sessionId: SID.compaction });
   });
 
-  test("プロンプトには、そのセクションの会話と、前のセクションの見出しを含める", async () => {
+  test("the prompt includes the section's conversation and the earlier sections' headlines", async () => {
     await summarizer.summarize({ sessionId: SID.basic, start: min(45) });
     const p = prompts[0] ?? "";
-    expect(p).toContain("セッション名: ログイン機能");
-    expect(p).toContain("- ログインフォームを実装して。バリデーションも付けてほしい"); // 前のセクション
-    expect(p).toContain("[ユーザー] PR を作って");
+    expect(p).toContain("Session title: ログイン機能");
+    expect(p).toContain("- ログインフォームを実装して。バリデーションも付けてほしい"); // earlier section
+    expect(p).toContain("[User] PR を作って");
     expect(p).toContain("→ Bash: gh pr create --fill");
-    expect(p).not.toContain("[ユーザー] ログインフォームを実装して"); // 前のセクションの会話は含めない
+    expect(p).not.toContain("[User] ログインフォームを実装して"); // not the earlier section's conversation
   });
 
-  test("最後のセクションは、最後の活動から 30 分たつまで待つ", () => {
+  test("waits until 30 minutes after the last activity for the final section", () => {
     skipTitles();
     now = min(50.2) + 10 * 60_000;
     expect(summarizer.next()).toBeNull();
@@ -99,16 +99,16 @@ describe("Summarizer", () => {
     expect(summarizer.next()).toMatchObject({ sessionId: SID.basic, start: min(45) });
   });
 
-  test("7 日より前のセクションは自動では作らないが、頼まれれば作る", async () => {
+  test("sections older than 7 days are not done automatically, but are when requested", async () => {
     skipTitles();
     now = min(50.2) + 8 * 24 * 60 * 60_000;
     expect(summarizer.next()).toBeNull();
-    summarizer.request(SID.basic, min(0)); // 短いセクションでも頼まれれば作る
+    summarizer.request(SID.basic, min(0)); // even a short section, when requested
     expect(summarizer.isPending(SID.basic, min(0))).toBe(true);
     expect(summarizer.next()).toEqual({ sessionId: SID.basic, start: min(0), mode: "summary" });
   });
 
-  test("失敗は理由を記録し、時間をおいて再試行する", async () => {
+  test("records the reason for a failure and retries later", async () => {
     skipTitles();
     reply = async () => {
       throw new Error("Not logged in");
@@ -120,24 +120,24 @@ describe("Summarizer", () => {
       SID.compaction,
       min(380),
     );
-    expect(summarizer.next()).toBeNull(); // 再試行の時刻までは飛ばす
+    expect(summarizer.next()).toBeNull(); // skipped until the retry time
     now += 61_000;
     expect(summarizer.next()).toEqual({ ...target, mode: "summary" });
   });
 
-  test("短いセクションは見出しだけを作り、本文は空にする", async () => {
-    reply = async () => "ログイン画面の下調べ\n\n- 余計な本文";
+  test("short sections get only a headline with an empty body", async () => {
+    reply = async () => "Login screen research\n\n- extra body";
     const target = { sessionId: SID.basic, start: min(0), mode: "title" as const };
     expect(await summarizer.summarize(target)).toBe(true);
-    expect(prompts[0]).toContain("見出しを、日本語で 1 行だけ");
+    expect(prompts[0]).toContain("single-line headline in English");
     expect(summaryOf(SID.basic, min(0))).toMatchObject({
-      headline: "ログイン画面の下調べ",
+      headline: "Login screen research",
       body: "",
     });
     expect(summarizer.next()).not.toMatchObject({ sessionId: SID.basic, start: min(0) });
   });
 
-  test("要約が古くなったら（セクションが続いたら）作り直す", async () => {
+  test("regenerates a stale summary (when the section continued)", async () => {
     skipTitles();
     db.query("INSERT INTO summaries VALUES (?, ?, 'x', 'y', 'm', ?, 0)").run(
       SID.compaction,
@@ -157,7 +157,7 @@ describe("Summarizer", () => {
   });
 });
 
-test("API: 要約を頼むと 202 を返し、作っている最中は pending になる", async () => {
+test("API: requesting a summary returns 202 and is pending while in progress", async () => {
   let release: (v: string) => void = () => {};
   reply = () => new Promise((r) => (release = r));
   const app = createApp({ db, events: new EventHub(), summarizer, now: () => now });
@@ -175,16 +175,20 @@ test("API: 要約を頼むと 202 を返し、作っている最中は pending �
   ).json()) as SessionDetail;
   expect(d.sections[0]?.pending).toBe(true);
   const done = summarizer.summarize(summarizer.next() ?? { sessionId: "", start: 0 });
-  release("ログインフォームの実装\n\n- 目的: …");
+  release("Login form implementation\n\n- Goal: …");
   expect(await done).toBe(true);
-  expect(summaryOf(SID.basic, min(0))?.headline).toBe("ログインフォームの実装");
+  expect(summaryOf(SID.basic, min(0))?.headline).toBe("Login form implementation");
 });
 
 describe("prompt", () => {
-  test("parseSummary は見出しの飾りを外す", () => {
+  test("parseSummary strips headline decorations", () => {
     expect(parseSummary("# 「API 層の整理」\n\n- 目的: x")).toEqual({
       headline: "API 層の整理",
       body: "- 目的: x",
+    });
+    expect(parseSummary("Headline: **Login implementation**\n- Outcome: done")).toEqual({
+      headline: "Login implementation",
+      body: "- Outcome: done",
     });
     expect(parseSummary("見出し: **ログイン実装**\n- 結果: 完了")).toEqual({
       headline: "ログイン実装",
@@ -193,7 +197,7 @@ describe("prompt", () => {
     expect(parseSummary("   \n")).toBeNull();
   });
 
-  test("buildDigest は長すぎれば最初と最後を残す", () => {
+  test("buildDigest keeps the start and the end when too long", () => {
     const messages = [
       { kind: "prompt", text: "最初の依頼", tool_name: null },
       ...Array.from({ length: 200 }, () => ({
@@ -204,14 +208,46 @@ describe("prompt", () => {
       { kind: "prompt", text: "最後の依頼", tool_name: null },
     ];
     const d = buildDigest(messages, 3000);
-    expect(d.startsWith("[ユーザー] 最初の依頼")).toBe(true);
-    expect(d.endsWith("[ユーザー] 最後の依頼")).toBe(true);
-    expect(d).toContain("中略");
+    expect(d.startsWith("[User] 最初の依頼")).toBe(true);
+    expect(d.endsWith("[User] 最後の依頼")).toBe(true);
+    expect(d).toContain("(omitted)");
   });
 
-  test("buildPrompt は最初のセクションならそう書く", () => {
+  test("buildPrompt says so for the first section", () => {
     expect(
       buildPrompt({ sessionTitle: "t", projectName: null, previous: [], digest: "d" }),
-    ).toContain("このセッションの最初の作業です。");
+    ).toContain("This is the first piece of work in this session.");
   });
+
+  test("summaries are in English by default, in Japanese with lang ja", () => {
+    const input = { sessionTitle: "t", projectName: "app", previous: ["x"], digest: "d" };
+    const en = buildPrompt(input);
+    expect(en).toContain("Write a summary in English");
+    expect(en).toContain("- Goal: …");
+    expect(en).toContain("- Outcome: …");
+    expect(en).toContain("Project: app");
+    const ja = buildPrompt(input, "ja");
+    expect(ja).toContain("Write a summary in Japanese");
+    expect(ja).toContain("15〜35 字、体言止め");
+    expect(ja).toContain("- 目的: …");
+    expect(ja).toContain("- やったこと: …");
+    expect(ja).toContain("- 結果: …");
+    expect(buildTitlePrompt(input, "ja")).toContain("single-line headline in Japanese");
+    expect(buildTitlePrompt(input)).toContain("3–8 words");
+  });
+});
+
+test("Summarizer passes its language to the prompt", async () => {
+  const ja = new Summarizer(
+    db,
+    (p) => {
+      prompts.push(p);
+      return reply(p);
+    },
+    { now: () => now, lang: "ja" },
+  );
+  expect(ja.lang).toBe("ja");
+  expect(summarizer.lang).toBe("en");
+  await ja.summarize({ sessionId: SID.basic, start: min(45) });
+  expect(prompts[0]).toContain("Write a summary in Japanese");
 });

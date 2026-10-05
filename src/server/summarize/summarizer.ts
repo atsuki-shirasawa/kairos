@@ -1,7 +1,13 @@
 import type { Database } from "bun:sqlite";
 import { AUTO_SUMMARY_DAYS, isSummarizable, SECTION_IDLE_MS } from "../../shared/sections.ts";
 import { buildDigest, type DigestMessage } from "./digest.ts";
-import { buildPrompt, buildTitlePrompt, parseSummary } from "./prompt.ts";
+import {
+  buildPrompt,
+  buildTitlePrompt,
+  DEFAULT_SUMMARY_LANG,
+  parseSummary,
+  type SummaryLang,
+} from "./prompt.ts";
 
 export const DEFAULT_MODEL = "haiku";
 const POLL_MS = 60_000;
@@ -11,8 +17,8 @@ const RETRY_BASE_MS = 60_000;
 export type Runner = (prompt: string) => Promise<string>;
 
 /**
- * `summary` は見出しと本文、`title` は見出しだけを作る。
- * 短いセクションは本文にするほどの中身がないので、自動では見出しだけにする。
+ * `summary` writes a headline and a body; `title` writes only a headline.
+ * Short sections have too little in them for a body, so automatic runs give them only a headline.
  */
 type Mode = "summary" | "title";
 
@@ -31,8 +37,8 @@ interface Failure {
 const key = (t: Pick<Target, "sessionId" | "start">) => `${t.sessionId}:${t.start}`;
 
 /**
- * 終わったセクションの要約を、1 件ずつ順に作る。短いセクションは見出しだけを作る。
- * 自動で作るのは直近のセクションだけで、それより前は `request` で頼まれたときに作る。
+ * Summarizes finished sections one at a time. Short sections get only a headline.
+ * Only recent sections are summarized automatically; older ones are done when asked via `request`.
  */
 export class Summarizer {
   private readonly queue: Target[] = [];
@@ -48,13 +54,19 @@ export class Summarizer {
       model?: string;
       now?: () => number;
       onUpdated?: (target: Pick<Target, "sessionId" | "start">) => void;
-      /** false なら自動では作らず、頼まれたものだけ作る。 */
+      /** When false, nothing is summarized automatically; only requested sections are. */
       auto?: boolean;
+      /** Language the summaries are written in. */
+      lang?: SummaryLang;
     } = {},
   ) {}
 
   get model(): string {
     return this.opts.model ?? DEFAULT_MODEL;
+  }
+
+  get lang(): SummaryLang {
+    return this.opts.lang ?? DEFAULT_SUMMARY_LANG;
   }
 
   private now(): number {
@@ -70,7 +82,7 @@ export class Summarizer {
     return this.failures.get(key({ sessionId, start }))?.message ?? null;
   }
 
-  /** このセクションを優先して要約する（作り直しも含む）。頼まれたら短いセクションでも本文まで作る。 */
+  /** Summarizes this section ahead of others (including regenerating). A request writes a body even for a short section. */
   request(sessionId: string, start: number): void {
     const target: Target = { sessionId, start, mode: "summary" };
     this.failures.delete(key(target));
@@ -78,7 +90,7 @@ export class Summarizer {
     this.poke();
   }
 
-  /** 取り込みでセッションが更新されたときに呼ぶ。要約できるセクションが増えたかもしれない。 */
+  /** Called when ingest updated sessions; there may be new sections to summarize. */
   poke(): void {
     this.wake?.();
   }
@@ -94,7 +106,7 @@ export class Summarizer {
     this.poke();
   }
 
-  /** 次に要約するセクション。頼まれたものが先、次に自動の対象（新しいものから）。 */
+  /** The next section to summarize: requested ones first, then automatic targets (newest first). */
   next(): Target | null {
     const requested = this.queue.shift();
     if (requested) return requested;
@@ -149,25 +161,25 @@ export class Summarizer {
     }
   }
 
-  /** 1 セクションを要約して保存する（`mode` の既定は本文まで）。失敗は記録して、時間をおいて再試行する。 */
+  /** Summarizes and saves one section (`mode` defaults to a full summary). Failures are recorded and retried later. */
   async summarize(target: Omit<Target, "mode"> & { mode?: Mode }): Promise<boolean> {
     const k = key(target);
     this.current = k;
     try {
       const input = this.load(target);
       if (!input) {
-        // 会話がない（定期実行だけなど）。何度選んでも同じなので、再試行せずに飛ばす
+        // No conversation (e.g. only scheduled runs). Retrying gives the same result, so skip it for good
         this.failures.set(k, {
           attempts: MAX_ATTEMPTS,
           retryAt: Number.POSITIVE_INFINITY,
-          message: "要約できる会話がありません",
+          message: "No conversation to summarize",
         });
         return false;
       }
       const build = target.mode === "title" ? buildTitlePrompt : buildPrompt;
-      const parsed = parseSummary(await this.run(build(input.prompt)));
-      if (!parsed) throw new Error("要約の形式を読み取れませんでした");
-      // 見出しだけのときは本文を空にする。見出しの後に余計な行が付いても捨てる
+      const parsed = parseSummary(await this.run(build(input.prompt, this.lang)));
+      if (!parsed) throw new Error("Could not parse the summary output");
+      // Headline-only: keep the body empty, discarding any extra lines after the headline
       const body = target.mode === "title" ? "" : parsed.body;
       this.db
         .query(
@@ -241,7 +253,7 @@ export class Summarizer {
     return {
       end: seg.end,
       prompt: {
-        sessionTitle: session?.title?.split("\n")[0] ?? "（無題）",
+        sessionTitle: session?.title?.split("\n")[0] ?? "(untitled)",
         projectName: session?.project ?? null,
         previous,
         digest,

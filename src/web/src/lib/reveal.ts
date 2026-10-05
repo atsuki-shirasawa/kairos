@@ -1,7 +1,7 @@
 /**
- * `el` が `container` の見えている範囲から完全に外れていれば、上から 1/4 の位置まで動かす。
- * 少しでも見えていれば動かさない（クリックで選んだときに画面が跳ねないように）。
- * `offsetTop` は上に固定した見出しの高さ。その下に隠れている分は見えていないものとして扱う。
+ * If `el` is entirely outside the visible part of `container`, scrolls it to a quarter from the top.
+ * Leaves it alone if any part is visible (so selecting by click doesn't make the view jump).
+ * `offsetTop` is the height of a sticky header; anything hidden beneath it counts as not visible.
  */
 export function reveal(container: HTMLElement | null, el: Element | null, offsetTop = 0): void {
   if (!container || !el) return;

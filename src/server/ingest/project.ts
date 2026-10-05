@@ -2,27 +2,27 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 
 export interface ProjectRef {
-  /** プロジェクトを表すパス（worktree なら親リポジトリ）。 */
+  /** Path that identifies the project (the parent repository for a worktree). */
   path: string;
   name: string;
-  /** worktree 名など、プロジェクト内での補助ラベル。 */
+  /** Secondary label within the project, such as the worktree name. */
   label: string | null;
-  /** git の remote から取った鍵（`github.com/owner/repo`）。同じ鍵のディレクトリは 1 つにまとめる。 */
+  /** Key taken from the git remote (`github.com/owner/repo`). Directories with the same key are merged. */
   repo: string | null;
 }
 
 /**
- * ディレクトリの git remote（origin）の URL を返す。remote がなければ null、
- * ディレクトリ自体がなくて判断できなければ undefined。
+ * Returns the URL of the directory's git remote (origin): null if there is no remote,
+ * undefined if the directory itself is gone and it cannot be told.
  */
 export type RemoteLookup = (dir: string) => string | null | undefined;
 
 const WORKTREE_RE = /^(.+?)\/\.claude\/worktrees\/([^/]+)/;
 
 /**
- * 起動時の cwd からプロジェクトを決める。`<repo>/.claude/worktrees/<name>` は `<repo>` にまとめる。
- * git の remote があれば、名前はリポジトリ名にし、同じリポジトリの別のクローンとも同じプロジェクトにする。
- * ディレクトリ名がリポジトリ名と違うときは、どのクローンでの作業か分かるよう補助ラベルに残す。
+ * Determines the project from the startup cwd. `<repo>/.claude/worktrees/<name>` is grouped under `<repo>`.
+ * With a git remote, the name is the repository name, and other clones of the same repository share the project.
+ * When the directory name differs from the repository name, it is kept as a secondary label to tell clones apart.
  */
 export function resolveProject(cwd: string, lookup: RemoteLookup = readGitRemote): ProjectRef {
   const path = projectDir(cwd);
@@ -39,25 +39,25 @@ export function resolveProject(cwd: string, lookup: RemoteLookup = readGitRemote
   };
 }
 
-/** プロジェクトを表すディレクトリ。worktree なら親リポジトリ。 */
+/** Directory that identifies the project; the parent repository for a worktree. */
 export function projectDir(cwd: string): string {
   return WORKTREE_RE.exec(cwd)?.[1] ?? cwd.replace(/\/+$/, "");
 }
 
-/** worktree のパスなら、その名前。 */
+/** The worktree name, if the path is a worktree. */
 export function worktreeName(path: string): string | null {
   return WORKTREE_RE.exec(path)?.[2] ?? null;
 }
 
 /**
- * remote の URL から、まとめるための鍵（`host/owner/repo`）とリポジトリ名を取り出す。
- * URL に含まれうる認証情報は鍵に入れない（DB に残さないため）。
+ * Extracts the grouping key (`host/owner/repo`) and repository name from a remote URL.
+ * Credentials that may be in the URL are kept out of the key (so they never reach the DB).
  */
 export function parseRemote(url: string): { key: string; name: string } | null {
   const u = url.trim();
   let host: string;
   let path: string;
-  // scp 形式（git@github.com:owner/repo.git）。`https://` などの URL とは区別する
+  // scp-style (git@github.com:owner/repo.git), as opposed to URLs like `https://`
   const scp = /^(?:[^@/]+@)?([^:/]+):(?!\/)(.+)$/.exec(u);
   if (scp && !/^[a-z][a-z0-9+.-]*:\/\//i.test(u)) {
     host = scp[1] ?? "";
@@ -76,17 +76,17 @@ export function parseRemote(url: string): { key: string; name: string } | null {
     .replace(/^\/+|\/+$/g, "")
     .replace(/\.git$/, "");
   const name = path.split("/").at(-1);
-  // ローカルパスの remote（file:// など）は host がなく、別の場所との同一視に使えない
+  // Local-path remotes (file:// etc.) have no host and cannot identify the same repo elsewhere
   if (!host || !name) return null;
   const key = `${host.toLowerCase()}/${path}`;
-  // 形の分からない URL（認証情報やクエリが紛れ込みうるもの）はまとめず、ディレクトリ名に戻す
+  // URLs of unknown shape (which may carry credentials or queries) are not grouped; fall back to the directory name
   if (/[@?#:\s%]/.test(key)) return null;
   return { key, name };
 }
 
 /**
- * `<dir>/.git/config` から origin の URL を読む。git コマンドは実行しない（読むだけにとどめるため）。
- * worktree・サブモジュールの `.git` ファイル（`gitdir: …`）にも対応する。
+ * Reads the origin URL from `<dir>/.git/config`. Does not run git (to stay read-only).
+ * Also handles the `.git` file (`gitdir: …`) of worktrees and submodules.
  */
 export function readGitRemote(dir: string): string | null | undefined {
   if (!existsSync(dir)) return undefined;
@@ -98,7 +98,7 @@ export function readGitRemote(dir: string): string | null | undefined {
       const m = /^gitdir:\s*(.+)$/m.exec(readSmallFile(dotGit) ?? "");
       if (!m?.[1]) return null;
       gitDir = resolve(dir, m[1].trim());
-      // worktree の config は共通の git ディレクトリにある
+      // A worktree's config lives in the common git directory
       const common = readSmallFile(join(gitDir, "commondir"));
       if (common) gitDir = resolve(gitDir, common.trim());
     }
@@ -110,14 +110,14 @@ export function readGitRemote(dir: string): string | null | undefined {
 }
 
 /**
- * 読むファイルの大きさの上限。ブランチの多いリポジトリでは config が 100KB を超えるので余裕を持たせ、
- * それでも同期で読んで一瞬で終わる大きさにとどめる。FIFO・デバイスは大きさに関係なく読まない。
+ * Size limit for files we read. Repositories with many branches have configs over 100KB, so leave room,
+ * while keeping it small enough to read synchronously in an instant. FIFOs and devices are never read.
  */
 export const MAX_GIT_FILE = 4 * 1024 * 1024;
 
 /**
- * 普通の小さなファイルだけを読む。取り込みは同期で動くので、FIFO や `/dev/zero` へのリンク、
- * 巨大なファイルを読みにいくとサーバー全体が止まるため。
+ * Reads only small regular files. Ingest runs synchronously, so reading a FIFO, a link to `/dev/zero`,
+ * or a huge file would stall the whole server.
  */
 function readSmallFile(path: string): string | null {
   try {

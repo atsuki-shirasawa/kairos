@@ -2,13 +2,15 @@ import type { Message } from "@shared/api.ts";
 import { ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import { useMessages } from "@/hooks/queries.ts";
+import { conversationMessages } from "@/i18n/messages/conversation.ts";
 import { hhmm } from "@/lib/dates.ts";
 import { cn } from "@/lib/utils.ts";
 import { Markdown } from "./Markdown.tsx";
 
 /**
- * セッション（またはサブエージェント）の会話。下までスクロールすると続きを読み込む。
- * `jump` を渡すと、その時刻以降の最初の発言まで読み込んでスクロールする（`key` が変わるたびに 1 回）。
+ * The conversation of a session (or a subagent). Scrolling to the bottom loads more.
+ * With `jump`, loads up to the first message at or after that time and scrolls to it
+ * (once per change of `key`).
  */
 export function Conversation({
   sessionId,
@@ -19,6 +21,7 @@ export function Conversation({
   agent: string | null;
   jump?: { ts: number; key: number } | null;
 }) {
+  const t = conversationMessages();
   const query = useMessages(sessionId, agent);
   const messages = useMemo(() => query.data?.pages.flatMap((p) => p.messages) ?? [], [query.data]);
   const results = useMemo(() => {
@@ -39,7 +42,7 @@ export function Conversation({
     return () => io.disconnect();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  // 頼まれた時刻へスクロールする。まだ読み込んでいなければ続きを取ってくる
+  // Scroll to the requested time, fetching more pages if it is not loaded yet
   const jumped = useRef<number | null>(null);
   useEffect(() => {
     if (!jump || jumped.current === jump.key || messages.length === 0) return;
@@ -53,17 +56,14 @@ export function Conversation({
     const el = document.getElementById(`msg-${target.id}`);
     if (!el) return;
     jumped.current = jump.key;
-    // 長い距離を飛ぶので、なめらかなスクロールにはしない
+    // The jump can be long, so skip smooth scrolling
     el.scrollIntoView({ block: "start" });
   }, [jump, messages, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  if (query.isPending) return <p className="text-muted-foreground text-sm">会話を読み込み中…</p>;
+  if (query.isPending) return <p className="text-muted-foreground text-sm">{t.loading}</p>;
   if (query.isError)
-    return (
-      <p className="text-destructive text-sm">会話を読み込めませんでした: {query.error.message}</p>
-    );
-  if (messages.length === 0)
-    return <p className="text-muted-foreground text-sm">会話の記録がありません。</p>;
+    return <p className="text-destructive text-sm">{t.loadFailed(query.error.message)}</p>;
+  if (messages.length === 0) return <p className="text-muted-foreground text-sm">{t.empty}</p>;
 
   return (
     <ol className="space-y-3">
@@ -82,7 +82,7 @@ export function Conversation({
           onClick={() => void fetchNextPage()}
           disabled={isFetchingNextPage}
         >
-          {isFetchingNextPage ? "続きを読み込み中…" : "続きを読み込む"}
+          {isFetchingNextPage ? t.loadingMore : t.loadMore}
         </button>
       )}
     </ol>
@@ -94,13 +94,14 @@ function Time({ ts }: { ts: number | null }) {
 }
 
 function Entry({ message: m, result }: { message: Message; result: Message | undefined }) {
+  const t = conversationMessages();
   switch (m.kind) {
     case "prompt":
     case "command":
       return (
         <div className="ml-8 rounded-lg bg-accent px-3 py-2">
           <div className="mb-0.5 flex items-center justify-between">
-            <span className="font-medium text-xs">あなた</span>
+            <span className="font-medium text-xs">{t.you}</span>
             <Time ts={m.ts} />
           </div>
           {m.kind === "command" ? (
@@ -126,20 +127,20 @@ function Entry({ message: m, result }: { message: Message; result: Message | und
       return (
         <div className="flex items-center gap-3 text-muted-foreground text-xs">
           <span className="h-px flex-1 bg-border" />
-          ここで会話が圧縮されました
+          {t.compacted}
           <span className="h-px flex-1 bg-border" />
         </div>
       );
     case "interrupt":
-      return <p className="text-muted-foreground text-xs">中断しました</p>;
+      return <p className="text-muted-foreground text-xs">{t.interrupted}</p>;
     case "error":
-      return <p className="text-destructive text-xs">エラー: {m.text}</p>;
+      return <p className="text-destructive text-xs">{t.error(m.text ?? "")}</p>;
     case "scheduled":
-      return <SystemLine ts={m.ts} label="自動実行" text={firstLine(m.text)} />;
+      return <SystemLine ts={m.ts} label={t.scheduled} text={firstLine(m.text)} />;
     case "notification":
-      return <SystemLine ts={m.ts} label="通知" text={notificationSummary(m.text)} />;
+      return <SystemLine ts={m.ts} label={t.notification} text={notificationSummary(m.text)} />;
     case "peer":
-      return <SystemLine ts={m.ts} label="他のエージェントから" text={firstLine(m.text)} />;
+      return <SystemLine ts={m.ts} label={t.peer} text={firstLine(m.text)} />;
     default:
       return null;
   }
@@ -156,19 +157,20 @@ function SystemLine({ ts, label, text }: { ts: number | null; label: string; tex
 }
 
 function ToolCall({ message: m, result }: { message: Message; result: Message | undefined }) {
+  const t = conversationMessages();
   return (
     <details className="group rounded-md border text-xs">
       <summary className="flex cursor-pointer list-none items-center gap-2 px-2 py-1.5 [&::-webkit-details-marker]:hidden">
         <ChevronRight className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
         <span className="font-medium">{m.toolName}</span>
         <span className="min-w-0 flex-1 truncate font-mono text-muted-foreground">{m.text}</span>
-        {result?.isError && <span className="text-destructive">失敗</span>}
+        {result?.isError && <span className="text-destructive">{t.failed}</span>}
       </summary>
       <div className="space-y-2 border-t px-2 py-2">
         {m.detail && <Pre>{m.detail}</Pre>}
         {result?.text && (
           <>
-            <p className="text-muted-foreground">結果</p>
+            <p className="text-muted-foreground">{t.result}</p>
             <Pre className={cn(result.isError && "text-destructive")}>{result.text}</Pre>
           </>
         )}

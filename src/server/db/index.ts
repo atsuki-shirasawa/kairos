@@ -3,8 +3,8 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
 /**
- * マイグレーション。添字 + 1 がスキーマのバージョン（`PRAGMA user_version`）。
- * 既存の要素は書き換えず、変更は末尾に足す。
+ * Migrations. Index + 1 is the schema version (`PRAGMA user_version`).
+ * Never rewrite existing entries; append changes at the end.
  */
 const MIGRATIONS: string[] = [
   `
@@ -16,7 +16,7 @@ const MIGRATIONS: string[] = [
     hidden  INTEGER NOT NULL DEFAULT 0
   );
 
-  -- 取り込み済みのファイルと、続きから読むための状態
+  -- Ingested files and the state for resuming reads
   CREATE TABLE ingest_state (
     id              INTEGER PRIMARY KEY,
     path            TEXT NOT NULL UNIQUE,
@@ -57,9 +57,9 @@ const MIGRATIONS: string[] = [
     tool_use_id   TEXT
   );
 
-  -- id はレコードの uuid（+ ブロック番号）。続きのセッションは前のセッションの記録を同じ uuid でコピーして
-  -- 始まるため、一意性はセッション単位。コピーは is_copy = 1 にして集計から除く。
-  -- seq はファイル内の順序（行のバイト位置 * 16 + ブロック番号）
+  -- id is the record uuid (+ block index). A continued session starts with copies of the previous session's
+  -- records under the same uuids, so uniqueness is per session. Copies get is_copy = 1 and are left out of totals.
+  -- seq is the order within the file (line byte offset * 16 + block index)
   CREATE TABLE messages (
     id            TEXT NOT NULL,
     session_id    TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
@@ -108,10 +108,10 @@ const MIGRATIONS: string[] = [
     created_at     INTEGER NOT NULL
   );
   `,
-  // 2: 要約をセッション単位からセクション（作業ブロック）単位にする
+  // 2: summaries per section (work block) instead of per session
   `
   ALTER TABLE segments ADD COLUMN prompt_count INTEGER NOT NULL DEFAULT 0;
-  -- LLM で要約しない短いセクションの見出し（最初の発言、なければ Claude の最後の返答）
+  -- Headline for short sections not summarized by the LLM (first prompt, else Claude's last reply)
   ALTER TABLE segments ADD COLUMN fallback_title TEXT;
 
   DROP TABLE summaries;
@@ -126,16 +126,16 @@ const MIGRATIONS: string[] = [
     PRIMARY KEY (session_id, start)
   );
 
-  -- 小さな設定値（派生データのバージョンなど）
+  -- Small settings (derived-data version etc.)
   CREATE TABLE kv (key TEXT PRIMARY KEY, value TEXT NOT NULL);
   `,
-  // 3: 同じ git リポジトリのディレクトリ（別のクローンなど）を 1 つのプロジェクトにまとめる
+  // 3: group directories of the same git repository (other clones etc.) into one project
   `
-  -- remote から取った鍵（github.com/owner/repo）。認証情報は含めない
+  -- Key taken from the remote (github.com/owner/repo). Never includes credentials
   ALTER TABLE projects ADD COLUMN repo TEXT;
   CREATE UNIQUE INDEX projects_repo ON projects(repo) WHERE repo IS NOT NULL;
   `,
-  // 4: トークン使用量。1 回の応答はブロックごとのレコードに分かれるので、message.id ごとに 1 行にまとめる
+  // 4: token usage. One response is split into a record per block, so keep one row per message.id
   `
   CREATE TABLE usage (
     session_id      TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
@@ -155,11 +155,11 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX usage_time ON usage(session_id, ts);
   `,
-  // 5: 応答の effort と、ターンの所要時間（Claude が動いていた時間）
+  // 5: response effort, and turn duration (time Claude was working)
   `
   ALTER TABLE usage ADD COLUMN effort TEXT;
 
-  -- system/turn_duration。ts はターンの終わり。続きのセッションには同じ uuid でコピーされる
+  -- system/turn_duration. ts is the end of the turn. Copied into continued sessions under the same uuid
   CREATE TABLE turns (
     session_id   TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
     id           TEXT NOT NULL,
@@ -175,7 +175,7 @@ const MIGRATIONS: string[] = [
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
 
-/** DB を開き、未適用のマイグレーションを当てる。`:memory:` も使える（テスト用）。 */
+/** Opens the DB and applies pending migrations. `:memory:` works too (for tests). */
 export function openDb(path: string): Database {
   if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
   const db = new Database(path, { create: true, strict: true });

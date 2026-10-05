@@ -1,4 +1,4 @@
-// LLM に渡すセクションの抜粋を作る。
+// Builds the excerpt of a section that is passed to the LLM.
 
 export interface DigestMessage {
   kind: string;
@@ -16,21 +16,21 @@ function clip(text: string, limit: number): string {
   return t.length <= limit ? t : `${t.slice(0, limit)}…`;
 }
 
-/** 何をしたかが分かる部分（依頼・返答・ツール呼び出し）だけを並べる。長すぎれば先頭と末尾を残す。 */
+/** Lists only what shows the work (prompts, replies, tool calls). If too long, keeps the start and the end. */
 export function buildDigest(messages: DigestMessage[], limit = DIGEST_LIMIT): string {
   const lines: string[] = [];
   for (const m of messages) {
     const text = m.text ?? "";
     if (m.kind === "prompt" || m.kind === "command")
-      lines.push(`\n[ユーザー] ${clip(text, PROMPT_CHARS)}`);
+      lines.push(`\n[User] ${clip(text, PROMPT_CHARS)}`);
     else if (m.kind === "assistant") lines.push(`[Claude] ${clip(text, REPLY_CHARS)}`);
     else if (m.kind === "tool_use")
       lines.push(`  → ${m.tool_name ?? "tool"}: ${clip(text, TOOL_CHARS)}`);
-    else if (m.kind === "compact") lines.push("— 会話を圧縮 —");
+    else if (m.kind === "compact") lines.push("— conversation compacted —");
   }
   const all = lines.join("\n").trim();
   if (all.length <= limit) return all;
-  // 最初の依頼と、最後にどうなったかを優先する
+  // The first request and how things ended matter most
   const head = Math.floor((limit * 2) / 5);
-  return `${all.slice(0, head)}\n\n…（中略）…\n\n${all.slice(all.length - (limit - head))}`;
+  return `${all.slice(0, head)}\n\n… (omitted) …\n\n${all.slice(all.length - (limit - head))}`;
 }

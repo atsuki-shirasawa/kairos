@@ -1,18 +1,18 @@
 import { closeSync, openSync, readSync, statSync } from "node:fs";
 
 export interface Line {
-  /** 行頭のバイト位置。メッセージの並び順に使う。 */
+  /** Byte offset of the line start. Used to order messages. */
   offset: number;
   text: string;
 }
 
 export interface ReadResult {
   lines: Line[];
-  /** 次回読み始める位置。改行で終わっていない最後の行（書き込み途中）の先頭を指す。 */
+  /** Where to start reading next time: the start of a trailing line without a newline (still being written). */
   nextOffset: number;
   size: number;
   ino: number;
-  /** ファイルが置き換えられた・切り詰められたため、先頭から読み直した。 */
+  /** The file was replaced or truncated, so it was read again from the start. */
   restarted: boolean;
 }
 
@@ -21,8 +21,8 @@ const CHUNK = 4 * 1024 * 1024;
 const decoder = new TextDecoder();
 
 /**
- * `offset` 以降の完全な行を読む。
- * offset はバイト単位で数えるので、行を UTF-8 として解釈する前に改行で区切る。
+ * Reads the complete lines after `offset`.
+ * offset counts bytes, so split on newlines before decoding lines as UTF-8.
  */
 export function readNewLines(path: string, offset: number, prevIno: number | null): ReadResult {
   const st = statSync(path);

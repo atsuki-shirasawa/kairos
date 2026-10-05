@@ -1,19 +1,19 @@
-// API の料金表で、トークン使用量を米ドルに換算する。
-// Claude Code をサブスクリプションで使っているときの実際の支払いとは一致しない。どれだけ使ったかの目安。
+// Converts token usage to USD using the API price list.
+// It does not match what you actually pay when using Claude Code on a subscription; it is a gauge of usage.
 
-/** 100 万トークンあたりの米ドル。 */
+/** USD per million tokens. */
 interface Price {
   input: number;
   output: number;
   cacheRead: number;
-  /** fast モード（`usage.speed = "fast"`）の割増。対応していないモデルは持たない。 */
+  /** Surcharge for fast mode (`usage.speed = "fast"`). Absent for models that do not support it. */
   fast?: number;
 }
 
 /**
- * 2026-09-25 時点の Claude API の料金。キャッシュの書き込みは入力の 1.25 倍（5 分）・2 倍（1 時間）で、
- * どのモデルも同じなので持たない。読み込みはモデルごとに倍率が違う。
- * 新しいモデルが出たらここに足す（ないモデルは料金不明として扱う）。
+ * Claude API prices as of 2026-09-25. Cache writes cost 1.25x input (5 min) or 2x (1 hour) for every model,
+ * so they are not stored per model. Cache read multipliers differ by model.
+ * Add new models here (models not listed are treated as unpriced).
  */
 const PRICES: Record<string, Price> = {
   "claude-fable-5-1": { input: 10, output: 50, cacheRead: 0.25 },
@@ -42,7 +42,7 @@ export interface TokenCounts {
   cacheWrite1h: number;
 }
 
-/** モデル ID の料金。`claude-haiku-4-5-20251001` のような日付付きの ID は、いちばん長く一致する名前で引く。 */
+/** Price for a model ID. Dated IDs like `claude-haiku-4-5-20251001` are looked up by the longest matching name. */
 export function priceOf(model: string): Price | null {
   let best: string | null = null;
   for (const name of Object.keys(PRICES)) {
@@ -52,7 +52,7 @@ export function priceOf(model: string): Price | null {
   return best ? (PRICES[best] ?? null) : null;
 }
 
-/** 米ドルでの額。料金の分からないモデルは null。 */
+/** Amount in USD; null for models with unknown prices. */
 export function costOf(model: string, t: TokenCounts, speed: string | null = null): number | null {
   const p = priceOf(model);
   if (!p) return null;

@@ -1,0 +1,46 @@
+import { defineMessages } from "../index.ts";
+
+/** The filter menu: temporary conditions and project visibility/colors. */
+export const filterMessages = defineMessages({
+  en: {
+    conditionCount: (n: number) => (n === 1 ? "1 condition" : `${n} conditions`),
+    hiddenCount: (n: number) => `${n} hidden`,
+    separator: ", ",
+    button: "Filter",
+    buttonWith: (badge: string) => `Filter (${badge})`,
+    conditions: "Conditions",
+    clear: "Clear",
+    outcomeOnly: "Only blocks with a commit or PR",
+    hideBrief: "Hide quick questions",
+    hideBriefNote: (n: number) =>
+      `Sessions with ${n} or fewer prompts that didn't change any files`,
+    projects: "Projects",
+    projectSearch: "Filter by name",
+    projectSearchLabel: "Filter projects by name",
+    showAll: "Show all",
+    notFound: "No matches",
+    changeColorOf: (name: string) => `Change the color of ${name}`,
+    changeColor: "Change color",
+    colorOf: (name: string) => `Color of ${name}`,
+  },
+  ja: {
+    conditionCount: (n: number) => `${n} 条件`,
+    hiddenCount: (n: number) => `${n} 件非表示`,
+    separator: "・",
+    button: "絞り込み",
+    buttonWith: (badge: string) => `絞り込み（${badge}）`,
+    conditions: "条件",
+    clear: "解除",
+    outcomeOnly: "コミットか PR のある作業だけ",
+    hideBrief: "ちょっとした質問を隠す",
+    hideBriefNote: (n: number) => `発言 ${n} 件以下で、ファイルを書き換えていないセッション`,
+    projects: "プロジェクト",
+    projectSearch: "名前で絞り込む",
+    projectSearchLabel: "プロジェクトを名前で絞り込む",
+    showAll: "すべて表示",
+    notFound: "見つかりません",
+    changeColorOf: (name: string) => `${name} の色を変える`,
+    changeColor: "色を変える",
+    colorOf: (name: string) => `${name} の色`,
+  },
+});

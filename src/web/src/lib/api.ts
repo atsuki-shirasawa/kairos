@@ -1,4 +1,4 @@
-// サーバー API の型付きクライアント。型は src/shared/api.ts をサーバーと共有する。
+// Typed client for the server API. Types are shared with the server in src/shared/api.ts.
 import type {
   CalendarResponse,
   HealthResponse,
@@ -76,7 +76,7 @@ export const api = {
     ),
 };
 
-/** サーバーからのイベントを購読する。切断時はブラウザが自動で再接続する。戻り値で購読をやめる。 */
+/** Subscribes to server events. The browser reconnects on its own. Call the result to unsubscribe. */
 export function subscribe(onEvent: (event: ServerEvent) => void): () => void {
   const source = new EventSource("/api/events");
   const handler = (e: MessageEvent<string>) => onEvent(JSON.parse(e.data) as ServerEvent);

@@ -5,7 +5,7 @@ import { watchProjects } from "../../src/server/ingest/watcher.ts";
 import { SID } from "../fixtures/ids.ts";
 import { setup } from "./ingest/helpers.ts";
 
-test("ファイルに追記されると取り込んで、変わったセッションを知らせる", async () => {
+test("ingests appended lines and reports the changed sessions", async () => {
   const { db, ingester, projectsDir } = setup();
   ingester.scan();
   const changed = new Promise<string[]>((resolve) => {
@@ -14,7 +14,7 @@ test("ファイルに追記されると取り込んで、変わったセッシ�
       resolve(ids);
     });
   });
-  await Bun.sleep(100); // 監視の開始を待つ
+  await Bun.sleep(100); // wait for the watcher to start
   const record = {
     type: "user",
     uuid: "watch-1",

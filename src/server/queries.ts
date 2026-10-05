@@ -17,7 +17,7 @@ import { ARTIFACT_GRACE_MS } from "../shared/constants.ts";
 import { isSummarizable } from "../shared/sections.ts";
 import { costOf } from "./pricing.ts";
 
-/** 最後の活動からこの時間以内なら「作業中」とみなす。 */
+/** Within this long after the last activity, a session counts as in progress. */
 export const ACTIVE_WINDOW_MS = 5 * 60_000;
 export const MESSAGES_DEFAULT_LIMIT = 200;
 export const MESSAGES_MAX_LIMIT = 1000;
@@ -68,7 +68,7 @@ interface SectionRow {
   created_at: number | null;
 }
 
-/** セクションと、あればその要約。 */
+/** A section and its summary, if any. */
 const SECTION_SELECT = `SELECT g.start, g.end, g.prompt_count, g.fallback_title,
          sm.headline, sm.body, sm.model, sm.covered_until, sm.created_at
   FROM segments g LEFT JOIN summaries sm ON sm.session_id = g.session_id AND sm.start = g.start`;
@@ -83,7 +83,7 @@ interface UsageRow {
   cache_write_1h: number;
 }
 
-/** モデル・速度ごとの合計を 1 つにまとめ、料金を換算する。 */
+/** Combines per-model, per-speed totals into one and converts them to cost. */
 function toUsage(rows: UsageRow[]): Usage | null {
   if (rows.length === 0) return null;
   const u: Usage = {
@@ -123,10 +123,10 @@ function toUsage(rows: UsageRow[]): Usage | null {
   return u.tokens > 0 ? u : null;
 }
 
-/** ファイルを書き換えるツール。tool_use の text（入力の要約）がファイルパスになる。 */
+/** Tools that modify files. The tool_use text (input summary) is the file path. */
 const EDIT_TOOLS = "'Edit', 'Write', 'MultiEdit', 'NotebookEdit'";
 
-/** タイトル: `/rename` の名前 > エージェント名 > Claude Code の自動タイトル > 最初の発言の 1 行目。 */
+/** Title: `/rename` name > agent name > Claude Code's automatic title > first line of the first prompt. */
 function title(r: {
   custom_title: string | null;
   agent_name: string | null;
@@ -134,20 +134,20 @@ function title(r: {
   first_prompt: string | null;
 }): string {
   const first = r.first_prompt?.trim().split("\n")[0]?.slice(0, 120);
-  return r.custom_title || r.agent_name || r.ai_title || first || "（無題のセッション）";
+  return r.custom_title || r.agent_name || r.ai_title || first || "(Untitled session)";
 }
 
 export class Queries {
   constructor(
     private readonly db: Database,
     private readonly now: () => number = Date.now,
-    /** 要約の進み具合（Summarizer が答える）。 */
+    /** Summary progress (answered by the Summarizer). */
     private readonly summaries: SummaryState = { isPending: () => false, errorOf: () => null },
   ) {}
 
   /**
-   * プロジェクト一覧。人の発言があるセッションを持つものだけ（hook の動作確認などで
-   * headless のセッションしかないプロジェクトは、カレンダーに出ないので絞り込みにも出さない）。
+   * Project list. Only projects with sessions that have user prompts (projects with only headless
+   * sessions, e.g. from testing a hook, never show on the calendar, so they are left out of the filter too).
    */
   projects(): Project[] {
     return this.db
@@ -175,7 +175,7 @@ export class Queries {
     return row ? toProject(row) : null;
   }
 
-  /** [from, to) の前後で、いちばん近い作業ブロックの開始（人の発言があるセッションのもの）。 */
+  /** Starts of the nearest work blocks before and after [from, to) (from sessions with user prompts). */
   neighbors(from: number, to: number): { prev: number | null; next: number | null } {
     const one = (sql: string, t: number) =>
       this.db.query<{ t: number | null }, [number]>(sql).get(t)?.t ?? null;
@@ -186,7 +186,7 @@ export class Queries {
     };
   }
 
-  /** [from, to) と重なる作業ブロックの時刻。重なりの判定は `calendar` と同じにする。 */
+  /** Times of work blocks overlapping [from, to). Overlap is decided the same way as in `calendar`. */
   spans(from: number, to: number): Span[] {
     return this.db
       .query<Span, [number, number]>(
@@ -198,7 +198,7 @@ export class Queries {
       .all(from, to);
   }
 
-  /** 作業ブロックが [from, to) と重なる、人の発言があるセッション。 */
+  /** Sessions with user prompts whose work blocks overlap [from, to). */
   calendar(from: number, to: number): CalendarSession[] {
     const rows = this.db
       .query<SessionRow, [number, number]>(
@@ -275,7 +275,7 @@ export class Queries {
           end: g.end,
           promptCount: g.prompt_count,
           headline: g.headline ?? g.fallback_title ?? fallback,
-          // 見出しだけを作ったセクションは本文が空。要約はまだないものとして扱う
+          // A headline-only section has an empty body; treat it as not summarized yet
           body: g.body || null,
           model: g.model,
           createdAt: g.created_at,
@@ -311,7 +311,7 @@ export class Queries {
     };
   }
 
-  /** 作業ブロックの中でしたこと（サブエージェントの分を含み、続きのセッションのコピーは除く）。 */
+  /** What was done within a work block (including subagents, excluding copies in continued sessions). */
   private activity(sessionId: string, from: number, to: number): Activity {
     const m = this.db
       .query<Omit<Activity, "commits" | "prs" | "claudeMs" | "effort">, [string, number, number]>(
@@ -332,7 +332,7 @@ export class Queries {
          FROM artifacts WHERE session_id = ? AND is_copy = 0 AND ts BETWEEN ? AND ?`,
       )
       .get(sessionId, from, to + ARTIFACT_GRACE_MS);
-    // ターンの終わりがこのブロックの中にあるもの。ターンはブロックの中で始まって終わる
+    // Turns ending inside this block. A turn starts and ends within one block
     const turns = this.db
       .query<{ ms: number | null }, [string, number, number]>(
         "SELECT SUM(duration_ms) AS ms FROM turns WHERE session_id = ? AND is_copy = 0 AND ts BETWEEN ? AND ?",
@@ -360,8 +360,8 @@ export class Queries {
   }
 
   /**
-   * トークン使用量（サブエージェントを含み、続きのセッションのコピーは除く）。
-   * 期間を指定すると、その時間内の応答だけ。自動実行のターンは作業ブロックの外なので、ブロックの分には入らない。
+   * Token usage (including subagents, excluding copies in continued sessions).
+   * With a range, only responses within it. Automatic-run turns are outside work blocks, so blocks never include them.
    */
   private usage(sessionId: string, from = 0, to = Number.MAX_SAFE_INTEGER): Usage | null {
     return toUsage(
@@ -377,8 +377,8 @@ export class Queries {
   }
 
   /**
-   * 会話をファイル内の順に返す。`agent` を指定するとそのサブエージェントの会話。
-   * 前のセッションからのコピーは `copies` を真にしたときだけ含める。
+   * Returns the conversation in file order. With `agent`, that subagent's conversation.
+   * Copies from the previous session are included only when `copies` is true.
    */
   messages(
     sessionId: string,

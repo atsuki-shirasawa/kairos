@@ -26,11 +26,11 @@ import {
 } from "./records.ts";
 import { DEFAULT_GAP_MS, toSegments } from "./segments.ts";
 
-/** 解釈ルールを変えたら上げる。上がると、元ログが残っているファイルは読み直される。 */
+/** Bump when the interpretation rules change. Files whose source logs still exist are then re-read. */
 export const PARSER_VERSION = 5;
 /**
- * DB から計算し直せる派生データ（集計・作業ブロック・起動時の cwd からのプロジェクトの割り当て）の
- * 計算方法を変えたら上げる。上がると全セッションを計算し直す。元ログが消えたセッションも作り直せる。
+ * Bump when the calculation of derived data that can be recomputed from the DB (aggregates, work blocks,
+ * project assignment from the startup cwd) changes. All sessions are recomputed, even those whose logs are gone.
  */
 export const DERIVED_VERSION = 3;
 const FALLBACK_TITLE_CHARS = 120;
@@ -43,7 +43,7 @@ export type LogFile =
   | { kind: "subagent"; sessionId: string; agentId: string }
   | { kind: "subagent-meta"; sessionId: string; agentId: string };
 
-/** projects ディレクトリからの相対位置で、ファイルの種類を判定する。 */
+/** Determines the file kind from its path relative to the projects directory. */
 export function classifyPath(projectsDir: string, path: string): LogFile | null {
   const parts = relative(projectsDir, path).split(sep);
   if (parts.length === 2 && parts[1]?.endsWith(".jsonl")) {
@@ -59,13 +59,13 @@ export function classifyPath(projectsDir: string, path: string): LogFile | null 
   return null;
 }
 
-/** ファイルをまたいで引き継ぐ解釈の状態。ingest_state.state に JSON で保存する。 */
+/** Interpretation state carried across files. Saved as JSON in ingest_state.state. */
 interface FileState {
-  /** 自動実行（/loop・cron）が起こしたターンの最中か。 */
+  /** Whether we are inside a turn triggered by an automatic run (/loop, cron). */
   autoTurn: boolean;
-  /** 結果待ちの git commit。tool_use id → コマンド。 */
+  /** git commits awaiting their result: tool_use id → command. */
   pendingCommits: Record<string, string>;
-  /** 結果待ちの gh pr create。tool_use id → 題名。 */
+  /** gh pr create calls awaiting their result: tool_use id → title. */
   pendingPrs: Record<string, string>;
 }
 
@@ -108,7 +108,7 @@ export class Ingester {
     private readonly db: Database,
     readonly projectsDir: string,
     private readonly gapMs = DEFAULT_GAP_MS,
-    /** git の remote の読み方。テストでは実際のディレクトリを見ないものに差し替える。 */
+    /** How to read the git remote. Tests replace it with one that does not touch real directories. */
     private readonly lookupRemote: RemoteLookup = readGitRemote,
   ) {
     this.q = prepareStatements(db);
@@ -117,9 +117,9 @@ export class Ingester {
     ) as Record<SessionField, Statement>;
   }
 
-  // ---------------------------------------------------------------- 走査
+  // ---------------------------------------------------------------- scanning
 
-  /** projects 配下の全ファイルを取り込む。セッション本体 → サブエージェントの順に処理する。 */
+  /** Ingests every file under projects: main session files first, then subagents. */
   scan(onProgress?: (done: number, total: number) => void): ScanStats {
     const started = performance.now();
     this.refreshAllIfOutdated();
@@ -136,8 +136,8 @@ export class Ingester {
   }
 
   /**
-   * scan と同じだが、一定時間ごとに処理を手放してサーバーの応答を止めない。
-   * 起動直後の初回取り込み（数秒かかる）をバックグラウンドで進めるのに使う。
+   * Same as scan, but yields periodically so the server keeps responding.
+   * Used to run the first ingest after startup (which takes a few seconds) in the background.
    */
   async scanAsync(
     onProgress?: (done: number, total: number) => void,
@@ -183,9 +183,9 @@ export class Ingester {
     return [...main.sort(), ...sub.sort()];
   }
 
-  // ---------------------------------------------------------------- 1 ファイル
+  // ---------------------------------------------------------------- one file
 
-  /** ファイルの追記分を取り込み、表示が変わりうるセッションの ID を返す（変化がなければ空）。 */
+  /** Ingests what was appended to a file and returns IDs of sessions whose display may change (empty if none). */
   ingestFile(path: string): string[] {
     const file = classifyPath(this.projectsDir, path);
     if (!file || !existsSync(path)) return [];
@@ -195,7 +195,7 @@ export class Ingester {
 
     let st = this.q.getState.get(path) as StateRow | null;
     if (st && st.parser_version !== PARSER_VERSION) {
-      this.q.deleteState.run(st.id); // messages・artifacts も消える（ON DELETE CASCADE）
+      this.q.deleteState.run(st.id); // messages and artifacts go too (ON DELETE CASCADE)
       st = null;
     }
     const res = readNewLines(path, st?.offset ?? 0, st?.ino ?? null);
@@ -239,7 +239,7 @@ export class Ingester {
         try {
           r = JSON.parse(line.text);
         } catch {
-          continue; // 完全な行で壊れているものは読み飛ばす
+          continue; // Skip complete lines that are malformed
         }
         if (isRec(r)) this.handle(ctx, r, line.offset * 16);
       }
@@ -253,7 +253,7 @@ export class Ingester {
       );
       if (agentId !== null) return;
       this.refreshSession(file.sessionId);
-      // 続きのセッションが先に取り込まれていたら、どこまでがコピーかがここで分かる
+      // If the continued session was ingested first, this is where we learn which part is a copy
       const next = this.q.continuedIn.get(file.sessionId) as { id: string } | null;
       if (next) {
         this.refreshSession(next.id);
@@ -279,14 +279,14 @@ export class Ingester {
       str(m.description) ?? null,
       str(m.toolUseId) ?? null,
     );
-    return []; // カレンダーの表示は変わらないので、更新扱いにしない
+    return []; // The calendar does not change, so do not report an update
   }
 
-  // ---------------------------------------------------------------- レコード
+  // ---------------------------------------------------------------- records
 
   private handle(ctx: Ctx, r: Rec, seq: number): void {
     const sid = str(r.sessionId);
-    if (sid && sid !== ctx.sessionId) return; // 別セッションのレコード（念のため。現行の形式では現れない）
+    if (sid && sid !== ctx.sessionId) return; // Record from another session (defensive; does not occur in the current format)
     const ts = parseTs(r.timestamp);
     const main = ctx.agentId === null;
 
@@ -342,7 +342,7 @@ export class Ingester {
     let kind = classifyUser(r);
     if (kind === "scheduled") ctx.state.autoTurn = true;
     else if (kind === "prompt" || kind === "command") ctx.state.autoTurn = false;
-    // サブエージェントへの指示は origin を持たないので、ここで「指示」として扱う
+    // Instructions to a subagent have no origin, so treat them as the prompt here
     if (ctx.agentId !== null && kind === "meta") kind = "prompt";
 
     const id = str(r.uuid) ?? `${ctx.fileId}:${seq}`;
@@ -366,7 +366,7 @@ export class Ingester {
       case "tool_result":
         this.handleToolResults(ctx, r, id, ts, seq);
         return;
-      // compact_summary・meta は保存しない
+      // compact_summary and meta are not stored
     }
   }
 
@@ -389,15 +389,15 @@ export class Ingester {
       delete ctx.state.pendingCommits[toolUseId];
       const commit = isError || interrupted ? null : extractCommit(command, output);
       if (!commit) return;
-      // SHA が分からないときは件名で識別する（同じ件名の重複は 1 件にまとまる）
+      // Without a SHA, identify by subject (duplicates with the same subject collapse into one)
       const ref = commit.sha ?? `subject:${commit.subject}`;
       this.q.insertArtifact.run(ctx.sessionId, "commit", ref, commit.subject, ts, ctx.fileId);
     });
   }
 
   /**
-   * gh pr create の結果から作った PR の URL を知り、覚えておいた題名を付ける。
-   * pr-link が先に来ていれば題名だけ書き換え、後から来る pr-link では上書きしない。
+   * Learns the created PR's URL from the gh pr create result and attaches the remembered title.
+   * If pr-link came first, only the title is rewritten; a later pr-link does not overwrite it.
    */
   private attachPrTitle(
     ctx: Ctx,
@@ -446,13 +446,13 @@ export class Ingester {
         const prTitle = name === "Bash" && GH_PR_CREATE_RE.test(command) && prTitleOf(command);
         if (toolUseId && prTitle) ctx.state.pendingPrs[toolUseId] = prTitle.slice(0, LIMIT.short);
       }
-      // thinking は保存しない
+      // thinking is not stored
     });
   }
 
   /**
-   * 応答のトークン使用量。1 回の応答はブロックごとのレコードに分かれて同じ message.id を持ち、
-   * output_tokens だけが後のレコードほど大きいので、最大値を残す。
+   * Token usage of a response. One response is split into a record per block sharing one message.id,
+   * and only output_tokens grows in later records, so keep the maximum.
    */
   private recordUsage(ctx: Ctx, msg: Rec, effort: string | null, ts: number | null): void {
     const u = rec(msg.usage);
@@ -462,7 +462,7 @@ export class Ingester {
     const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
     const breakdown = rec(u.cache_creation);
     const write1h = n(breakdown?.ephemeral_1h_input_tokens);
-    // 内訳がなければ、既定の 5 分の書き込みとみなす
+    // Without a breakdown, assume the default 5-minute cache write
     const write5m = breakdown
       ? n(breakdown.ephemeral_5m_input_tokens)
       : n(u.cache_creation_input_tokens);
@@ -498,7 +498,7 @@ export class Ingester {
     }
   }
 
-  // ---------------------------------------------------------------- 書き込み
+  // ---------------------------------------------------------------- writing
 
   private insert(
     ctx: Ctx,
@@ -541,12 +541,12 @@ export class Ingester {
     ctx.launchKnown = true;
   }
 
-  /** プロジェクトの行を返す（なければ作る）。remote があれば同じリポジトリの行にまとめる。 */
+  /** Returns the project row (creating it if needed). With a remote, rows of the same repository are merged. */
   private projectId(p: ProjectRef): number {
     if (p.repo) {
       const byRepo = this.q.projectByRepo.get(p.repo) as { id: number } | null;
       if (byRepo) return byRepo.id;
-      // remote を見る前に作った行があれば、色や非表示の設定を保ったまま引き継ぐ
+      // If a row was created before the remote was known, take it over, keeping its color and hidden setting
       const byPath = this.q.projectByPath.get(p.path) as { id: number } | null;
       if (byPath) {
         this.q.adoptRepo.run(p.repo, p.name, byPath.id);
@@ -557,8 +557,8 @@ export class Ingester {
   }
 
   /**
-   * 起動時の cwd から、全セッションのプロジェクトを決め直す（決め方を変えたときのため）。
-   * ディレクトリが消えて判断できないものは今のままにし、セッションのなくなったプロジェクトは消す。
+   * Reassigns every session's project from its startup cwd (for when the assignment rules change).
+   * Sessions whose directory is gone stay as they are; projects left without sessions are deleted.
    */
   private reassignProjects(): void {
     const cwds = this.db
@@ -574,7 +574,7 @@ export class Ingester {
     this.q.deleteOrphanProjects.run();
   }
 
-  /** 集計値と作業ブロックを messages から計算し直す。 */
+  /** Recomputes aggregates and work blocks from messages. */
   refreshSession(sessionId: string): void {
     if (this.q.hasPredecessor.get(sessionId)) {
       this.q.markCopiedMessages.run(sessionId);
@@ -599,7 +599,7 @@ export class Ingester {
     );
 
     const rows = this.q.activity.all(sessionId) as ActivityRow[];
-    // 自動実行のターンは描かない。自動実行しかないセッションは見えなくならないよう全体を使う。
+    // Automatic-run turns are not drawn. A session with only automatic runs uses everything, so it stays visible.
     const human = rows.filter((r) => r.is_scheduled === 0);
     const used = human.length ? human : rows;
     this.q.clearSegments.run(sessionId);
@@ -618,7 +618,7 @@ export class Ingester {
     }
   }
 
-  /** 派生データの計算方法が変わっていたら、全セッションを計算し直す。 */
+  /** Recomputes all sessions if the derived-data calculation has changed. */
   refreshAllIfOutdated(): boolean {
     const row = this.db
       .query<{ value: string }, []>("SELECT value FROM kv WHERE key = 'derived_version'")
@@ -638,7 +638,7 @@ export class Ingester {
   }
 }
 
-/** メタレコードから書き込むセッションの列。 */
+/** Session columns written from meta records. */
 const SESSION_FIELDS = [
   "ai_title",
   "agent_name",
@@ -705,7 +705,7 @@ function prepareStatements(db: Database) {
          ON CONFLICT(id) DO UPDATE SET agent_type = excluded.agent_type, description = excluded.description,
            tool_use_id = excluded.tool_use_id`,
     ),
-    // 続きのセッション（?1）にある、前のセッションと同じ uuid の記録をコピーとして印を付ける
+    // Mark records in the continued session (?1) that share a uuid with the previous session as copies
     markCopiedMessages: p(
       `UPDATE messages SET is_copy = EXISTS (
          SELECT 1 FROM messages m JOIN sessions prev ON prev.id = m.session_id
@@ -734,7 +734,7 @@ function prepareStatements(db: Database) {
        WHERE session_id = ?1`,
     ),
     hasPredecessor: p("SELECT 1 FROM sessions WHERE continued_in = ? LIMIT 1"),
-    // 続き先のセッションが DB にあれば、その ID
+    // ID of the continuing session, if it is in the DB
     continuedIn: p(
       "SELECT s.continued_in AS id FROM sessions s JOIN sessions next ON next.id = s.continued_in WHERE s.id = ?",
     ),
@@ -750,7 +750,7 @@ function prepareStatements(db: Database) {
     updateAggregate: p(
       "UPDATE sessions SET started_at = ?, ended_at = ?, prompt_count = ?, scheduled_runs = ?, first_prompt = ? WHERE id = ?",
     ),
-    // 作業ブロックの計算に使う活動。見出し用に、発言と返答だけは本文の先頭も取る
+    // Activity used to compute work blocks. For headlines, also take the start of prompt and reply text
     activity: p(
       `SELECT ts, is_scheduled, kind,
               CASE WHEN kind IN ('prompt', 'command', 'assistant') THEN substr(text, 1, 400) END AS text
@@ -763,7 +763,7 @@ function prepareStatements(db: Database) {
   };
 }
 
-/** ツール入力の 1 行要約（コマンド、ファイルパス、検索語など）。 */
+/** One-line summary of a tool input (command, file path, search term, etc.). */
 function inputSummary(input: Rec): string {
   for (const key of [
     "command",

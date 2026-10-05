@@ -7,12 +7,12 @@ import { Ingester } from "../../../src/server/ingest/ingester.ts";
 import type { RemoteLookup } from "../../../src/server/ingest/project.ts";
 
 export const T0 = Date.UTC(2026, 8, 28);
-/** fixture の基準時刻から n 分後（ミリ秒）。 */
+/** n minutes after the fixture's base time (ms). */
 export const min = (n: number) => T0 + n * 60_000;
 
 /**
- * fixture を一時ディレクトリへコピーして取り込む（テストからファイルを書き換えられるように）。
- * git の remote は既定で「なし」とし、手元の実際のディレクトリに左右されないようにする。
+ * Copies the fixtures to a temp directory and ingests them (so tests can modify the files).
+ * git remotes default to none, so results do not depend on real local directories.
  */
 export function setup(lookup: RemoteLookup = () => null): {
   db: Database;

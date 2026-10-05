@@ -4,18 +4,18 @@ export class SummaryError extends Error {}
 
 export interface ClaudeOptions {
   model: string;
-  /** 実行するディレクトリ。プロジェクトの CLAUDE.md や設定を読ませないよう、専用の空ディレクトリを使う。 */
+  /** Working directory. A dedicated empty directory, so no project's CLAUDE.md or settings are loaded. */
   cwd: string;
   timeoutMs?: number;
 }
 
 /**
- * `claude -p` でプロンプトに答えさせる。Claude Code の認証をそのまま使うので API キーは要らない。
- * セッションとして保存しない・ツールと MCP を使わせない設定にして、副作用をなくす。
+ * Answers a prompt with `claude -p`. It reuses Claude Code's authentication, so no API key is needed.
+ * Runs without saving a session and without tools or MCP, so it has no side effects.
  */
 export async function runClaude(prompt: string, opts: ClaudeOptions): Promise<string> {
   const exe = Bun.which("claude");
-  if (!exe) throw new SummaryError("claude コマンドが見つかりません");
+  if (!exe) throw new SummaryError("claude command not found");
   mkdirSync(opts.cwd, { recursive: true });
   const proc = Bun.spawn(
     [
@@ -44,11 +44,11 @@ export async function runClaude(prompt: string, opts: ClaudeOptions): Promise<st
       new Response(proc.stderr).text(),
       proc.exited,
     ]);
-    // 止めたときの終了コードだけでは理由が分からないので、時間切れと分かる文にする
+    // The exit code of a killed process doesn't say why, so say it timed out
     if (timedOut)
-      throw new SummaryError(`${Math.round(timeoutMs / 1000)} 秒以内に終わりませんでした`);
+      throw new SummaryError(`Did not finish within ${Math.round(timeoutMs / 1000)} seconds`);
     if (code !== 0 || !out.trim()) {
-      throw new SummaryError((err || out || `終了コード ${code}`).trim().slice(0, 500));
+      throw new SummaryError((err || out || `exit code ${code}`).trim().slice(0, 500));
     }
     return out.trim();
   } finally {

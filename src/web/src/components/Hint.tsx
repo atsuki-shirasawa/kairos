@@ -2,9 +2,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils.ts";
 
 /**
- * 用語や数字の補足。ネイティブの title は出るまで遅く、キーボードでは出ないので、ツールチップで出す。
- * `focusable` を付けると Tab でもたどれる（ドロワーの説明など、数の少ないところで使う）。
- * 表のセルのように数が多いところでは付けず、Tab の止まる先を増やさない。
+ * A short explanation of a term or number. The native `title` is slow to appear and never shows
+ * for keyboard users, so this uses a tooltip instead.
+ * `focusable` makes it reachable with Tab (use it where there are few, such as the drawer).
+ * Leave it off where there are many, like table cells, so Tab does not stop at every one.
  */
 export function Hint({
   text,

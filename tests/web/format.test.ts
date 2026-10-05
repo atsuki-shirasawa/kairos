@@ -1,8 +1,10 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
+import { setLocale } from "../../src/web/src/i18n/index.ts";
 import {
   cacheRate,
   costLabel,
   modelLabel,
+  numberLabel,
   sumActivity,
   sumUsage,
   tokensLabel,
@@ -11,7 +13,7 @@ import {
 } from "../../src/web/src/lib/format.ts";
 
 describe("tokensLabel", () => {
-  test("桁に合わせて k・M・B にまとめる", () => {
+  test("abbreviates to k, M, and B by magnitude", () => {
     expect([950, 24_800, 893_300, 6_000_000, 1_548_800_000].map(tokensLabel)).toEqual([
       "950",
       "24.8k",
@@ -23,7 +25,7 @@ describe("tokensLabel", () => {
 });
 
 describe("costLabel", () => {
-  test("1 セント未満と 100 ドル以上は丸める", () => {
+  test("rounds amounts under a cent and from $100 up", () => {
     expect([0, 0.004, 0.1105, 54.2, 1234.5].map(costLabel)).toEqual([
       "$0",
       "<$0.01",
@@ -34,8 +36,14 @@ describe("costLabel", () => {
   });
 });
 
+describe("numberLabel", () => {
+  test("groups digits", () => {
+    expect(numberLabel(1_234_567)).toBe("1,234,567");
+  });
+});
+
 describe("modelLabel", () => {
-  test("ファミリー名と版にする。日付は落とし、知らない形はそのまま", () => {
+  test("shows family and version, drops the date, and passes unknown shapes through", () => {
     expect(modelLabel("claude-opus-5-5")).toBe("Opus 5.5");
     expect(modelLabel("claude-sonnet-5")).toBe("Sonnet 5");
     expect(modelLabel("claude-haiku-4-5-20251001")).toBe("Haiku 4.5");
@@ -43,7 +51,7 @@ describe("modelLabel", () => {
   });
 });
 
-describe("cacheRate・sumUsage", () => {
+describe("cacheRate and sumUsage", () => {
   const u = (input: number, cacheRead: number, cacheWrite: number, cost: number) => ({
     tokens: input + cacheRead + cacheWrite,
     input,
@@ -55,19 +63,19 @@ describe("cacheRate・sumUsage", () => {
     model: "claude-opus-5-5",
   });
 
-  test("キャッシュ率は入力全体のうち読み込んだ割合", () => {
+  test("cache rate is the share of all input read from the cache", () => {
     expect(cacheRate(u(2_500, 70_000, 9_000, 0))).toBeCloseTo(0.859, 3);
     expect(cacheRate(u(0, 0, 0, 0))).toBeNull();
   });
 
-  test("合計は記録のないものを飛ばし、料金不明の印を引き継ぐ", () => {
+  test("totals skip missing entries and carry over the unpriced flag", () => {
     const sum = sumUsage([u(1, 2, 3, 0.5), null, { ...u(1, 0, 0, 0.25), unpriced: true }]);
     expect(sum).toMatchObject({ tokens: 7, costUsd: 0.75, unpriced: true, model: null });
     expect(sumUsage([null])).toBeNull();
   });
 });
 
-describe("活動の合計とつまずき", () => {
+describe("activity totals and snags", () => {
   const a = {
     commits: 1,
     prs: 0,
@@ -82,13 +90,21 @@ describe("活動の合計とつまずき", () => {
     effort: "high",
   };
 
-  test("つまずきはエラー・中断・API エラーの合計で、内訳は 0 のものを省く", () => {
+  afterEach(() => setLocale("en"));
+
+  test("snags sum errors, interrupts, and API errors; the breakdown leaves out zeros", () => {
     expect(troubleCount(a)).toBe(2);
+    expect(troubleDetail(a)).toBe("Tool errors 1 · Interrupts 1");
+    expect(troubleDetail({ ...a, toolErrors: 0, interrupts: 0 })).toBe("None");
+  });
+
+  test("the snag breakdown follows the language", () => {
+    setLocale("ja");
     expect(troubleDetail(a)).toBe("ツールのエラー 1・中断 1");
     expect(troubleDetail({ ...a, toolErrors: 0, interrupts: 0 })).toBe("なし");
   });
 
-  test("Claude の稼働は記録のあるものだけ足し、どれにもなければ null", () => {
+  test("Claude time adds only recorded entries, and is null when none recorded it", () => {
     expect(sumActivity([a, null, { ...a, claudeMs: 60_000 }])).toMatchObject({
       commits: 2,
       filesEdited: 4,

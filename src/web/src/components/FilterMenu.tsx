@@ -5,19 +5,22 @@ import { Button } from "@/components/ui/button.tsx";
 import { Checkbox } from "@/components/ui/checkbox.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.tsx";
 import { useUpdateProject } from "@/hooks/queries.ts";
+import { useLocale } from "@/i18n/index.ts";
+import { filterMessages } from "@/i18n/messages/filter.ts";
 import { PALETTE, projectColor } from "@/lib/colors.ts";
 import { BRIEF_PROMPTS, type Filter } from "@/lib/filter.ts";
 import { cn } from "@/lib/utils.ts";
 
-/** これより多いときは、プロジェクトを名前で絞り込む欄を出す。 */
+/** Above this many projects, show a field to filter them by name. */
 const SEARCH_FROM = 8;
 
 const INPUT =
   "h-7 min-w-0 flex-1 rounded-md border bg-transparent px-2 text-sm outline-none focus-visible:border-ring";
 
 /**
- * 絞り込み。キーワードはヘッダーの検索欄が受け持つ。上は今だけの条件（URL に持たせる）、下はプロジェクトの表示・非表示と色（DB に保存する）。
- * プロジェクトは表示中の期間で使ったものを上に並べる。
+ * Filtering. Keywords belong to the search field in the header. The top part holds temporary
+ * conditions (kept in the URL); the bottom part holds project visibility and colors (saved in the DB).
+ * Projects used in the shown period are listed first.
  */
 export function FilterMenu({
   projects,
@@ -30,6 +33,8 @@ export function FilterMenu({
   filter: Filter;
   onFilter: (filter: Filter) => void;
 }) {
+  const m = filterMessages();
+  const locale = useLocale();
   const update = useUpdateProject();
   const [editing, setEditing] = useState<number | null>(null);
   const [query, setQuery] = useState("");
@@ -40,10 +45,10 @@ export function FilterMenu({
       if (s.projectId !== null) counts.set(s.projectId, (counts.get(s.projectId) ?? 0) + 1);
     return projects
       .map((p) => ({ project: p, count: counts.get(p.id) ?? 0 }))
-      .sort((a, b) => b.count - a.count || a.project.name.localeCompare(b.project.name, "ja"));
-  }, [projects, sessions]);
+      .sort((a, b) => b.count - a.count || a.project.name.localeCompare(b.project.name, locale));
+  }, [projects, sessions, locale]);
   const hidden = projects.filter((p) => p.hidden).length;
-  // キーワードはヘッダーの検索欄に出ているので、ここでは数えない
+  // Keywords are already visible in the header search field, so they aren't counted here
   const conditions = [filter.outcome, filter.hideBrief].filter(Boolean).length;
   const q = query.trim().toLowerCase();
   const shown = q
@@ -54,21 +59,24 @@ export function FilterMenu({
   const showAll = () => {
     for (const p of projects) if (p.hidden) update.mutate({ id: p.id, update: { hidden: false } });
   };
-  const badge = [conditions > 0 && `${conditions} 条件`, hidden > 0 && `${hidden} 件非表示`]
+  const badge = [
+    conditions > 0 && m.conditionCount(conditions),
+    hidden > 0 && m.hiddenCount(hidden),
+  ]
     .filter(Boolean)
-    .join("・");
+    .join(m.separator);
   const active = conditions + hidden;
 
   return (
     <Popover onOpenChange={(open) => !open && setQuery("")}>
       <PopoverTrigger asChild>
-        {/* アイコンだけにし、効いている条件があるときは色と数で知らせる。内訳はツールチップで出す */}
+        {/* Icon only; active conditions show as color and a count. The breakdown is in the tooltip */}
         <Button
           variant="ghost"
           size="icon-sm"
           className={cn("relative", active > 0 && "text-primary")}
-          aria-label={badge ? `絞り込み（${badge}）` : "絞り込み"}
-          title={badge ? `絞り込み（${badge}）` : "絞り込み"}
+          aria-label={badge ? m.buttonWith(badge) : m.button}
+          title={badge ? m.buttonWith(badge) : m.button}
         >
           <Funnel className={cn(active > 0 && "fill-primary/20")} />
           {active > 0 && (
@@ -84,14 +92,14 @@ export function FilterMenu({
       <PopoverContent align="end" className="w-80 p-0">
         <div className="flex flex-col gap-2 border-b p-3">
           <div className="flex h-6 items-center justify-between">
-            <span className="font-medium text-muted-foreground text-xs">条件</span>
+            <span className="font-medium text-muted-foreground text-xs">{m.conditions}</span>
             {(filter.outcome || filter.hideBrief) && (
               <Button
                 variant="ghost"
                 size="xs"
                 onClick={() => onFilter({ ...filter, outcome: false, hideBrief: false })}
               >
-                解除
+                {m.clear}
               </Button>
             )}
           </div>
@@ -101,7 +109,7 @@ export function FilterMenu({
               checked={filter.outcome}
               onCheckedChange={(v) => onFilter({ ...filter, outcome: v === true })}
             />
-            コミットか PR のある作業だけ
+            {m.outcomeOnly}
           </label>
           <div className="flex items-start gap-2.5 text-sm">
             <Checkbox
@@ -112,34 +120,34 @@ export function FilterMenu({
               aria-describedby="filter-brief-note"
             />
             <div className="flex flex-col">
-              <label htmlFor="filter-brief">ちょっとした質問を隠す</label>
+              <label htmlFor="filter-brief">{m.hideBrief}</label>
               <span id="filter-brief-note" className="text-muted-foreground text-xs">
-                発言 {BRIEF_PROMPTS} 件以下で、ファイルを書き換えていないセッション
+                {m.hideBriefNote(BRIEF_PROMPTS)}
               </span>
             </div>
           </div>
         </div>
         <div className="flex h-10 items-center gap-2 border-b px-3">
-          <span className="font-medium text-muted-foreground text-xs">プロジェクト</span>
+          <span className="font-medium text-muted-foreground text-xs">{m.projects}</span>
           {projects.length > SEARCH_FROM && (
             <input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="名前で絞り込む"
-              aria-label="プロジェクトを名前で絞り込む"
+              placeholder={m.projectSearch}
+              aria-label={m.projectSearchLabel}
               className={INPUT}
             />
           )}
           {hidden > 0 && (
             <Button variant="ghost" size="xs" className="ml-auto" onClick={showAll}>
-              すべて表示
+              {m.showAll}
             </Button>
           )}
         </div>
         <ul className="max-h-[60vh] overflow-y-auto py-1">
           {shown.length === 0 && (
-            <li className="px-4 py-2 text-muted-foreground text-sm">見つかりません</li>
+            <li className="px-4 py-2 text-muted-foreground text-sm">{m.notFound}</li>
           )}
           {shown.map(({ project, count }) => (
             <li key={project.id} className="px-2">
@@ -162,14 +170,14 @@ export function FilterMenu({
                   {project.name}
                 </label>
                 <span className="font-num text-muted-foreground text-xs">{count || ""}</span>
-                {/* 色は行の右端で変える。チェックボックスの隣だと押し間違えやすいため、押せる範囲も広げる */}
+                {/* The color button sits at the row's right end with a larger hit area: next to the checkbox it was easy to mis-click */}
                 <button
                   type="button"
                   className="-mr-1 flex size-7 shrink-0 items-center justify-center rounded-md hover:bg-background focus-visible:outline-2 focus-visible:outline-ring"
                   onClick={() => setEditing(editing === project.id ? null : project.id)}
-                  aria-label={`${project.name} の色を変える`}
+                  aria-label={m.changeColorOf(project.name)}
                   aria-expanded={editing === project.id}
-                  title="色を変える"
+                  title={m.changeColor}
                 >
                   <span
                     className="size-3.5 rounded-sm"
@@ -179,7 +187,7 @@ export function FilterMenu({
               </div>
               {editing === project.id && (
                 <fieldset className="flex justify-end gap-1.5 px-2 pt-1 pb-2">
-                  <legend className="sr-only">{project.name} の色</legend>
+                  <legend className="sr-only">{m.colorOf(project.name)}</legend>
                   {PALETTE.map((c) => (
                     <button
                       key={c.key}

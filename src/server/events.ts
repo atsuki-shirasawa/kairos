@@ -2,7 +2,7 @@ import type { ServerEvent } from "../shared/api.ts";
 
 type Listener = (event: ServerEvent) => void;
 
-/** 取り込みの結果などを、SSE で接続中のブラウザへ配る。 */
+/** Broadcasts ingest results and the like to browsers connected over SSE. */
 export class EventHub {
   private readonly listeners = new Set<Listener>();
 

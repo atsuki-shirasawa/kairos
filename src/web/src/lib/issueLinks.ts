@@ -1,7 +1,7 @@
 /**
- * 要約の本文に出てくる `#1234` を、リポジトリの Issue / PR へのリンクにする remark プラグイン。
- * 要約は PR を番号だけで書くことが多く、成果の一覧にない PR（レビューや reopen したもの）も
- * そこから開けるようにするため。`/issues/番号` は PR なら GitHub が PR へ転送する。
+ * A remark plugin that links `#1234` in summaries to the repository's issue / PR.
+ * Summaries often mention PRs by number only, and this lets PRs missing from the outcome list
+ * (reviewed or reopened ones) be opened too. GitHub redirects `/issues/<n>` to the PR when it is one.
  */
 
 export interface MdNode {
@@ -11,10 +11,10 @@ export interface MdNode {
   children?: MdNode[];
 }
 
-/** 直前が英数字・`&`・`/` のものは除く（`&#123;` や URL の一部を拾わないため）。 */
+/** Skips matches preceded by an alphanumeric, `&` or `/` (so `&#123;` and URL fragments aren't picked up). */
 const REF_RE = /(?<![\w&/])#(\d+)\b/g;
 
-/** リンクにしてよいリポジトリなら、その URL。いまは GitHub だけ（他のホストは URL の形が違う）。 */
+/** The repository URL if it can be linked. GitHub only for now (other hosts use different URL shapes). */
 export function issueBaseUrl(repo: string | null | undefined): string | null {
   if (!repo || !/^github\.com\/[\w.-]+\/[\w.-]+$/.test(repo)) return null;
   return `https://${repo}`;
@@ -27,7 +27,7 @@ export function remarkIssueLinks({ baseUrl }: { baseUrl: string }) {
 }
 
 function walk(node: MdNode, baseUrl: string) {
-  // リンクの中はすでにリンクなので触らない。コードは text ノードを持たないので自然に除かれる
+  // Text inside links is already linked, so leave it. Code has no text nodes, so it is skipped naturally
   if (!node.children || node.type === "link" || node.type === "linkReference") return;
   node.children = node.children.flatMap((child) => {
     if (child.type !== "text" || child.value === undefined) {

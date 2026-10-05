@@ -1,13 +1,13 @@
-// Claude Code が書く jsonl と同じ形のレコードを組み立てる。
-// フィールド名と値の組み合わせは、実ログ約 22 万レコードの調査結果（2026-10-05、Claude Code 2.1.2xx）に合わせている。
-// 本文やパスは架空のもので、実ログの内容は含まない。
+// Builds records shaped like the jsonl Claude Code writes.
+// Field names and value combinations follow a survey of about 220k real records (2026-10-05, Claude Code 2.1.2xx).
+// Text and paths are fictional; nothing from real logs is included.
 
 export type Rec = Record<string, unknown>;
 
 export const VERSION = "2.1.289";
 const BASE = Date.UTC(2026, 8, 28, 0, 0, 0); // 2026-09-28T00:00:00Z（JST 09:00）
 
-/** 基準時刻から `minute` 分後の ISO 文字列。 */
+/** ISO string `minute` minutes after the base time. */
 export function at(minute: number): string {
   return new Date(BASE + minute * 60_000).toISOString();
 }
@@ -31,7 +31,7 @@ export class LogBuilder {
     return `${this.sessionId.slice(0, 8)}-${this.sidechain?.agentId ?? "main"}-${String(this.n).padStart(4, "0")}`;
   }
 
-  /** 会話の流れに乗るレコード（uuid・parentUuid を持つ）。 */
+  /** A record in the conversation chain (has uuid and parentUuid). */
   private chain(type: string, minute: number, extra: Rec): Rec {
     const uuid = this.uuid();
     const rec: Rec = {
@@ -54,14 +54,14 @@ export class LogBuilder {
     return rec;
   }
 
-  /** 会話の流れに乗らないメタレコード（ai-title、pr-link など）。 */
+  /** A meta record outside the conversation chain (ai-title, pr-link, etc.). */
   meta(type: string, fields: Rec = {}): Rec {
     const rec: Rec = { type, ...fields, sessionId: this.sessionId };
     this.records.push(rec);
     return rec;
   }
 
-  /** 生のレコードをそのまま足す（別セッションからのコピーなど）。 */
+  /** Appends a raw record as is (e.g. a copy from another session). */
   raw(rec: Rec): Rec {
     this.records.push(rec);
     return rec;
@@ -69,7 +69,7 @@ export class LogBuilder {
 
   // ------------------------------------------------------------------ user
 
-  /** 人が打ったプロンプト。`source` は typed / suggestion_accepted / queued / sdk。 */
+  /** A prompt typed by the user. `source` is typed / suggestion_accepted / queued / sdk. */
   prompt(minute: number, text: string, source = "typed"): Rec {
     return this.chain("user", minute, {
       promptId: `p-${this.n + 1}`,
@@ -81,7 +81,7 @@ export class LogBuilder {
     });
   }
 
-  /** 人が打ったスラッシュコマンド。 */
+  /** A slash command typed by the user. */
   command(minute: number, name: string, args = ""): Rec {
     const text = `<command-message>${name.replace(/^\//, "")}</command-message>\n<command-name>${name}</command-name>\n<command-args>${args}</command-args>`;
     return this.chain("user", minute, {
@@ -91,7 +91,7 @@ export class LogBuilder {
     });
   }
 
-  /** /loop や cron が起こしたターンの最初の user レコード。 */
+  /** The first user record of a turn triggered by /loop or cron. */
   scheduledTick(minute: number, text: string, taskId = "e3278fca"): Rec {
     return this.chain("user", minute, {
       message: { role: "user", content: text },
@@ -103,7 +103,7 @@ export class LogBuilder {
     });
   }
 
-  /** バックグラウンドのタスクやサブエージェントの完了通知。 */
+  /** Completion notice from a background task or subagent. */
   taskNotification(minute: number, taskId: string, status: string, summary: string): Rec {
     const text = `<task-notification>\n<task-id>${taskId}</task-id>\n<status>${status}</status>\n<summary>${summary}</summary>\n</task-notification>`;
     return this.chain("user", minute, {
@@ -114,7 +114,7 @@ export class LogBuilder {
     });
   }
 
-  /** 別のエージェント・セッションから届いたメッセージ。 */
+  /** A message from another agent or session. */
   peerMessage(minute: number, from: string, body: string): Rec {
     return this.chain("user", minute, {
       message: {
@@ -128,7 +128,7 @@ export class LogBuilder {
     });
   }
 
-  /** origin を持たないシステム由来の user レコード（スキル本文の展開、コマンド出力など）。 */
+  /** A system-originated user record without an origin (expanded skill text, command output, etc.). */
   systemUser(minute: number, content: unknown, extra: Rec = {}): Rec {
     return this.chain("user", minute, { message: { role: "user", content }, ...extra });
   }
@@ -205,8 +205,8 @@ export class LogBuilder {
   }
 
   /**
-   * 1 回の応答を、実ログと同じくブロックごとのレコードに分けて書く。どのレコードも同じ message.id と
-   * 入力・キャッシュの量を持ち、output_tokens だけが書き進むにつれて増える（最後のレコードが最終値）。
+   * Writes one response split into a record per block, as in real logs. Every record has the same message.id
+   * and input/cache amounts; only output_tokens grows as it is written (the last record holds the final value).
    */
   response(
     minute: number,
@@ -249,7 +249,7 @@ export class LogBuilder {
     });
   }
 
-  /** API エラーの代わりに Claude Code が書く合成の返答（model が `<synthetic>`、usage はすべて 0）。 */
+  /** Synthetic reply Claude Code writes in place of an API error (model `<synthetic>`, all usage 0). */
   apiError(minute: number, text: string): Rec {
     return this.chain("assistant", minute, {
       message: {
@@ -280,7 +280,7 @@ export class LogBuilder {
     });
   }
 
-  /** ツール呼び出し。戻り値は tool_use の id。 */
+  /** A tool call. Returns the tool_use id. */
   toolUse(minute: number, name: string, input: Rec): string {
     this.tool += 1;
     const id = `toolu_${this.sessionId.slice(0, 6)}${this.sidechain?.agentId ?? ""}${String(this.tool).padStart(4, "0")}`;
@@ -288,7 +288,7 @@ export class LogBuilder {
     return id;
   }
 
-  /** Bash を呼んで結果を返すまでの一往復。 */
+  /** One round trip of calling Bash and returning its result. */
   bash(minute: number, command: string, output: string, isError = false): string {
     const id = this.toolUse(minute, "Bash", { command, description: command.slice(0, 40) });
     this.toolResult(minute, id, output, { isError });
@@ -296,8 +296,8 @@ export class LogBuilder {
   }
 
   /**
-   * `gh pr create` の一往復と `pr-link` レコード。結果の `toolUseResult.gitOperation.pr` に
-   * 作った PR の番号と URL が入る（題名は入らない）。`pr-link` は結果の前に来ることも後に来ることもある。
+   * One `gh pr create` round trip plus a `pr-link` record. The result's `toolUseResult.gitOperation.pr`
+   * holds the created PR's number and URL (not its title). `pr-link` may come before or after the result.
    */
   ghPrCreate(
     minute: number,

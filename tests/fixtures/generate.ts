@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
-// tests/fixtures/claude/ に、~/.claude と同じ構成の架空ログを書き出す。
-// 実行: bun tests/fixtures/generate.ts
-// シナリオごとの期待値は tests/fixtures/README.md を参照。
+// Writes fictional logs laid out like ~/.claude into tests/fixtures/claude/.
+// Run: bun tests/fixtures/generate.ts
+// See tests/fixtures/README.md for each scenario's expectations.
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -12,7 +12,7 @@ const ROOT = join(import.meta.dir, "claude");
 const APP = "/Users/me/dev/app";
 const BLOG = "/Users/me/dev/blog";
 
-/** Claude Code と同じく、パスの / と . を - に置き換えたディレクトリ名。 */
+/** Directory name with / and . in the path replaced by -, as Claude Code does. */
 export function projectDirName(cwd: string): string {
   return cwd.replace(/[/.]/g, "-");
 }
@@ -28,7 +28,7 @@ function header(b: LogBuilder): void {
   b.meta("permission-mode", { permissionMode: "auto" });
 }
 
-// ---------------------------------------------------------------- 1. 通常のセッション
+// ---------------------------------------------------------------- 1. basic session
 function basic(): void {
   const b = new LogBuilder(SID.basic, APP, "feature/login");
   header(b);
@@ -52,7 +52,7 @@ function basic(): void {
     "[feature/login 1a2b3c4] feat: add login form\n 2 files changed, 48 insertions(+)",
   );
   b.bash(4.5, 'git commit -m "chore: retry"', "nothing to commit, working tree clean", true);
-  // 実ログに多い形: -q で出力を抑え、git log で確かめる
+  // Common in real logs: silence output with -q, then check with git log
   b.bash(
     4.7,
     'git commit -q -m "fix: validate email" && git log --oneline -2',
@@ -63,7 +63,7 @@ function basic(): void {
   b.meta("ai-title", { aiTitle: "ログインフォーム実装" });
   b.meta("last-prompt", { lastPrompt: "ログインフォームを実装して。バリデーションも付けてほしい" });
 
-  // 40 分空く → 作業ブロックが分かれる
+  // 40-minute gap → separate work blocks
   b.prompt(45, "PR を作って", "suggestion_accepted");
   const bg = b.toolUse(45.5, "Bash", { command: "bun run e2e", run_in_background: true });
   b.toolResult(45.5, bg, "Command running in background with ID: bg01");
@@ -145,7 +145,7 @@ function headless(): void {
   write("/Users/me/tmp/probe", b);
 }
 
-// ---------------------------------------------------------------- 4. worktree で起動
+// ---------------------------------------------------------------- 4. started in a worktree
 function worktree(): void {
   const cwd = `${APP}/.claude/worktrees/fix-header`;
   const b = new LogBuilder(SID.worktree, cwd, "worktree-fix-header");
@@ -157,7 +157,7 @@ function worktree(): void {
   write(cwd, b);
 }
 
-// ---------------------------------------------------------------- 5. 途中で worktree に移動
+// ---------------------------------------------------------------- 5. moved into a worktree midway
 function relocated(): void {
   const wt = `${APP}/.claude/worktrees/refactor-api`;
   const b = new LogBuilder(SID.relocated, APP, "main");
@@ -183,7 +183,7 @@ function relocated(): void {
   write(APP, b);
 }
 
-// ---------------------------------------------------------------- 6. サブエージェント
+// ---------------------------------------------------------------- 6. subagents
 function subagent(): void {
   const agentId = "a1b2c3d4e5f60718";
   const b = new LogBuilder(SID.subagent, APP);
@@ -251,7 +251,7 @@ function compaction(): void {
   write(APP, b);
 }
 
-// ---------------------------------------------------------------- 8. 続きのセッション
+// ---------------------------------------------------------------- 8. continued session
 function continued(): void {
   const a = new LogBuilder(SID.continuedFrom, APP);
   header(a);
@@ -265,21 +265,21 @@ function continued(): void {
   write(APP, a);
 
   const b = new LogBuilder(SID.continuedTo, APP);
-  // 続きのセッションは、前のセッションの会話を uuid・時刻はそのまま、sessionId だけ書き換えてコピーして始まる
-  // ターンの所要時間（system/turn_duration）も同じ uuid でコピーされる
+  // A continued session starts with a copy of the previous conversation, uuids and times unchanged, only sessionId rewritten
+  // Turn durations (system/turn_duration) are copied under the same uuids too
   for (const r of a.records.filter(
     (r) => r.type === "user" || r.type === "assistant" || r.subtype === "turn_duration",
   ))
     b.raw({ ...r, sessionId: SID.continuedTo });
   header(b);
   const p = b.prompt(425, "後半の作業");
-  b.raw({ ...p }); // 同じ uuid の重複行
+  b.raw({ ...p }); // duplicate line with the same uuid
   b.text(426, "後半を終えました。");
   b.turnEnd(426);
   write(APP, b);
 }
 
-// ---------------------------------------------------------------- 9. 書きかけの行
+// ---------------------------------------------------------------- 9. partial line
 function partial(): void {
   const b = new LogBuilder(SID.partial, APP);
   header(b);
@@ -291,10 +291,10 @@ function partial(): void {
     timestamp: "2026-09-28T08:02:00.000Z",
     message: { content: [{ type: "text", text: "書きかけ" }] },
   };
-  write(APP, b, JSON.stringify(next).slice(0, 60)); // 改行なしで途切れる
+  write(APP, b, JSON.stringify(next).slice(0, 60)); // cut off without a newline
 }
 
-// ---------------------------------------------------------------- 10. 別プロジェクト・別の日
+// ---------------------------------------------------------------- 10. another project, another day
 function blog(): void {
   const b = new LogBuilder(SID.blog, BLOG);
   header(b);
@@ -304,25 +304,25 @@ function blog(): void {
   write(BLOG, b);
 }
 
-// ---------------------------------------------------------------- 11. PR の題名
+// ---------------------------------------------------------------- 11. PR titles
 function prTitles(): void {
   const b = new LogBuilder(SID.prTitles, APP);
   header(b);
   b.prompt(540, "パスワード再設定の PR を 3 つに分けて作って");
-  // --title "…"。pr-link は結果の後
+  // --title "…"; pr-link after the result
   b.ghPrCreate(
     541,
     'git push -u origin HEAD && gh pr create --base main --title "feat: パスワード再設定メールを送る" --body "$(cat <<\'EOF\'\n## 概要\n- 再設定用のリンクを送る\nEOF\n)"',
     { number: 43, repository: "me/app" },
   );
-  // -t '…'。pr-link が結果より先に来る
+  // -t '…'; pr-link before the result
   b.ghPrCreate(
     543,
     "gh pr create -t 'fix: リンクの有効期限を 30 分にする' -b '期限切れの扱いを直す' --draft",
     { number: 44, repository: "me/app" },
     { linkFirst: true },
   );
-  // 題名が実行時に決まる（$(…)）ので使わない
+  // Title decided at run time ($(…)), so not used
   b.ghPrCreate(545, 'gh pr create --title "$(head -1 .pr-title)" --body-file .pr-body', {
     number: 45,
     repository: "me/app",
@@ -332,12 +332,12 @@ function prTitles(): void {
   write(APP, b);
 }
 
-// ---------------------------------------------------------------- 12. トークン使用量
+// ---------------------------------------------------------------- 12. token usage
 function usage(): void {
   const b = new LogBuilder(SID.usage, APP);
   header(b);
   b.prompt(600, "依存関係を最新にして");
-  // 1 回の応答（thinking・text・tool_use）が 3 レコードに分かれる。数えるのは 1 回だけ
+  // One response (thinking, text, tool_use) split into 3 records; counted once
   b.response(
     600.5,
     [

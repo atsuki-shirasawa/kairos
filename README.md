@@ -1,28 +1,29 @@
 # <img src="src/web/public/favicon.svg" width="32" alt=""> Kairos
 
-Claude Code のセッション履歴から、「この日・この時間に何をしていたか」をカレンダーで振り返る個人用 Web アプリ。
+A personal web app that turns your Claude Code session history into a calendar, so you can look back on what you were doing on a given day and at a given time.
 
-- ログ（`~/.claude/projects/**/*.jsonl`）を読み取り専用で取り込み、SQLite に保存する。Claude Code がログを消しても（既定 30 日）Kairos には残る
-- 作業ブロック（セクション）ごとに、`claude -p`（haiku）で要約を自動で作る
-- Claude Code を起動すると、裏で自動的に立ち上がる
+- Ingests the logs (`~/.claude/projects/**/*.jsonl`) read-only and stores them in SQLite. Even after Claude Code deletes its logs (30 days by default), Kairos keeps them
+- Automatically summarizes each work block (section) with `claude -p` (haiku)
+- Starts in the background whenever you launch Claude Code
+- The UI is in English by default; Japanese can be selected from the "⋯" menu (saved per browser)
 
-設計の資料: [要件定義](docs/requirements.md) / [構成](docs/architecture.md) / [デザイン](docs/design.md) / [タスク分解](docs/tasks.md)
+Design docs: [Requirements](docs/requirements.md) / [Architecture](docs/architecture.md) / [Design](docs/design.md) / [Tasks](docs/tasks.md)
 
-## セットアップ
+## Setup
 
-必要なもの: macOS、[Bun](https://bun.sh) 1.3 以上、Claude Code（ログイン済み。要約に使う）
+Requirements: macOS, [Bun](https://bun.sh) 1.3 or later, Claude Code (logged in; used for summaries)
 
 ```sh
 git clone <this repo> ~/dev/kairos && cd ~/dev/kairos
 bun install
-bun run build      # 画面をビルドする（dist/web）
-bun link           # kairos コマンドを ~/.bun/bin に置く
-kairos open        # 起動してブラウザで開く（初回はログの取り込みに数秒かかる）
+bun run build      # build the web UI (dist/web)
+bun link           # put the kairos command in ~/.bun/bin
+kairos open        # start and open in the browser (the first ingest takes a few seconds)
 ```
 
-### Claude Code の起動時に自動で立ち上げる
+### Start automatically with Claude Code
 
-`~/.claude/settings.json` の `hooks.SessionStart` に次を足す。
+Add the following to `hooks.SessionStart` in `~/.claude/settings.json`.
 
 ```json
 {
@@ -32,64 +33,66 @@ kairos open        # 起動してブラウザで開く（初回はログの取�
 }
 ```
 
-`kairos ensure` は、サーバーが動いていれば何もせず（約 20ms）、止まっていればバックグラウンドで起動してすぐ戻る。何も出力しないので、Claude の会話には影響しない。起動したサーバーは Claude Code を終了しても動き続ける。ブラウザは開かないので、見たいときに `kairos open` するか http://127.0.0.1:4319 を開く。
+`kairos ensure` does nothing if the server is already running (about 20ms); otherwise it starts the server in the background and returns immediately. It prints nothing, so it doesn't affect the Claude conversation. The server keeps running after Claude Code exits. It doesn't open a browser — run `kairos open` or open http://127.0.0.1:4319 when you want to look.
 
-## 使い方
+## Usage
 
-| コマンド | 内容 |
+| Command | What it does |
 |---|---|
-| `kairos open` | 起動してブラウザで開く |
-| `kairos status` | 動いているか、PID、ログの場所 |
-| `kairos stop` / `kairos restart` | 止める / 止めて起動し直す（Kairos を更新したあと） |
-| `kairos ingest` | ログを手で取り込む（サーバーを動かさずに DB だけ作るとき） |
+| `kairos open` | Start the server and open it in the browser |
+| `kairos status` | Whether it's running, the PID, and where the log is |
+| `kairos stop` / `kairos restart` | Stop / stop and start again (after updating Kairos) |
+| `kairos ingest` | Ingest logs manually (to build the DB without running the server) |
 
-オプション: `--summary-model <model>`（既定 haiku）、`--no-auto-summary`（要約を自動では作らず、画面のボタンで頼んだときだけ作る）、`--port <n>`（既定 4319）
+Options: `--summary-model <model>` (default: haiku), `--summary-lang <en|ja>` (language of the summaries; default: en), `--no-auto-summary` (don't summarize automatically; only when requested with the button in the UI), `--port <n>` (default: 4319)
 
-画面のキーボード操作: `←` `→` 前後へ、`t` 今日、`w` 週表示、`d` 日表示、`c` カレンダー、`l` リスト、`j` `k` 次・前の作業、`/` 検索、`Esc` 詳細を閉じる、`?` テーマと操作の一覧
+Changing `--summary-lang` doesn't rewrite existing summaries. They stay as they are, and you can regenerate any of them from the drawer.
 
-### 更新するとき
+Keyboard shortcuts: `←` `→` previous/next period, `t` today, `w` week view, `d` day view, `c` calendar, `l` list, `j` `k` next/previous work block, `/` search, `Esc` close details, `?` menu with theme, language and shortcuts
+
+### Updating
 
 ```sh
 git pull && bun install && bun run build && kairos restart
 ```
 
-## データの場所
+## Where data lives
 
-| 種類 | 場所 |
+| Kind | Location |
 |---|---|
 | DB | `~/Library/Application Support/kairos/kairos.db` |
 | PID | `~/Library/Application Support/kairos/kairos.pid` |
-| ログ | `~/Library/Logs/kairos/server.log` |
-| 要約用の作業ディレクトリ | `~/Library/Application Support/kairos/summarizer/`（空のまま） |
+| Log | `~/Library/Logs/kairos/server.log` |
+| Working directory for summaries | `~/Library/Application Support/kairos/summarizer/` (stays empty) |
 
-`KAIROS_DATA_DIR` を設定すると、DB・PID・ログをまとめて別の場所に置ける（試しに別の DB で動かすとき）。
+Set `KAIROS_DATA_DIR` to put the DB, PID and log somewhere else together (e.g. to try things out against a separate DB).
 
-### Claude Code のログの保存期間について
+### About Claude Code's log retention
 
-Kairos は取り込んだ内容を DB に残すので、Claude Code の `cleanupPeriodDays` を延ばさなくても、カレンダー・要約・会話は消えない。ただし、元のログが消えたセッションは、Kairos の解釈ルールを更新しても（`PARSER_VERSION`）読み直せない。気になる場合は `cleanupPeriodDays` も延ばしておく。
+Kairos keeps what it ingested in its DB, so the calendar, summaries and conversations don't disappear even if you don't extend Claude Code's `cleanupPeriodDays`. However, sessions whose original logs are gone can't be re-read when Kairos updates its interpretation rules (`PARSER_VERSION`). If that matters to you, extend `cleanupPeriodDays` as well.
 
-### アンインストール
+### Uninstalling
 
 ```sh
 kairos stop
-bun unlink                       # kairos コマンドを外す（リポジトリで実行）
+bun unlink                       # remove the kairos command (run in the repository)
 rm -rf ~/Library/Application\ Support/kairos ~/Library/Logs/kairos
 ```
 
-`~/.claude/settings.json` の SessionStart から `kairos ensure` の行を消す。
+Then remove the `kairos ensure` entry from SessionStart in `~/.claude/settings.json`.
 
-## 開発
+## Development
 
 ```sh
-bun run dev      # API（:4319）と Vite（:5173）を同時に起動。画面は http://127.0.0.1:5173
-bun run check    # Biome（lint・format）+ 型チェック + テスト
-bun run format   # Biome で自動修正
+bun run dev      # start the API (:4319) and Vite (:5173) together. The UI is at http://127.0.0.1:5173
+bun run check    # Biome (lint and format) + type check + tests
+bun run format   # auto-fix with Biome
 ```
 
-`bun run dev` はバックグラウンドのサーバーと同じポートを使うので、先に `kairos stop` しておく。
+`bun run dev` uses the same port as the background server, so run `kairos stop` first.
 
-テスト用の架空ログは `bun tests/fixtures/generate.ts` で作り直せる（[説明](tests/fixtures/README.md)）。
+The fictional test logs can be regenerated with `bun tests/fixtures/generate.ts` ([details](tests/fixtures/README.md)).
 
-## ライセンス
+## License
 
 [MIT](LICENSE)

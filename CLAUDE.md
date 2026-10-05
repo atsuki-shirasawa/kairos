@@ -1,44 +1,47 @@
 # Kairos
 
-Claude Code のセッションログ（`~/.claude/projects/**/*.jsonl`）を SQLite に取り込み、カレンダーで振り返る個人用 Web アプリ。macOS・Bun 前提。
+A personal web app that ingests Claude Code session logs (`~/.claude/projects/**/*.jsonl`) into SQLite and lets you look back on them in a calendar. Assumes macOS and Bun.
 
-設計: [要件定義](docs/requirements.md) / [構成](docs/architecture.md) / [デザイン](docs/design.md) / [タスク分解](docs/tasks.md)
+Design: [Requirements](docs/requirements.md) / [Architecture](docs/architecture.md) / [Design](docs/design.md) / [Tasks](docs/tasks.md)
 
-## コマンド
+## Commands
 
 ```sh
-bun run check      # Biome + 型チェック + テスト。変更の最後に必ず通す
-bun run format     # Biome で自動修正
-bun test tests/server/ingest/ingester.test.ts   # 個別のテスト
-bun run dev        # API :4319 + Vite :5173。先に `kairos stop`（同じポートを使う）
-bun tests/fixtures/generate.ts                  # fixture を作り直す
+bun run check      # Biome + type check + tests. Always run it at the end of a change
+bun run format     # auto-fix with Biome
+bun test tests/server/ingest/ingester.test.ts   # a single test file
+bun run dev        # API :4319 + Vite :5173. Run `kairos stop` first (same port)
+bun tests/fixtures/generate.ts                  # regenerate the fixtures
 ```
 
-手元の常用サーバーへの反映は `/ship-local`（check → build → `kairos restart`）。
+To deploy to the locally running server, use `/ship-local` (check → build → `kairos restart`).
 
-## 構成
+## Layout
 
-- `src/cli/` — `kairos` コマンド（`ensure` / `open` / `serve` / `ingest` など）。`daemon.ts` がバックグラウンド起動と PID 管理
-- `src/server/ingest/` — 差分読み込み（`reader`）→ 分類（`classify`）→ 保存（`ingester`）→ 作業ブロック（`segments`）
-- `src/server/summarize/` — セクション単位の要約。`claude -p` を副作用なしの設定で実行する
-- `src/server/api/` — Hono。`security.ts` の Host 検証・CSP・書き込み防御
-- `src/shared/` — API の型と定数。サーバーと画面で共有する
-- `src/web/` — React 19 + Tailwind v4 + shadcn/ui（`@/` は `src/web/src`）
+- `src/cli/` — the `kairos` command (`ensure` / `open` / `serve` / `ingest`, etc.). `daemon.ts` handles background start and the PID file
+- `src/server/ingest/` — incremental read (`reader`) → classify (`classify`) → store (`ingester`) → work blocks (`segments`)
+- `src/server/summarize/` — per-section summaries. Runs `claude -p` with side-effect-free settings. The output language is set with `--summary-lang <en|ja>` (default `en`); existing summaries are kept and can be regenerated from the drawer
+- `src/server/api/` — Hono. `security.ts` holds Host validation, CSP and write protection
+- `src/shared/` — API types and constants shared by the server and the UI
+- `src/web/` — React 19 + Tailwind v4 + shadcn/ui (`@/` is `src/web/src`)
+- `src/web/src/i18n/` — UI language (English by default, Japanese selectable from the "⋯" menu, saved per browser). Messages live in `messages/*.ts` via `defineMessages`
 
-## 守ること
+## Rules
 
-- **元ログは読み取り専用**。`~/.claude` 以下に書き込まない。テストは fixture を一時ディレクトリへコピーして使う（`tests/server/ingest/helpers.ts`）
-- **`tests/fixtures/claude/` は生成物**。`tests/fixtures/generate.ts` / `builder.ts` を直して作り直す。シナリオの期待値は `tests/fixtures/README.md` が正で、解釈ルールの変更はシナリオとテストを先に足す（`/add-fixture-scenario`）
-- **fixture は架空データだけ**。実ログの本文・パス・PR などを写さない
-- 解釈ルールを変えたら `PARSER_VERSION`、集計・作業ブロック・プロジェクトの割り当ての計算だけ変えたら `DERIVED_VERSION` を上げる（`src/server/ingest/ingester.ts`）
-- **DB スキーマは `src/server/db/index.ts` の `MIGRATIONS` の末尾に足す**。既存の要素は書き換えない
-- **API のセキュリティを緩めない**: 新しいルートも `guardHost` を通し、書き込み系は `guardWrite` を通す。待ち受けは `127.0.0.1` のみ。会話の Markdown で生 HTML・画像を描画しない。変えたときは `security-reviewer` エージェントで確認する
-- Claude Code のログ形式が変わった疑いがあるときは `log-format-auditor` エージェントで実ログと判定ルールを照合する
+- **Original logs are read-only.** Never write under `~/.claude`. Tests copy the fixtures into a temporary directory (`tests/server/ingest/helpers.ts`)
+- **`tests/fixtures/claude/` is generated.** Fix `tests/fixtures/generate.ts` / `builder.ts` and regenerate. `tests/fixtures/README.md` is the source of truth for scenario expectations; when changing interpretation rules, add the scenario and tests first (`/add-fixture-scenario`)
+- **Fixtures contain fictional data only.** Never copy text, paths, PRs, etc. from real logs. Conversation text in fixtures may be in any language
+- When interpretation rules change, bump `PARSER_VERSION`; when only the computation of aggregates, work blocks or project assignment changes, bump `DERIVED_VERSION` (`src/server/ingest/ingester.ts`)
+- **Add DB schema changes to the end of `MIGRATIONS` in `src/server/db/index.ts`.** Never rewrite existing entries
+- **Don't loosen API security**: new routes must go through `guardHost`, and write routes through `guardWrite`. Listen on `127.0.0.1` only. Don't render raw HTML or images from conversation Markdown. When you change any of this, check with the `security-reviewer` agent
+- If you suspect Claude Code's log format has changed, use the `log-format-auditor` agent to compare real logs against the rules
 
-## 書き方
+## Writing
 
-- コメント・ドキュメント・テスト名・UI 文言は日本語。コメントは「なぜ」を書く
-- Biome の設定に従う（ダブルクォート・セミコロン・行幅 100）。編集後は hook で自動整形される
-- import は拡張子付き（`./foo.ts`）
-- Promise は放置しない（`noFloatingPromises`）。意図して待たないときは `void` を付ける
-- 新しいライブラリの API は context7 MCP で最新の資料を確かめる（Vite 8・TS 7・Tailwind v4 など新しいメジャー版が多い）
+- Comments, docs, test names and commit messages are in English. Comments explain *why*
+- UI copy is never hard-coded in components. Add it to the dictionaries in `src/web/src/i18n/messages/*.ts` with `defineMessages`, in both `en` and `ja`. English is the source of truth and Japanese must have the same shape (a missing key is a type error). Call the message function at render time, not at module level
+- Server and CLI output is in English
+- Follow the Biome config (double quotes, semicolons, 100-column lines). Edited files are auto-formatted by a hook
+- Imports include the extension (`./foo.ts`)
+- Don't leave Promises floating (`noFloatingPromises`). Prefix with `void` when you intentionally don't await
+- Check the latest docs for new library APIs with the context7 MCP (many dependencies are new major versions: Vite 8, TS 7, Tailwind v4, etc.)

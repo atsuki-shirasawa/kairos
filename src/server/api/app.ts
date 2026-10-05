@@ -14,9 +14,9 @@ import { Queries } from "../queries.ts";
 import type { Summarizer } from "../summarize/summarizer.ts";
 import { guardHost, guardWrite } from "./security.ts";
 
-/** カレンダーで一度に取れる期間の上限（月表示 + 前後の余白）。 */
+/** Longest range the calendar can fetch at once (a month view plus margins). */
 export const MAX_RANGE_MS = 62 * 24 * 60 * 60_000;
-/** プロジェクトの色はパレットのキー（p0〜p7）で持つ。値はテーマごとに Web 側で決まる。 */
+/** Project colors are stored as palette keys (p0–p7). The actual colors are set per theme by the web app. */
 const PALETTE_KEY = /^p[0-7]$/;
 const KEEPALIVE_MS = 15_000;
 
@@ -71,13 +71,13 @@ export function createApp({ db, events, summarizer, now }: AppDeps): Hono {
     return session ? c.json(session) : c.json({ error: "session not found" }, 404);
   });
 
-  // セクションの要約を作る（作り直す）。結果は SSE の summary.updated で知らせる。
+  // Generates (or regenerates) a section summary. The result is announced via SSE summary.updated.
   app.post("/api/sessions/:id/sections/:start/summary", (c) => {
     const id = c.req.param("id");
     const start = Number(c.req.param("start"));
     const section = q.session(id)?.sections.find((s) => s.start === start);
     if (!section) return c.json({ error: "section not found" }, 404);
-    if (!summarizer) return c.json({ error: "要約は無効になっています" }, 503);
+    if (!summarizer) return c.json({ error: "Summaries are disabled" }, 503);
     summarizer.request(id, start);
     return c.json({ queued: true }, 202);
   });
@@ -115,7 +115,7 @@ export function createApp({ db, events, summarizer, now }: AppDeps): Hono {
           await stream.writeSSE({ event: next.type, data: JSON.stringify(next) });
           continue;
         }
-        // 次のイベントか、接続維持用のコメントを送る時間まで待つ
+        // Wait for the next event or until it is time to send a keep-alive comment
         const timedOut = await new Promise<boolean>((resolve) => {
           const timer = setTimeout(() => resolve(true), KEEPALIVE_MS);
           wake = () => {
@@ -149,7 +149,7 @@ function parseProjectUpdate(body: unknown): ProjectUpdate | null {
   return Object.keys(update).length ? update : null;
 }
 
-/** 期間の指定（ミリ秒）を確かめる。長すぎる期間は、全件を返すのと変わらないので断る。 */
+/** Validates the range (ms). Overly long ranges are refused, since they amount to returning everything. */
 function parseRange(
   fromParam: string | undefined,
   toParam: string | undefined,
@@ -157,7 +157,7 @@ function parseRange(
   const from = Number(fromParam);
   const to = Number(toParam);
   if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from)
-    return { error: "from と to（ミリ秒、from < to）が必要です" };
-  if (to - from > MAX_RANGE_MS) return { error: "期間が長すぎます（最大 62 日）" };
+    return { error: "from and to (ms, from < to) are required" };
+  if (to - from > MAX_RANGE_MS) return { error: "Range too long (max 62 days)" };
   return { from, to };
 }

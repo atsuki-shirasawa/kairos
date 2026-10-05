@@ -10,6 +10,7 @@ import { useLiveUpdates } from "@/hooks/useLiveUpdates.ts";
 import { useNow } from "@/hooks/useNow.ts";
 import { useTheme } from "@/hooks/useTheme.ts";
 import { useUrlState } from "@/hooks/useUrlState.ts";
+import { appMessages } from "@/i18n/messages/app.tsx";
 import { dateLabel, rangeOf, shift, startOfDay } from "@/lib/dates.ts";
 import {
   type Filter,
@@ -46,8 +47,9 @@ export function App() {
   const focused = useMemo(() => narrowSessions(visible, matches), [visible, matches]);
   const setFilter = useCallback((filter: Filter) => update({ filter }), [update]);
 
-  // 時刻順に前後の作業へ移る（j / k とドロワーの ↑ ↓）。履歴は積まず、戻るボタンで一つずつ戻らずに済むようにする。
-  // 絞り込み中は、条件に合う作業だけをたどる
+  // Step to the previous/next block in time order (j / k and the drawer's ↑ ↓). Doesn't push
+  // history, so the back button isn't stuck walking through every step.
+  // While filtering, only matching blocks are visited
   const ordered = useMemo(() => orderedBlocks(focused, from, to), [focused, from, to]);
   const currentAt = selectedSegment(visible, state.session, state.at)?.start ?? state.at;
   const current = state.session && currentAt !== null ? { id: state.session, at: currentAt } : null;
@@ -58,7 +60,7 @@ export function App() {
     [update],
   );
 
-  // 閉じたら、開いたブロック（行）へフォーカスを戻す。キーボードで続けてたどれるように
+  // On close, return focus to the block (row) that was open, so keyboard navigation can continue
   const closeDrawer = useCallback(() => {
     const el = document.querySelector<HTMLElement>(
       "main button[data-selected], main tr[data-selected] button",
@@ -70,9 +72,9 @@ export function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // ← → で前後へ、t で今日、w / d で週・日、c / l でカレンダー・リスト、j / k で次・前の作業、
-  // / で検索、Esc で詳細を閉じる、? で「⋯」メニュー。一覧は Toolbar.tsx の SHORTCUTS。
-  // 日付ピッカー（data-date-picker）の中では方向キーを日の移動に使うので、ここでは扱わない
+  // ← → previous/next period, t today, w / d week/day, c / l calendar/list, j / k next/previous
+  // block, / search, Esc close details, ? the "⋯" menu. The list shown to users is SHORTCUTS in
+  // Toolbar.tsx. Inside the date picker (data-date-picker) arrow keys move between days, so skip them here
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -92,11 +94,11 @@ export function App() {
       else if (e.key === "l") update({ layout: "list" });
       else if (e.key === "j") goTo(next ?? null);
       else if (e.key === "k") goTo(prev ?? null);
-      // 配列によっては Shift+/ の key が "/" のまま届くので、両方を受け付ける
+      // On some keyboard layouts Shift+/ still arrives as "/", so accept both
       else if (e.key === "?" || (e.key === "/" && e.shiftKey)) setMenuOpen((v) => !v);
       else if (e.key === "/") searchRef.current?.focus();
-      // ポップオーバー（一覧・プロジェクト）を開いているときの Esc は、それを閉じるだけにする（ツールチップは除く）。
-      // Radix が閉じる前のこの時点では、中身がまだ DOM に残っている
+      // While a popover (list, projects) is open, Esc only closes it (tooltips don't count).
+      // At this point Radix hasn't closed it yet, so its content is still in the DOM
       else if (
         e.key === "Escape" &&
         state.session &&
@@ -110,7 +112,7 @@ export function App() {
     return () => removeEventListener("keydown", onKey);
   }, [state.view, state.anchor, state.session, update, goTo, prev, next, closeDrawer]);
 
-  // カレンダーとリストは同じものを描き分けるだけなので、渡すものも同じ
+  // Calendar and list render the same data differently, so they get the same props
   const body = {
     days,
     sessions: visible,
@@ -123,7 +125,8 @@ export function App() {
     onOpenDay: (day: number) => update({ view: "day", anchor: day }),
   };
 
-  const period = state.view === "week" ? "この週" : "この日";
+  const period = state.view;
+  const m = appMessages();
 
   return (
     <div className="flex h-full flex-col">
@@ -155,12 +158,7 @@ export function App() {
           ) : (
             <CalendarGrid {...body} />
           )}
-          {calendar.isError && (
-            <Notice>
-              Kairos のサーバーに接続できません。ターミナルで <code>kairos ensure</code>{" "}
-              を実行すると起動します。
-            </Notice>
-          )}
+          {calendar.isError && <Notice>{m.disconnected(<code>kairos ensure</code>)}</Notice>}
           {calendar.isSuccess && visible.length === 0 && (
             <EmptyNotice
               period={period}
@@ -179,14 +177,14 @@ export function App() {
           )}
           {visible.length > 0 && focused.length === 0 && isFocused(state.filter) && (
             <Notice>
-              <p>{period}に、絞り込みの条件に合う作業はありません。</p>
+              <p>{m.noMatch(period)}</p>
               <Button
                 variant="outline"
                 size="xs"
                 className="mt-2"
                 onClick={() => setFilter({ ...state.filter, q: "", outcome: false })}
               >
-                条件を外す
+                {m.clearFilter}
               </Button>
             </Notice>
           )}
@@ -206,7 +204,7 @@ export function App() {
   );
 }
 
-/** 期間に表示するものがないとき、その理由と次にできることを出す。 */
+/** When the period has nothing to show, explain why and what to do next. */
 function EmptyNotice({
   period,
   progress,
@@ -215,53 +213,38 @@ function EmptyNotice({
   next,
   onJump,
 }: {
-  period: string;
+  period: "week" | "day";
   progress: { done: number; total: number } | null;
-  /** 記録はあるが、すべて隠している。何で隠したか。 */
+  /** There are sessions, but all are hidden. What hid them. */
   hiddenBy: "project" | "brief" | null;
   prev: number | null;
   next: number | null;
   onJump: (t: number) => void;
 }) {
+  const m = appMessages();
   if (progress)
     return (
       <Notice>
-        ログを取り込んでいます（{Math.floor((progress.done / Math.max(progress.total, 1)) * 100)}
-        %）。終わると、ここに表示されます。
+        {m.ingesting(Math.floor((progress.done / Math.max(progress.total, 1)) * 100))}
       </Notice>
     );
-  if (hiddenBy === "project")
-    return (
-      <Notice>
-        {period}
-        の記録は、すべて非表示のプロジェクトのものです。右上の「絞り込み」から表示を戻せます。
-      </Notice>
-    );
-  if (hiddenBy === "brief")
-    return (
-      <Notice>
-        {period}
-        の記録は、隠しているちょっとした質問か、非表示のプロジェクトのものです。右上の「絞り込み」から表示を戻せます。
-      </Notice>
-    );
-  if (prev === null && next === null)
-    return (
-      <Notice>まだ記録がありません。Claude Code で作業すると、数秒でここに表示されます。</Notice>
-    );
+  if (hiddenBy === "project") return <Notice>{m.hiddenByProject(period)}</Notice>;
+  if (hiddenBy === "brief") return <Notice>{m.hiddenByBrief(period)}</Notice>;
+  if (prev === null && next === null) return <Notice>{m.noRecordsYet}</Notice>;
   return (
     <Notice>
-      <p>{period}の記録はありません。</p>
+      <p>{m.noRecords(period)}</p>
       <div className="mt-2 flex flex-wrap justify-center gap-2">
         {prev !== null && (
           <Button variant="outline" size="xs" onClick={() => onJump(prev)}>
             <ChevronLeft />
-            前の記録
+            {m.previous}
             <span className="font-num text-muted-foreground">{dateLabel(prev)}</span>
           </Button>
         )}
         {next !== null && (
           <Button variant="outline" size="xs" onClick={() => onJump(next)}>
-            次の記録
+            {m.next}
             <span className="font-num text-muted-foreground">{dateLabel(next)}</span>
             <ChevronRight />
           </Button>

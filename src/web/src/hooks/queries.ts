@@ -10,7 +10,7 @@ import { api } from "@/lib/api.ts";
 
 export const keys = {
   calendar: (from: number, to: number) => ["calendar", from, to] as const,
-  // "calendar" の下に置き、取り込みの通知でカレンダーと一緒に読み直す
+  // Nested under "calendar" so import notifications refetch it along with the calendar
   spans: (from: number, to: number) => ["calendar", "spans", from, to] as const,
   session: (id: string) => ["session", id] as const,
   messages: (id: string, agent: string | null) => ["messages", id, agent] as const,
@@ -20,17 +20,17 @@ export function useCalendar(from: number, to: number) {
   return useQuery({
     queryKey: keys.calendar(from, to),
     queryFn: () => api.calendar(from, to),
-    placeholderData: keepPreviousData, // 週を移動しても、読み込み中は前の表示を残す
+    placeholderData: keepPreviousData, // Keep the previous week on screen while the next one loads
   });
 }
 
-/** 日付ピッカーの「記録のある日」。開いている間だけ読む。 */
+/** "Days with sessions" for the date picker. Fetched only while it is open. */
 export function useSpans(from: number, to: number, enabled: boolean) {
   return useQuery({
     queryKey: keys.spans(from, to),
     queryFn: () => api.spans(from, to),
     enabled,
-    placeholderData: keepPreviousData, // 月を移る間も、前の月の印を消さない
+    placeholderData: keepPreviousData, // Keep the previous month's dots while moving between months
   });
 }
 

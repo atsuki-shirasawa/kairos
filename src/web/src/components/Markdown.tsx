@@ -1,12 +1,13 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { conversationMessages } from "@/i18n/messages/conversation.ts";
 import { remarkIssueLinks } from "@/lib/issueLinks.ts";
 import { cn } from "@/lib/utils.ts";
 
 /**
- * 会話や要約の Markdown を表示する。生の HTML は描画しない（react-markdown の既定）。
- * 画像は読み込まず、リンクは新しいタブで開く。
- * `issueBaseUrl` を渡すと、本文の `#番号` をそのリポジトリの Issue / PR へのリンクにする。
+ * Renders Markdown from conversations and summaries. Raw HTML is never rendered (react-markdown's default).
+ * Images are not loaded, and links open in a new tab.
+ * With `issueBaseUrl`, `#123` in the text links to that repository's issue / PR.
  */
 export function Markdown({
   children,
@@ -42,7 +43,9 @@ export function Markdown({
             </a>
           ),
           img: ({ alt, src }) => (
-            <span className="text-muted-foreground">[画像: {alt || String(src ?? "")}]</span>
+            <span className="text-muted-foreground">
+              {conversationMessages().image(alt || String(src ?? ""))}
+            </span>
           ),
         }}
       >

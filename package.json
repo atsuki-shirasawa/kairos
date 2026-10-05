@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "license": "MIT",
   "private": true,
-  "description": "Claude Code のセッション履歴を、何をしたかが分かるカレンダーとして振り返る個人用 Web アプリ",
+  "description": "A personal web app for looking back on your Claude Code session history as a calendar of what you did",
   "type": "module",
   "bin": {
     "kairos": "./src/cli/index.ts"

@@ -1,4 +1,4 @@
-// fixture のセッション ID。シナリオの中身は generate.ts と README.md を参照。
+// Session IDs used by the fixtures. See generate.ts and README.md for what each scenario contains.
 export const SID = {
   basic: "11111111-1111-4111-8111-111111111111",
   loop: "22222222-2222-4222-8222-222222222222",

@@ -1,9 +1,11 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import type { CalendarSession } from "../../src/shared/api.ts";
+import { setLocale } from "../../src/web/src/i18n/index.ts";
 import {
   addDays,
   addMonths,
   dateLabel,
+  durationLabel,
   isoWeek,
   monthWeeks,
   rangeOf,
@@ -14,7 +16,7 @@ import {
 } from "../../src/web/src/lib/dates.ts";
 import { blocksOfDay, busyMs, layoutDay, recordedDays } from "../../src/web/src/lib/layout.ts";
 
-const DAY0 = new Date(2026, 9, 5).getTime(); // 2026-10-05（月）0 時
+const DAY0 = new Date(2026, 9, 5).getTime(); // 2026-10-05 (Mon) 00:00
 const at = (h: number) => DAY0 + h * 3_600_000;
 
 function session(id: string, ...spans: [number, number][]): CalendarSession {
@@ -52,7 +54,7 @@ function session(id: string, ...spans: [number, number][]): CalendarSession {
   };
 }
 
-/** ブロックごとの [列, 列数, 広げる列数, 重なりの深さ]。 */
+/** Per block: [column, column count, span, stacking depth]. */
 const placement = (blocks: ReturnType<typeof layoutDay>) =>
   Object.fromEntries(
     blocks.map((b) => [
@@ -62,12 +64,12 @@ const placement = (blocks: ReturnType<typeof layoutDay>) =>
   );
 
 describe("layoutDay", () => {
-  test("重ならないブロックはそれぞれ全幅", () => {
+  test("blocks that don't overlap each take the full width", () => {
     const blocks = layoutDay([session("a", [at(9), at(10)]), session("b", [at(11), at(12)])], DAY0);
     expect(placement(blocks)).toEqual({ "a@9.00": [0, 1, 1, 0], "b@11.00": [0, 1, 1, 0] });
   });
 
-  test("開始が見出し 1 行ぶん以上離れていれば、横に分けずに同じ列へずらして重ねる", () => {
+  test("blocks starting at least one heading line apart stack in the same column instead of splitting", () => {
     const blocks = layoutDay(
       [
         session("a", [at(9), at(12)]),
@@ -80,16 +82,16 @@ describe("layoutDay", () => {
     expect(placement(blocks)).toEqual({
       "a@9.00": [0, 1, 1, 0],
       "b@10.00": [0, 1, 1, 1],
-      // b は見た目の上でも 11 時に終わっているので、a の上に 1 段だけ重ねる
+      // b visually ends at 11:00 too, so it stacks one level over a
       "c@11.50": [0, 1, 1, 1],
       "d@15.00": [0, 1, 1, 0],
     });
-    // a の見出しは、b が重なり始める 10 時までに収める
+    // a's heading must fit before 10:00, where b starts covering it
     expect(blocks.find((b) => b.session.id === "a")?.coveredFrom).toBe(10 * 3_600_000);
     expect(blocks.find((b) => b.session.id === "c")?.coveredFrom).toBeNull();
   });
 
-  test("開始がほぼ同時で見出しがぶつかるときだけ横に分ける", () => {
+  test("blocks split side by side only when they start almost together and headings would collide", () => {
     const blocks = layoutDay(
       [
         session("long", [at(9), at(12)]),
@@ -105,7 +107,7 @@ describe("layoutDay", () => {
     });
   });
 
-  test("短いブロックも最低限の高さぶん重なりとして扱う", () => {
+  test("short blocks count as overlapping for their minimum drawn height", () => {
     const blocks = layoutDay(
       [session("a", [at(9), at(9)]), session("b", [at(9.1), at(9.2)])],
       DAY0,
@@ -113,7 +115,7 @@ describe("layoutDay", () => {
     expect(placement(blocks)).toEqual({ "a@9.00": [0, 2, 1, 0], "b@9.10": [1, 2, 1, 0] });
   });
 
-  test("下に残るブロックが少ない列を選び、右の列が空いていればそこまで広げる", () => {
+  test("picks the column with the fewest blocks underneath and widens into free columns on the right", () => {
     const blocks = layoutDay(
       [
         session("a", [at(9), at(12)]),
@@ -127,12 +129,12 @@ describe("layoutDay", () => {
       "a@9.00": [0, 3, 1, 0],
       "b@9.05": [1, 3, 1, 0],
       "c@9.10": [2, 3, 1, 0],
-      // a の上に重ねるより、b が終わって空いた列に置き、c の列まで広げる
+      // Rather than stacking over a, use the column b freed up and widen into c's column
       "d@10.00": [1, 3, 2, 0],
     });
   });
 
-  test("日をまたぐブロックは日ごとに切る", () => {
+  test("blocks spanning midnight are clipped per day", () => {
     const s = session("late", [at(23), at(25)]);
     const today = layoutDay([s], DAY0);
     const tomorrow = layoutDay([s], DAY0 + 86_400_000);
@@ -155,7 +157,7 @@ describe("layoutDay", () => {
 describe("recordedDays", () => {
   const days = [0, 1, 2].map((i) => addDays(DAY0, i));
 
-  test("日をまたぐブロックは両方の日に数え、カレンダーと同じく 0 時ちょうどに終わるものも翌日に数える", () => {
+  test("blocks spanning midnight count on both days, and like the calendar, one ending exactly at midnight counts on the next day", () => {
     const spans = [
       { start: at(23), end: at(25), projectId: 1 },
       { start: at(40), end: at(48), projectId: 1 },
@@ -164,7 +166,7 @@ describe("recordedDays", () => {
     expect(blocksOfDay([session("a", [at(40), at(48)])], addDays(DAY0, 2))).toHaveLength(1);
   });
 
-  test("非表示のプロジェクトのブロックは数えない", () => {
+  test("blocks of hidden projects don't count", () => {
     const spans = [
       { start: at(1), end: at(2), projectId: 1 },
       { start: at(25), end: at(26), projectId: 2 },
@@ -175,65 +177,90 @@ describe("recordedDays", () => {
 });
 
 describe("dates", () => {
-  test("週は月曜から始まる", () => {
+  test("weeks start on Monday", () => {
     const sunday = new Date(2026, 9, 11, 15).getTime();
     expect(startOfWeek(sunday)).toBe(DAY0);
     expect(rangeOf("week", sunday)).toMatchObject({ from: DAY0, to: addDays(DAY0, 7) });
     expect(rangeOf("week", sunday).days).toHaveLength(7);
   });
 
-  test("期間の見出しは月を主役にし、年は今年でなければ添える", () => {
+  test("the period heading leads with the month and adds the year when it isn't the current one", () => {
     expect(rangeTitle("week", DAY0, DAY0)).toEqual({
-      title: "10月",
+      title: "October",
       sub: null,
       year: null,
       week: "W41",
     });
-    expect(rangeTitle("week", new Date(2026, 8, 30).getTime(), DAY0).title).toBe("9月 – 10月");
+    expect(rangeTitle("week", new Date(2026, 8, 30).getTime(), DAY0).title).toBe("Sep – Oct");
     expect(rangeTitle("week", DAY0, new Date(2027, 0, 1).getTime()).year).toBe("2026");
     expect(rangeTitle("week", new Date(2026, 11, 30).getTime(), DAY0).year).toBe("2026 – 2027");
     expect(rangeTitle("day", DAY0, DAY0)).toEqual({
-      title: "10月5日",
-      sub: "月曜日",
+      title: "Oct 5",
+      sub: "Monday",
       year: null,
       week: null,
     });
   });
 
-  test("月を足すと、月末は移った先の月末に丸める", () => {
+  test("adding months clamps to the end of the target month", () => {
     expect(addMonths(new Date(2026, 0, 31).getTime(), 1)).toBe(new Date(2026, 1, 28).getTime());
     expect(addMonths(new Date(2026, 0, 15).getTime(), -1)).toBe(new Date(2025, 11, 15).getTime());
     expect(startOfMonth(DAY0 + 15 * 3_600_000)).toBe(new Date(2026, 9, 1).getTime());
   });
 
-  test("月のグリッドは月曜始まりで、前後の月の日で週を埋める", () => {
+  test("the month grid starts on Monday and pads weeks with days of adjacent months", () => {
     const weeks = monthWeeks(DAY0);
-    // 2026 年 10 月は木曜始まり・土曜終わり。9/28（月）〜 11/1（日）の 5 週
+    // October 2026 starts on a Thursday and ends on a Saturday: 5 weeks from 9/28 (Mon) to 11/1 (Sun)
     expect(weeks).toHaveLength(5);
     expect(weeks[0]?.[0]).toBe(new Date(2026, 8, 28).getTime());
     expect(weeks.at(-1)?.at(-1)).toBe(new Date(2026, 10, 1).getTime());
     expect(weeks.every((w) => w.length === 7)).toBe(true);
-    // 2026 年 2 月は日曜始まり。2/1 だけの週が先頭に来て、1/26 〜 3/1 の 5 週
+    // February 2026 starts on a Sunday: a week holding only 2/1 comes first, 5 weeks from 1/26 to 3/1
     expect(monthWeeks(new Date(2026, 1, 10).getTime())).toHaveLength(5);
   });
 
-  test("ISO 週番号は年をまたぐ週も正しく数える", () => {
+  test("ISO week numbers handle weeks across the year boundary", () => {
     expect(isoWeek(new Date(2026, 0, 1).getTime())).toBe(1);
     expect(isoWeek(new Date(2027, 0, 1).getTime())).toBe(53);
     expect(isoWeek(new Date(2024, 11, 30).getTime())).toBe(1);
   });
 
-  test("日付は短く書き、今年でなければ年を付ける", () => {
-    expect(dateLabel(DAY0, DAY0)).toBe("10/5 月");
-    expect(dateLabel(new Date(2025, 9, 5).getTime(), DAY0)).toBe("2025/10/5 日");
-    expect(relativeDay(DAY0 + 3_600_000, DAY0 + 5 * 3_600_000)).toBe("今日");
-    expect(relativeDay(addDays(DAY0, -1), DAY0)).toBe("昨日");
+  test("dates are short, with the year only when it isn't the current one", () => {
+    expect(dateLabel(DAY0, DAY0)).toBe("Mon, Oct 5");
+    expect(dateLabel(new Date(2025, 9, 5).getTime(), DAY0)).toBe("Sun, Oct 5, 2025");
+    expect(relativeDay(DAY0 + 3_600_000, DAY0 + 5 * 3_600_000)).toBe("Today");
+    expect(relativeDay(addDays(DAY0, -1), DAY0)).toBe("Yesterday");
     expect(relativeDay(addDays(DAY0, -2), DAY0)).toBeNull();
+  });
+
+  test("durations use hours and minutes", () => {
+    expect(durationLabel(20_000)).toBe("1m");
+    expect(durationLabel(45 * 60_000)).toBe("45m");
+    expect(durationLabel(120 * 60_000)).toBe("2h");
+    expect(durationLabel(125 * 60_000)).toBe("2h 5m");
+  });
+
+  describe("in Japanese", () => {
+    afterEach(() => setLocale("en"));
+
+    test("headings, dates, and durations use Japanese notation", () => {
+      setLocale("ja");
+      expect(rangeTitle("week", DAY0, DAY0).title).toBe("10月");
+      expect(rangeTitle("week", new Date(2026, 8, 30).getTime(), DAY0).title).toBe("9月 – 10月");
+      expect(rangeTitle("day", DAY0, DAY0)).toMatchObject({ title: "10月5日", sub: "月曜日" });
+      expect(dateLabel(DAY0, DAY0)).toBe("10/5 月");
+      expect(dateLabel(new Date(2025, 9, 5).getTime(), DAY0)).toBe("2025/10/5 日");
+      expect(relativeDay(DAY0, DAY0)).toBe("今日");
+      expect(relativeDay(addDays(DAY0, -1), DAY0)).toBe("昨日");
+      expect(durationLabel(125 * 60_000)).toBe("2時間5分");
+      expect(durationLabel(120 * 60_000)).toBe("2時間");
+      expect(durationLabel(45 * 60_000)).toBe("45分");
+    });
   });
 });
 
 describe("blocksOfDay", () => {
-  test("日をまたぐブロックは日ごとに切り、続きの印を付ける", () => {
+  test("blocks spanning midnight are clipped per day and marked as continuing", () => {
     const s = session("a", [at(22), at(26)]);
     const [today] = blocksOfDay([s], DAY0);
     const [tomorrow] = blocksOfDay([s], addDays(DAY0, 1));
@@ -250,7 +277,7 @@ describe("blocksOfDay", () => {
     ]);
   });
 
-  test("セッションをまたいで開始順に並べる", () => {
+  test("blocks are sorted by start across sessions", () => {
     const blocks = blocksOfDay(
       [session("a", [at(9), at(10)], [at(14), at(15)]), session("b", [at(11), at(12)])],
       DAY0,
@@ -264,7 +291,7 @@ describe("blocksOfDay", () => {
 });
 
 describe("busyMs", () => {
-  test("並行したブロックの重なりは 1 回だけ数える", () => {
+  test("overlaps between parallel blocks count once", () => {
     const h = 3_600_000;
     expect(
       busyMs([
@@ -275,7 +302,7 @@ describe("busyMs", () => {
     ).toBe(4 * h);
   });
 
-  test("ブロックがなければ 0", () => {
+  test("zero without blocks", () => {
     expect(busyMs([])).toBe(0);
   });
 });

@@ -1,4 +1,4 @@
-// fixture 自体の健全性チェック。取り込み処理（P1）の前提が崩れていないことを確かめる。
+// Sanity checks of the fixtures themselves: the assumptions of ingest (P1) still hold.
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -31,7 +31,7 @@ function humanUtterances(sid: string): number {
 }
 
 describe("fixtures", () => {
-  test("partial 以外の全ファイルは、すべての行が JSON として読める", () => {
+  test("every line of every file except partial parses as JSON", () => {
     for (const file of sessionFiles()) {
       if (file.includes(SID.partial)) continue;
       const lines = readFileSync(file, "utf8").split("\n").filter(Boolean);
@@ -39,7 +39,7 @@ describe("fixtures", () => {
     }
   });
 
-  test("partial の最終行は改行なしで途切れている", () => {
+  test("the last line of partial is cut off without a newline", () => {
     const text = readFileSync(sessionFiles().find((f) => f.includes(SID.partial)) ?? "", "utf8");
     expect(text.endsWith("\n")).toBe(false);
     const last = text.split("\n").at(-1) ?? "";
@@ -51,23 +51,23 @@ describe("fixtures", () => {
     ["loop", SID.loop, 2],
     ["headless", SID.headless, 0],
     ["compaction", SID.compaction, 3],
-    ["continuedTo（コピーと重複を除く前）", SID.continuedTo, 3],
-  ])("%s の人の発言数が README の前提と合う", (_name, sid, count) => {
+    ["continuedTo (before removing copies and duplicates)", SID.continuedTo, 3],
+  ])("%s has the user prompt count assumed by the README", (_name, sid, count) => {
     expect(humanUtterances(sid)).toBe(count);
   });
 
-  test("loop の自動実行は 4 回", () => {
+  test("loop has 4 automatic runs", () => {
     expect(records(SID.loop).filter((r) => r.turnOrigin === "scheduled")).toHaveLength(4);
   });
 
-  test("continuedTo の先頭には前のセッションの会話が、uuid はそのまま sessionId だけ変えてコピーされている", () => {
+  test("continuedTo starts with the previous session's conversation, copied with the same uuids and only sessionId changed", () => {
     const original = records(SID.continuedFrom).find((r) => r.type === "user");
     const copy = records(SID.continuedTo).find((r) => r.type === "user");
     expect(copy?.uuid).toBe(original?.uuid);
     expect(copy?.sessionId).toBe(SID.continuedTo);
   });
 
-  test("生成は決定的（2 回生成しても同じ内容になる）", () => {
+  test("generation is deterministic (two runs produce the same content)", () => {
     const snapshot = () =>
       sessionFiles()
         .map((f) => readFileSync(f, "utf8"))

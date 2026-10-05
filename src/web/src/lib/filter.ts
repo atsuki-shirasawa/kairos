@@ -1,29 +1,29 @@
-// 期間の作業の絞り込み。プロジェクトの非表示（DB に保存する、ずっと見たくないもの）とは別に、
-// URL に持たせる「今だけ絞る」条件を扱う。
+// Filtering the blocks in a period. Separate from hiding projects (saved in the DB, for things
+// you never want to see), these are "just for now" conditions kept in the URL.
 import type { CalendarSegment, CalendarSession, Project } from "@shared/api.ts";
 
 export interface Filter {
-  /** 見出し・タイトル・worktree 名・プロジェクト名の部分一致。空白で区切った語をすべて含むもの。 */
+  /** Substring match on headline, title, worktree name and project name. Every space-separated word must match. */
   q: string;
-  /** コミットか PR のある作業だけにする。 */
+  /** Only blocks with a commit or PR. */
   outcome: boolean;
-  /** ちょっとした質問（`isBrief`）のセッションを隠す。 */
+  /** Hide quick-question sessions (`isBrief`). */
   hideBrief: boolean;
 }
 
 export const NO_FILTER: Filter = { q: "", outcome: false, hideBrief: false };
 
-/** これ以下の発言で、手を動かしていないセッションを「ちょっとした質問」とみなす。 */
+/** Sessions with at most this many prompts and no hands-on work count as "quick questions". */
 export const BRIEF_PROMPTS = 2;
 
-/** 一時的な絞り込み（キーワード・成果）が効いているか。隠す条件は含めない。 */
+/** Whether a temporary filter (keyword, outcome) is active. Hiding conditions don't count. */
 export const isFocused = (f: Filter) => f.q.trim() !== "" || f.outcome;
 
 export const isFiltered = (f: Filter) => isFocused(f) || f.hideBrief;
 
 /**
- * 発言が少なく、ファイルの書き換え・コミット・PR がないセッション。
- * 1 回の依頼で大きな作業を任せたものは、書き換えがあるので残る。
+ * Sessions with few prompts and no file edits, commits or PRs.
+ * A single request that delegated a large task still has edits, so it stays.
  */
 export function isBrief(session: CalendarSession): boolean {
   if (session.promptCount > BRIEF_PROMPTS) return false;
@@ -32,7 +32,7 @@ export function isBrief(session: CalendarSession): boolean {
   );
 }
 
-/** 画面から外すセッションを除く（非表示のプロジェクトと、隠すと決めたちょっとした質問）。 */
+/** Drops sessions kept off screen (hidden projects, and quick questions when hidden). */
 export function hideSessions(
   sessions: CalendarSession[],
   projects: Map<number, Project>,
@@ -47,7 +47,7 @@ export function hideSessions(
 
 export type SegmentMatch = (session: CalendarSession, segment: CalendarSegment) => boolean;
 
-/** キーワードと成果の条件に合う作業ブロックか。条件がなければすべて合う。 */
+/** Whether a block matches the keyword and outcome conditions. Everything matches when there are none. */
 export function segmentMatcher(filter: Filter, projects: Map<number, Project>): SegmentMatch {
   const terms = filter.q.toLowerCase().split(/\s+/).filter(Boolean);
   return (session, segment) => {
@@ -62,7 +62,7 @@ export function segmentMatcher(filter: Filter, projects: Map<number, Project>): 
   };
 }
 
-/** 条件に合う作業ブロックだけを残す。合うものが 1 つもないセッションは除く。 */
+/** Keeps only matching blocks. Sessions with no matching block are dropped. */
 export function narrowSessions(
   sessions: CalendarSession[],
   match: SegmentMatch,

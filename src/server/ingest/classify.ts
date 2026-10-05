@@ -1,22 +1,22 @@
 import { contentText, list, type Rec, rec, str } from "./records.ts";
 
 export type UserKind =
-  | "prompt" // 人が打った文
-  | "command" // 人が打ったスラッシュコマンド
-  | "scheduled" // /loop・cron が起こしたターンの開始
+  | "prompt" // Text typed by the user
+  | "command" // Slash command typed by the user
+  | "scheduled" // Start of a turn triggered by /loop or cron
   | "tool_result"
   | "interrupt"
-  | "notification" // バックグラウンドタスク等の完了通知
-  | "peer" // 別のエージェント・セッションからのメッセージ
+  | "notification" // Completion notice from a background task etc.
+  | "peer" // Message from another agent or session
   | "compact_summary"
-  | "meta"; // それ以外（スキル本文の展開、コマンド出力、SDK からの入力など）
+  | "meta"; // Anything else (expanded skill text, command output, input from the SDK, etc.)
 
 const INTERRUPT_PREFIX = "[Request interrupted by user";
 const COMMAND_NAME_RE = /<command-name>([\s\S]*?)<\/command-name>/;
 const COMMAND_ARGS_RE = /<command-args>([\s\S]*?)<\/command-args>/;
 
 /**
- * `type=user` のレコードを分類する。判定ルールの根拠は tests/fixtures/README.md を参照。
+ * Classifies `type=user` records. See tests/fixtures/README.md for the reasoning behind the rules.
  */
 export function classifyUser(r: Rec): UserKind {
   const content = rec(r.message)?.content;

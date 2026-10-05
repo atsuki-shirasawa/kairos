@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.tsx";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import type { Theme } from "@/hooks/useTheme.ts";
+import { LOCALES, type Locale, setLocale, useLocale } from "@/i18n/index.ts";
+import { toolbarMessages } from "@/i18n/messages/toolbar.ts";
 import type { Layout, View } from "@/lib/dates.ts";
 import type { Filter } from "@/lib/filter.ts";
 import { cn } from "@/lib/utils.ts";
@@ -36,37 +38,46 @@ interface Props {
   onMove: (dir: -1 | 1) => void;
   onToday: () => void;
   onJump: (day: number) => void;
-  /** 検索欄。`/` キーでフォーカスするので、App が参照を持つ。 */
+  /** The search field. App holds the ref because the `/` key focuses it. */
   searchRef: React.RefObject<HTMLInputElement | null>;
   theme: Theme;
   onTheme: (theme: Theme) => void;
-  /** 「⋯」メニュー（テーマとキーボード操作）。`?` キーでも開くので、開閉は App が持つ。 */
+  /** The "⋯" menu (theme, language, shortcuts). App owns its open state because `?` opens it too. */
   menuOpen: boolean;
   onMenuOpen: (open: boolean) => void;
 }
 
-/** 切り替えの見た目。地の上に選んだものだけを面として浮かせる（iOS・macOS のセグメント風）。 */
+/** Segmented toggle look: only the selected item rises off the track (iOS / macOS style). */
 const SEGMENTED = "rounded-lg bg-muted p-0.5";
 const SEGMENT =
   "h-7 rounded-md px-3 text-muted-foreground hover:bg-transparent hover:text-foreground data-[state=on]:bg-card data-[state=on]:text-foreground data-[state=on]:shadow-sm";
 
-const THEMES: [Theme, string, typeof Sun][] = [
-  ["system", "OS の設定に合わせる", Monitor],
-  ["light", "ライト", Sun],
-  ["dark", "ダーク", Moon],
-];
+function themes(): [Theme, string, typeof Sun][] {
+  const m = toolbarMessages();
+  return [
+    ["system", m.themeSystem, Monitor],
+    ["light", m.themeLight, Sun],
+    ["dark", m.themeDark, Moon],
+  ];
+}
 
-/** キーボード操作の一覧。キーの処理は App.tsx の keydown にある。 */
-const SHORTCUTS: [string[], string][] = [
-  [["←", "→"], "前・次の期間"],
-  [["t"], "今日"],
-  [["w", "d"], "週・日の表示"],
-  [["c", "l"], "カレンダー・リスト"],
-  [["j", "k"], "次・前の作業を開く"],
-  [["/"], "検索"],
-  [["Esc"], "詳細を閉じる"],
-  [["?"], "このメニュー"],
-];
+/** Each language's name is written in that language, so it can be found from either side. */
+const LANGUAGE_NAMES: Record<Locale, string> = { en: "English", ja: "日本語" };
+
+/** The keyboard shortcuts. The keys are handled in App.tsx's keydown listener. */
+function shortcuts(): [string[], string][] {
+  const m = toolbarMessages();
+  return [
+    [["←", "→"], m.shortcutPeriod],
+    [["t"], m.shortcutToday],
+    [["w", "d"], m.shortcutView],
+    [["c", "l"], m.shortcutLayout],
+    [["j", "k"], m.shortcutStep],
+    [["/"], m.shortcutSearch],
+    [["Esc"], m.shortcutClose],
+    [["?"], m.shortcutMenu],
+  ];
+}
 
 export function Toolbar({
   view,
@@ -89,7 +100,8 @@ export function Toolbar({
   menuOpen,
   onMenuOpen,
 }: Props) {
-  const unit = view === "week" ? "週" : "日";
+  const m = toolbarMessages();
+  const locale = useLocale();
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b bg-background px-4">
       <span className="flex shrink-0 items-center gap-2">
@@ -98,15 +110,15 @@ export function Toolbar({
       </span>
       <span className="h-5 w-px shrink-0 bg-border" aria-hidden />
 
-      {/* 移動のボタンは 1 つの塊にまとめ、見出しの左に置く（カレンダーアプリの定番の並び） */}
+      {/* Navigation buttons form one group left of the heading (the usual calendar-app layout) */}
       <div className="flex shrink-0 items-center rounded-md border bg-card">
         <Button
           variant="ghost"
           size="icon-sm"
           className="rounded-r-none"
           onClick={() => onMove(-1)}
-          aria-label={`前の${unit}`}
-          title={`前の${unit}（←）`}
+          aria-label={m.prev(view)}
+          title={`${m.prev(view)} (←)`}
         >
           <ChevronLeft />
         </Button>
@@ -115,17 +127,17 @@ export function Toolbar({
           size="sm"
           className="rounded-none border-x px-3"
           onClick={onToday}
-          title="今日（t）"
+          title={`${m.today} (t)`}
         >
-          今日
+          {m.today}
         </Button>
         <Button
           variant="ghost"
           size="icon-sm"
           className="rounded-l-none"
           onClick={() => onMove(1)}
-          aria-label={`次の${unit}`}
-          title={`次の${unit}（→）`}
+          aria-label={m.next(view)}
+          title={`${m.next(view)} (→)`}
         >
           <ChevronRight />
         </Button>
@@ -139,7 +151,7 @@ export function Toolbar({
         <SearchField
           inputRef={searchRef}
           value={filter.q}
-          period={view === "week" ? "この週" : "この日"}
+          period={view}
           onChange={(q) => onFilter({ ...filter, q })}
         />
         <ToggleGroup
@@ -149,13 +161,13 @@ export function Toolbar({
           className={SEGMENTED}
           value={view}
           onValueChange={(v) => v && onView(v as View)}
-          aria-label="表示の切り替え"
+          aria-label={m.viewToggle}
         >
-          <ToggleGroupItem value="week" className={SEGMENT} title="週の表示（w）">
-            週
+          <ToggleGroupItem value="week" className={SEGMENT} title={m.weekTitle}>
+            {m.week}
           </ToggleGroupItem>
-          <ToggleGroupItem value="day" className={SEGMENT} title="日の表示（d）">
-            日
+          <ToggleGroupItem value="day" className={SEGMENT} title={m.dayTitle}>
+            {m.day}
           </ToggleGroupItem>
         </ToggleGroup>
         <ToggleGroup
@@ -165,17 +177,22 @@ export function Toolbar({
           className={SEGMENTED}
           value={layout}
           onValueChange={(v) => v && onLayout(v as Layout)}
-          aria-label="カレンダーとリストの切り替え"
+          aria-label={m.layoutToggle}
         >
           <ToggleGroupItem
             value="calendar"
             className={SEGMENT}
-            aria-label="カレンダー"
-            title="カレンダー（c）"
+            aria-label={m.calendar}
+            title={`${m.calendar} (c)`}
           >
             <CalendarDays />
           </ToggleGroupItem>
-          <ToggleGroupItem value="list" className={SEGMENT} aria-label="リスト" title="リスト（l）">
+          <ToggleGroupItem
+            value="list"
+            className={SEGMENT}
+            aria-label={m.list}
+            title={`${m.list} (l)`}
+          >
             <List />
           </ToggleGroupItem>
         </ToggleGroup>
@@ -183,18 +200,13 @@ export function Toolbar({
         <FilterMenu projects={projects} sessions={sessions} filter={filter} onFilter={onFilter} />
         <Popover open={menuOpen} onOpenChange={onMenuOpen}>
           <PopoverTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="表示の設定とキーボード操作"
-              title="表示の設定とキーボード操作（?）"
-            >
+            <Button variant="ghost" size="icon-sm" aria-label={m.menu} title={m.menuTitle}>
               <Ellipsis />
             </Button>
           </PopoverTrigger>
           <PopoverContent align="end" className="w-64 gap-0 p-0">
             <div className="flex items-center justify-between gap-2 border-b p-3">
-              <span className="font-medium text-sm">テーマ</span>
+              <span className="font-medium text-sm">{m.theme}</span>
               <ToggleGroup
                 type="single"
                 size="sm"
@@ -202,9 +214,9 @@ export function Toolbar({
                 className={SEGMENTED}
                 value={theme}
                 onValueChange={(v) => v && onTheme(v as Theme)}
-                aria-label="テーマ"
+                aria-label={m.theme}
               >
-                {THEMES.map(([value, label, Icon]) => (
+                {themes().map(([value, label, Icon]) => (
                   <ToggleGroupItem
                     key={value}
                     value={value}
@@ -217,10 +229,33 @@ export function Toolbar({
                 ))}
               </ToggleGroup>
             </div>
+            <div className="flex items-center justify-between gap-2 border-b p-3">
+              <span className="font-medium text-sm">{m.language}</span>
+              <ToggleGroup
+                type="single"
+                size="sm"
+                spacing={0.5}
+                className={SEGMENTED}
+                value={locale}
+                onValueChange={(v) => v && setLocale(v as Locale)}
+                aria-label={m.language}
+              >
+                {LOCALES.map((value) => (
+                  <ToggleGroupItem
+                    key={value}
+                    value={value}
+                    lang={value}
+                    className={cn(SEGMENT, "px-2")}
+                  >
+                    {LANGUAGE_NAMES[value]}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </div>
             <div className="p-3">
-              <p className="mb-2 font-medium text-sm">キーボード操作</p>
+              <p className="mb-2 font-medium text-sm">{m.shortcuts}</p>
               <dl className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-1.5 text-sm">
-                {SHORTCUTS.map(([keys, label]) => (
+                {shortcuts().map(([keys, label]) => (
                   <div key={label} className="contents">
                     <dt className="flex gap-1">
                       {keys.map((k) => (
@@ -245,21 +280,22 @@ export function Toolbar({
 }
 
 /**
- * アプリの印（`public/favicon.svg`。由来は docs/design.md の「印」）。
- * 取り込み中は周りに進み具合のリングを描く。文字で出すとヘッダーの幅が動き、ボタンの位置がずれるため。
+ * The app mark (`public/favicon.svg`; see "Mark" in docs/design.md).
+ * While importing, a progress ring is drawn around it. Text would change the header width and
+ * shift the buttons.
  */
 function Logo({ progress }: { progress: { done: number; total: number } | null }) {
   const rate = progress ? Math.min(progress.done / Math.max(progress.total, 1), 1) : 0;
-  const label = progress ? `取り込み中 ${Math.floor(rate * 100)}%` : undefined;
-  // 半径 9 の円周。stroke-dasharray で進んだ分だけ描く
+  const label = progress ? toolbarMessages().importing(Math.floor(rate * 100)) : undefined;
+  // Circumference of radius 9. stroke-dasharray draws only the completed part
   const length = 2 * Math.PI * 9;
   return (
     <span className="relative flex size-5 items-center justify-center" title={label}>
-      {/* 読み上げには、以前の文字の表示と同じく割合を伝える */}
+      {/* Screen readers still hear the percentage, as with the old text display */}
       <span className="sr-only" aria-live="polite">
         {label}
       </span>
-      {/* ファビコンと同じ印をそのまま使い、形と色を 1 か所で持つ。色はテーマによらず同じ */}
+      {/* Reuse the favicon so the shape and color live in one place. Same color in every theme */}
       <img src="/favicon.svg" className="size-4" alt="" />
       {progress && (
         <svg className="absolute inset-0 -rotate-90" viewBox="0 0 20 20" aria-hidden>
@@ -281,8 +317,8 @@ function Logo({ progress }: { progress: { done: number; total: number } | null }
 }
 
 /**
- * 見出し・タイトルで探す欄。普段は狭く置き、使うときだけ広げる。
- * 探すのは表示中の期間の中だけなので、そのことを placeholder で示す。
+ * Search by headline or title. Narrow by default, widened only while in use.
+ * It only searches the period on screen, which the placeholder says.
  */
 function SearchField({
   inputRef,
@@ -292,9 +328,10 @@ function SearchField({
 }: {
   inputRef: React.RefObject<HTMLInputElement | null>;
   value: string;
-  period: string;
+  period: "week" | "day";
   onChange: (q: string) => void;
 }) {
+  const m = toolbarMessages();
   return (
     <div className="relative flex items-center">
       <Search className="pointer-events-none absolute left-2 size-3.5 text-muted-foreground" />
@@ -304,7 +341,7 @@ function SearchField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
-          // Esc は入力を消し、空なら欄を離れる。Enter で離れれば、続けて j / k で結果をたどれる
+          // Esc clears the input, or leaves the field when empty. Leaving with Enter lets j / k walk the results
           if (e.key === "Escape") {
             if (value) onChange("");
             else e.currentTarget.blur();
@@ -312,8 +349,8 @@ function SearchField({
           else return;
           e.preventDefault();
         }}
-        placeholder={`${period}で探す`}
-        aria-label={`${period}の作業を見出し・タイトル・プロジェクト名で探す`}
+        placeholder={m.searchPlaceholder(period)}
+        aria-label={m.searchLabel(period)}
         className={cn(
           "peer h-7 w-36 rounded-md border bg-card pr-7 pl-7 text-sm outline-none transition-[width] duration-150 placeholder:text-muted-foreground focus:w-56 focus-visible:border-ring",
           value && "w-56 border-primary/50",
@@ -327,8 +364,8 @@ function SearchField({
             onChange("");
             inputRef.current?.focus();
           }}
-          aria-label="検索を消す"
-          title="検索を消す（Esc）"
+          aria-label={m.clearSearch}
+          title={m.clearSearchTitle}
         >
           <X className="size-3.5" />
         </button>

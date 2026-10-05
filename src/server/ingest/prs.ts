@@ -1,17 +1,17 @@
-// Bash の gh pr create 呼び出しから、作った PR の題名を取り出す。
-// pr-link レコードにも結果の gitOperation にも題名はないので、コマンドの引数から読む。
+// Extracts the title of PRs created by Bash gh pr create calls.
+// Neither pr-link records nor the result's gitOperation carry the title, so read it from the arguments.
 
 export const GH_PR_CREATE_RE = /\bgh\s+pr\s+create\b/;
 
-/** シェルの語。`dynamic` は `$…` や `` `…` `` を含み、値が実行時に決まるもの。 */
+/** A shell word. `dynamic` means it contains `$…` or `` `…` `` and its value is decided at run time. */
 interface Word {
   text: string;
   dynamic: boolean;
 }
 
 /**
- * `--title "…"` / `--title=…` / `-t '…'` の値。見つからない、または `$(…)` などで
- * 実行時に決まる値なら null。`gh pr create` の後ろ、次の `&&`・`;`・`|`・改行までだけを見る。
+ * Value of `--title "…"` / `--title=…` / `-t '…'`. null if missing or decided at run time
+ * (e.g. `$(…)`). Looks only after `gh pr create`, up to the next `&&`, `;`, `|` or newline.
  */
 export function prTitleOf(command: string): string | null {
   const m = GH_PR_CREATE_RE.exec(command);
@@ -29,8 +29,8 @@ export function prTitleOf(command: string): string | null {
 }
 
 /**
- * 1 つのコマンドの引数を、シェルと同じ規則（引用符・バックスラッシュ）で語に分ける。
- * 制御演算子（`&&`・`||`・`;`・`|`・改行）に当たったら、そこで終える。
+ * Splits one command's arguments into words using shell rules (quotes, backslashes).
+ * Stops at a control operator (`&&`, `||`, `;`, `|`, newline).
  */
 function shellWords(input: string): Word[] {
   const words: Word[] = [];
@@ -48,7 +48,7 @@ function shellWords(input: string): Word[] {
     const c = input[i] ?? "";
     if (c === "'") {
       const close = input.indexOf("'", i + 1);
-      if (close === -1) return words; // 閉じていない引用符は読めないので、そこまでにする
+      if (close === -1) return words; // An unclosed quote cannot be read, so stop there
       text += input.slice(i + 1, close);
       inWord = true;
       i = close;
@@ -65,7 +65,7 @@ function shellWords(input: string): Word[] {
       }
       if (i >= input.length) return words;
     } else if (c === "\\") {
-      // 行末のバックスラッシュは行の継続
+      // A backslash at the end of a line continues it
       if (input[i + 1] !== "\n") text += input[i + 1] ?? "";
       inWord = inWord || input[i + 1] !== "\n";
       i++;
@@ -83,7 +83,7 @@ function shellWords(input: string): Word[] {
   return words;
 }
 
-/** 出力に含まれる PR の URL（`gitOperation` がない古いログ向け）。 */
+/** PR URL found in the output (for older logs without `gitOperation`). */
 export function prUrlIn(output: string): string | null {
   return /https:\/\/[^\s/]+\/[^\s/]+\/[^\s/]+\/pull\/\d+/.exec(output)?.[0] ?? null;
 }
