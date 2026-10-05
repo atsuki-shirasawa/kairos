@@ -95,13 +95,19 @@ TypeScript で統一し、API の型をフロントとサーバーで共有す�
 
 ```
 projects      (id, path, name, color, hidden)
-sessions      (id, project_id, title, started_at, ended_at, prompt_count, status, source_path)
-messages      (id=uuid, session_id, ts, role, kind, text, tool_name, is_scheduled)
+sessions      (id, project_id, launch_cwd, label, branch,
+               custom_title, agent_name, ai_title, first_prompt, away_summary, continued_in,
+               started_at, ended_at, prompt_count, scheduled_runs)
+subagents     (id, session_id, agent_type, description, tool_use_id)
+messages      (session_id + id=uuid, agent_id, file_id, seq, ts, kind, text, tool_name, tool_use_id,
+               is_error, is_scheduled, is_copy, meta)
+artifacts     (session_id + kind=commit|pr + ref, title, ts, file_id, is_copy)
 segments      (session_id, start, end)        -- messages から再計算できる
-artifacts     (session_id, kind=commit|pr, ref, title, ts)
 summaries     (session_id, headline, body, model, covered_until, created_at)
-ingest_state  (file_path, offset, mtime, parser_version)
+ingest_state  (path, session_id, agent_id, offset, size, ino, parser_version, state)
 ```
+
+実装は [src/server/db/index.ts](../src/server/db/index.ts)。続きのセッションは前のセッションの会話を同じ uuid でコピーして始まるため、メッセージの一意性はセッション単位とし、コピーには `is_copy` を立てて集計から除く。
 
 ### 6.1 保存する内容
 

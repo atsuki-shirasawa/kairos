@@ -221,12 +221,12 @@ function compaction(): void {
   b.bash(361, "rg -n TODO", "src/a.ts:1: TODO");
   b.text(362, "調査しました。");
   b.turnEnd(362);
-  b.command(370, "/compact");
+  b.command(380, "/compact");
   b.systemUser(
     371,
     "<local-command-stdout>Compacted (ctrl+o to see full summary)</local-command-stdout>",
   );
-  b.system(371, "compact_boundary", {
+  b.system(381, "compact_boundary", {
     content: "Conversation compacted",
     compactMetadata: {
       trigger: "manual",
@@ -239,8 +239,8 @@ function compaction(): void {
     371,
     "This session is being continued from a previous conversation. Summary: 調査を行った。",
   );
-  b.prompt(372, "続きをお願い");
-  b.text(373, "続きを進めました。");
+  b.prompt(382, "続きをお願い");
+  b.text(383, "続きを進めました。");
   b.turnEnd(373);
   write(APP, b);
 }
@@ -259,9 +259,9 @@ function continued(): void {
   write(APP, a);
 
   const b = new LogBuilder(SID.continuedTo, APP);
-  // 続きのセッションは、前のセッションの末尾をそのままコピーして始まることがある
+  // 続きのセッションは、前のセッションの会話を uuid・時刻はそのまま、sessionId だけ書き換えてコピーして始まる
   for (const r of a.records.filter((r) => r.type === "user" || r.type === "assistant"))
-    b.raw({ ...r });
+    b.raw({ ...r, sessionId: SID.continuedTo });
   header(b);
   const p = b.prompt(425, "後半の作業");
   b.raw({ ...p }); // 同じ uuid の重複行

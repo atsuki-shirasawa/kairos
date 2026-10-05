@@ -51,7 +51,7 @@ describe("fixtures", () => {
     ["loop", SID.loop, 2],
     ["headless", SID.headless, 0],
     ["compaction", SID.compaction, 3],
-    ["continuedTo（コピーと重複を除く前）", SID.continuedTo, 2],
+    ["continuedTo（コピーと重複を除く前）", SID.continuedTo, 3],
   ])("%s の人の発言数が README の前提と合う", (_name, sid, count) => {
     expect(humanUtterances(sid)).toBe(count);
   });
@@ -60,9 +60,11 @@ describe("fixtures", () => {
     expect(records(SID.loop).filter((r) => r.turnOrigin === "scheduled")).toHaveLength(4);
   });
 
-  test("continuedTo の先頭には前のセッションのレコードがコピーされている", () => {
-    const first = records(SID.continuedTo).find((r) => r.type === "user");
-    expect(first?.sessionId).toBe(SID.continuedFrom);
+  test("continuedTo の先頭には前のセッションの会話が、uuid はそのまま sessionId だけ変えてコピーされている", () => {
+    const original = records(SID.continuedFrom).find((r) => r.type === "user");
+    const copy = records(SID.continuedTo).find((r) => r.type === "user");
+    expect(copy?.uuid).toBe(original?.uuid);
+    expect(copy?.sessionId).toBe(SID.continuedTo);
   });
 
   test("生成は決定的（2 回生成しても同じ内容になる）", () => {

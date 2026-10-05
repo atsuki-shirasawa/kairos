@@ -18,8 +18,8 @@ P1（取り込み）の受け入れ基準として使う。「人の発言」は
 | 4 | `4444…` worktree | `/Users/me/dev/app/.claude/worktrees/fix-header` | worktree の中で起動 | プロジェクトは `/Users/me/dev/app`、補助ラベル `fix-header`。作業ブロック 200–202 分 |
 | 5 | `5555…` relocated | `/Users/me/dev/app` | 途中で `EnterWorktree`（`worktree-state`・`relocated` レコード、以降は cwd が変わる） | プロジェクトは `/Users/me/dev/app`、補助ラベル `refactor-api`。作業ブロック 240–243 分 |
 | 6 | `6666…` subagent | `/Users/me/dev/app` | `Agent` ツールでサブエージェントを起動。ログは `<session>/subagents/agent-<id>.jsonl` と `.meta.json` | サブエージェント 1（`code-reviewer`、「PR #42 のレビュー」）。親の tool_use と `meta.json` の `toolUseId` で対応づく。作業ブロック 300–305.5 分 |
-| 7 | `7777…` compaction | `/Users/me/dev/app` | `/compact`、コマンド出力、`compact_boundary`、要約の user レコード（`isCompactSummary`） | 人の発言 3（`/compact` を含む。コマンド出力と要約は含まない）。compaction 1。作業ブロック 2: 360–362 分、370–373 分 |
-| 8 | `8888…` → `9999…` continued | `/Users/me/dev/app` | `continued-in` で続きのセッションへ。続き側の先頭に前セッションのレコードのコピー、同じ uuid の重複行 | `8888…`: 人の発言 1、続き先 `9999…`。`9999…`: コピー（別 sessionId）は無視、重複行は 1 件として数え、人の発言 1、作業ブロック 425–426 分 |
+| 7 | `7777…` compaction | `/Users/me/dev/app` | `/compact`、コマンド出力、`compact_boundary`、要約の user レコード（`isCompactSummary`） | 人の発言 3（`/compact` を含む。コマンド出力と要約は含まない）。compaction 1。作業ブロック 2: 360–362 分、380–383 分 |
+| 8 | `8888…` → `9999…` continued | `/Users/me/dev/app` | `continued-in` で続きのセッションへ。続き側の先頭に前セッションの会話のコピー（uuid・時刻は同じ、sessionId だけ書き換え）、同じ uuid の重複行 | `8888…`: 人の発言 1、続き先 `9999…`。`9999…`: コピーは前のセッションのものとして数えず、重複行は 1 件として、人の発言 1、作業ブロック 425–426 分。どちらのファイルを先に取り込んでも同じ結果になる |
 | 9 | `aaaa…` partial | `/Users/me/dev/app` | 最終行が改行なしで途切れている（書き込み中） | 完全な行だけ取り込む（人の発言 1、Claude の返答 1）。保存する offset は途切れた行の先頭 |
 | 10 | `bbbb…` blog | `/Users/me/dev/blog` | 別プロジェクト・翌日 | 2026-09-29 10:00–10:02 JST |
 
@@ -32,5 +32,7 @@ P1（取り込み）の受け入れ基準として使う。「人の発言」は
 | 通知・peer | `task-notification` と `peer` はターンの扱いを変えない（直前のターンを引き継ぐ） | 人の作業中にも自動実行中にも届くため |
 | headless | 人の発言が 0 件のセッション | `claude -p` は origin なし・`promptSource=sdk` |
 | タイトル | `custom-title` > `agent-name` > `ai-title` > 最初の人の発言 | `custom-title` は `/rename` で付けた名前 |
+| origin のないコマンド記録 | `/clear` 直後に作られる記録など。発言にも作業ブロックにも含めない（`/clear` から最初の発言までの待ち時間を作業と見なさない） | 実ログで、`/clear` で始まり十数分後に最初の発言があるセッションを確認 |
 | 作業ディレクトリ | 最初のレコードの `cwd`。途中の `relocated` では変えない（補助ラベルにだけ使う） | |
-| 重複 | 同じ `uuid` は 1 件。`sessionId` がファイル名と異なるレコードは無視 | 続きのセッションの先頭コピー |
+| 重複 | 同じセッション内の同じ `uuid` は 1 件 | |
+| 続きのセッションのコピー | 前のセッション（`continued-in` で指している側）と同じ `uuid` のレコードはコピー。集計・作業ブロックから除く | 実ログで、コピーは sessionId だけ書き換えられ uuid・時刻は元のままと確認（18 件の `continued-in` すべて） |
