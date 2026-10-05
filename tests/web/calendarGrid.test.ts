@@ -2,9 +2,12 @@ import { describe, expect, test } from "bun:test";
 import type { CalendarSession } from "../../src/shared/api.ts";
 import {
   blockGeometry,
+  blockMoments,
   findEdges,
   focusDayIndex,
   isLastSegment,
+  type Moment,
+  momentRows,
   NO_EDGES,
   sameEdges,
 } from "../../src/web/src/lib/calendarGrid.ts";
@@ -165,5 +168,76 @@ describe("isLastSegment", () => {
     expect(first && isLastSegment(first)).toBe(false);
     expect(spanning && isLastSegment(spanning)).toBe(false);
     expect(next && isLastSegment(next)).toBe(true);
+  });
+});
+
+describe("blockMoments", () => {
+  const commit = (ts: number | null, ref = "c") => ({
+    kind: "commit" as const,
+    ref,
+    title: null,
+    ts,
+  });
+  const pr = (ts: number) => ({ kind: "pr" as const, ref: "p", title: null, ts });
+  /** The placed blocks of one session with a single segment, on `day`. */
+  const placed = (from: number, to: number, artifacts: ReturnType<typeof commit>[], day = DAY0) => {
+    const s = session("m", [[from, to]]);
+    const seg = s.segments[0];
+    if (seg) seg.commits = artifacts;
+    return layoutDay([s], day);
+  };
+
+  test("places commits and PRs at the height of their time, PRs first on a tie", () => {
+    const s = session("m", [[DAY0 + 10 * H, DAY0 + 12 * H]]);
+    const seg = s.segments[0];
+    if (seg) {
+      seg.commits = [commit(DAY0 + 11 * H)];
+      seg.prs = [pr(DAY0 + 11 * H)];
+    }
+    const [block] = layoutDay([s], DAY0);
+    const moments = block ? blockMoments(block, 100, 198) : [];
+    expect(moments.map((m) => [m.artifact.kind, m.y])).toEqual([
+      ["pr", 100],
+      ["commit", 100],
+    ]);
+  });
+
+  test("skips moments without a time and keeps late ones on the bottom edge", () => {
+    const [block] = placed(DAY0 + 10 * H, DAY0 + 11 * H, [commit(null), commit(DAY0 + 11.02 * H)]);
+    expect(block ? blockMoments(block, 100, 98).map((m) => m.y) : []).toEqual([94]);
+  });
+
+  test("a block split at midnight shows each moment on its own day", () => {
+    const artifacts = [commit(DAY0 + 23.5 * H, "before"), commit(DAY1 + 0.5 * H, "after")];
+    const [late] = placed(DAY0 + 23 * H, DAY1 + H, artifacts);
+    const [early] = placed(DAY0 + 23 * H, DAY1 + H, artifacts, DAY1);
+    expect(late ? blockMoments(late, 100, 98).map((m) => m.artifact.ref) : []).toEqual(["before"]);
+    expect(early ? blockMoments(early, 100, 98).map((m) => m.artifact.ref) : []).toEqual(["after"]);
+  });
+});
+
+describe("momentRows", () => {
+  const at = (...ys: number[]): Moment[] =>
+    ys.map((y) => ({ artifact: { kind: "commit", ref: String(y), title: null, ts: 0 }, y }));
+
+  test("centers each label on its moment and pushes overlapping ones down", () => {
+    expect(momentRows(at(50, 55), 16, 200).map((r) => r.top)).toEqual([42, 58]);
+  });
+
+  test("labels near either edge stay inside the block", () => {
+    expect(momentRows(at(2), 16, 200).map((r) => r.top)).toEqual([0]);
+    expect(momentRows(at(199), 16, 200).map((r) => r.top)).toEqual([184]);
+  });
+
+  test("pulls labels crowding the bottom edge up instead of hiding them", () => {
+    expect(momentRows(at(95, 98), 16, 100).map((r) => r.top)).toEqual([68, 84]);
+  });
+
+  test("replaces the last row that fits with a count of the rest", () => {
+    const rows = momentRows(at(10, 20, 30, 40), 16, 40);
+    expect(rows).toEqual([
+      { kind: "moment", moment: at(10)[0] as Moment, top: 2 },
+      { kind: "more", count: 3, top: 18 },
+    ]);
   });
 });

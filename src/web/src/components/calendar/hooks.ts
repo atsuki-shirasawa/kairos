@@ -24,7 +24,9 @@ export function useGridSize(ref: RefObject<HTMLDivElement | null>): GridSize {
     const measure = () => {
       const viewportPx = el.clientHeight;
       const widthPx = el.clientWidth;
-      const hourPx = Math.max(MIN_HOUR_PX, viewportPx / (VIEW_END - VIEW_START));
+      // A quarter hour of slack at each end, so the first and last hour labels (centered on
+      // their line) aren't cut in half by the edges of the scroll area
+      const hourPx = Math.max(MIN_HOUR_PX, viewportPx / (VIEW_END - VIEW_START + 0.5));
       setSize((prev) =>
         prev.hourPx === hourPx && prev.viewportPx === viewportPx && prev.widthPx === widthPx
           ? prev

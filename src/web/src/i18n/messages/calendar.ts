@@ -18,6 +18,8 @@ export const calendarMessages = defineMessages({
     rangeDuration: (range: string, duration: string) => `${range} (${duration})`,
     notMatching: "Doesn't match the filter",
     notSummarized: "Not summarized yet, so the first prompt is shown as the heading",
+    /** Last row of a block's commits and PRs in the day view, for those that don't fit. */
+    moreMoments: (n: number) => `+${n} more`,
   },
   ja: {
     openDay: (date: string) => `${date}を日表示で開く`,
@@ -34,5 +36,6 @@ export const calendarMessages = defineMessages({
     rangeDuration: (range: string, duration: string) => `${range}（${duration}）`,
     notMatching: "絞り込みの条件に合いません",
     notSummarized: "要約前のため、最初の発言を見出しにしています",
+    moreMoments: (n: number) => `ほか ${n} 件`,
   },
 });

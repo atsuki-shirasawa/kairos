@@ -98,7 +98,8 @@ function DayFiguresLine({ figures }: { figures: DayFigures }) {
     <div className="flex min-h-11 min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 border-l px-2.5 py-1.5 font-num text-muted-foreground text-xs">
       {figures.shown > 0 && (
         <>
-          <span className="font-medium text-foreground">{durationLabel(busy)}</span>
+          {/* Working time leads; the rest is detail */}
+          <span className="font-semibold text-foreground text-sm">{durationLabel(busy)}</span>
           <span>{f.blocks(figures.counted)}</span>
           {activity?.claudeMs ? (
             <span>{drawerMessages().claudeShort(durationLabel(activity.claudeMs))}</span>

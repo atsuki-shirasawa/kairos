@@ -1,5 +1,5 @@
 // Geometry of the calendar time grid: where blocks are drawn, and which ones are scrolled out of view.
-import type { CalendarSession } from "@shared/api.ts";
+import type { Artifact, CalendarSession } from "@shared/api.ts";
 import { HOUR, isSameDay } from "./dates.ts";
 import { MIN_BLOCK_MS, type PlacedBlock } from "./layout.ts";
 import { selectedSegment } from "./navigation.ts";
@@ -117,8 +117,13 @@ export function blockGeometry(block: PlacedBlock, hourPx: number): BlockGeometry
     stretched: filledPx < height,
     short: height < SHORT_PX,
     visible,
-    lines: Math.max(1, Math.min(3, Math.floor((visible - PADDING_PX) / LINE_PX))),
+    lines: headingLines(visible),
   };
+}
+
+/** Heading lines (1 to 3) that fit in `px` of a block, after its vertical padding. */
+export function headingLines(px: number): number {
+  return Math.max(1, Math.min(3, Math.floor((px - PADDING_PX) / LINE_PX)));
 }
 
 /**
@@ -142,4 +147,74 @@ export function focusDayIndex(
 export function isLastSegment(block: PlacedBlock): boolean {
   const last = Math.max(...block.session.segments.map((g) => g.end));
   return block.segment.end >= last && block.dayStart + block.end >= block.segment.end;
+}
+
+/** Radius of a commit or PR node drawn on a block, in px. */
+const NODE_R = 4;
+
+/** A commit or PR placed on a block at the moment it was made. */
+export interface Moment {
+  artifact: Artifact;
+  /** Offset from the block's top, in px. */
+  y: number;
+}
+
+/**
+ * The block's commits and PRs at the height of the moment they were made, top to bottom. These
+ * are the moments a block of work turned into something, so the calendar marks where they
+ * happened rather than only counting them. Ones recorded just after the block (within the grace
+ * the server allows) sit on its bottom edge; on a block split at midnight, each day gets its own.
+ */
+export function blockMoments(block: PlacedBlock, hourPx: number, filledPx: number): Moment[] {
+  const { segment, dayStart, start, end, continuesAfter } = block;
+  const moments: Moment[] = [];
+  for (const artifact of [...segment.prs, ...segment.commits]) {
+    if (artifact.ts === null) continue;
+    const t = artifact.ts - dayStart;
+    if (t < start || (continuesAfter && t > end)) continue;
+    // Kept a node's radius inside the block, which clips anything past its edges
+    const y = Math.min(
+      Math.max(yOf(t - start, hourPx), NODE_R),
+      Math.max(NODE_R, filledPx - NODE_R),
+    );
+    moments.push({ artifact, y });
+  }
+  // PRs first at the same height: they are the bigger milestone and draw on top
+  return moments.sort((a, b) => a.y - b.y || (a.artifact.kind === "pr" ? -1 : 1));
+}
+
+/** Where one label of a block's moments goes, or the "+n" row standing in for those that don't fit. */
+export type MomentRow =
+  | { kind: "moment"; moment: Moment; top: number }
+  | { kind: "more"; count: number; top: number };
+
+/**
+ * Lays out labels for moments (sorted by `y`) in a lane `heightPx` tall. Each label sits centered
+ * on its moment, pushed apart just enough not to overlap, and pulled up from the bottom edge when
+ * several crowd there. When there are more than fit, the last row becomes "+n" for the rest, so a
+ * busy hour never spills out of its block.
+ */
+export function momentRows(moments: Moment[], rowPx: number, heightPx: number): MomentRow[] {
+  const fit = Math.floor(heightPx / rowPx);
+  if (fit <= 0 || moments.length === 0) return [];
+  const overflow = moments.length > fit;
+  const shown = overflow ? moments.slice(0, fit - 1) : moments;
+  const rows: MomentRow[] = shown.map((moment) => ({ kind: "moment", moment, top: moment.y }));
+  if (overflow) {
+    const y = moments[fit - 1]?.y ?? heightPx;
+    rows.push({ kind: "more", count: moments.length - shown.length, top: y });
+  }
+  // Downward: center on the moment, below the previous label. Upward: keep inside the bottom
+  // edge. At most `fit` rows, so the upward pass never pushes the first one above the top
+  let next = 0;
+  for (const row of rows) {
+    row.top = Math.max(row.top - rowPx / 2, next);
+    next = row.top + rowPx;
+  }
+  let limit = heightPx;
+  for (const row of rows.toReversed()) {
+    row.top = Math.min(row.top, limit - rowPx);
+    limit = row.top;
+  }
+  return rows;
 }

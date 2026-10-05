@@ -1,10 +1,18 @@
 import type { CalendarSession, Project } from "@shared/api.ts";
-import { GitCommitHorizontal, GitPullRequest } from "lucide-react";
 import { Markdown } from "@/components/Markdown.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip.tsx";
 import { calendarMessages } from "@/i18n/messages/calendar.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
-import { type BlockGeometry, blockGeometry, isLastSegment } from "@/lib/calendarGrid.ts";
+import {
+  type BlockGeometry,
+  blockGeometry,
+  blockMoments,
+  headingLines,
+  isLastSegment,
+  type Moment,
+  type MomentRow,
+  momentRows,
+} from "@/lib/calendarGrid.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { dateLabel, durationLabel, hhmm } from "@/lib/dates.ts";
 import type { PlacedBlock } from "@/lib/layout.ts";
@@ -13,8 +21,17 @@ import { INDENT_PX, LINE_CLAMP } from "./constants.ts";
 
 /** Blocks at least this tall (and this uncovered) have room for the time range line. */
 const META_MIN_PX = 52;
+/** Height the time range line takes under the heading (its line plus the gap above it). */
+const META_ROW_PX = 18;
 /** In the day view, blocks with this much visible height also show the summary body. */
 const BODY_MIN_PX = 96;
+/** Height of one label in the day view's lane of commits and PRs. */
+const LANE_ROW_PX = 18;
+/**
+ * Width of that lane. The day view is wide enough that a block's text would otherwise run across
+ * the whole screen; the right side holds the moments instead, and the text keeps a readable measure.
+ */
+const LANE_WIDTH = "min(38%, 24rem)";
 
 /** How a block reads, apart from its position. */
 interface BlockState {
@@ -60,12 +77,29 @@ export function Block({
   const { commits, prs } = segment.activity;
   const projectName = project?.name ?? formatMessages().unknownProject;
   const state: BlockState = { ...block, selected, faded, dim, short: geo.short };
+  const meta = geo.height >= META_MIN_PX && geo.visible >= META_MIN_PX;
+  // The heading only gets the lines left after the time range, or the two would overlap
+  const lines = geo.short
+    ? 1
+    : body
+      ? 2
+      : meta
+        ? headingLines(geo.visible - META_ROW_PX)
+        : geo.lines;
+  const moments = blockMoments(block, hourPx, geo.filledPx);
+  const lane = detailed && moments.length > 0;
 
   return (
     <Tooltip>
       {/* The button fills the block and sits on top, so the block can hold Markdown (lists etc.),
           which is not allowed inside a button. The visible content below is never interactive */}
-      <div className={blockClassName(state)} style={blockStyle(block, geo, project, selected)}>
+      <div
+        className={blockClassName(state)}
+        style={{
+          ...blockStyle(block, geo, project, selected),
+          paddingRight: lane ? `calc(${LANE_WIDTH} + 1.25rem)` : undefined,
+        }}
+      >
         <TooltipTrigger asChild>
           <button
             type="button"
@@ -82,19 +116,11 @@ export function Block({
           />
         </TooltipTrigger>
         {geo.stretched && <UnfilledEdge filledPx={geo.filledPx} />}
-        <BlockHeading
-          label={label}
-          bold={!dim || selected}
-          short={geo.short}
-          lines={geo.short ? 1 : body ? 2 : geo.lines}
-        />
-        {geo.height >= META_MIN_PX && geo.visible >= META_MIN_PX && (
-          <BlockMeta block={block} range={range} detailed={detailed} />
-        )}
+        <BlockHeading label={label} bold={!dim || selected} short={geo.short} lines={lines} />
+        {meta && <BlockMeta block={block} range={range} detailed={detailed} />}
         {body && <BlockBody body={body} />}
-        {!geo.short && !detailed && (commits > 0 || prs > 0) && (
-          <OutcomeIcons commits={commits} prs={prs} working={working} />
-        )}
+        <MomentTicks moments={moments} />
+        {lane && <MomentLane rows={momentRows(moments, LANE_ROW_PX, geo.visible)} />}
         {working && <WorkingDot />}
       </div>
       <BlockTooltip
@@ -131,7 +157,7 @@ function blockClassName({
 }: BlockState): string {
   return cn(
     // Pale background with a strong left edge. Kept quieter than the time column gradient
-    "@container group absolute flex flex-col gap-0.5 overflow-hidden rounded-r-md rounded-l-[3px] border-l-[3px] pr-1.5 pl-1.5",
+    "@container group absolute flex flex-col gap-0.5 overflow-hidden rounded-r-md rounded-l-[3px] border-l-[3px] pr-1.5 pl-2.5",
     short ? "py-px" : "py-1",
     // Stacked blocks get a base-colored outline to separate them from the one below
     depth > 0 && "shadow-[0_0_0_1px_var(--card)]",
@@ -144,7 +170,8 @@ function blockClassName({
     selected &&
       "text-foreground [--fill:color-mix(in_oklch,var(--c)_var(--mix-block-selected),var(--block-base))]",
     "has-[>button:focus-visible]:outline-2 has-[>button:focus-visible]:outline-ring has-[>button:focus-visible]:outline-offset-1",
-    selected && "outline-2 outline-foreground outline-offset-1",
+    // Indigo is the app's one mark for "selected", here as everywhere else
+    selected && "outline-2 outline-primary outline-offset-1",
     continuesBefore && "rounded-t-none",
     continuesAfter && "rounded-b-none",
     // Non-matching blocks keep only their shape. Restore them on hover/focus and when selected so they stay readable
@@ -211,7 +238,8 @@ function BlockHeading({
     <span
       className={cn(
         // Long ASCII words ("CLAUDE.md") break inside narrow lanes rather than being cut off
-        "text-xs [overflow-wrap:anywhere]",
+        // It keeps its lines instead of shrinking under the time range below it
+        "shrink-0 text-xs [overflow-wrap:anywhere]",
         bold ? "font-medium" : "font-normal",
         short ? "leading-4" : "leading-snug",
         LINE_CLAMP[lines],
@@ -222,7 +250,7 @@ function BlockHeading({
   );
 }
 
-/** The time range under the heading; in the day view also the worktree label and PR numbers. */
+/** The time range under the heading; in the day view also the worktree label. */
 function BlockMeta({
   block,
   range,
@@ -232,13 +260,12 @@ function BlockMeta({
   range: string;
   detailed: boolean;
 }) {
-  const { session, segment } = block;
+  const { session } = block;
   return (
-    <span className="flex min-w-0 items-center gap-1.5 font-num text-[11px] text-muted-foreground">
+    <span className="flex min-w-0 shrink-0 items-center gap-1.5 font-num text-[11px] text-muted-foreground">
       <span className="shrink-0">{range}</span>
       {/* Several sessions of one project share a color, so the worktree tells them apart */}
       {detailed && session.label && <span className="truncate">{session.label}</span>}
-      {detailed && segment.activity.prs > 0 && <PrChips block={block} />}
     </span>
   );
 }
@@ -246,7 +273,8 @@ function BlockMeta({
 /** The summary body, faded out at the bottom where the block cuts it off. */
 function BlockBody({ body }: { body: string }) {
   return (
-    <div className="min-h-0 flex-1 overflow-hidden text-foreground/85 [mask-image:linear-gradient(to_bottom,black_calc(100%-1.5rem),transparent)]">
+    // The fade spans about two lines, so a cut-off line reads as "continues" rather than as a glitch
+    <div className="min-h-0 max-w-[72ch] flex-1 overflow-hidden text-foreground/85 [mask-image:linear-gradient(to_bottom,black_calc(100%-2.75rem),transparent)]">
       <Markdown plain className="mt-1 space-y-1 text-xs leading-relaxed [&_li+li]:mt-0.5">
         {body}
       </Markdown>
@@ -255,24 +283,88 @@ function BlockBody({ body }: { body: string }) {
 }
 
 /**
- * Commit and PR icons in the bottom-right corner, so the work that shipped stands out among blocks
- * of one color. Leaves room for the working dot when it is there.
+ * Nodes on the block's colored edge at the moment each commit or PR was made: where a stretch of
+ * work turned into something. Read like a git graph, the edge is the branch and each commit a
+ * node on it; a PR, the bigger milestone, is a filled node. They hang just inside the edge: the
+ * block clips its content at the border, so a node centered on it would be cut in half.
  */
-function OutcomeIcons({
-  commits,
-  prs,
-  working,
+function MomentTicks({ moments }: { moments: Moment[] }) {
+  return moments.map(({ artifact, y }, i) => (
+    <MomentNode
+      // biome-ignore lint/suspicious/noArrayIndexKey: a ref can repeat (a commit amended in place)
+      key={`${artifact.kind}-${artifact.ref}-${i}`}
+      pr={artifact.kind === "pr"}
+      className="absolute left-0 -translate-y-1/2"
+      style={{ top: y }}
+    />
+  ));
+}
+
+/** One commit (ring) or PR (filled) node; the lane repeats it as the label's bullet. */
+function MomentNode({
+  pr,
+  className,
+  style,
 }: {
-  commits: number;
-  prs: number;
-  working: boolean;
+  pr: boolean;
+  className?: string;
+  style?: React.CSSProperties;
 }) {
   return (
-    <span className="absolute right-1.5 bottom-1 flex @max-[5rem]:hidden items-center gap-1 font-num text-[10px] text-muted-foreground">
-      {prs > 0 && <GitPullRequest className="size-3 text-primary" />}
-      {commits > 0 && <GitCommitHorizontal className="size-3" />}
-      {working && <span className="w-1.5" />}
-    </span>
+    <span
+      className={cn(
+        "pointer-events-none shrink-0 rounded-full border-[1.5px] border-foreground/80",
+        pr ? "bg-foreground/80" : "bg-card",
+        "size-[7px]",
+        className,
+      )}
+      style={style}
+      aria-hidden
+    />
+  );
+}
+
+/**
+ * The day view's lane on the right of a block, labeling each commit and PR at the height it was
+ * made. The drawer lists the same outcomes, so this is visual only.
+ */
+function MomentLane({ rows }: { rows: MomentRow[] }) {
+  return (
+    <div
+      className="pointer-events-none absolute top-0 right-2 bottom-0 border-foreground/10 border-l"
+      style={{ width: LANE_WIDTH }}
+      aria-hidden
+    >
+      {rows.map((row) => (
+        <div
+          key={row.kind === "more" ? "more" : `${row.moment.artifact.ref}-${row.top}`}
+          className="absolute inset-x-0 flex items-center gap-2 pl-2.5 font-num text-[11px] text-muted-foreground"
+          style={{ top: row.top, height: LANE_ROW_PX }}
+        >
+          {row.kind === "more" ? (
+            <span>{calendarMessages().moreMoments(row.count)}</span>
+          ) : (
+            <MomentLabel moment={row.moment} />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** One commit or PR in the lane: its time, short SHA or PR number, and title. */
+function MomentLabel({ moment: { artifact } }: { moment: Moment }) {
+  const pr = artifact.kind === "pr";
+  const ref = pr ? `#${/\/pull\/(\d+)/.exec(artifact.ref)?.[1] ?? "?"}` : artifact.ref.slice(0, 7);
+  return (
+    <>
+      <MomentNode pr={pr} />
+      <span className="shrink-0">{artifact.ts !== null ? hhmm(artifact.ts) : ""}</span>
+      <span className={cn("shrink-0", pr && "font-medium text-foreground")}>{ref}</span>
+      {artifact.title && (
+        <span className="truncate font-sans text-foreground/85">{artifact.title}</span>
+      )}
+    </>
   );
 }
 
@@ -283,20 +375,6 @@ function WorkingDot() {
       className="absolute right-1.5 bottom-1.5 size-1.5 animate-pulse rounded-full bg-[var(--c)] motion-reduce:animate-none"
       title={formatMessages().working}
     />
-  );
-}
-
-/** PR numbers of a block, as plain labels (the block itself is the button). */
-function PrChips({ block }: { block: PlacedBlock }) {
-  return (
-    <span className="flex min-w-0 shrink items-center gap-1 overflow-hidden text-primary">
-      <GitPullRequest className="size-3 shrink-0" />
-      {block.segment.prs.map((a) => (
-        <span key={a.ref} className="shrink-0">
-          #{/\/pull\/(\d+)/.exec(a.ref)?.[1] ?? "?"}
-        </span>
-      ))}
-    </span>
   );
 }
 
