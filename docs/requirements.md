@@ -94,7 +94,7 @@ TypeScript で統一し、API の型をフロントとサーバーで共有す�
 ## 6. データモデル（案）
 
 ```
-projects      (id, path, name, color, hidden)
+projects      (id, path, name, repo, color, hidden)
 sessions      (id, project_id, launch_cwd, label, branch,
                custom_title, agent_name, ai_title, first_prompt, away_summary, continued_in,
                started_at, ended_at, prompt_count, scheduled_runs)
@@ -124,4 +124,4 @@ ingest_state  (path, session_id, agent_id, offset, size, ino, parser_version, st
 | 1 | 要約を自動生成する条件 | セクション単位。最後の活動から 30 分たったセクション（後ろに次のセクションがあれば即時）を要約する。10 分未満かつ発言 1 回以下の短いセクションは要約せず、最初の発言を見出しにする。セッション全体の要約は作らない（2026-10-05 に変更） |
 | 2 | 初回取り込み時の要約範囲 | 直近 7 日分を自動で生成する。それより前は、ドロワーを開いたときに生成する |
 | 3 | 作業ブロックを分ける間隔 | 15 分。設定で変更できるようにする |
-| 4 | プロジェクトの同一視 | `<repo>/.claude/worktrees/<name>` は親リポジトリと同じプロジェクトにまとめ、worktree 名は補助ラベルとして残す |
+| 4 | プロジェクトの同一視 | `<repo>/.claude/worktrees/<name>` は親リポジトリと同じプロジェクトにまとめ、worktree 名は補助ラベルとして残す。git の remote（origin）があれば名前はリポジトリ名にし、同じ remote の別のクローンも 1 つにまとめる（ディレクトリ名がリポジトリ名と違えば補助ラベルに残す）。remote は `.git/config` を読むだけで、git コマンドは実行しない |

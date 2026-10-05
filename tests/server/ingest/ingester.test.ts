@@ -2,7 +2,7 @@ import type { Database } from "bun:sqlite";
 import { beforeEach, describe, expect, test } from "bun:test";
 import { appendFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { classifyPath, type Ingester } from "../../../src/server/ingest/ingester.ts";
+import { classifyPath, Ingester } from "../../../src/server/ingest/ingester.ts";
 import { SID } from "../../fixtures/ids.ts";
 import { min, setup } from "./helpers.ts";
 
@@ -209,6 +209,58 @@ describe("README のシナリオ", () => {
     const s = session(SID.blog);
     expect(s.project).toBe("/Users/me/dev/blog");
     expect(new Date(s.started_at ?? 0).toISOString()).toBe("2026-09-29T01:00:00.000Z");
+  });
+});
+
+describe("プロジェクトの同一視（git の remote）", () => {
+  // app と blog が同じリポジトリの別のクローンだったとする
+  const remotes: Record<string, string> = {
+    "/Users/me/dev/app": "git@github.com:me/webapp.git",
+    "/Users/me/dev/blog": "https://github.com/me/webapp.git",
+  };
+  const lookup = (dir: string) => remotes[dir] ?? null;
+  const projects = (d: Database) =>
+    d.query("SELECT path, name, repo, color FROM projects ORDER BY id").all();
+  const resetDerived = () => db.query("DELETE FROM kv WHERE key = 'derived_version'").run();
+
+  test("同じ remote のディレクトリは 1 つのプロジェクトにまとめ、リポジトリ名で呼ぶ", () => {
+    const fresh = setup(lookup);
+    fresh.ingester.scan();
+    expect(projects(fresh.db)).toEqual([
+      { path: "/Users/me/dev/app", name: "webapp", repo: "github.com/me/webapp", color: null },
+      // remote のないディレクトリ（headless のシナリオ）は今までどおりディレクトリ名
+      { path: "/Users/me/tmp/probe", name: "probe", repo: null, color: null },
+    ]);
+    const label = (id: string) =>
+      fresh.db
+        .query<{ label: string | null }, [string]>("SELECT label FROM sessions WHERE id = ?")
+        .get(id)?.label;
+    // ディレクトリ名がリポジトリ名と違うので、どのクローンでの作業かをラベルに残す
+    expect(label(SID.basic)).toBe("app");
+    expect(label(SID.blog)).toBe("blog");
+    // worktree やログに残った worktree 名はそちらを優先する
+    expect(label(SID.worktree)).toBe("fix-header");
+    expect(label(SID.relocated)).toBe("refactor-api");
+  });
+
+  test("決め方が変わったら既存のセッションも付け直し、色を引き継いで空のプロジェクトを消す", () => {
+    db.query("UPDATE projects SET color = 'p3' WHERE path = '/Users/me/dev/app'").run();
+    resetDerived();
+    expect(new Ingester(db, projectsDir, undefined, lookup).refreshAllIfOutdated()).toBe(true);
+    // blog のプロジェクトは空になったので消える
+    expect(projects(db)).toEqual([
+      { path: "/Users/me/dev/app", name: "webapp", repo: "github.com/me/webapp", color: "p3" },
+      { path: "/Users/me/tmp/probe", name: "probe", repo: null, color: null },
+    ]);
+    expect(session(SID.blog)).toMatchObject({ project: "/Users/me/dev/app", label: "blog" });
+    expect(session(SID.relocated).label).toBe("refactor-api");
+  });
+
+  test("ディレクトリが消えて判断できないセッションは付け直さない", () => {
+    resetDerived();
+    new Ingester(db, projectsDir, undefined, () => undefined).refreshAllIfOutdated();
+    expect(projects(db)).toHaveLength(3);
+    expect(session(SID.blog).project).toBe("/Users/me/dev/blog");
   });
 });
 

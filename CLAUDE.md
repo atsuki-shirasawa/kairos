@@ -30,7 +30,7 @@ bun tests/fixtures/generate.ts                  # fixture を作り直す
 - **元ログは読み取り専用**。`~/.claude` 以下に書き込まない。テストは fixture を一時ディレクトリへコピーして使う（`tests/server/ingest/helpers.ts`）
 - **`tests/fixtures/claude/` は生成物**。`tests/fixtures/generate.ts` / `builder.ts` を直して作り直す。シナリオの期待値は `tests/fixtures/README.md` が正で、解釈ルールの変更はシナリオとテストを先に足す（`/add-fixture-scenario`）
 - **fixture は架空データだけ**。実ログの本文・パス・PR などを写さない
-- 解釈ルールを変えたら `PARSER_VERSION`、集計・作業ブロックの計算だけ変えたら `DERIVED_VERSION` を上げる（`src/server/ingest/ingester.ts`）
+- 解釈ルールを変えたら `PARSER_VERSION`、集計・作業ブロック・プロジェクトの割り当ての計算だけ変えたら `DERIVED_VERSION` を上げる（`src/server/ingest/ingester.ts`）
 - **DB スキーマは `src/server/db/index.ts` の `MIGRATIONS` の末尾に足す**。既存の要素は書き換えない
 - **API のセキュリティを緩めない**: 新しいルートも `guardHost` を通し、書き込み系は `guardWrite` を通す。待ち受けは `127.0.0.1` のみ。会話の Markdown で生 HTML・画像を描画しない。変えたときは `security-reviewer` エージェントで確認する
 - Claude Code のログ形式が変わった疑いがあるときは `log-format-auditor` エージェントで実ログと判定ルールを照合する

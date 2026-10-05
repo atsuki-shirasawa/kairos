@@ -62,7 +62,7 @@ export function ProjectFilter({
                     "min-w-0 flex-1 truncate text-sm",
                     project.hidden && "text-muted-foreground",
                   )}
-                  title={project.path}
+                  title={project.repo ? `${project.repo}\n${project.path}` : project.path}
                 >
                   {project.name}
                 </label>

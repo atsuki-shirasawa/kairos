@@ -10,7 +10,10 @@ export interface Project {
   id: number;
   /** プロジェクトを表すパス（worktree は親リポジトリにまとめてある）。 */
   path: string;
+  /** git の remote があればリポジトリ名、なければディレクトリ名。 */
   name: string;
+  /** remote から取った `host/owner/repo`。同じ値のディレクトリは 1 つのプロジェクトにまとめてある。 */
+  repo: string | null;
   /** パレットのキー（`p0`〜`p7`）。未設定ならフロントが ID から割り当てる。 */
   color: string | null;
   hidden: boolean;

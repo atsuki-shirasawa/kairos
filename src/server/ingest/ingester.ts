@@ -3,7 +3,14 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { classifyUser, commandText } from "./classify.ts";
 import { extractCommit, GIT_COMMIT_RE } from "./commits.ts";
-import { resolveProject, worktreeName } from "./project.ts";
+import {
+  type ProjectRef,
+  projectDir,
+  type RemoteLookup,
+  readGitRemote,
+  resolveProject,
+  worktreeName,
+} from "./project.ts";
 import { readNewLines } from "./reader.ts";
 import {
   clip,
@@ -21,10 +28,10 @@ import { DEFAULT_GAP_MS, toSegments } from "./segments.ts";
 /** 解釈ルールを変えたら上げる。上がると、元ログが残っているファイルは読み直される。 */
 export const PARSER_VERSION = 2;
 /**
- * messages から計算する派生データ（集計・作業ブロック）の計算方法を変えたら上げる。
- * 上がると全セッションを計算し直す。元ログが消えたセッションも DB の messages から作り直せる。
+ * DB から計算し直せる派生データ（集計・作業ブロック・起動時の cwd からのプロジェクトの割り当て）の
+ * 計算方法を変えたら上げる。上がると全セッションを計算し直す。元ログが消えたセッションも作り直せる。
  */
-export const DERIVED_VERSION = 2;
+export const DERIVED_VERSION = 3;
 const FALLBACK_TITLE_CHARS = 120;
 
 const LIMIT = { text: 20_000, toolInput: 4_000, toolResult: 4_000, short: 2_000 };
@@ -98,6 +105,8 @@ export class Ingester {
     private readonly db: Database,
     readonly projectsDir: string,
     private readonly gapMs = DEFAULT_GAP_MS,
+    /** git の remote の読み方。テストでは実際のディレクトリを見ないものに差し替える。 */
+    private readonly lookupRemote: RemoteLookup = readGitRemote,
   ) {
     this.q = prepareStatements(db);
     this.setters = Object.fromEntries(
@@ -461,10 +470,42 @@ export class Ingester {
   }
 
   private setLaunch(ctx: Ctx, cwd: string): void {
-    const project = resolveProject(cwd);
-    const row = this.q.upsertProject.get(project.path, project.name) as { id: number };
-    this.q.setLaunch.run(cwd, row.id, project.label, ctx.sessionId);
+    const project = resolveProject(cwd, this.lookupRemote);
+    this.q.setLaunch.run(cwd, this.projectId(project), project.label, ctx.sessionId);
     ctx.launchKnown = true;
+  }
+
+  /** プロジェクトの行を返す（なければ作る）。remote があれば同じリポジトリの行にまとめる。 */
+  private projectId(p: ProjectRef): number {
+    if (p.repo) {
+      const byRepo = this.q.projectByRepo.get(p.repo) as { id: number } | null;
+      if (byRepo) return byRepo.id;
+      // remote を見る前に作った行があれば、色や非表示の設定を保ったまま引き継ぐ
+      const byPath = this.q.projectByPath.get(p.path) as { id: number } | null;
+      if (byPath) {
+        this.q.adoptRepo.run(p.repo, p.name, byPath.id);
+        return byPath.id;
+      }
+    }
+    return (this.q.upsertProject.get(p.path, p.name, p.repo) as { id: number }).id;
+  }
+
+  /**
+   * 起動時の cwd から、全セッションのプロジェクトを決め直す（決め方を変えたときのため）。
+   * ディレクトリが消えて判断できないものは今のままにし、セッションのなくなったプロジェクトは消す。
+   */
+  private reassignProjects(): void {
+    const cwds = this.db
+      .query<{ cwd: string }, []>(
+        "SELECT DISTINCT launch_cwd AS cwd FROM sessions WHERE launch_cwd IS NOT NULL",
+      )
+      .all();
+    for (const { cwd } of cwds) {
+      if (this.lookupRemote(projectDir(cwd)) === undefined) continue;
+      const project = resolveProject(cwd, this.lookupRemote);
+      this.q.reassignProject.run(this.projectId(project), project.label, cwd);
+    }
+    this.q.deleteOrphanProjects.run();
   }
 
   /** 集計値と作業ブロックを messages から計算し直す。 */
@@ -516,6 +557,7 @@ export class Ingester {
       .get();
     if (row && Number(row.value) === DERIVED_VERSION) return false;
     this.db.transaction(() => {
+      this.reassignProjects();
       for (const { id } of this.db.query<{ id: string }, []>("SELECT id FROM sessions").all())
         this.refreshSession(id);
       this.db
@@ -555,7 +597,16 @@ function prepareStatements(db: Database) {
     ensureSession: p("INSERT OR IGNORE INTO sessions (id) VALUES (?)"),
     sessionInfo: p("SELECT launch_cwd, branch FROM sessions WHERE id = ?"),
     upsertProject: p(
-      "INSERT INTO projects (path, name) VALUES (?, ?) ON CONFLICT(path) DO UPDATE SET name = name RETURNING id",
+      "INSERT INTO projects (path, name, repo) VALUES (?, ?, ?) ON CONFLICT(path) DO UPDATE SET name = name RETURNING id",
+    ),
+    projectByRepo: p("SELECT id FROM projects WHERE repo = ?"),
+    projectByPath: p("SELECT id FROM projects WHERE path = ?"),
+    adoptRepo: p("UPDATE projects SET repo = ?, name = ? WHERE id = ?"),
+    reassignProject: p(
+      "UPDATE sessions SET project_id = ?, label = COALESCE(label, ?) WHERE launch_cwd = ?",
+    ),
+    deleteOrphanProjects: p(
+      "DELETE FROM projects WHERE id NOT IN (SELECT project_id FROM sessions WHERE project_id IS NOT NULL)",
     ),
     setLaunch: p(
       "UPDATE sessions SET launch_cwd = ?, project_id = ?, label = COALESCE(label, ?) WHERE id = ? AND launch_cwd IS NULL",

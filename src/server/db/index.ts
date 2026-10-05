@@ -129,6 +129,12 @@ const MIGRATIONS: string[] = [
   -- 小さな設定値（派生データのバージョンなど）
   CREATE TABLE kv (key TEXT PRIMARY KEY, value TEXT NOT NULL);
   `,
+  // 3: 同じ git リポジトリのディレクトリ（別のクローンなど）を 1 つのプロジェクトにまとめる
+  `
+  -- remote から取った鍵（github.com/owner/repo）。認証情報は含めない
+  ALTER TABLE projects ADD COLUMN repo TEXT;
+  CREATE UNIQUE INDEX projects_repo ON projects(repo) WHERE repo IS NOT NULL;
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

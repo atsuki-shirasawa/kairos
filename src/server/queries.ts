@@ -21,6 +21,7 @@ interface ProjectRow {
   id: number;
   path: string;
   name: string;
+  repo: string | null;
   color: string | null;
   hidden: number;
 }
@@ -89,7 +90,7 @@ export class Queries {
   projects(): Project[] {
     return this.db
       .query<ProjectRow, []>(
-        "SELECT id, path, name, color, hidden FROM projects ORDER BY name, path",
+        "SELECT id, path, name, repo, color, hidden FROM projects ORDER BY name, path",
       )
       .all()
       .map(toProject);
@@ -104,7 +105,7 @@ export class Queries {
     }
     const row = this.db
       .query<ProjectRow, [number]>(
-        "SELECT id, path, name, color, hidden FROM projects WHERE id = ?",
+        "SELECT id, path, name, repo, color, hidden FROM projects WHERE id = ?",
       )
       .get(id);
     return row ? toProject(row) : null;
@@ -154,7 +155,7 @@ export class Queries {
     const project = s.project_id
       ? this.db
           .query<ProjectRow, [number]>(
-            "SELECT id, path, name, color, hidden FROM projects WHERE id = ?",
+            "SELECT id, path, name, repo, color, hidden FROM projects WHERE id = ?",
           )
           .get(s.project_id)
       : null;

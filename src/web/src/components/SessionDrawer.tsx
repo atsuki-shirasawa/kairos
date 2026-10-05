@@ -503,7 +503,10 @@ function ProjectLine({
 }) {
   return (
     <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-      <span className="inline-flex items-center gap-1.5" title={project?.path}>
+      <span
+        className="inline-flex items-center gap-1.5"
+        title={project?.repo ? `${project.repo}\n${project.path}` : project?.path}
+      >
         <span className="size-2.5 rounded-sm" style={{ background: projectColor(project) }} />
         {project?.name ?? "プロジェクト不明"}
       </span>
