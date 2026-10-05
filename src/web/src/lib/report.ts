@@ -9,14 +9,32 @@ import { counted } from "./totals.ts";
  * One section per day and one list per project, in the order work started. Each line is a
  * block's time and headline, followed by its PR links. Blocks that continue from the previous
  * day are listed only on the day they started. Days without work are left out.
+ * Projects with a written recap get it first, under a summary heading, so a weekly report reads
+ * top-down: what was done, then the details. Recaps of projects not in the report are left out.
  */
 export function buildReport(
   days: number[],
   sessions: CalendarSession[],
   projects: Map<number, Project>,
+  recaps: ReadonlyMap<number, string> = new Map(),
 ): string {
   const f = formatMessages();
   const out: string[] = [];
+  const shown = new Set(
+    days.flatMap((day) =>
+      blocksOfDay(sessions, day)
+        .filter(counted)
+        .map((b) => b.session.projectId),
+    ),
+  );
+  const summary = [...shown].flatMap((id) => {
+    const body = id !== null ? recaps.get(id)?.trim() : undefined;
+    return id !== null && body ? [[projects.get(id)?.name ?? f.unknownProject, body]] : [];
+  });
+  if (summary.length) {
+    out.push(`## ${f.reportSummary}`, "");
+    for (const [name, body] of summary) out.push(`### ${name}`, "", body ?? "", "");
+  }
   for (const day of days) {
     const blocks = blocksOfDay(sessions, day).filter(counted);
     if (blocks.length === 0) continue;

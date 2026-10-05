@@ -24,7 +24,7 @@ export const drawerMessages = defineMessages({
     costNote: "Estimate at API list prices (does not match what you pay on a subscription)",
     costNoteUnpriced:
       "Estimate at API list prices (does not match what you pay on a subscription). Excludes models with unknown prices",
-    sectionUsage: "Usage in this period",
+    sectionUsage: "Usage",
     usage: "Usage",
     statTokens: "Tokens",
     statCost: "API cost",
@@ -51,7 +51,7 @@ export const drawerMessages = defineMessages({
     compactions: "Compactions",
     compactionsNote: "Number of compactions",
     effortNote: "The effort with the most output tokens",
-    sectionActivity: "Activity in this period",
+    sectionActivity: "Activity",
     sessionTotal: (sections: number, scheduledRuns: number) =>
       `Whole session (${sections} ${sections === 1 ? "period" : "periods"}${
         scheduledRuns > 0
@@ -67,7 +67,7 @@ export const drawerMessages = defineMessages({
     awaySummary: "Claude Code recap",
     hiddenBefore: (n: number) => `︙ ${n} earlier ${n === 1 ? "period" : "periods"}`,
     hiddenAfter: (n: number) => `︙ ${n} later ${n === 1 ? "period" : "periods"}`,
-    sectionOutcomes: "Outcomes in this period",
+    sectionOutcomes: "Outcomes",
     moreItems: (n: number) => `${n} more`,
     noOutcomes: "No commits or PRs in this period.",
     sessionOutcomes: (n: number) => `Outcomes across the session (${n} more)`,
@@ -80,7 +80,7 @@ export const drawerMessages = defineMessages({
     thisSession: "This session",
     subagentTask: (type: string, description: string) => `Task for ${type}: ${description}`,
     summarizing: "Summarizing…",
-    sectionSummary: "Summary of this period",
+    sectionSummary: "Summary",
     regenerate: "Regenerate",
     staleSummary: "Work continued after this summary. ",
     madeWith: (model: string) => `Made with ${model}`,
@@ -123,7 +123,7 @@ export const drawerMessages = defineMessages({
     costNote: "API の料金表で換算した目安（サブスクリプションでの支払いとは一致しない）",
     costNoteUnpriced:
       "API の料金表で換算した目安（サブスクリプションでの支払いとは一致しない）。料金の分からないモデルの分を含まない",
-    sectionUsage: "この時間の使用量",
+    sectionUsage: "使用量",
     usage: "使用量",
     statTokens: "トークン",
     statCost: "API 料金換算",
@@ -150,7 +150,7 @@ export const drawerMessages = defineMessages({
     compactions: "会話の圧縮",
     compactionsNote: "compaction の回数",
     effortNote: "出力トークンがいちばん多い effort",
-    sectionActivity: "この時間の活動",
+    sectionActivity: "活動",
     sessionTotal: (sections: number, scheduledRuns: number) =>
       `セッション全体（${sections} 区間${
         scheduledRuns > 0 ? `・自動実行 ${scheduledRuns} 回を含む` : ""
@@ -164,7 +164,7 @@ export const drawerMessages = defineMessages({
     awaySummary: "Claude Code の振り返り",
     hiddenBefore: (n: number) => `︙ この前に ${n} 区間`,
     hiddenAfter: (n: number) => `︙ この後に ${n} 区間`,
-    sectionOutcomes: "この時間の成果",
+    sectionOutcomes: "成果",
     moreItems: (n: number) => `ほか ${n} 件`,
     noOutcomes: "この時間のコミットや PR はありません。",
     sessionOutcomes: (n: number) => `セッション全体の成果（ほか ${n} 件）`,
@@ -177,7 +177,7 @@ export const drawerMessages = defineMessages({
     thisSession: "このセッション",
     subagentTask: (type: string, description: string) => `${type}への依頼: ${description}`,
     summarizing: "要約を作成中…",
-    sectionSummary: "この時間の要約",
+    sectionSummary: "要約",
     regenerate: "作り直す",
     staleSummary: "要約の後も作業が続いています。",
     madeWith: (model: string) => `${model} で作成`,

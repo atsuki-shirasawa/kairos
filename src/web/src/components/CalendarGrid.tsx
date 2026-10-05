@@ -5,6 +5,7 @@ import { Markdown } from "@/components/Markdown.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip.tsx";
 import { calendarMessages } from "@/i18n/messages/calendar.ts";
 import { dateMessages } from "@/i18n/messages/dates.ts";
+import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { DAY, dateLabel, durationLabel, HOUR, hhmm, isSameDay, weekday } from "@/lib/dates.ts";
@@ -143,6 +144,7 @@ export function CalendarGrid({
           <DayHeader
             key={day}
             day={day}
+            single={days.length === 1}
             // Day totals count only work that matches the filter
             blocks={(columns[i] ?? []).filter((b) => matches(b.session, b.segment))}
             today={isSameDay(day, now)}
@@ -210,14 +212,17 @@ export function CalendarGrid({
  * Day header. Below the date, one line with the day's working time and results (a short form of the
  * list's daily totals). Other numbers (blocks, Claude time, tokens, cost, snags) go to the tooltip so
  * the calendar doesn't fill up with numbers. Narrow columns (e.g. with the drawer open) show only line 1.
+ * The day view already names the date in the toolbar, so there it is one line of every figure instead.
  */
 function DayHeader({
   day,
+  single,
   blocks,
   today,
   onOpen,
 }: {
   day: number;
+  single: boolean;
   blocks: PlacedBlock[];
   today: boolean;
   onOpen: () => void;
@@ -231,6 +236,31 @@ function DayHeader({
   const m = calendarMessages();
   const f = formatMessages();
 
+  if (single)
+    return (
+      <div className="flex min-h-11 min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 border-l px-2.5 py-1.5 font-num text-muted-foreground text-xs">
+        {blocks.length > 0 && (
+          <>
+            <span className="font-medium text-foreground">{durationLabel(busy)}</span>
+            <span>{f.blocks(blocks.filter(counted).length)}</span>
+            {activity?.claudeMs ? (
+              <span>{drawerMessages().claudeShort(durationLabel(activity.claudeMs))}</span>
+            ) : null}
+            {(commits > 0 || prs > 0) && <span>{f.commitsPrs(commits, prs)}</span>}
+            {trouble > 0 && <span className="text-warn">{f.trouble(trouble)}</span>}
+            {usage && (
+              <span>
+                {m.tokensCost(
+                  tokensLabel(usage.tokens),
+                  `${usage.unpriced ? "~" : ""}${costLabel(usage.costUsd)}`,
+                )}
+              </span>
+            )}
+          </>
+        )}
+      </div>
+    );
+
   const button = (
     <button
       type="button"
@@ -238,49 +268,58 @@ function DayHeader({
       className="@container flex min-h-14 min-w-0 flex-col justify-center overflow-hidden border-l px-2.5 py-1 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
       aria-label={m.openDay(dateLabel(day))}
     >
-      <span className="flex items-baseline gap-1.5 whitespace-nowrap">
-        {/* Show the month on the 1st only, so a month change mid-week stands out */}
-        {d.getDate() === 1 && (
-          <span className="font-num text-muted-foreground text-xs">
-            {dateMessages().monthShort(d.getMonth())}
+      {/* The weekday sits above the number: beside it, "5 月" reads as May in Japanese */}
+      <span
+        className={cn("text-[11px] leading-4", today ? "text-primary" : "text-muted-foreground")}
+      >
+        {weekday(day)}
+      </span>
+      <span className="flex min-w-0 items-center gap-2 whitespace-nowrap">
+        <span className="flex shrink-0 items-baseline gap-1">
+          {/* Show the month on the 1st only, so a month change mid-week stands out */}
+          {d.getDate() === 1 && (
+            <span className="font-num text-muted-foreground text-xs">
+              {dateMessages().monthShort(d.getMonth())}
+            </span>
+          )}
+          {/* Circle today's number in indigo (the familiar calendar-app mark) */}
+          <span
+            className={cn(
+              "font-num font-semibold text-lg leading-7",
+              today
+                ? "-ml-1 inline-flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground"
+                : "text-foreground",
+            )}
+          >
+            {d.getDate()}
+          </span>
+        </span>
+        {blocks.length > 0 && (
+          <span className="@min-[9rem]:flex hidden min-w-0 items-center gap-2 overflow-hidden font-num text-[11px] text-muted-foreground leading-4">
+            <span className="text-foreground/80">{durationLabel(busy)}</span>
+            {/* Icons keep narrow columns short; with room, the words say what the numbers count */}
+            {commits > 0 && (
+              <span className="inline-flex @min-[20rem]:hidden items-center gap-0.5">
+                <GitCommitHorizontal className="size-3" />
+                {commits}
+              </span>
+            )}
+            {prs > 0 && (
+              <span className="inline-flex @min-[20rem]:hidden items-center gap-0.5 text-primary">
+                <GitPullRequest className="size-3" />
+                {prs}
+              </span>
+            )}
+            {(commits > 0 || prs > 0) && (
+              <span className="@min-[20rem]:inline hidden">{f.commitsPrs(commits, prs)}</span>
+            )}
+            {/* Only when wide, add the block count. Cost stays in the tooltip */}
+            <span className="@min-[20rem]:inline hidden">
+              {f.blocks(blocks.filter(counted).length)}
+            </span>
           </span>
         )}
-        {/* Circle today's number in indigo (the familiar calendar-app mark) */}
-        <span
-          className={cn(
-            "font-num font-semibold text-lg leading-7",
-            today
-              ? "inline-flex size-7 items-center justify-center self-center rounded-full bg-primary text-primary-foreground"
-              : "text-foreground",
-          )}
-        >
-          {d.getDate()}
-        </span>
-        <span className={cn("text-xs", today ? "text-primary" : "text-muted-foreground")}>
-          {weekday(day)}
-        </span>
       </span>
-      {blocks.length > 0 && (
-        <span className="@min-[6.5rem]:flex hidden items-center gap-2 whitespace-nowrap font-num text-[11px] text-muted-foreground leading-4">
-          <span className="text-foreground/80">{durationLabel(busy)}</span>
-          {commits > 0 && (
-            <span className="inline-flex items-center gap-0.5">
-              <GitCommitHorizontal className="size-3" />
-              {commits}
-            </span>
-          )}
-          {prs > 0 && (
-            <span className="inline-flex items-center gap-0.5 text-primary">
-              <GitPullRequest className="size-3" />
-              {prs}
-            </span>
-          )}
-          {/* Only when wide (as in the day view), add the block count. Cost stays in the tooltip */}
-          <span className="@min-[20rem]:inline hidden">
-            {f.blocks(blocks.filter(counted).length)}
-          </span>
-        </span>
-      )}
     </button>
   );
   if (blocks.length === 0) return button;
@@ -455,6 +494,10 @@ function Block({
 }) {
   const { session, segment, start, end, col, cols, span, depth } = block;
   const height = (Math.max(end - start, MIN_BLOCK_MS) / HOUR) * hourPx - 2;
+  // Blocks shorter than the minimum still get room for a heading, but only their real length is
+  // filled, so a 2-minute block doesn't read as half an hour. The rest is a plain label area
+  const filledPx = Math.max(3, ((end - start) / HOUR) * hourPx - 2);
+  const stretched = filledPx < height;
   // Tighten the padding on short blocks so one line fits even at the minimum height (MIN_BLOCK_MS)
   const short = height < 34;
   // If another block covers this one, fit the heading into the part still visible
@@ -462,7 +505,9 @@ function Block({
     block.coveredFrom === null ? height : ((block.coveredFrom - start) / HOUR) * hourPx;
   const lines = Math.max(1, Math.min(3, Math.floor((visible - 8) / 16.5)));
   const label = segment.headline;
-  const range = `${hhmm(block.dayStart + start)}–${hhmm(block.dayStart + end)}`;
+  const from = hhmm(block.dayStart + start);
+  const to = hhmm(block.dayStart + end);
+  const range = from === to ? from : `${from}–${to}`;
   const working = session.active && isLastSegment(block);
   // Before summarizing, the heading is the raw first prompt ("sorry, meant for another session", etc.),
   // which is noise next to summarized work. Tone down background and text. In-progress work is
@@ -486,13 +531,14 @@ function Block({
           short ? "py-px" : "py-1",
           // Stacked blocks get a base-colored outline to separate them from the one below
           depth > 0 && "shadow-[0_0_0_1px_var(--card)]",
-          // Mixing in oklab keeps hues from turning gray on the dark navy background
+          // The fill is a variable painted over the real length only (see `style`). Mixing into an
+          // achromatic base in oklch keeps each project's hue (see --block-base)
           dim
-            ? "bg-[color-mix(in_oklab,var(--c)_var(--mix-block-dim),var(--card))] text-muted-foreground"
-            : "bg-[color-mix(in_oklab,var(--c)_var(--mix-block),var(--card))] text-foreground",
-          "has-[>button:hover]:bg-[color-mix(in_oklab,var(--c)_var(--mix-block-hover),var(--card))]",
+            ? "text-muted-foreground [--fill:color-mix(in_oklch,var(--c)_var(--mix-block-dim),var(--block-base))]"
+            : "text-foreground [--fill:color-mix(in_oklch,var(--c)_var(--mix-block),var(--block-base))]",
+          "has-[>button:hover]:[--fill:color-mix(in_oklch,var(--c)_var(--mix-block-hover),var(--block-base))]",
           selected &&
-            "bg-[color-mix(in_oklab,var(--c)_var(--mix-block-selected),var(--card))] text-foreground",
+            "text-foreground [--fill:color-mix(in_oklch,var(--c)_var(--mix-block-selected),var(--block-base))]",
           "has-[>button:focus-visible]:outline-2 has-[>button:focus-visible]:outline-ring has-[>button:focus-visible]:outline-offset-1",
           selected && "outline-2 outline-foreground outline-offset-1",
           block.continuesBefore && "rounded-t-none",
@@ -512,6 +558,11 @@ function Block({
             zIndex: 1 + depth * 2 + (selected ? 1 : 0),
             borderLeftColor: "var(--c)",
             "--c": projectColor(project),
+            backgroundImage: "linear-gradient(var(--fill), var(--fill))",
+            backgroundSize: `100% ${stretched ? `${filledPx}px` : "100%"}`,
+            backgroundRepeat: "no-repeat",
+            // The unfilled part shows the column, except over another block, which it must hide
+            backgroundColor: stretched && depth > 0 ? "var(--card)" : undefined,
           } as React.CSSProperties
         }
       >
@@ -525,9 +576,18 @@ function Block({
             className="absolute inset-0 z-[1] outline-none"
           />
         </TooltipTrigger>
+        {stretched && (
+          // Over the border (left: -3px), the unfilled part gets a faint edge instead of the strong one
+          <span
+            className="absolute bottom-0 -left-[3px] w-[3px]"
+            style={{ top: filledPx, background: "color-mix(in oklch, var(--c) 35%, var(--card))" }}
+            aria-hidden
+          />
+        )}
         <span
           className={cn(
-            "text-xs",
+            // Long ASCII words ("CLAUDE.md") break inside narrow lanes rather than being cut off
+            "text-xs [overflow-wrap:anywhere]",
             dim && !selected ? "font-normal" : "font-medium",
             short ? "leading-4" : "leading-snug",
             LINE_CLAMP[short ? 1 : body ? 2 : lines],

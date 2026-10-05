@@ -40,6 +40,8 @@ interface Props {
   /** Sort order. Kept in the URL so it survives Back and reloads. */
   sort: ListSort;
   onSort: (sort: ListSort) => void;
+  /** The summary's overview / table switch, at the start of the first line. */
+  tabs: React.ReactNode;
 }
 
 /**
@@ -207,6 +209,7 @@ export function SessionList({
   onOpenDay,
   sort: requested,
   onSort: setSort,
+  tabs,
 }: Props) {
   const [keys, setKeys] = useColumns();
   const columns = useMemo(() => COLUMNS.filter((c) => keys.includes(c.key)), [keys]);
@@ -251,7 +254,7 @@ export function SessionList({
   }, [selectedId, selectedAt, firstDay]);
 
   // With no records at all, skip the empty table and show only the notice (EmptyNotice in App)
-  if (all.length === 0) return <div className="min-h-0 flex-1 bg-card" />;
+  if (all.length === 0) return <div className="min-h-0 flex-1 bg-card px-4 pt-3">{tabs}</div>;
 
   const onSort = (key: SortKey) =>
     setSort(
@@ -267,13 +270,16 @@ export function SessionList({
 
   return (
     <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto bg-card">
-      <div className="sticky left-0 flex items-start justify-between gap-2 pr-2">
+      <div className="sticky left-0 flex items-start gap-2 pr-2 pl-4">
+        <div className="shrink-0 pt-2">{tabs}</div>
         <PeriodSummary
           blocks={all}
           days={days.length}
           showUsage={keys.includes("tokens") || keys.includes("cost")}
         />
-        <ColumnPicker keys={keys} onChange={setKeys} />
+        <div className="ml-auto shrink-0">
+          <ColumnPicker keys={keys} onChange={setKeys} />
+        </div>
       </div>
       <table
         className="w-full table-fixed border-collapse text-sm"

@@ -58,7 +58,7 @@ Build a personal web app that lets you look back, on a calendar, on what you wer
 | F6 | Auto start | Started from Claude Code's SessionStart hook. Does nothing if already running. Fixed port |
 | F7 | Live updates | Reflect in-progress sessions in real time |
 | F8 | Search | Search all periods by summary, prompts and replies, PR and commit titles, and branch. Typing also narrows the shown period; a result jumps to its day and opens it (added 2026-10-05) |
-| F9 | Report | Copy the shown period's work (after filters) as Markdown, grouped by day and project with PR links, for a stand-up note or a weekly report (added 2026-10-05) |
+| F9 | Report | Copy the shown period's work (after filters) as Markdown, grouped by day and project with PR links, for a stand-up note or a weekly report. Projects with a written recap (F11) get it first, under a summary heading (added 2026-10-05) |
 | F10 | Resume | Copy `cd <dir> && claude --resume <id>` from the drawer. Kairos itself never runs it (added 2026-10-05) |
 | F11 | Summary | A layout next to the calendar, for the shown week or day (after filters), with two tabs. **Overview**: working time (with Claude's time), PRs, commits, tokens and estimated cost, each with the change from the previous period; working time by day (week) or through the day (day) and by project; and the blocks grouped by project, opening in the drawer. **Table**: one row per block with sortable numbers (duration, Claude's time, tokens, cost, outcomes and more; columns can be chosen), formerly the list layout. Computed in the UI from `/api/calendar`. Each project can also get a recap written by the LLM on request, explaining what was done in the period (added 2026-10-05) |
 

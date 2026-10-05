@@ -48,6 +48,7 @@
 }
 
 :root {
+  color-scheme: light;
   --background: #f6f7f9;
   --foreground: #1b2333;
   --card: #ffffff;
@@ -76,6 +77,9 @@
   --mix-block-hover: 32%;
   --mix-block-selected: 42%;
   --mix-block-dim: 9%;
+  /* What project colors are mixed into: an achromatic surface. Its hue is `none`, so mixing in
+     oklch keeps the project's own hue instead of drifting toward the background's */
+  --block-base: oklch(1 0 none);
 
   /* Project colors (mineral pigments): gunjō, rokushō, ōdo, fuji, sakuranezumi, tetsu, wakatake, bengara */
   --p0: #4f6faf;
@@ -89,6 +93,8 @@
 }
 
 .dark {
+  /* Native scrollbars and form controls follow the theme */
+  color-scheme: dark;
   --background: #10182a;
   --foreground: #e3e8f2;
   --card: #172238;
@@ -115,6 +121,9 @@
   --mix-block-hover: 44%;
   --mix-block-selected: 50%;
   --mix-block-dim: 14%;
+  /* Neutral at the lightness of --card. Mixing warm pigments into the navy card itself turned
+     ochre and red oxide the same muddy brown */
+  --block-base: oklch(0.255 0 none);
 
   --p0: #6f8fd0;
   --p1: #57ab9b;

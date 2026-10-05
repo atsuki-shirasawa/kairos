@@ -378,7 +378,7 @@ function UsageBlock({
     <Block title={section ? t.sectionUsage : t.usage} action={action}>
       {u ? (
         <>
-          <dl className="grid grid-cols-4 gap-2">
+          <dl className="grid grid-cols-4 gap-x-4 gap-y-2.5">
             <Stat label={t.statTokens} value={tokensLabel(u.tokens)} />
             <Stat
               label={t.statCost}
@@ -483,15 +483,16 @@ function SessionTotal({ session: s, usage }: { session: SessionDetail; usage: Us
   );
 }
 
+/** Label over value, the same as the activity grid, so the drawer has one way of showing a number. */
 function Stat({ label, value, title }: { label: string; value: string; title?: string }) {
   return (
-    <div className="min-w-0 rounded-md border px-2.5 py-1.5">
+    <div className="min-w-0">
       <dt className="truncate text-[11px] text-muted-foreground">
         <Hint text={title} focusable>
           {label}
         </Hint>
       </dt>
-      <dd className="font-medium font-num text-base tabular-nums">{value}</dd>
+      <dd className="font-medium font-num text-sm tabular-nums">{value}</dd>
     </div>
   );
 }
@@ -962,10 +963,9 @@ function ProjectLine({
   );
 }
 
-/** The selected period. Today / yesterday are shown as words, followed by the duration. */
 /**
- * When and how long, then the key figures (Claude's time, tokens, cost, outcomes, snags) on the
- * same line. The heading stays put, so stepping with j / k compares them in one place; the
+ * When and how long (today / yesterday as words), then the key figures (Claude's time, tokens,
+ * cost, outcomes, snags) on a line below. The heading stays put, so stepping with j / k compares them in one place; the
  * breakdown is in "Numbers" below. Figures that are zero are left out.
  */
 function SectionTime({ session: s, section }: { session: SessionDetail; section: Section }) {
@@ -980,50 +980,62 @@ function SectionTime({ session: s, section }: { session: SessionDetail; section:
   const range = sameDay
     ? `${day} ${hhmm(section.start)}–${hhmm(section.end)}`
     : `${day} ${hhmm(section.start)} – ${dateLabel(section.end)} ${hhmm(section.end)}`;
+  // When on the first line, figures on the second: wrapping one long line used to strand the
+  // last figure on a line of its own
+  const figures = Boolean(a.claudeMs || u || a.commits + a.prs > 0 || trouble > 0);
   return (
-    <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 font-num text-muted-foreground text-xs">
-      <span className="rounded-md bg-muted px-1.5 py-0.5 text-foreground">{range}</span>
-      <span className="whitespace-nowrap">{durationLabel(section.end - section.start)}</span>
-      {a.claudeMs ? (
-        <Hint text={t.claudeTimeNote} className="whitespace-nowrap">
-          {t.claudeShort(durationLabel(a.claudeMs))}
-        </Hint>
-      ) : null}
-      {u && <span className="whitespace-nowrap">{t.tokens(tokensLabel(u.tokens))}</span>}
-      {u && (
-        <Hint text={u.unpriced ? t.costNoteUnpriced : t.costNote} className="whitespace-nowrap">
-          {u.unpriced ? "~" : ""}
-          {costLabel(u.costUsd)}
-        </Hint>
-      )}
-      {/* Icons rather than words keep the line short, as on the calendar's day headers */}
-      {a.commits + a.prs > 0 && (
-        <Hint text={f.commitsPrs(a.commits, a.prs)} className="inline-flex items-center gap-1.5">
-          {a.commits > 0 && (
-            <span className="inline-flex items-center gap-0.5">
-              <GitCommitHorizontal className="size-3" />
-              {a.commits}
-            </span>
+    <div className="mt-2 flex flex-col gap-1 font-num text-muted-foreground text-xs">
+      <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span className="rounded-md bg-muted px-1.5 py-0.5 text-foreground">{range}</span>
+        <span className="whitespace-nowrap">{durationLabel(section.end - section.start)}</span>
+        {s.active && last && (
+          <span className="inline-flex items-center gap-1 whitespace-nowrap text-primary">
+            <span className="size-1.5 animate-pulse rounded-full bg-primary motion-reduce:animate-none" />
+            {t.active}
+          </span>
+        )}
+      </p>
+      {figures && (
+        <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+          {a.claudeMs ? (
+            <Hint text={t.claudeTimeNote} className="whitespace-nowrap">
+              {t.claudeShort(durationLabel(a.claudeMs))}
+            </Hint>
+          ) : null}
+          {u && <span className="whitespace-nowrap">{t.tokens(tokensLabel(u.tokens))}</span>}
+          {u && (
+            <Hint text={u.unpriced ? t.costNoteUnpriced : t.costNote} className="whitespace-nowrap">
+              {u.unpriced ? "~" : ""}
+              {costLabel(u.costUsd)}
+            </Hint>
           )}
-          {a.prs > 0 && (
-            <span className="inline-flex items-center gap-0.5 text-primary">
-              <GitPullRequest className="size-3" />
-              {a.prs}
-            </span>
+          {/* Icons rather than words keep the line short, as on the calendar's day headers */}
+          {a.commits + a.prs > 0 && (
+            <Hint
+              text={f.commitsPrs(a.commits, a.prs)}
+              className="inline-flex items-center gap-1.5"
+            >
+              {a.commits > 0 && (
+                <span className="inline-flex items-center gap-0.5">
+                  <GitCommitHorizontal className="size-3" />
+                  {a.commits}
+                </span>
+              )}
+              {a.prs > 0 && (
+                <span className="inline-flex items-center gap-0.5 text-primary">
+                  <GitPullRequest className="size-3" />
+                  {a.prs}
+                </span>
+              )}
+            </Hint>
           )}
-        </Hint>
+          {trouble > 0 && (
+            <Hint text={troubleDetail(a)} className="whitespace-nowrap text-foreground/80">
+              {t.troubleCount(trouble)}
+            </Hint>
+          )}
+        </p>
       )}
-      {trouble > 0 && (
-        <Hint text={troubleDetail(a)} className="whitespace-nowrap text-foreground/80">
-          {t.troubleCount(trouble)}
-        </Hint>
-      )}
-      {s.active && last && (
-        <span className="inline-flex items-center gap-1 whitespace-nowrap text-primary">
-          <span className="size-1.5 animate-pulse rounded-full bg-primary motion-reduce:animate-none" />
-          {t.active}
-        </span>
-      )}
-    </p>
+    </div>
   );
 }

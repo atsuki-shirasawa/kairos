@@ -21,7 +21,12 @@ import type { SegmentMatch } from "@/lib/filter.ts";
 import { costLabel, numberLabel, tokensLabel } from "@/lib/format.ts";
 import { issueBaseUrl } from "@/lib/issueLinks.ts";
 import type { DayBlock } from "@/lib/layout.ts";
-import { type PeriodSummary, type ProjectSummary, summarize } from "@/lib/summary.ts";
+import {
+  type PeriodSummary,
+  type ProjectSummary,
+  sessionsUntil,
+  summarize,
+} from "@/lib/summary.ts";
 import { cn } from "@/lib/utils.ts";
 import { Hint } from "./Hint.tsx";
 import { Markdown } from "./Markdown.tsx";
@@ -44,6 +49,8 @@ interface Props {
   now: number;
   onSelect: (id: string, at: number) => void;
   onOpenDay: (day: number) => void;
+  /** Overview / table switch, placed at the top of the content rather than on a bar of its own. */
+  tabs: React.ReactNode;
 }
 
 /**
@@ -65,12 +72,20 @@ export function SummaryView({
   now,
   onSelect,
   onOpenDay,
+  tabs,
 }: Props) {
   const summary = useMemo(() => summarize(days, sessions, matches), [days, sessions, matches]);
-  const before = useMemo(
-    () => (previous ? summarize(previous.days, previous.sessions, matches) : null),
-    [previous, matches],
-  );
+  // While the period is running, compare with the previous one up to the same point. Minutes are
+  // enough, so the comparison isn't redone every time `now` ticks
+  const soFar = now >= from && now < to;
+  const elapsed = soFar ? Math.floor((now - from) / 60_000) * 60_000 : null;
+  const before = useMemo(() => {
+    if (!previous) return null;
+    const start = previous.days[0] ?? 0;
+    const list =
+      elapsed === null ? previous.sessions : sessionsUntil(previous.sessions, start + elapsed);
+    return summarize(previous.days, list, matches);
+  }, [previous, matches, elapsed]);
   const recapList = useRecaps(from, to, true).data?.recaps;
   const recaps = useMemo(
     () => new Map((recapList ?? []).map((r) => [r.projectId, r])),
@@ -79,15 +94,18 @@ export function SummaryView({
   const requestRecap = useRequestRecap();
   const onRecap = (projectId: number) => requestRecap.mutate({ projectId, from, to });
   const m = summaryMessages();
-  if (summary.blocks === 0 && summary.busyMs === 0) return null;
+  // Keep the tabs when there's nothing to sum up, so the table stays one click away
+  if (summary.blocks === 0 && summary.busyMs === 0)
+    return <div className="mx-auto w-full max-w-5xl px-6 pt-4">{tabs}</div>;
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       <section
         aria-label={m.region(view)}
-        className="mx-auto flex max-w-5xl flex-col gap-8 px-6 pt-6 pb-16"
+        className="mx-auto flex max-w-5xl flex-col gap-8 px-6 pt-4 pb-16"
       >
-        <Totals view={view} summary={summary} before={before} />
+        <div className="-mb-2">{tabs}</div>
+        <Totals view={view} soFar={soFar} summary={summary} before={before} />
         {view === "week" ? (
           <ByDay summary={summary} projects={projects} now={now} onOpenDay={onOpenDay} />
         ) : (
@@ -117,7 +135,8 @@ export function SummaryView({
 
 /**
  * Overview or table. The table is the per-block list with sortable numbers; it keeps its own
- * scroll and sticky header, so it replaces the overview rather than sitting inside it.
+ * scroll and sticky header, so it replaces the overview rather than sitting inside it. The switch
+ * sits in the first line of either, not on a bar of its own under the toolbar.
  */
 export function SummaryTabs({
   table,
@@ -128,24 +147,22 @@ export function SummaryTabs({
 }) {
   const m = summaryMessages();
   return (
-    <div className="flex h-11 shrink-0 items-center border-b bg-background px-4">
-      <ToggleGroup
-        type="single"
-        size="sm"
-        spacing={0.5}
-        className={SEGMENTED}
-        value={table ? "table" : "overview"}
-        onValueChange={(v) => v && onTable(v === "table")}
-        aria-label={m.tabs}
-      >
-        <ToggleGroupItem value="overview" className={SEGMENT} title={`${m.overview} (s)`}>
-          {m.overview}
-        </ToggleGroupItem>
-        <ToggleGroupItem value="table" className={SEGMENT} title={`${m.table} (l)`}>
-          {m.table}
-        </ToggleGroupItem>
-      </ToggleGroup>
-    </div>
+    <ToggleGroup
+      type="single"
+      size="sm"
+      spacing={0.5}
+      className={SEGMENTED}
+      value={table ? "table" : "overview"}
+      onValueChange={(v) => v && onTable(v === "table")}
+      aria-label={m.tabs}
+    >
+      <ToggleGroupItem value="overview" className={SEGMENT} title={`${m.overview} (s)`}>
+        {m.overview}
+      </ToggleGroupItem>
+      <ToggleGroupItem value="table" className={SEGMENT} title={`${m.table} (l)`}>
+        {m.table}
+      </ToggleGroupItem>
+    </ToggleGroup>
   );
 }
 
@@ -169,10 +186,12 @@ const costText = (u: Usage | null) =>
 
 function Totals({
   view,
+  soFar,
   summary: s,
   before: b,
 }: {
   view: View;
+  soFar: boolean;
   summary: PeriodSummary;
   before: PeriodSummary | null;
 }) {
@@ -182,7 +201,7 @@ function Totals({
   const change = (now: number, then: number | undefined, label: (n: number) => string) => {
     if (then === undefined) return null;
     const diff = now - then;
-    return diff === 0 ? m.unchanged(view) : m.versus(view, signed(diff, label));
+    return diff === 0 ? m.unchanged(view, soFar) : m.versus(view, signed(diff, label), soFar);
   };
   const minuteRound = (ms: number) => Math.round(ms / 60_000) * 60_000;
   const items: { label: string; value: string; sub: React.ReactNode; hint?: string }[] = [
@@ -231,12 +250,21 @@ function Totals({
   ];
   return (
     <dl className="grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-y-4">
-      {items.map((it) => (
-        <div key={it.label} className="flex min-w-0 flex-col gap-0.5 border-l pr-2 pl-4">
+      {/* Working time leads; the rest is what came of it, so it is set a size smaller */}
+      {items.map((it, i) => (
+        <div
+          key={it.label}
+          className="flex min-w-0 flex-col justify-end gap-0.5 border-l pr-2 pl-4"
+        >
           <dt className="text-muted-foreground text-xs">
             {it.hint ? <Hint text={it.hint}>{it.label}</Hint> : it.label}
           </dt>
-          <dd className="font-num font-semibold text-2xl text-foreground tabular-nums leading-8">
+          <dd
+            className={cn(
+              "font-num font-semibold text-foreground tabular-nums",
+              i === 0 ? "text-[1.75rem] leading-9" : "text-xl leading-7",
+            )}
+          >
             {it.value}
           </dd>
           <dd className="flex min-h-4 flex-col font-num text-[11px] text-muted-foreground leading-4">
@@ -386,9 +414,16 @@ function ByProject({
 }) {
   const m = summaryMessages();
   const max = Math.max(...summary.projects.map((p) => p.busyMs), 1);
+  // Rows count parallel work once per project, the total once overall. Say so when they differ
+  const overlap = summary.projects.reduce((n, p) => n + p.busyMs, 0) - summary.busyMs >= 60_000;
   return (
     <div>
       <Heading>{m.byProject}</Heading>
+      {overlap && (
+        <p className="-mt-2 mb-2 text-muted-foreground text-xs">
+          {m.overlap(durationLabel(summary.busyMs))}
+        </p>
+      )}
       <table className="w-full text-sm">
         <thead className="sr-only">
           <tr>
@@ -533,10 +568,14 @@ function ProjectDone({
         />
       )}
       <ul className="flex flex-col">
-        {p.blocks.map((b) => (
+        {p.blocks.map((b, i) => (
           <DoneItem
             key={`${b.session.id}:${b.segment.start}`}
-            view={view}
+            // In the week, name the day only where it changes, so the column reads as a timeline
+            showDay={
+              view === "week" &&
+              !isSameDay(b.segment.start, p.blocks[i - 1]?.segment.start ?? Number.NaN)
+            }
             block={b}
             selected={
               b.session.id === selectedId && (selectedAt === null || selectedAt === b.segment.start)
@@ -574,7 +613,12 @@ function RecapBlock({
     return (
       <div className="mb-2 flex flex-col items-start gap-1">
         <Hint text={m.recapNote}>
-          <Button variant="outline" size="xs" onClick={onRecap}>
+          <Button
+            variant="ghost"
+            size="xs"
+            className="-ml-2 text-muted-foreground"
+            onClick={onRecap}
+          >
             <Sparkles />
             {m.recapWrite}
           </Button>
@@ -601,12 +645,12 @@ function RecapBlock({
 }
 
 function DoneItem({
-  view,
+  showDay,
   block: b,
   selected,
   onSelect,
 }: {
-  view: View;
+  showDay: boolean;
   block: DayBlock;
   selected: boolean;
   onSelect: (id: string, at: number) => void;
@@ -620,8 +664,8 @@ function DoneItem({
       )}
       data-selected={selected || undefined}
     >
-      <span className="w-24 shrink-0 font-num text-muted-foreground text-xs tabular-nums">
-        {view === "week" && `${weekday(start)} `}
+      <span className="flex w-28 shrink-0 gap-1.5 font-num text-muted-foreground text-xs tabular-nums">
+        <span className="w-7 shrink-0 text-foreground/80">{showDay && weekday(start)}</span>
         {hhmm(start)}–{hhmm(b.segment.end)}
       </span>
       <button

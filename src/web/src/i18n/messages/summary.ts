@@ -2,6 +2,17 @@ import { defineMessages } from "../index.ts";
 
 type Unit = "week" | "day";
 
+const before = (u: Unit, soFar: boolean) =>
+  u === "week"
+    ? soFar
+      ? "this point last week"
+      : "last week"
+    : soFar
+      ? "this time the day before"
+      : "the day before";
+const beforeJa = (u: Unit, soFar: boolean) =>
+  `${u === "week" ? "先週" : "前日"}${soFar ? "の同じ時点" : ""}`;
+
 /** The summary view: period totals, where the time went, and what was done. */
 export const summaryMessages = defineMessages({
   en: {
@@ -16,15 +27,20 @@ export const summaryMessages = defineMessages({
     commits: "Commits",
     tokens: "Tokens",
     cost: "Cost",
-    /** Change from the previous period. `delta` is already signed ("+2h", "−3"). */
-    versus: (u: Unit, delta: string) =>
-      `${delta} vs ${u === "week" ? "last week" : "the day before"}`,
-    unchanged: (u: Unit) => `Same as ${u === "week" ? "last week" : "the day before"}`,
+    /**
+     * Change from the previous period. `delta` is already signed ("+2h", "−3"). `soFar`: the
+     * period is still running, so it is compared with the previous one up to the same point.
+     */
+    versus: (u: Unit, delta: string, soFar: boolean) => `${delta} vs ${before(u, soFar)}`,
+    unchanged: (u: Unit, soFar: boolean) => `Same as ${before(u, soFar)}`,
     byDay: "By day",
     dayTick: (weekday: string, date: number) => `${weekday} ${date}`,
     outcomes: "Commits · PRs",
     throughDay: "Through the day",
     byProject: "By project",
+    /** Under "By project" when time on parallel projects adds up to more than the working time. */
+    overlap: (busy: string) =>
+      `Time spent on several projects at once counts for each, so these add up to more than the ${busy} of working time`,
     done: "What you did",
     recapWrite: "Explain this work",
     recapAbout: "About this explanation",
@@ -49,13 +65,15 @@ export const summaryMessages = defineMessages({
     commits: "コミット",
     tokens: "トークン",
     cost: "コスト",
-    versus: (u: Unit, delta: string) => `${u === "week" ? "先週" : "前日"}より ${delta}`,
-    unchanged: (u: Unit) => `${u === "week" ? "先週" : "前日"}と同じ`,
+    versus: (u: Unit, delta: string, soFar: boolean) => `${beforeJa(u, soFar)}より ${delta}`,
+    unchanged: (u: Unit, soFar: boolean) => `${beforeJa(u, soFar)}と同じ`,
     byDay: "日ごと",
     dayTick: (weekday: string, date: number) => `${date}（${weekday}）`,
     outcomes: "コミット・PR",
     throughDay: "1日の流れ",
     byProject: "プロジェクトごと",
+    overlap: (busy: string) =>
+      `並行して進めた時間はそれぞれのプロジェクトに数えるため、合計は作業時間（${busy}）より長くなります`,
     done: "やったこと",
     recapWrite: "この作業を説明する",
     recapAbout: "この説明について",

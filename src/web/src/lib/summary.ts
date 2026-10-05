@@ -107,3 +107,18 @@ export function summarize(
     projects,
   };
 }
+
+/**
+ * Sessions cut at `until`: later sections are dropped and a section running past it is shortened.
+ * For comparing a period in progress with the same point of the period before; otherwise a week
+ * seen on Monday would always trail the whole of last week. A shortened section keeps all its
+ * usage and outcomes, since those aren't recorded by time within a section.
+ */
+export function sessionsUntil(sessions: CalendarSession[], until: number): CalendarSession[] {
+  return sessions.flatMap((s) => {
+    const segments = s.segments
+      .filter((g) => g.start < until)
+      .map((g) => (g.end > until ? { ...g, end: until } : g));
+    return segments.length > 0 ? [{ ...s, segments }] : [];
+  });
+}

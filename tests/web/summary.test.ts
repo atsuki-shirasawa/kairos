@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Artifact, CalendarSession, Usage } from "../../src/shared/api.ts";
 import { addDays } from "../../src/web/src/lib/dates.ts";
-import { summarize } from "../../src/web/src/lib/summary.ts";
+import { sessionsUntil, summarize } from "../../src/web/src/lib/summary.ts";
 
 const DAY0 = new Date(2026, 9, 5).getTime(); // 2026-10-05 (Mon) 00:00
 const DAYS = Array.from({ length: 7 }, (_, i) => addDays(DAY0, i));
@@ -140,5 +140,31 @@ describe("summarize", () => {
     const s = summarize(DAYS, []);
     expect(s).toMatchObject({ blocks: 0, busyMs: 0, claudeMs: null, usage: null, prs: [] });
     expect(s.projects).toEqual([]);
+  });
+});
+
+describe("sessionsUntil", () => {
+  test("drops later sections and shortens the one running past the cut", () => {
+    const s = session(
+      "a",
+      1,
+      { start: at(0, 9), end: at(0, 10) },
+      { start: at(0, 11), end: at(0, 13), commits: 2 },
+      { start: at(1, 9), end: at(1, 10) },
+    );
+    const [cut] = sessionsUntil([s], at(0, 12));
+    expect(cut?.segments.map((g) => [g.start, g.end])).toEqual([
+      [at(0, 9), at(0, 10)],
+      [at(0, 11), at(0, 12)],
+    ]);
+    // Outcomes aren't timed within a section, so the shortened one keeps them
+    expect(cut?.segments[1]?.activity.commits).toBe(2);
+    expect(summarize(DAYS, [cut as CalendarSession]).busyMs).toBe(2 * H);
+  });
+
+  test("leaves out sessions that start after the cut", () => {
+    expect(sessionsUntil([session("a", 1, { start: at(2, 9), end: at(2, 10) })], at(1, 0))).toEqual(
+      [],
+    );
   });
 });

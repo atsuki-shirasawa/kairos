@@ -97,6 +97,39 @@ describe("buildReport", () => {
     expect(report).not.toContain("Tue");
   });
 
+  test("puts written recaps first, only for projects in the report", () => {
+    const sessions = [
+      session("a", 2, { start: at(9), end: at(10), headline: "Write a post" }),
+      session("b", 1, { start: at(11), end: at(12), headline: "Add login" }),
+    ];
+    const recaps = new Map([
+      [1, "Built the login.\n\n- Added validation"],
+      [2, "  "],
+      [3, "Not shown"],
+    ]);
+    expect(buildReport([DAY0], sessions, projects, recaps)).toBe(
+      [
+        "## Summary",
+        "",
+        "### app",
+        "",
+        "Built the login.",
+        "",
+        "- Added validation",
+        "",
+        "## Mon, Oct 5",
+        "",
+        "### blog",
+        "",
+        "- 9:00–10:00 Write a post",
+        "",
+        "### app",
+        "",
+        "- 11:00–12:00 Add login",
+      ].join("\n"),
+    );
+  });
+
   test("is empty when there is no work", () => {
     expect(buildReport([DAY0], [], projects)).toBe("");
   });

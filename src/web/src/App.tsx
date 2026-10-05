@@ -6,7 +6,7 @@ import { SessionList } from "@/components/SessionList.tsx";
 import { SummaryTabs, SummaryView } from "@/components/SummaryView.tsx";
 import { Toolbar } from "@/components/Toolbar.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { useCalendar, useSearch, useSummaryLangSync } from "@/hooks/queries.ts";
+import { useCalendar, useRecaps, useSearch, useSummaryLangSync } from "@/hooks/queries.ts";
 import { useLiveUpdates } from "@/hooks/useLiveUpdates.ts";
 import { useNow } from "@/hooks/useNow.ts";
 import { useTheme } from "@/hooks/useTheme.ts";
@@ -43,6 +43,12 @@ export function App() {
     [state.view, state.anchor],
   );
   const previous = useCalendar(before.from, before.to, state.layout === "summary");
+  // Written recaps go into the copied report from any layout (shared with the summary view's query)
+  const recapList = useRecaps(from, to, true).data?.recaps;
+  const recapBodies = useMemo(
+    () => new Map((recapList ?? []).flatMap((r) => (r.body ? [[r.projectId, r.body]] : []))),
+    [recapList],
+  );
 
   const projects = calendar.data?.projects ?? [];
   const projectMap = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
@@ -160,6 +166,12 @@ export function App() {
 
   const period = state.view;
   const m = appMessages();
+  const summaryTabs = (
+    <SummaryTabs
+      table={state.layout === "list"}
+      onTable={(table) => update({ layout: table ? "list" : "summary" })}
+    />
+  );
 
   return (
     <div className="flex h-full flex-col">
@@ -187,7 +199,7 @@ export function App() {
         }}
         projectMap={projectMap}
         // The report follows what's on screen: hidden projects and filters apply
-        report={() => buildReport(days, focused, projectMap)}
+        report={() => buildReport(days, focused, projectMap, recapBodies)}
         hasWork={focused.length > 0}
         onOpenHit={(hit) =>
           update(
@@ -202,14 +214,13 @@ export function App() {
       />
       <div className="flex min-h-0 flex-1">
         <main className="relative flex min-w-0 flex-1 flex-col">
-          {state.layout !== "calendar" && (
-            <SummaryTabs
-              table={state.layout === "list"}
-              onTable={(table) => update({ layout: table ? "list" : "summary" })}
-            />
-          )}
           {state.layout === "list" ? (
-            <SessionList {...body} sort={state.sort} onSort={(sort) => update({ sort })} />
+            <SessionList
+              {...body}
+              sort={state.sort}
+              onSort={(sort) => update({ sort })}
+              tabs={summaryTabs}
+            />
           ) : state.layout === "summary" ? (
             <SummaryView
               {...body}
@@ -217,6 +228,7 @@ export function App() {
               from={from}
               to={to}
               previous={previousSessions}
+              tabs={summaryTabs}
             />
           ) : (
             <CalendarGrid {...body} />

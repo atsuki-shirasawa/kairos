@@ -7,6 +7,8 @@ Last updated: 2026-10-05 / Direction: **A. Indigo hours** (chosen from three com
 - Keep the frame quiet so the work blocks carry the color. The time column is plain, with muted hour labels (it used to shift through the colors of the day; dropped on 2026-10-05 because it competed with the blocks)
 - Paint work blocks in calm colors like Japanese mineral pigments (iwa-enogu). Use indigo for selection, focus and the current time
 - Use few cards and shadows. Show boundaries with rules, and lift only the drawer as a surface
+- A block's height is its real length. Blocks shorter than the minimum height (room for one heading) fill only their real length; the rest is an unfilled label area with a faint edge
+- In day column headers the weekday sits above the date number: beside it, "5 月" reads as May in Japanese
 
 ## Color
 
@@ -19,7 +21,8 @@ Last updated: 2026-10-05 / Direction: **A. Indigo hours** (chosen from three com
 | `--border` (line) | `#e2e6ec` | `#24304a` | Rules |
 | `--primary` (indigo) | `#2e4c8c` | `#8da8e8` | Selection, current time, focus |
 | `--warn` | `#8a6420` | `#d1a650` | Text of numbers that should draw attention (stumbles). Plain yellow ocher lacks contrast on white |
-| `--mix-block` / `-hover` / `-selected` / `-dim` | 20% / 32% / 42% / 9% | 32% / 44% / 50% / 14% | How much of the project color is mixed into a work block's background (`oklab`). `-dim` is for blocks not yet summarized. Dark mixes in more so colors don't turn muddy on navy |
+| `--mix-block` / `-hover` / `-selected` / `-dim` | 20% / 32% / 42% / 9% | 32% / 44% / 50% / 14% | How much of the project color is mixed into a work block's background (`oklch`, into `--block-base`). `-dim` is for blocks not yet summarized. Dark mixes in more so colors don't turn muddy on navy |
+| `--block-base` | `oklch(1 0 none)` | `oklch(0.255 0 none)` | Achromatic base the block fill is mixed into. Its hue is `none`, so the mix keeps each project's hue; mixing into the navy card turned ochre and red oxide the same brown |
 
 Project colors (mineral pigments; assigned in order to projects without a color)
 
