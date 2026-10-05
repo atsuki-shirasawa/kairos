@@ -24,9 +24,12 @@ interface Props {
   onSelect: (id: string, at: number | null) => void;
 }
 
-/** 右側の詳細。選んだセクションの要約 → セッションの流れ → 成果 → 会話。 */
+/** 右側の詳細。見出しは上に固定し、その下に要約 → セッションの流れ → 成果 → 会話を並べる。 */
 export function SessionDrawer({ id, at, onClose, onSelect }: Props) {
   const { data, isPending, isError, error } = useSession(id);
+  const section = data
+    ? (data.sections.find((x) => x.start === at) ?? data.sections.at(-1) ?? null)
+    : null;
 
   return (
     <aside
@@ -37,106 +40,73 @@ export function SessionDrawer({ id, at, onClose, onSelect }: Props) {
       )}
       aria-label="セッションの詳細"
     >
-      <div className="flex h-14 shrink-0 items-center justify-end border-b px-3">
+      {/* 見出しはスクロールさせない。会話まで下りても、どの作業の詳細かが分かるように */}
+      <header className="flex min-h-14 shrink-0 items-start gap-2 border-b py-3 pr-3 pl-5">
+        <div className="min-w-0 flex-1">
+          {data && <DetailHeader session={data} section={section} />}
+        </div>
         <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="詳細を閉じる">
           <X />
         </Button>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-4 pb-10" data-drawer-scroll>
+      </header>
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-5 pb-10" data-drawer-scroll>
         {isPending && <p className="text-muted-foreground text-sm">読み込み中…</p>}
         {isError && (
           <p className="text-destructive text-sm">
             セッションを読み込めませんでした: {error.message}
           </p>
         )}
-        {data && <Detail key={data.id} session={data} at={at} onSelect={onSelect} />}
+        {data && <Detail key={data.id} session={data} section={section} onSelect={onSelect} />}
       </div>
     </aside>
   );
 }
 
+function DetailHeader({
+  session: s,
+  section,
+}: {
+  session: SessionDetail;
+  section: Section | null;
+}) {
+  const headline = section?.headline ?? s.title;
+  return (
+    <div className="space-y-1">
+      <h2
+        className="line-clamp-2 text-balance font-semibold text-base leading-snug"
+        title={headline}
+      >
+        {headline}
+      </h2>
+      {section && section.headline !== s.title && (
+        <p className="line-clamp-1 text-muted-foreground text-xs" title={s.title}>
+          {s.title}
+        </p>
+      )}
+      <ProjectLine project={s.project} label={s.label} branch={s.branch} />
+      {section && <SectionTime session={s} section={section} />}
+    </div>
+  );
+}
+
 function Detail({
   session: s,
-  at,
+  section,
   onSelect,
 }: {
   session: SessionDetail;
-  at: number | null;
+  section: Section | null;
   onSelect: Props["onSelect"];
 }) {
   const [agent, setAgent] = useState<string | null>(null);
   const [jump, setJump] = useState<{ ts: number; key: number } | null>(null);
-  const section = s.sections.find((x) => x.start === at) ?? s.sections.at(-1) ?? null;
-  const firstDay = s.sections[0]?.start ?? 0;
 
   return (
     <div className="space-y-7">
-      <header className="space-y-2">
-        <h2 className="text-balance font-semibold text-lg leading-snug">
-          {section?.headline ?? s.title}
-        </h2>
-        {section && section.headline !== s.title && (
-          <p className="text-muted-foreground text-sm">{s.title}</p>
-        )}
-        <ProjectLine project={s.project} label={s.label} branch={s.branch} />
-        {section && <SectionTime session={s} section={section} />}
-      </header>
-
       {section && <SectionSummary sessionId={s.id} section={section} />}
 
-      {s.sections.length > 1 && (
-        <Block title="セッションの流れ">
-          <ol className="space-y-0.5">
-            {s.sections.map((x) => (
-              <li key={x.start}>
-                <button
-                  type="button"
-                  onClick={() => onSelect(s.id, x.start)}
-                  aria-current={x.start === section?.start}
-                  className={cn(
-                    "flex w-full items-baseline gap-3 rounded-md px-2 py-1 text-left text-sm hover:bg-accent",
-                    x.start === section?.start && "bg-accent font-medium",
-                  )}
-                >
-                  <span className="w-28 shrink-0 font-num text-muted-foreground text-xs">
-                    {isSameDay(x.start, firstDay) ? "" : `${new Date(x.start).getDate()}日 `}
-                    {hhmm(x.start)}–{hhmm(x.end)}
-                  </span>
-                  <span className="min-w-0 flex-1">{x.headline}</span>
-                </button>
-              </li>
-            ))}
-          </ol>
-        </Block>
-      )}
-
-      {s.awaySummary && (
-        <p className="text-muted-foreground text-xs leading-relaxed">
-          Claude Code の振り返り: {s.awaySummary}
-        </p>
-      )}
-
-      {(s.continuedFrom || s.continuedIn) && (
-        <div className="flex gap-4 text-sm">
-          {s.continuedFrom && (
-            <button
-              type="button"
-              className="text-primary hover:underline"
-              onClick={() => onSelect(s.continuedFrom ?? "", null)}
-            >
-              前のセッションへ
-            </button>
-          )}
-          {s.continuedIn && (
-            <button
-              type="button"
-              className="text-primary hover:underline"
-              onClick={() => onSelect(s.continuedIn ?? "", null)}
-            >
-              続きのセッションへ
-            </button>
-          )}
-        </div>
+      {(s.sections.length > 1 || s.awaySummary || s.continuedFrom || s.continuedIn) && (
+        <Flow session={s} section={section} onSelect={onSelect} />
       )}
 
       {(s.commits.length > 0 || s.prs.length > 0) && section && (
@@ -164,6 +134,130 @@ function Detail({
   );
 }
 
+/** 区間がこれより多いときは、選んだ区間の前後だけを出して残りは畳む。 */
+const FLOW_LIMIT = 6;
+
+/**
+ * セッションの流れ（全区間の見出し）と、セッション全体についての補足。
+ * 要約のない区間は最初の発言がそのまま入って長くなるので、1 行に抑えて控えめに出す。
+ */
+function Flow({
+  session: s,
+  section,
+  onSelect,
+}: {
+  session: SessionDetail;
+  section: Section | null;
+  onSelect: Props["onSelect"];
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const multiDay = s.sections.some((x) => !isSameDay(x.start, s.sections[0]?.start ?? 0));
+  const current = section ? s.sections.indexOf(section) : s.sections.length - 1;
+  const from = Math.max(
+    0,
+    Math.min(current - Math.floor(FLOW_LIMIT / 2), s.sections.length - FLOW_LIMIT),
+  );
+  const shown =
+    expanded || s.sections.length <= FLOW_LIMIT
+      ? s.sections
+      : s.sections.slice(from, from + FLOW_LIMIT);
+  const hiddenBefore = shown[0] ? s.sections.indexOf(shown[0]) : 0;
+  const hiddenAfter = s.sections.length - hiddenBefore - shown.length;
+
+  return (
+    <Block
+      title="セッションの流れ"
+      action={
+        s.sections.length > FLOW_LIMIT ? (
+          <Button variant="ghost" size="xs" onClick={() => setExpanded((v) => !v)}>
+            {expanded ? "前後だけ表示" : `すべて表示（${s.sections.length}）`}
+          </Button>
+        ) : null
+      }
+    >
+      {hiddenBefore > 0 && <Hidden count={hiddenBefore} where="前" />}
+      {s.sections.length > 1 && (
+        <ol className="space-y-0.5">
+          {shown.map((x) => {
+            const selected = x.start === section?.start;
+            return (
+              <li key={x.start}>
+                <button
+                  type="button"
+                  onClick={() => onSelect(s.id, x.start)}
+                  aria-current={selected}
+                  title={x.headline}
+                  className={cn(
+                    "flex w-full items-baseline gap-3 rounded-md px-2 py-1 text-left text-sm hover:bg-accent",
+                    selected && "bg-accent font-medium",
+                  )}
+                >
+                  <span className="w-28 shrink-0 font-num text-muted-foreground text-xs">
+                    {/* 日をまたぐセッションでは、最初の区間も含めてすべてに日付を付ける */}
+                    {multiDay &&
+                      `${new Date(x.start).getMonth() + 1}/${new Date(x.start).getDate()} `}
+                    {hhmm(x.start)}–{hhmm(x.end)}
+                  </span>
+                  <span
+                    className={cn(
+                      "min-w-0 flex-1",
+                      x.body ? "line-clamp-2" : "line-clamp-1",
+                      !x.body && !selected && "text-muted-foreground",
+                    )}
+                  >
+                    {x.headline}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+      {hiddenAfter > 0 && <Hidden count={hiddenAfter} where="後" />}
+
+      {s.awaySummary && (
+        <p className="mt-3 text-muted-foreground text-xs leading-relaxed">
+          Claude Code の振り返り: {s.awaySummary}
+        </p>
+      )}
+
+      {(s.continuedFrom || s.continuedIn) && (
+        <div className="mt-3 flex gap-4 text-sm">
+          {s.continuedFrom && (
+            <button
+              type="button"
+              className="text-primary hover:underline"
+              onClick={() => onSelect(s.continuedFrom ?? "", null)}
+            >
+              前のセッションへ
+            </button>
+          )}
+          {s.continuedIn && (
+            <button
+              type="button"
+              className="text-primary hover:underline"
+              onClick={() => onSelect(s.continuedIn ?? "", null)}
+            >
+              続きのセッションへ
+            </button>
+          )}
+        </div>
+      )}
+    </Block>
+  );
+}
+
+function Hidden({ count, where }: { count: number; where: "前" | "後" }) {
+  return (
+    <p className="px-2 py-0.5 text-muted-foreground text-xs">
+      {where === "前" ? "︙ この前に" : "︙ この後に"} {count} 区間
+    </p>
+  );
+}
+
+/** この時間の成果は最初にこの件数だけ出し、残りは畳む。会話までの距離を縮めるため。 */
+const OUTCOME_LIMIT = 5;
+
 /** 成果。選んだ時間のものを先に出し、セッション全体のものは畳んでおく。 */
 function Outcomes({ session: s, section }: { session: SessionDetail; section: Section }) {
   const all = [...s.prs, ...s.commits];
@@ -175,7 +269,19 @@ function Outcomes({ session: s, section }: { session: SessionDetail; section: Se
   return (
     <Block title="この時間の成果">
       {here.length > 0 ? (
-        <ArtifactList items={here} />
+        <>
+          <ArtifactList items={here.slice(0, OUTCOME_LIMIT)} />
+          {here.length > OUTCOME_LIMIT && (
+            <details className="mt-1.5">
+              <summary className="cursor-pointer text-muted-foreground text-xs">
+                ほか {here.length - OUTCOME_LIMIT} 件
+              </summary>
+              <div className="mt-1.5">
+                <ArtifactList items={here.slice(OUTCOME_LIMIT)} />
+              </div>
+            </details>
+          )}
+        </>
       ) : (
         <p className="text-muted-foreground text-sm">この時間のコミットや PR はありません。</p>
       )}
@@ -200,15 +306,7 @@ function ArtifactList({ items }: { items: Artifact[] }) {
         a.kind === "pr" ? (
           <li key={a.ref} className="flex items-center gap-2">
             <GitPullRequest className="size-4 shrink-0 text-muted-foreground" />
-            <a
-              href={a.ref}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 text-primary hover:underline"
-            >
-              {a.title ?? a.ref}
-              <ExternalLink className="size-3" />
-            </a>
+            <PrLink artifact={a} />
           </li>
         ) : (
           <li key={a.ref} className="flex items-baseline gap-2">
@@ -221,6 +319,32 @@ function ArtifactList({ items }: { items: Artifact[] }) {
         ),
       )}
     </ul>
+  );
+}
+
+/**
+ * PR のリンク。ログには PR の題名がなく「#番号 リポジトリ」しか残らないので、
+ * 番号を主に、リポジトリ名を補助として出す。
+ */
+function PrLink({ artifact: a }: { artifact: Artifact }) {
+  const [, num, repo] = /^(#\d+)\s+(.+)$/.exec(a.title ?? "") ?? [];
+  return (
+    <a
+      href={a.ref}
+      target="_blank"
+      rel="noreferrer"
+      className="inline-flex min-w-0 items-baseline gap-1.5 text-primary hover:underline"
+    >
+      {num ? (
+        <>
+          <span className="font-medium font-num">{num}</span>
+          <span className="truncate text-muted-foreground text-xs">{repo}</span>
+        </>
+      ) : (
+        <span className="truncate">{a.title ?? a.ref}</span>
+      )}
+      <ExternalLink className="size-3 shrink-0 self-center" />
+    </a>
   );
 }
 
