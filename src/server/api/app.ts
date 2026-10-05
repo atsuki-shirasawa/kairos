@@ -7,6 +7,7 @@ import type {
   HealthResponse,
   ProjectUpdate,
   ServerEvent,
+  SpansResponse,
 } from "../../shared/api.ts";
 import type { EventHub } from "../events.ts";
 import { Queries } from "../queries.ts";
@@ -36,12 +37,9 @@ export function createApp({ db, events, summarizer, now }: AppDeps): Hono {
   app.get("/api/health", (c) => c.json<HealthResponse>({ ok: true, name: "kairos", version }));
 
   app.get("/api/calendar", (c) => {
-    const from = Number(c.req.query("from"));
-    const to = Number(c.req.query("to"));
-    if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) {
-      return c.json({ error: "from と to（ミリ秒、from < to）が必要です" }, 400);
-    }
-    if (to - from > MAX_RANGE_MS) return c.json({ error: "期間が長すぎます（最大 62 日）" }, 400);
+    const range = parseRange(c.req.query("from"), c.req.query("to"));
+    if ("error" in range) return c.json(range, 400);
+    const { from, to } = range;
     return c.json<CalendarResponse>({
       from,
       to,
@@ -49,6 +47,12 @@ export function createApp({ db, events, summarizer, now }: AppDeps): Hono {
       projects: q.projects(),
       ...q.neighbors(from, to),
     });
+  });
+
+  app.get("/api/spans", (c) => {
+    const range = parseRange(c.req.query("from"), c.req.query("to"));
+    if ("error" in range) return c.json(range, 400);
+    return c.json<SpansResponse>({ spans: q.spans(range.from, range.to) });
   });
 
   app.get("/api/projects", (c) => c.json(q.projects()));
@@ -143,4 +147,17 @@ function parseProjectUpdate(body: unknown): ProjectUpdate | null {
     update.hidden = b.hidden;
   }
   return Object.keys(update).length ? update : null;
+}
+
+/** 期間の指定（ミリ秒）を確かめる。長すぎる期間は、全件を返すのと変わらないので断る。 */
+function parseRange(
+  fromParam: string | undefined,
+  toParam: string | undefined,
+): { from: number; to: number } | { error: string } {
+  const from = Number(fromParam);
+  const to = Number(toParam);
+  if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from)
+    return { error: "from と to（ミリ秒、from < to）が必要です" };
+  if (to - from > MAX_RANGE_MS) return { error: "期間が長すぎます（最大 62 日）" };
+  return { from, to };
 }

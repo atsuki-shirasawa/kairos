@@ -103,6 +103,21 @@ export interface CalendarResponse {
   next: number | null;
 }
 
+/** 作業ブロックの時刻だけ。日付ピッカーで「記録のある日」に印を付けるのに使う。 */
+export interface Span {
+  start: number;
+  end: number;
+  projectId: number | null;
+}
+
+/**
+ * 期間と重なる作業ブロックの時刻（人の発言があるセッションのもの）。
+ * 日への振り分けは画面のローカル時刻で行うので、サーバーは日にまとめずに返す。
+ */
+export interface SpansResponse {
+  spans: Span[];
+}
+
 export interface Artifact {
   kind: "commit" | "pr";
   /** コミットなら SHA、PR なら URL。 */

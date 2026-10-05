@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarGrid } from "@/components/CalendarGrid.tsx";
 import { SessionDrawer } from "@/components/SessionDrawer.tsx";
 import { SessionList } from "@/components/SessionList.tsx";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { useCalendar } from "@/hooks/queries.ts";
 import { useLiveUpdates } from "@/hooks/useLiveUpdates.ts";
 import { useNow } from "@/hooks/useNow.ts";
-import { useSystemTheme } from "@/hooks/useTheme.ts";
+import { useTheme } from "@/hooks/useTheme.ts";
 import { useUrlState } from "@/hooks/useUrlState.ts";
 import { dateLabel, rangeOf, shift, startOfDay } from "@/lib/dates.ts";
 import {
@@ -22,7 +22,7 @@ import {
 import { orderedBlocks, selectedSegment, stepBlock } from "@/lib/navigation.ts";
 
 export function App() {
-  useSystemTheme();
+  const [theme, setTheme] = useTheme();
   const [state, update] = useUrlState();
   const now = useNow();
   const progress = useLiveUpdates();
@@ -67,10 +67,12 @@ export function App() {
     el?.focus({ preventScroll: true });
   }, [update]);
 
-  const [helpOpen, setHelpOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   // ← → で前後へ、t で今日、w / d で週・日、c / l でカレンダー・リスト、j / k で次・前の作業、
-  // Esc で詳細を閉じる、? で一覧。一覧は Toolbar.tsx の SHORTCUTS
+  // / で検索、Esc で詳細を閉じる、? で「⋯」メニュー。一覧は Toolbar.tsx の SHORTCUTS。
+  // 日付ピッカー（data-date-picker）の中では方向キーを日の移動に使うので、ここでは扱わない
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -78,7 +80,7 @@ export function App() {
         e.metaKey ||
         e.ctrlKey ||
         e.altKey ||
-        target?.closest("input, textarea, [contenteditable]")
+        target?.closest("input, textarea, [contenteditable], [data-date-picker]")
       )
         return;
       if (e.key === "ArrowLeft") update({ anchor: shift(state.view, state.anchor, -1) });
@@ -91,7 +93,8 @@ export function App() {
       else if (e.key === "j") goTo(next ?? null);
       else if (e.key === "k") goTo(prev ?? null);
       // 配列によっては Shift+/ の key が "/" のまま届くので、両方を受け付ける
-      else if (e.key === "?" || (e.key === "/" && e.shiftKey)) setHelpOpen((v) => !v);
+      else if (e.key === "?" || (e.key === "/" && e.shiftKey)) setMenuOpen((v) => !v);
+      else if (e.key === "/") searchRef.current?.focus();
       // ポップオーバー（一覧・プロジェクト）を開いているときの Esc は、それを閉じるだけにする（ツールチップは除く）。
       // Radix が閉じる前のこの時点では、中身がまだ DOM に残っている
       else if (
@@ -128,6 +131,7 @@ export function App() {
         view={state.view}
         layout={state.layout}
         anchor={state.anchor}
+        now={now}
         projects={projects}
         sessions={sessions}
         filter={state.filter}
@@ -137,8 +141,12 @@ export function App() {
         onLayout={(layout) => update({ layout })}
         onMove={(dir) => update({ anchor: shift(state.view, state.anchor, dir) })}
         onToday={() => update({ anchor: startOfDay(Date.now()) })}
-        helpOpen={helpOpen}
-        onHelpOpen={setHelpOpen}
+        onJump={(day) => update({ anchor: day })}
+        searchRef={searchRef}
+        theme={theme}
+        onTheme={setTheme}
+        menuOpen={menuOpen}
+        onMenuOpen={setMenuOpen}
       />
       <div className="flex min-h-0 flex-1">
         <main className="relative flex min-w-0 flex-1 flex-col">

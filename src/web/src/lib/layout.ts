@@ -1,7 +1,7 @@
 // カレンダーの日の列に、作業ブロックを重ならないように並べる。
 // Google カレンダーと同じく、開始が見出し 1 行ぶん以上離れていれば同じ列に少しずらして重ね、
 // 開始がほぼ同時で見出しがぶつかるときだけ横に分ける。横に分けると週表示で列が細くなりすぎるため。
-import type { CalendarSegment, CalendarSession } from "@shared/api.ts";
+import type { CalendarSegment, CalendarSession, Span } from "@shared/api.ts";
 import { DAY, MINUTE } from "./dates.ts";
 
 /**
@@ -62,6 +62,19 @@ export function blocksOfDay(
   }
   // 長いものを先に置くと、短いものがその上に重なって見出しが両方読める
   return items.sort((a, b) => a.start - b.start || b.end - a.end);
+}
+
+/**
+ * 作業ブロックが 1 つでも載る日（0 時）。重なりの判定は `blocksOfDay` と同じにし、
+ * 点の付いた日を開くと必ず何か表示されるようにする。非表示のプロジェクトのものは数えない。
+ */
+export function recordedDays(
+  spans: Span[],
+  days: number[],
+  hidden: ReadonlySet<number> = new Set(),
+): Set<number> {
+  const visible = spans.filter((s) => s.projectId === null || !hidden.has(s.projectId));
+  return new Set(days.filter((d) => visible.some((s) => s.end >= d && s.start < d + DAY)));
 }
 
 /** `dayStart` の日に表示するブロックを、重なりを考えて配置する。 */

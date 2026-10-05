@@ -9,6 +9,7 @@ import type {
   ProjectUpdate,
   Section,
   SessionDetail,
+  Span,
   Subagent,
   Usage,
 } from "../shared/api.ts";
@@ -183,6 +184,18 @@ export class Queries {
       prev: one(`SELECT MAX(g.start) AS t ${base} AND g.end < ?`, from),
       next: one(`SELECT MIN(g.start) AS t ${base} AND g.start >= ?`, to),
     };
+  }
+
+  /** [from, to) と重なる作業ブロックの時刻。重なりの判定は `calendar` と同じにする。 */
+  spans(from: number, to: number): Span[] {
+    return this.db
+      .query<Span, [number, number]>(
+        `SELECT g.start, g.end, s.project_id AS projectId
+         FROM segments g JOIN sessions s ON s.id = g.session_id
+         WHERE s.prompt_count > 0 AND g.start < ?2 AND g.end >= ?1
+         ORDER BY g.start, g.end`,
+      )
+      .all(from, to);
   }
 
   /** 作業ブロックが [from, to) と重なる、人の発言があるセッション。 */

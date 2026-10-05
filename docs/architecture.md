@@ -131,6 +131,7 @@ sequenceDiagram
 |---|---|---|
 | GET | `/api/health` | 起動確認（Launcher が使う） |
 | GET | `/api/calendar?from&to` | 期間内のセッションと、そのセクション（開始・終了・見出し・発言数・トークン使用量・活動） |
+| GET | `/api/spans?from&to` | 期間と重なる作業ブロックの開始・終了・プロジェクトだけ。日付ピッカーの「記録のある日」の点に使い、日への振り分けは画面のローカル時刻で行う |
 | GET | `/api/sessions/:id` | セッション詳細（セクションごとの要約・成果物・サブエージェント） |
 | GET | `/api/sessions/:id/messages?cursor&limit` | 会話をページングで取得 |
 | POST | `/api/sessions/:id/sections/:start/summary` | セクションの要約の生成・再生成を優先キューに積む（202） |

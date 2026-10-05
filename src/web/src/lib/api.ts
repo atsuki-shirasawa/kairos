@@ -7,6 +7,7 @@ import type {
   ProjectUpdate,
   ServerEvent,
   SessionDetail,
+  SpansResponse,
 } from "@shared/api.ts";
 
 export class ApiError extends Error {
@@ -40,6 +41,8 @@ export const api = {
 
   calendar: (from: number, to: number) =>
     request<CalendarResponse>(`/api/calendar${query({ from, to })}`),
+
+  spans: (from: number, to: number) => request<SpansResponse>(`/api/spans${query({ from, to })}`),
 
   projects: () => request<Project[]>("/api/projects"),
 

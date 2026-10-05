@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.tsx";
 import { useUpdateProject } from "@/hooks/queries.ts";
 import { PALETTE, projectColor } from "@/lib/colors.ts";
-import { BRIEF_PROMPTS, type Filter, isFiltered, NO_FILTER } from "@/lib/filter.ts";
+import { BRIEF_PROMPTS, type Filter } from "@/lib/filter.ts";
 import { cn } from "@/lib/utils.ts";
 
 /** これより多いときは、プロジェクトを名前で絞り込む欄を出す。 */
@@ -16,7 +16,7 @@ const INPUT =
   "h-7 min-w-0 flex-1 rounded-md border bg-transparent px-2 text-sm outline-none focus-visible:border-ring";
 
 /**
- * 絞り込み。上は今だけの条件（URL に持たせる）、下はプロジェクトの表示・非表示と色（DB に保存する）。
+ * 絞り込み。キーワードはヘッダーの検索欄が受け持つ。上は今だけの条件（URL に持たせる）、下はプロジェクトの表示・非表示と色（DB に保存する）。
  * プロジェクトは表示中の期間で使ったものを上に並べる。
  */
 export function FilterMenu({
@@ -43,9 +43,8 @@ export function FilterMenu({
       .sort((a, b) => b.count - a.count || a.project.name.localeCompare(b.project.name, "ja"));
   }, [projects, sessions]);
   const hidden = projects.filter((p) => p.hidden).length;
-  const conditions = [filter.q.trim() !== "", filter.outcome, filter.hideBrief].filter(
-    Boolean,
-  ).length;
+  // キーワードはヘッダーの検索欄に出ているので、ここでは数えない
+  const conditions = [filter.outcome, filter.hideBrief].filter(Boolean).length;
   const q = query.trim().toLowerCase();
   const shown = q
     ? rows.filter(({ project: p }) =>
@@ -84,17 +83,14 @@ export function FilterMenu({
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-0">
         <div className="flex flex-col gap-2 border-b p-3">
-          <div className="flex items-center gap-2">
-            <input
-              type="search"
-              value={filter.q}
-              onChange={(e) => onFilter({ ...filter, q: e.target.value })}
-              placeholder="見出し・タイトルで探す"
-              aria-label="作業を見出し・タイトル・プロジェクト名で探す"
-              className={INPUT}
-            />
-            {isFiltered(filter) && (
-              <Button variant="ghost" size="xs" onClick={() => onFilter(NO_FILTER)}>
+          <div className="flex h-6 items-center justify-between">
+            <span className="font-medium text-muted-foreground text-xs">条件</span>
+            {(filter.outcome || filter.hideBrief) && (
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={() => onFilter({ ...filter, outcome: false, hideBrief: false })}
+              >
                 解除
               </Button>
             )}

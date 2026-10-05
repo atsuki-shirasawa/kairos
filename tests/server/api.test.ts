@@ -10,6 +10,7 @@ import type {
   MessagesResponse,
   Project,
   SessionDetail,
+  SpansResponse,
 } from "../../src/shared/api.ts";
 import { SID } from "../fixtures/ids.ts";
 import { min, setup } from "./ingest/helpers.ts";
@@ -215,6 +216,24 @@ describe("GET /api/calendar", () => {
     expect((await get("/api/calendar")).status).toBe(400);
     expect((await get(`/api/calendar?from=${DAY_TO}&to=${DAY_FROM}`)).status).toBe(400);
     expect((await get(`/api/calendar?from=0&to=${DAY_TO}`)).status).toBe(400);
+  });
+});
+
+describe("GET /api/spans", () => {
+  test("カレンダーと同じ作業ブロック（人の発言がないセッションは除く）の時刻を返す", async () => {
+    const res = await json<SpansResponse>(`/api/spans?from=${DAY_FROM}&to=${DAY_TO}`);
+    const calendar = await json<CalendarResponse>(`/api/calendar?from=${DAY_FROM}&to=${DAY_TO}`);
+    const expected = calendar.sessions
+      .flatMap((s) =>
+        s.segments.map((g) => ({ start: g.start, end: g.end, projectId: s.projectId })),
+      )
+      .sort((a, b) => a.start - b.start || a.end - b.end);
+    expect(res.spans).toEqual(expected);
+  });
+
+  test("不正な期間は 400", async () => {
+    expect((await get("/api/spans")).status).toBe(400);
+    expect((await get(`/api/spans?from=0&to=${DAY_TO}`)).status).toBe(400);
   });
 });
 

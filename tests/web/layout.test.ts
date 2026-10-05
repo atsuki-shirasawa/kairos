@@ -2,14 +2,17 @@ import { describe, expect, test } from "bun:test";
 import type { CalendarSession } from "../../src/shared/api.ts";
 import {
   addDays,
+  addMonths,
   dateLabel,
   isoWeek,
+  monthWeeks,
   rangeOf,
   rangeTitle,
   relativeDay,
+  startOfMonth,
   startOfWeek,
 } from "../../src/web/src/lib/dates.ts";
-import { blocksOfDay, busyMs, layoutDay } from "../../src/web/src/lib/layout.ts";
+import { blocksOfDay, busyMs, layoutDay, recordedDays } from "../../src/web/src/lib/layout.ts";
 
 const DAY0 = new Date(2026, 9, 5).getTime(); // 2026-10-05（月）0 時
 const at = (h: number) => DAY0 + h * 3_600_000;
@@ -149,6 +152,28 @@ describe("layoutDay", () => {
   });
 });
 
+describe("recordedDays", () => {
+  const days = [0, 1, 2].map((i) => addDays(DAY0, i));
+
+  test("日をまたぐブロックは両方の日に数え、カレンダーと同じく 0 時ちょうどに終わるものも翌日に数える", () => {
+    const spans = [
+      { start: at(23), end: at(25), projectId: 1 },
+      { start: at(40), end: at(48), projectId: 1 },
+    ];
+    expect([...recordedDays(spans, days)]).toEqual(days);
+    expect(blocksOfDay([session("a", [at(40), at(48)])], addDays(DAY0, 2))).toHaveLength(1);
+  });
+
+  test("非表示のプロジェクトのブロックは数えない", () => {
+    const spans = [
+      { start: at(1), end: at(2), projectId: 1 },
+      { start: at(25), end: at(26), projectId: 2 },
+      { start: at(49), end: at(50), projectId: null },
+    ];
+    expect([...recordedDays(spans, days, new Set([2]))]).toEqual([DAY0, addDays(DAY0, 2)]);
+  });
+});
+
 describe("dates", () => {
   test("週は月曜から始まる", () => {
     const sunday = new Date(2026, 9, 11, 15).getTime();
@@ -157,21 +182,39 @@ describe("dates", () => {
     expect(rangeOf("week", sunday).days).toHaveLength(7);
   });
 
-  test("期間の見出しは月を主役にし、年と週番号を添える", () => {
-    expect(rangeTitle("week", DAY0)).toEqual({
+  test("期間の見出しは月を主役にし、年は今年でなければ添える", () => {
+    expect(rangeTitle("week", DAY0, DAY0)).toEqual({
       title: "10月",
       sub: null,
-      year: "2026",
+      year: null,
       week: "W41",
     });
-    expect(rangeTitle("week", new Date(2026, 8, 30).getTime()).title).toBe("9月 – 10月");
-    expect(rangeTitle("week", new Date(2026, 11, 30).getTime()).year).toBe("2026 – 2027");
-    expect(rangeTitle("day", DAY0)).toEqual({
+    expect(rangeTitle("week", new Date(2026, 8, 30).getTime(), DAY0).title).toBe("9月 – 10月");
+    expect(rangeTitle("week", DAY0, new Date(2027, 0, 1).getTime()).year).toBe("2026");
+    expect(rangeTitle("week", new Date(2026, 11, 30).getTime(), DAY0).year).toBe("2026 – 2027");
+    expect(rangeTitle("day", DAY0, DAY0)).toEqual({
       title: "10月5日",
       sub: "月曜日",
-      year: "2026",
+      year: null,
       week: null,
     });
+  });
+
+  test("月を足すと、月末は移った先の月末に丸める", () => {
+    expect(addMonths(new Date(2026, 0, 31).getTime(), 1)).toBe(new Date(2026, 1, 28).getTime());
+    expect(addMonths(new Date(2026, 0, 15).getTime(), -1)).toBe(new Date(2025, 11, 15).getTime());
+    expect(startOfMonth(DAY0 + 15 * 3_600_000)).toBe(new Date(2026, 9, 1).getTime());
+  });
+
+  test("月のグリッドは月曜始まりで、前後の月の日で週を埋める", () => {
+    const weeks = monthWeeks(DAY0);
+    // 2026 年 10 月は木曜始まり・土曜終わり。9/28（月）〜 11/1（日）の 5 週
+    expect(weeks).toHaveLength(5);
+    expect(weeks[0]?.[0]).toBe(new Date(2026, 8, 28).getTime());
+    expect(weeks.at(-1)?.at(-1)).toBe(new Date(2026, 10, 1).getTime());
+    expect(weeks.every((w) => w.length === 7)).toBe(true);
+    // 2026 年 2 月は日曜始まり。2/1 だけの週が先頭に来て、1/26 〜 3/1 の 5 週
+    expect(monthWeeks(new Date(2026, 1, 10).getTime())).toHaveLength(5);
   });
 
   test("ISO 週番号は年をまたぐ週も正しく数える", () => {
