@@ -105,7 +105,7 @@ On 2026-10-05, the unit of summaries changed from sessions to sections (calendar
 
 | ID | Task | Done when | Size |
 |---|---|---|---|
-| P6-1 | Empty and error states (no logs, ingesting, summary failed) | Each state tells you what to do next | S |
+| ✅ P6-1 | Empty and error states (no logs, ingesting, summary failed) | Each state tells you what to do next | S |
 | P6-2 | Performance check (first ingest time, start to display, DB size) | Start to display within 1 second. Results recorded in docs | S |
 | ✅ P6-3 | Note about `cleanupPeriodDays` in the README (with Kairos the display doesn't disappear, but sessions whose original logs are gone can't be re-read even after bumping `PARSER_VERSION`) | The README mentions it | S |
 

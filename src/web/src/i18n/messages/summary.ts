@@ -49,6 +49,8 @@ export const summaryMessages = defineMessages({
     recapWriting: "Writing the explanation…",
     recapStale: "More work came in after this was written",
     recapFailed: (message: string) => `Couldn't write it: ${message}`,
+    recapFailedHint: (hint: string) => `Couldn't write the explanation. ${hint}`,
+    recapFailedDetail: (error: string) => `Details: ${error}`,
     recapNote:
       "Written by Claude from this period's section summaries. Sections without a summary add only their headline",
     noTime: "—",
@@ -82,6 +84,8 @@ export const summaryMessages = defineMessages({
     recapWriting: "説明を書いています…",
     recapStale: "書いた後に作業が増えています",
     recapFailed: (message: string) => `説明を書けませんでした：${message}`,
+    recapFailedHint: (hint: string) => `説明を書けませんでした。${hint}`,
+    recapFailedDetail: (error: string) => `詳細: ${error}`,
     recapNote:
       "この期間のセクション要約をもとに Claude が書きました。要約のないセクションは見出しだけを使います",
     noTime: "—",

@@ -3,11 +3,12 @@ import { RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { useRequestSummary } from "@/hooks/queries.ts";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
-import { type SummaryFailureKind, summaryFailureKind } from "@/lib/drawer.ts";
+import { summaryFailureKind } from "@/lib/drawer.ts";
 import { issueBaseUrl } from "@/lib/issueLinks.ts";
 import { cn } from "@/lib/utils.ts";
 import { Markdown } from "../Markdown.tsx";
 import { Block } from "./Block.tsx";
+import { failureHint } from "./failureHint.ts";
 
 /** Summary of the selected section, or a button to make one. Short sections say so. */
 export function SectionSummary({
@@ -111,17 +112,4 @@ function SummaryFailure({ error }: { error: string }) {
       <p className="break-words text-muted-foreground">{t.summaryFailedDetail(error)}</p>
     </div>
   );
-}
-
-/** The suggestion shown for each kind of failure. */
-function failureHint(kind: SummaryFailureKind): string {
-  const t = drawerMessages();
-  const hints: Record<SummaryFailureKind, string> = {
-    login: t.hintLogin,
-    noClaude: t.hintNoClaude,
-    timeout: t.hintTimeout,
-    rateLimit: t.hintRateLimit,
-    other: t.hintOther,
-  };
-  return hints[kind];
 }

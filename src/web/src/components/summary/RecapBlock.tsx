@@ -2,6 +2,8 @@ import type { Recap } from "@shared/api.ts";
 import { Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { summaryMessages } from "@/i18n/messages/summary.ts";
+import { summaryFailureKind } from "@/lib/drawer.ts";
+import { failureHint } from "../drawer/failureHint.ts";
 import { Hint } from "../Hint.tsx";
 import { Markdown } from "../Markdown.tsx";
 
@@ -40,7 +42,15 @@ export function RecapBlock({
 
 /** Why the last attempt to write the recap failed. */
 function RecapError({ error }: { error: string }) {
-  return <p className="text-destructive text-xs">{summaryMessages().recapFailed(error)}</p>;
+  const m = summaryMessages();
+  return (
+    <div className="space-y-1 text-xs">
+      <p className="text-destructive">
+        {m.recapFailedHint(failureHint(summaryFailureKind(error)))}
+      </p>
+      <p className="break-words text-muted-foreground">{m.recapFailedDetail(error)}</p>
+    </div>
+  );
 }
 
 /** Shown while the recap is being written. */

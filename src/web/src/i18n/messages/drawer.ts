@@ -92,11 +92,10 @@ export const drawerMessages = defineMessages({
     summarize: "Summarize",
     summaryFailed: (hint: string) => `Couldn't summarize. ${hint}`,
     summaryFailedDetail: (error: string) => `Details: ${error}`,
-    hintLogin:
-      "Claude Code isn't logged in. Run claude in a terminal and log in, then summarize again.",
+    hintLogin: "Claude Code isn't logged in. Run claude in a terminal and log in, then try again.",
     hintNoClaude:
       "The claude command wasn't found. Install Claude Code, then restart with kairos restart.",
-    hintTimeout: "It took too long. Wait a moment, then summarize again.",
+    hintTimeout: "It took too long. Wait a moment, then try again.",
     hintRateLimit: "Refused due to a usage limit or high load. Try again later.",
     hintOther: "Try again later. If it keeps failing, check ~/Library/Logs/kairos/server.log.",
     unknownProject: "Unknown project",
@@ -190,13 +189,13 @@ export const drawerMessages = defineMessages({
     summaryFailed: (hint: string) => `要約できませんでした。${hint}`,
     summaryFailedDetail: (error: string) => `詳細: ${error}`,
     hintLogin:
-      "Claude Code にログインしていません。ターミナルで claude を起動してログインしてから、もう一度要約してください。",
+      "Claude Code にログインしていません。ターミナルで claude を起動してログインしてから、もう一度試してください。",
     hintNoClaude:
       "claude コマンドが見つかりません。Claude Code をインストールしてから、kairos restart で起動し直してください。",
-    hintTimeout: "時間がかかりすぎました。少し待ってから、もう一度要約してください。",
-    hintRateLimit: "利用上限か混雑で断られました。時間をおいて、もう一度要約してください。",
+    hintTimeout: "時間がかかりすぎました。少し待ってから、もう一度試してください。",
+    hintRateLimit: "利用上限か混雑で断られました。時間をおいて、もう一度試してください。",
     hintOther:
-      "時間をおいて、もう一度要約してください。続くときは ~/Library/Logs/kairos/server.log を確認してください。",
+      "時間をおいて、もう一度試してください。続くときは ~/Library/Logs/kairos/server.log を確認してください。",
     unknownProject: "プロジェクト不明",
     active: "作業中",
   },
