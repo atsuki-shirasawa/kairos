@@ -1,0 +1,182 @@
+# Kairos 構成
+
+最終更新: 2026-10-05 / 関連: [要件定義](requirements.md) / [タスク分解](tasks.md)
+
+## 1. 全体像
+
+```mermaid
+flowchart LR
+    subgraph CC["Claude Code"]
+        HOOK["SessionStart hook"]
+        LOGS[("~/.claude/projects/**/*.jsonl")]
+    end
+
+    subgraph SERVER["kairos serve（Bun プロセス・127.0.0.1:4319）"]
+        WATCH["Watcher<br/>ファイル監視"]
+        ING["Ingester<br/>差分読み込み・正規化"]
+        DB[("SQLite<br/>kairos.db")]
+        SUM["Summarizer<br/>要約キュー"]
+        API["API（Hono）<br/>REST + SSE"]
+        STATIC["静的配信<br/>ビルド済み Web"]
+    end
+
+    CLAUDE["claude -p --model haiku<br/>--no-session-persistence"]
+    WEB["Web UI（React）<br/>カレンダー + ドロワー"]
+
+    HOOK -- "kairos ensure<br/>未起動なら起動" --> SERVER
+    LOGS -- "変更通知" --> WATCH
+    WATCH --> ING
+    LOGS -- "追記分を読む（読み取り専用）" --> ING
+    ING --> DB
+    ING -- "セッション更新" --> SUM
+    SUM -- "抜粋を渡す" --> CLAUDE
+    CLAUDE -- "要約" --> SUM
+    SUM --> DB
+    DB --> API
+    ING -- "更新イベント" --> API
+    SUM -- "要約完了イベント" --> API
+    API <--> WEB
+    STATIC --> WEB
+```
+
+プロセスは `kairos serve` 1 つだけで、取り込み・要約・API・静的配信をまとめて受け持つ。
+
+## 2. コンポーネント
+
+| コンポーネント | 責務 | 主な実装 |
+|---|---|---|
+| Launcher | `kairos ensure`: `/api/health` を確認し、応答がなければ `kairos serve` をデタッチ起動する。PID ファイルで二重起動を防ぐ | `src/cli` |
+| Watcher | `~/.claude/projects` を再帰監視し、変更のあった jsonl を Ingester に渡す。短時間の連続変更はまとめる（debounce） | `fs.watch`（recursive） |
+| Ingester | `ingest_state` の offset から追記分だけ読む。末尾の書きかけ行は次回に回す。レコードを分類・正規化して保存する | `src/server/ingest` |
+| Segmenter | 人が起点のターンの活動時刻から作業ブロックを作る（15 分で分割）。セッション更新のたびに再計算する | `src/server/ingest/segments.ts` |
+| Summarizer | 要約が必要なセッションをキューに積み、1 件ずつ `claude -p` を実行する | `src/server/summarize` |
+| API | カレンダー・詳細・会話・要約・プロジェクト設定の REST と、更新通知の SSE | Hono |
+| Web UI | 週・日のカレンダー、詳細ドロワー、プロジェクト絞り込み | React + Tailwind + shadcn/ui |
+
+## 3. 取り込みの流れ
+
+```mermaid
+sequenceDiagram
+    participant W as Watcher
+    participant I as Ingester
+    participant DB as SQLite
+    participant S as Summarizer
+    participant UI as Web UI
+
+    W->>I: changed(path)
+    I->>DB: ingest_state(path) の offset を取得
+    I->>I: offset 以降を読む（末尾の書きかけ行は除く）
+    I->>I: 分類・正規化（scheduled / headless / worktree）
+    I->>DB: messages・artifacts を upsert（uuid で重複排除）
+    I->>DB: sessions・segments を再計算
+    I->>DB: offset を更新
+    I-->>UI: SSE: sessions.updated [id]
+    I->>S: touched(sessionId)
+```
+
+### 3.1 正規化ルール
+
+| ルール | 判定 |
+|---|---|
+| 人の発言 | `type=user` かつ `origin.kind=human`（`promptSource` は問わない。`sdk` もデスクトップアプリ等からの人の入力）。スラッシュコマンドを含む |
+| 自動実行ターン | `turnOrigin=scheduled` の user レコードから、次の人の発言まで。`messages.is_scheduled=1` とし、作業ブロックの計算から除く。`task-notification` と `peer` はターンの扱いを変えない |
+| headless セッション | 人のプロンプトが 0 件。カレンダーには出さない |
+| worktree | 起動時の cwd が `<repo>/.claude/worktrees/<name>` なら project は `<repo>`、`<name>` を補助ラベルにする。途中の `relocated` / `worktree-state` は補助ラベルにだけ反映する |
+| タイトル | `custom-title` > `agent-name` > `ai-title` > 最初の人の発言 |
+| 振り返り文 | `system/away_summary` を保存し、AI 要約ができるまでの仮表示に使う |
+| ツール出力 | 先頭 4KB で切り詰める |
+| thinking・画像 | 保存しない |
+| コミット | `git commit` を含む Bash 呼び出しが成功したもの |
+| PR | `pr-link` レコード |
+
+判定ルールの根拠と、ルールごとの fixture は [tests/fixtures/README.md](../tests/fixtures/README.md) にまとめた。
+
+パーサーには `PARSER_VERSION` を持たせる。`ingest_state.parser_version` と一致しないファイルは、元ログが残っていれば読み直す。
+
+## 4. 要約の流れ
+
+```mermaid
+sequenceDiagram
+    participant S as Summarizer
+    participant DB as SQLite
+    participant C as claude CLI
+    participant UI as Web UI
+
+    loop 1 分ごと + touched イベント
+        S->>DB: 要約対象を探す
+        Note over S,DB: 最終活動から 30 分以上経過<br/>かつ要約なし or covered_until < ended_at<br/>かつ直近 7 日以内
+    end
+    S->>DB: messages から抜粋を作る（最大 6 万字・先頭と末尾を優先）
+    S->>C: stdin にプロンプト + 抜粋
+    C-->>S: 見出し + 本文（Markdown）
+    S->>DB: summaries を upsert（covered_until = ended_at）
+    S-->>UI: SSE: summary.updated [id]
+```
+
+- 並列数は 1。失敗したら指数バックオフで最大 3 回まで再試行する
+- 7 日より前のセッションは、ドロワーを開いたとき（`POST /summary`）に優先キューへ積む
+- `claude` は専用の作業ディレクトリで実行し、`--tools ""`・`--strict-mcp-config`・`--setting-sources project` を付けて副作用をなくす
+
+## 5. API
+
+| メソッド | パス | 内容 |
+|---|---|---|
+| GET | `/api/health` | 起動確認（Launcher が使う） |
+| GET | `/api/calendar?from&to` | 期間内の作業ブロック（セッション ID・プロジェクト・見出し・開始・終了・状態） |
+| GET | `/api/sessions/:id` | セッション詳細（要約・成果物・統計の最小限） |
+| GET | `/api/sessions/:id/messages?cursor&limit` | 会話をページングで取得 |
+| POST | `/api/sessions/:id/summary` | 要約の生成・再生成をキューに積む |
+| GET | `/api/projects` | プロジェクト一覧（色・非表示フラグ） |
+| PATCH | `/api/projects/:id` | 色・非表示の変更 |
+| GET | `/api/events` | SSE（`sessions.updated` / `summary.updated` / `ingest.progress`） |
+
+書き込み系（POST / PATCH）は `Content-Type: application/json` と同一 Origin を必須にする。全リクエストで Host ヘッダが `127.0.0.1` か `localhost` であることを検証する。
+
+リクエストとレスポンスの型は `src/shared` に置き、サーバーとフロントで共有する。
+
+## 6. 画面構成
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ Kairos   [週|日]  ‹ 今日 ›  2026年10月 第1週     [プロジェクト▾] │
+├──────┬───────────────────────────────────┬───────────────────┤
+│ 時刻 │  月   火   水   木   金   土   日  │ 詳細ドロワー        │
+│ 9:00 │ ┌──┐                              │ 見出し              │
+│      │ │要│ ┌──┐                         │ プロジェクト・時間   │
+│10:00 │ │約│ │  │                         │ ─ 要約 ─           │
+│      │ └──┘ └──┘                         │ 目的 / やったこと… │
+│      │                                   │ ─ 会話 ─           │
+│      │                                   │ ─ コミット・PR ─   │
+└──────┴───────────────────────────────────┴───────────────────┘
+```
+
+- 同じ時間帯に重なるブロックは、Google カレンダーと同じく横に並べる
+- ブロックには要約の見出しを出す。高さが足りなければ見出しだけにし、ホバーで全文を出す
+- ドロワーは URL（`?session=`）と同期し、リロードしても開いたままにする
+
+## 7. ディレクトリ構成
+
+```
+kairos/
+├── docs/
+├── src/
+│   ├── cli/            # kairos serve / ensure / ingest / summarize
+│   ├── server/
+│   │   ├── db/         # スキーマ・マイグレーション・クエリ
+│   │   ├── ingest/     # watcher, reader, parser, normalize, segments
+│   │   ├── summarize/  # queue, digest, claude 実行
+│   │   └── api/        # Hono ルート、SSE、セキュリティ middleware
+│   ├── shared/         # API 型・定数
+│   └── web/            # React アプリ（Vite）
+├── tests/fixtures/     # 匿名化した jsonl サンプル
+└── package.json
+```
+
+## 8. 保存場所
+
+| 種類 | パス |
+|---|---|
+| DB | `~/Library/Application Support/kairos/kairos.db` |
+| ログ | `~/Library/Logs/kairos/server.log` |
+| PID | `~/Library/Application Support/kairos/kairos.pid` |
+| 要約用作業ディレクトリ | `~/Library/Application Support/kairos/summarizer/` |
