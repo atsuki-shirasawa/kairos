@@ -14,8 +14,8 @@ Uses the fixtures instead of the real logs, so the data is fictional and the sam
 2. Start the API against the fixtures with a throwaway data dir (in the background):
    `KAIROS_DATA_DIR=<scratchpad>/kairos-data bun src/cli/index.ts serve --claude-dir tests/fixtures/claude --no-auto-summary`
    (`--no-auto-summary` keeps it from running `claude -p` over every fixture session)
-3. Start Vite (in the background): `bunx vite`, then wait until `http://localhost:5173` responds
-4. Load the claude-in-chrome tools (one ToolSearch), check the tab context, and open a new tab at `http://localhost:5173`
+3. Start Vite (in the background): `bunx vite`, then wait until `http://127.0.0.1:5173` responds
+4. Load the claude-in-chrome tools (one ToolSearch), check the tab context, and open a new tab at `http://127.0.0.1:5173`
 
 ## Check
 

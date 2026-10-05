@@ -5,3 +5,5 @@ dist/
 .DS_Store
 *.log
 coverage/
+.claude/settings.local.json
+.claude/scheduled_tasks.lock

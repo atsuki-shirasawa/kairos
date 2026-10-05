@@ -14,7 +14,7 @@ bun run dev        # API :4319 + Vite :5173. Run `kairos stop` first (same port)
 bun tests/fixtures/generate.ts                  # regenerate the fixtures
 ```
 
-To deploy to the locally running server, use `/ship-local` (check → build → `kairos restart`).
+To deploy to the locally running server, use `/ship-local` (check → build → `kairos restart`). To check a UI change in the browser against the fixtures, use `/verify-ui`.
 
 ## Layout
 

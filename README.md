@@ -44,7 +44,7 @@ Add the following to `hooks.SessionStart` in `~/.claude/settings.json`.
 | `kairos stop` / `kairos restart` | Stop / stop and start again (after updating Kairos) |
 | `kairos ingest` | Ingest logs manually (to build the DB without running the server) |
 
-Options: `--summary-model <model>` (default: haiku), `--summary-lang <en|ja>` (language of the summaries; default: en), `--no-auto-summary` (don't summarize automatically; only when requested with the button in the UI), `--port <n>` (default: 4319)
+Options: `--summary-model <model>` (default: haiku), `--summary-lang <en|ja>` (language of the summaries; default: en), `--no-auto-summary` (don't summarize automatically; only when requested with the button in the UI), `--port <n>` (default: 4319), `--claude-dir <path>` (Claude Code config directory; default: `~/.claude`), `--db <path>` (DB file; default: under the data directory)
 
 Changing `--summary-lang` doesn't rewrite existing summaries. They stay as they are, and you can regenerate any of them from the drawer.
 
