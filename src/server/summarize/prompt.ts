@@ -149,7 +149,8 @@ export function parseSummary(output: string): ParsedSummary | null {
   const first = lines.findIndex((l) => l.trim() && !LABEL_LINE.test(l));
   if (first === -1) return null;
   const headline = (lines[first] ?? "")
-    .replace(/^#+\s*/, "")
+    // A Markdown heading needs the space; without it, "#1542 ..." is an issue number to keep
+    .replace(/^#+\s+/, "")
     .replace(/^(?:見出し|headline)[:：]\s*/i, "")
     .replace(/^[「『"“]|[」』"”]$/g, "")
     .replace(/\*\*/g, "")

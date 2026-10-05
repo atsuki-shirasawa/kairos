@@ -197,6 +197,13 @@ describe("prompt", () => {
     expect(parseSummary("   \n")).toBeNull();
   });
 
+  test("parseSummary keeps an issue number at the start of the headline", () => {
+    expect(parseSummary("#1542 probe and runner design\n- Goal: x")?.headline).toBe(
+      "#1542 probe and runner design",
+    );
+    expect(parseSummary("## #1542 probe\n- Goal: x")?.headline).toBe("#1542 probe");
+  });
+
   test("parseSummary skips a label line above the real headline", () => {
     expect(parseSummary("サマリー\nまとめ画面の実装\n\n- 目的: x")?.headline).toBe(
       "まとめ画面の実装",
