@@ -5,7 +5,7 @@ import { projectColor } from "@/lib/colors.ts";
 import { dateLabel, durationLabel, isSameDay, weekday } from "@/lib/dates.ts";
 import type { DaySummary, PeriodSummary } from "@/lib/summary.ts";
 import { cn } from "@/lib/utils.ts";
-import { Heading, projectOf } from "./shared.tsx";
+import { Heading, projectName, projectOf } from "./shared.tsx";
 
 /** One stacked bar per day. Parallel sessions are split by share, so a bar is the day's union. */
 export function ByDay({
@@ -23,7 +23,10 @@ export function ByDay({
   const height = scaleToMax(summary.days.map((d) => d.busyMs));
   return (
     <div>
-      <Heading>{m.byDay}</Heading>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+        <Heading>{m.byDay}</Heading>
+        <Legend summary={summary} projects={projects} />
+      </div>
       <div className="grid grid-cols-7 gap-2 border-b">
         {summary.days.map((d) => (
           <DayBar
@@ -49,6 +52,24 @@ export function ByDay({
         ))}
       </div>
     </div>
+  );
+}
+
+/** Which color is which project, so the bars read without scrolling to the project list. */
+function Legend({ summary, projects }: { summary: PeriodSummary; projects: Map<number, Project> }) {
+  return (
+    <ul className="mb-3 flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground text-xs">
+      {summary.projects.map((p) => (
+        <li key={p.projectId ?? "none"} className="flex items-center gap-1.5">
+          <span
+            className="size-2 rounded-full"
+            style={{ background: projectColor(projectOf(projects, p.projectId)) }}
+            aria-hidden
+          />
+          {projectName(projects, p.projectId)}
+        </li>
+      ))}
+    </ul>
   );
 }
 

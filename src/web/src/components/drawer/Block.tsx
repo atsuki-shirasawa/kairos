@@ -9,7 +9,7 @@ export function Block({
   children,
 }: {
   title: string;
-  /** The main block. Its heading is indigo */
+  /** The main block. Its heading is set in ink rather than muted; indigo stays for selection */
   emphasis?: boolean;
   action?: React.ReactNode;
   children: React.ReactNode;
@@ -21,7 +21,7 @@ export function Block({
         <h3
           className={cn(
             "shrink-0 font-semibold text-xs tracking-wide",
-            emphasis ? "text-primary" : "text-muted-foreground",
+            emphasis ? "text-foreground" : "text-muted-foreground",
           )}
         >
           {title}

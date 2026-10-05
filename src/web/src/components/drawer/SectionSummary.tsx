@@ -86,8 +86,9 @@ function SummaryBody({
   const t = drawerMessages();
   return (
     <>
-      {/* The most-read part of the drawer, so only this gets a surface and an indigo line */}
-      <div className="rounded-r-lg border-primary border-l-[3px] bg-accent/60 py-3 pr-4 pl-4">
+      {/* The most-read part of the drawer, so only this gets a surface. Kept neutral: indigo means
+          "selected", and the title above already carries the project color */}
+      <div className="rounded-r-lg border-foreground/15 border-l-[3px] bg-muted/60 py-3 pr-4 pl-4">
         <Markdown
           issueBaseUrl={issueBaseUrl(repo)}
           className="text-[15px] leading-7 [&_li+li]:mt-1 [&_li>ol]:mt-1 [&_li>ul]:mt-1 [&_strong]:font-semibold"

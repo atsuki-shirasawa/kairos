@@ -72,7 +72,9 @@ export function Totals({
     },
   ];
   return (
-    <dl className="grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-y-4">
+    // Each figure spans three rows of the shared grid (subgrid), so labels, values and the lines
+    // under them align across figures even though the lead value is set larger
+    <dl className="grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-y-0.5">
       {/* Working time leads; the rest is what came of it, so it is set a size smaller */}
       {figures.map((f, i) => (
         <FigureItem key={f.label} figure={f} lead={i === 0} />
@@ -84,7 +86,7 @@ export function Totals({
 /** A figure as label, value and the line under it. The `lead` figure is set larger. */
 function FigureItem({ figure: f, lead }: { figure: Figure; lead: boolean }) {
   return (
-    <div className="flex min-w-0 flex-col justify-end gap-0.5 border-l pr-2 pl-4">
+    <div className="row-span-3 mb-3 grid min-w-0 grid-rows-subgrid items-end border-l pr-2 pl-4">
       <dt className="text-muted-foreground text-xs">
         {f.hint ? <Hint text={f.hint}>{f.label}</Hint> : f.label}
       </dt>
@@ -96,7 +98,7 @@ function FigureItem({ figure: f, lead }: { figure: Figure; lead: boolean }) {
       >
         {f.value}
       </dd>
-      <dd className="flex min-h-4 flex-col font-num text-[11px] text-muted-foreground leading-4">
+      <dd className="flex min-h-4 flex-col self-start font-num text-[11px] text-muted-foreground leading-4">
         {f.sub}
       </dd>
     </div>
