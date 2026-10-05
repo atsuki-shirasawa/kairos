@@ -173,8 +173,11 @@ function blockStyle(
     backgroundImage: "linear-gradient(var(--fill), var(--fill))",
     backgroundSize: `100% ${stretched ? `${filledPx}px` : "100%"}`,
     backgroundRepeat: "no-repeat",
-    // The unfilled part shows the column, except over another block, which it must hide
-    backgroundColor: stretched && depth > 0 ? "var(--card)" : undefined,
+    // The label area gets a faint fill, so the block keeps its card shape instead of looking cut
+    // off after a few pixels. It is opaque, which also hides any block stacked underneath
+    backgroundColor: stretched
+      ? "color-mix(in oklch, var(--fill) 40%, var(--block-base))"
+      : undefined,
   } as React.CSSProperties;
 }
 

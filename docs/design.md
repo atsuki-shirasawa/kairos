@@ -7,7 +7,7 @@ Last updated: 2026-10-05 / Direction: **A. Indigo hours** (chosen from three com
 - Keep the frame quiet so the work blocks carry the color. The time column is plain, with muted hour labels (it used to shift through the colors of the day; dropped on 2026-10-05 because it competed with the blocks)
 - Paint work blocks in calm colors like Japanese mineral pigments (iwa-enogu). Use indigo for selection, focus and the current time
 - Use few cards and shadows. Show boundaries with rules, and lift only the drawer as a surface
-- A block's height is its real length. Blocks shorter than the minimum height (room for one heading) fill only their real length; the rest is an unfilled label area with a faint edge
+- A block's height is its real length. Blocks shorter than the minimum height (room for one heading) fill only their real length at full strength; the rest is a label area with a faint fill (40% of the block fill) and a faint edge, so the card keeps its shape instead of looking cut off
 - In day column headers the weekday sits above the date number: beside it, "5 月" reads as May in Japanese
 
 ## Color
