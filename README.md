@@ -89,3 +89,7 @@ bun run format   # Biome で自動修正
 `bun run dev` はバックグラウンドのサーバーと同じポートを使うので、先に `kairos stop` しておく。
 
 テスト用の架空ログは `bun tests/fixtures/generate.ts` で作り直せる（[説明](tests/fixtures/README.md)）。
+
+## ライセンス
+
+[MIT](LICENSE)
