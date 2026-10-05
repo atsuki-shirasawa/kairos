@@ -57,11 +57,12 @@ Build a personal web app that lets you look back, on a calendar, on what you wer
 | F5 | AI summaries | **Per section (calendar block)**: finished sections are summarized automatically in the background and stored in the DB. The format is "headline, goal, what was done, result". Summaries can also be generated or regenerated manually. The output language is set on the server (`--summary-lang <en\|ja>`, default English) |
 | F6 | Auto start | Started from Claude Code's SessionStart hook. Does nothing if already running. Fixed port |
 | F7 | Live updates | Reflect in-progress sessions in real time |
+| F8 | Search | Search all periods by summary, prompts and replies, PR and commit titles, and branch. Typing also narrows the shown period; a result jumps to its day and opens it (added 2026-10-05) |
+| F9 | Report | Copy the shown period's work (after filters) as Markdown, grouped by day and project with PR links, for a stand-up note or a weekly report (added 2026-10-05) |
+| F10 | Resume | Copy `cd <dir> && claude --resume <id>` from the drawer. Kairos itself never runs it (added 2026-10-05) |
 
 ### 3.2 Deferred
 
-- Full-text search
-- Daily/weekly review reports (in a form you can paste into Slack or Jira)
 - Monthly heat map
 - Support for logs from other tools such as Codex
 - Notes and tags on blocks
@@ -73,7 +74,7 @@ Build a personal web app that lets you look back, on a calendar, on what you wer
 | Startup speed | Show the screen within 1 second by rendering from the DB. Ingest proceeds in the background |
 | Log format changes | Give the parser a version; bumping it allows rebuilding the DB |
 | Privacy | The only thing sent externally is the excerpt passed to `claude -p` for summaries. Never write to `~/.claude` |
-| UI | Keep the screen to "calendar + drawer". The toolbar is limited to view switching, date navigation (previous/next, today, date picker), search (keyword) and filters (projects, with outcomes, hide quick questions); theme, language and the keyboard shortcut list are tucked into the "⋯" menu. English UI by default with Japanese available; light and dark themes (follows the OS by default) |
+| UI | Keep the screen to "calendar + drawer". The toolbar is limited to view switching, date navigation (previous/next, today, date picker), search (keyword), copying the period as a report and filters (projects, with outcomes, hide quick questions); theme, language and the keyboard shortcut list are tucked into the "⋯" menu. English UI by default with Japanese available; light and dark themes (follows the OS by default) |
 | Operation | Used on one personal Mac |
 
 ## 5. Tech stack

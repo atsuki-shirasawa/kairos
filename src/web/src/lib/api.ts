@@ -5,6 +5,7 @@ import type {
   MessagesResponse,
   Project,
   ProjectUpdate,
+  SearchResponse,
   ServerEvent,
   SessionDetail,
   SpansResponse,
@@ -43,6 +44,8 @@ export const api = {
     request<CalendarResponse>(`/api/calendar${query({ from, to })}`),
 
   spans: (from: number, to: number) => request<SpansResponse>(`/api/spans${query({ from, to })}`),
+
+  search: (q: string) => request<SearchResponse>(`/api/search${query({ q })}`),
 
   projects: () => request<Project[]>("/api/projects"),
 

@@ -11,6 +11,8 @@ function session(id: string, ...spans: [number, number][]): CalendarSession {
     end,
     headline: id,
     summarized: true,
+    body: null,
+    prs: [],
     promptCount: 1,
     usage: null,
     activity: {

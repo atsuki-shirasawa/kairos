@@ -5,7 +5,7 @@ import { SessionDrawer } from "@/components/SessionDrawer.tsx";
 import { SessionList } from "@/components/SessionList.tsx";
 import { Toolbar } from "@/components/Toolbar.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { useCalendar } from "@/hooks/queries.ts";
+import { useCalendar, useSearch } from "@/hooks/queries.ts";
 import { useLiveUpdates } from "@/hooks/useLiveUpdates.ts";
 import { useNow } from "@/hooks/useNow.ts";
 import { useTheme } from "@/hooks/useTheme.ts";
@@ -15,12 +15,14 @@ import { dateLabel, rangeOf, shift, startOfDay } from "@/lib/dates.ts";
 import {
   type Filter,
   hideSessions,
+  hitKey,
   isFocused,
   NO_FILTER,
   narrowSessions,
   segmentMatcher,
 } from "@/lib/filter.ts";
 import { orderedBlocks, selectedSegment, stepBlock } from "@/lib/navigation.ts";
+import { buildReport } from "@/lib/report.ts";
 
 export function App() {
   const [theme, setTheme] = useTheme();
@@ -40,9 +42,18 @@ export function App() {
     () => hideSessions(calendar.data?.sessions ?? [], projectMap, state.filter),
     [calendar.data, projectMap, state.filter],
   );
+  const search = useSearch(state.filter.q);
+  // Blocks the server found by text the calendar doesn't hold (summary body, prompts, PRs...)
+  const hitKeys = useMemo(
+    () =>
+      new Set(
+        search.current ? (search.data?.hits ?? []).map((h) => hitKey(h.sessionId, h.start)) : [],
+      ),
+    [search.current, search.data],
+  );
   const matches = useMemo(
-    () => segmentMatcher(state.filter, projectMap),
-    [state.filter, projectMap],
+    () => segmentMatcher(state.filter, projectMap, hitKeys),
+    [state.filter, projectMap, hitKeys],
   );
   const focused = useMemo(() => narrowSessions(visible, matches), [visible, matches]);
   const setFilter = useCallback((filter: Filter) => update({ filter }), [update]);
@@ -146,6 +157,22 @@ export function App() {
         onToday={() => update({ anchor: startOfDay(Date.now()) })}
         onJump={(day) => update({ anchor: day })}
         searchRef={searchRef}
+        search={{
+          hits: search.data?.hits ?? [],
+          more: search.data?.more ?? false,
+          loading: search.isFetching,
+          error: search.error?.message ?? null,
+        }}
+        projectMap={projectMap}
+        // The report follows what's on screen: hidden projects and filters apply
+        report={() => buildReport(days, focused, projectMap)}
+        hasWork={focused.length > 0}
+        onOpenHit={(hit) =>
+          update(
+            { anchor: startOfDay(hit.start), session: hit.sessionId, at: hit.start },
+            { push: true },
+          )
+        }
         theme={theme}
         onTheme={setTheme}
         menuOpen={menuOpen}

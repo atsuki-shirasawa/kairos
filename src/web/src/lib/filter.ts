@@ -47,12 +47,24 @@ export function hideSessions(
 
 export type SegmentMatch = (session: CalendarSession, segment: CalendarSegment) => boolean;
 
-/** Whether a block matches the keyword and outcome conditions. Everything matches when there are none. */
-export function segmentMatcher(filter: Filter, projects: Map<number, Project>): SegmentMatch {
+/** Key of a block in the server's search hits. */
+export const hitKey = (sessionId: string, start: number) => `${sessionId}:${start}`;
+
+/**
+ * Whether a block matches the keyword and outcome conditions. Everything matches when there are none.
+ * `hits` are blocks the server found for the keyword in places the calendar doesn't hold (summary
+ * body, prompts, PRs, commits, branch), so the period filter agrees with the search results.
+ */
+export function segmentMatcher(
+  filter: Filter,
+  projects: Map<number, Project>,
+  hits: ReadonlySet<string> = new Set(),
+): SegmentMatch {
   const terms = filter.q.toLowerCase().split(/\s+/).filter(Boolean);
   return (session, segment) => {
     if (filter.outcome && segment.activity.commits + segment.activity.prs === 0) return false;
     if (terms.length === 0) return true;
+    if (hits.has(hitKey(session.id, segment.start))) return true;
     const project = session.projectId !== null ? projects.get(session.projectId) : undefined;
     const text = [segment.headline, session.title, session.label, project?.name]
       .filter(Boolean)

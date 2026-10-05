@@ -6,6 +6,7 @@ import type {
   CalendarResponse,
   HealthResponse,
   ProjectUpdate,
+  SearchResponse,
   ServerEvent,
   SpansResponse,
 } from "../../shared/api.ts";
@@ -19,6 +20,8 @@ export const MAX_RANGE_MS = 62 * 24 * 60 * 60_000;
 /** Project colors are stored as palette keys (p0–p7). The actual colors are set per theme by the web app. */
 const PALETTE_KEY = /^p[0-7]$/;
 const KEEPALIVE_MS = 15_000;
+export const MIN_QUERY_CHARS = 2;
+const MAX_QUERY_CHARS = 200;
 
 export interface AppDeps {
   db: Database;
@@ -53,6 +56,14 @@ export function createApp({ db, events, summarizer, now }: AppDeps): Hono {
     const range = parseRange(c.req.query("from"), c.req.query("to"));
     if ("error" in range) return c.json(range, 400);
     return c.json<SpansResponse>({ spans: q.spans(range.from, range.to) });
+  });
+
+  // Searches every period. Short queries would match nearly everything, so they return nothing
+  app.get("/api/search", (c) => {
+    const query = (c.req.query("q") ?? "").trim().slice(0, MAX_QUERY_CHARS);
+    if ([...query].length < MIN_QUERY_CHARS)
+      return c.json<SearchResponse>({ hits: [], more: false });
+    return c.json<SearchResponse>(q.search(query));
   });
 
   app.get("/api/projects", (c) => c.json(q.projects()));

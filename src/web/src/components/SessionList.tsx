@@ -1,7 +1,10 @@
 import type { Activity, CalendarSession, Project, Usage } from "@shared/api.ts";
-import { ArrowDown, ArrowUp, GitCommitHorizontal, GitPullRequest } from "lucide-react";
-import { useLayoutEffect, useMemo, useRef } from "react";
-import type { ListSort } from "@/hooks/useUrlState.ts";
+import { ArrowDown, ArrowUp, Columns3, GitCommitHorizontal, GitPullRequest } from "lucide-react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@/components/ui/button.tsx";
+import { Checkbox } from "@/components/ui/checkbox.tsx";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.tsx";
+import { DEFAULT_SORT, type ListSort } from "@/hooks/useUrlState.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { type ColumnKey, listMessages } from "@/i18n/messages/list.tsx";
 import { projectColor } from "@/lib/colors.ts";
@@ -144,11 +147,42 @@ const COLUMNS: Column[] = [
 
 type SortKey = "start" | string;
 
+/**
+ * Columns shown until the user picks others. Looking back is about what was done, so the default
+ * stops at duration and results; usage and cost are one click away in the column picker.
+ */
+const DEFAULT_COLUMNS: ColumnKey[] = ["duration", "outcomes"];
+const COLUMNS_KEY = "kairos.listColumns";
+
+function loadColumns(): ColumnKey[] {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(COLUMNS_KEY) ?? "null");
+    if (Array.isArray(saved)) return COLUMNS.map((c) => c.key).filter((k) => saved.includes(k));
+  } catch {
+    // Storage unavailable or garbled: fall back to the default
+  }
+  return DEFAULT_COLUMNS;
+}
+
+/** The chosen columns, saved in this browser only (like the theme). */
+function useColumns(): [ColumnKey[], (keys: ColumnKey[] | null) => void] {
+  const [keys, setKeys] = useState(loadColumns);
+  const change = useCallback((next: ColumnKey[] | null) => {
+    setKeys(next ?? DEFAULT_COLUMNS);
+    try {
+      if (next === null) localStorage.removeItem(COLUMNS_KEY);
+      else localStorage.setItem(COLUMNS_KEY, JSON.stringify(next));
+    } catch {
+      // Not persisted, but applies while the page stays open
+    }
+  }, []);
+  return [keys, change];
+}
+
 /** Width of the time column (rem). The work column is pinned right next to it. */
 const TIME_REM = 7;
 /** Minimum width kept for the work column (rem). The table scrolls sideways below that. */
 const WORK_MIN_REM = 18;
-const TABLE_MIN_REM = TIME_REM + WORK_MIN_REM + COLUMNS.reduce((n, c) => n + c.width, 0);
 
 /**
  * The time and work columns stay pinned left, so the row stays identifiable while scrolling sideways.
@@ -171,9 +205,16 @@ export function SessionList({
   matches,
   onSelect,
   onOpenDay,
-  sort,
+  sort: requested,
   onSort: setSort,
 }: Props) {
+  const [keys, setKeys] = useColumns();
+  const columns = useMemo(() => COLUMNS.filter((c) => keys.includes(c.key)), [keys]);
+  // Sorting by a column that was since hidden would order rows by something invisible
+  const sort =
+    requested.key === "start" || columns.some((c) => c.key === requested.key)
+      ? requested
+      : DEFAULT_SORT;
   const scrollRef = useRef<HTMLDivElement>(null);
   const theadRef = useRef<HTMLTableSectionElement>(null);
   const groups = useMemo(
@@ -189,10 +230,10 @@ export function SessionList({
   );
   const all = useMemo(() => groups.flatMap((g) => g.blocks), [groups]);
   const sorted = useMemo(() => {
-    const value = COLUMNS.find((c) => c.key === sort.key)?.sort;
+    const value = columns.find((c) => c.key === sort.key)?.sort;
     if (!value) return all;
     return [...all].sort((a, b) => (value(a) - value(b)) * (sort.desc ? -1 : 1));
-  }, [all, sort]);
+  }, [all, sort, columns]);
   const firstDay = days[0] ?? 0;
 
   // Moving to another period starts from the top
@@ -219,21 +260,29 @@ export function SessionList({
         : // Number columns start largest first. Clicking the same column again reverses it
           { key, desc: sort.key === key ? !sort.desc : true },
     );
-  const rowProps = { projects, selectedId, selectedAt, onSelect };
-  const span = COLUMNS.length + 2;
+  const rowProps = { projects, selectedId, selectedAt, onSelect, columns };
+  const span = columns.length + 2;
+  const tableMinRem = TIME_REM + WORK_MIN_REM + columns.reduce((n, c) => n + c.width, 0);
   const m = listMessages();
 
   return (
     <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto bg-card">
-      <PeriodSummary blocks={all} days={days.length} />
+      <div className="sticky left-0 flex items-start justify-between gap-2 pr-2">
+        <PeriodSummary
+          blocks={all}
+          days={days.length}
+          showUsage={keys.includes("tokens") || keys.includes("cost")}
+        />
+        <ColumnPicker keys={keys} onChange={setKeys} />
+      </div>
       <table
         className="w-full table-fixed border-collapse text-sm"
-        style={{ minWidth: `${TABLE_MIN_REM}rem` }}
+        style={{ minWidth: `${tableMinRem}rem` }}
       >
         <colgroup>
           <col style={{ width: `${TIME_REM}rem` }} />
           <col />
-          {COLUMNS.map((c) => (
+          {columns.map((c) => (
             <col key={c.key} style={{ width: `${c.width}rem` }} />
           ))}
         </colgroup>
@@ -248,7 +297,7 @@ export function SessionList({
               className={STICKY_TIME}
             />
             <th className={cn("px-2 py-2 text-left font-normal", STICKY_WORK)}>{m.work}</th>
-            {COLUMNS.map((c) => {
+            {columns.map((c) => {
               const { label, title } = m.columns[c.key];
               return c.sort ? (
                 <SortHeader
@@ -272,6 +321,7 @@ export function SessionList({
             <tbody key={day}>
               <DayRow
                 day={day}
+                columns={columns}
                 blocks={blocks}
                 today={isSameDay(day, now)}
                 now={now}
@@ -351,15 +401,86 @@ function SortHeader({
   );
 }
 
-/** Totals for the whole period, as one line above the table. */
-function PeriodSummary({ blocks, days }: { blocks: DayBlock[]; days: number }) {
+/** Shows or hides number columns. The time and work columns always stay. */
+function ColumnPicker({
+  keys,
+  onChange,
+}: {
+  keys: ColumnKey[];
+  onChange: (keys: ColumnKey[] | null) => void;
+}) {
+  const m = listMessages();
+  const isDefault =
+    keys.length === DEFAULT_COLUMNS.length && DEFAULT_COLUMNS.every((k) => keys.includes(k));
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="xs" className="mt-2 shrink-0 text-muted-foreground">
+          <Columns3 />
+          {m.columnsButton}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-60 gap-0 p-0">
+        <div className="flex h-10 items-center justify-between border-b px-3">
+          <span className="font-medium text-muted-foreground text-xs">{m.columnsTitle}</span>
+          {!isDefault && (
+            <Button variant="ghost" size="xs" onClick={() => onChange(null)}>
+              {m.columnsReset}
+            </Button>
+          )}
+        </div>
+        <ul className="py-1">
+          {COLUMNS.map((c) => {
+            const { label, title } = m.columns[c.key];
+            return (
+              <li key={c.key} className="px-2">
+                <label
+                  htmlFor={`column-${c.key}`}
+                  className="flex items-center gap-2.5 rounded-md px-2 py-1 text-sm hover:bg-accent"
+                  title={title}
+                >
+                  <Checkbox
+                    id={`column-${c.key}`}
+                    checked={keys.includes(c.key)}
+                    onCheckedChange={(v) =>
+                      onChange(
+                        COLUMNS.map((x) => x.key).filter((k) =>
+                          k === c.key ? v === true : keys.includes(k),
+                        ),
+                      )
+                    }
+                  />
+                  {label}
+                </label>
+              </li>
+            );
+          })}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/**
+ * Totals for the whole period, as one line above the table. Tokens and cost appear only while one
+ * of their columns is shown, so the default view isn't led by spending.
+ */
+function PeriodSummary({
+  blocks,
+  days,
+  showUsage,
+}: {
+  blocks: DayBlock[];
+  days: number;
+  showUsage: boolean;
+}) {
   const { usage, activity } = totalsOf(blocks);
   const m = listMessages();
   // Blocks are clipped per day, so remove overlaps per day before adding up
   const byDay = Map.groupBy(blocks, (b) => b.dayStart);
   const busy = [...byDay.values()].reduce((sum, list) => sum + busyMs(list), 0);
   return (
-    <p className="sticky left-0 flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 pt-3 pb-2 text-muted-foreground text-xs">
+    <p className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 pt-3 pb-2 text-muted-foreground text-xs">
       <span>
         {m.period(
           days === 1,
@@ -373,7 +494,7 @@ function PeriodSummary({ blocks, days }: { blocks: DayBlock[]; days: number }) {
           </Hint>
         ) : null}
       </span>
-      {usage && (
+      {showUsage && usage && (
         <Hint text={m.costNote}>
           {m.tokensCost(
             <Strong>{tokensLabel(usage.tokens)}</Strong>,
@@ -399,12 +520,14 @@ function Strong({ children }: { children: React.ReactNode }) {
 
 function DayRow({
   day,
+  columns,
   blocks,
   today,
   now,
   onOpen,
 }: {
   day: number;
+  columns: Column[];
   blocks: DayBlock[];
   today: boolean;
   now: number;
@@ -449,7 +572,7 @@ function DayRow({
           </span>
         )}
       </th>
-      {COLUMNS.map((c) => (
+      {columns.map((c) => (
         <Cell key={c.key} column={c}>
           {blocks.length > 0 && c.total(totals)}
         </Cell>
@@ -464,9 +587,11 @@ function Row({
   selectedId,
   selectedAt,
   onSelect,
+  columns,
   withDate = false,
 }: {
   block: DayBlock;
+  columns: Column[];
   projects: Map<number, Project>;
   selectedId: string | null;
   selectedAt: number | null;
@@ -534,7 +659,7 @@ function Row({
           </div>
         </div>
       </td>
-      {COLUMNS.map((c) => (
+      {columns.map((c) => (
         <Cell key={c.key} column={c}>
           {c.cell(block)}
         </Cell>

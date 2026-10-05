@@ -1,6 +1,7 @@
 import type { CalendarSession, Project } from "@shared/api.ts";
 import { ArrowDown, ArrowUp, GitCommitHorizontal, GitPullRequest } from "lucide-react";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Markdown } from "@/components/Markdown.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip.tsx";
 import { calendarMessages } from "@/i18n/messages/calendar.ts";
 import { dateMessages } from "@/i18n/messages/dates.ts";
@@ -9,7 +10,7 @@ import { projectColor } from "@/lib/colors.ts";
 import { DAY, dateLabel, durationLabel, HOUR, hhmm, isSameDay, weekday } from "@/lib/dates.ts";
 import type { SegmentMatch } from "@/lib/filter.ts";
 import { costLabel, tokensLabel, troubleCount } from "@/lib/format.ts";
-import { busyMs, layoutDay, MIN_BLOCK_MS, type PlacedBlock } from "@/lib/layout.ts";
+import { busyMs, columnTracks, layoutDay, MIN_BLOCK_MS, type PlacedBlock } from "@/lib/layout.ts";
 import { selectedSegment } from "@/lib/navigation.ts";
 import { reveal } from "@/lib/reveal.ts";
 import { counted, totalsOf } from "@/lib/totals.ts";
@@ -22,11 +23,6 @@ const VIEW_START = 8;
 const VIEW_END = 20;
 const GUTTER = "3.5rem";
 const GUTTER_PX = 56;
-/**
- * When columns of busy days get narrower than this, only the selected day and its neighbors are widened.
- * With the drawer open, the 7 week columns shrink to about 60px and headings show only a few characters.
- */
-const FOCUS_BELOW_PX = 150;
 /** Right offset for stacked blocks, so the colored left edge of the block below stays visible. */
 const INDENT_PX = 8;
 /** Spelled out per line count so Tailwind can pick up the class names. */
@@ -136,29 +132,27 @@ export function CalendarGrid({
   // biome-ignore lint/correctness/useExhaustiveDependencies: measure again when the height changes
   useLayoutEffect(measureEdges, [measureEdges, viewportPx]);
 
-  // Days without work (e.g. after today) get narrow, leaving the width to busy days.
-  // If all are empty, keep them even (fr values summing below 1 would leave a gap)
-  const anyBusy = columns.some((c) => c.length > 0);
-  const busyCount = columns.filter((c) => c.length > 0).length;
+  // Days with parallel work get more width, days without work (e.g. after today) get narrow.
+  // With the drawer open, the selected day keeps its width if lanes would get too narrow
   const focusIndex = useMemo(() => {
     const seg = selectedSegment(sessions, selectedId, selectedAt);
     if (!seg || days.length <= 3) return -1;
     const t = Math.max(seg.start, firstDay);
     return days.findIndex((d) => isSameDay(d, t));
   }, [sessions, selectedId, selectedAt, days, firstDay]);
-  const narrow = busyCount > 0 && (widthPx - GUTTER_PX) / busyCount < FOCUS_BELOW_PX;
-  const tracks = columns.map((c, i) => {
-    if (anyBusy && c.length === 0) return "minmax(2.5rem, 0.15fr)";
-    if (narrow && focusIndex !== -1 && Math.abs(i - focusIndex) > 1) return "minmax(2.5rem, 0.3fr)";
-    return "minmax(0, 1fr)";
-  });
+  const lanes = columns.map((c) => Math.max(0, ...c.map((b) => b.cols)));
+  const tracks = columnTracks(lanes, widthPx - GUTTER_PX, focusIndex);
   const template = { gridTemplateColumns: `${GUTTER} ${tracks.join(" ")}` };
   // Animate column width changes so it's easy to follow which day widened
   const animate = "transition-[grid-template-columns] duration-200 motion-reduce:transition-none";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-card">
-      <div className={cn("grid border-b", animate)} style={template}>
+      {/* Both rows reserve the scrollbar's width, so the header's day columns line up with the body's */}
+      <div
+        className={cn("grid overflow-y-hidden border-b [scrollbar-gutter:stable]", animate)}
+        style={template}
+      >
         <div />
         {days.map((day, i) => (
           <DayHeader
@@ -173,7 +167,11 @@ export function CalendarGrid({
       </div>
 
       <div className="relative flex min-h-0 flex-1 flex-col">
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto" onScroll={measureEdges}>
+        <div
+          ref={scrollRef}
+          className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]"
+          onScroll={measureEdges}
+        >
           <div className={cn("grid", animate)} style={{ ...template, height: 24 * hourPx }}>
             <div className="relative" style={{ background: SKY }} aria-hidden>
               {Array.from({ length: 23 }, (_, i) => i + 1).map((h) => (
@@ -194,6 +192,7 @@ export function CalendarGrid({
               <DayColumn
                 key={day}
                 day={day}
+                detailed={days.length === 1}
                 blocks={columns[i] ?? []}
                 hourPx={hourPx}
                 projects={projects}
@@ -294,15 +293,9 @@ function DayHeader({
               {prs}
             </span>
           )}
-          {/* Only when wide (as in the day view), add the block count and cost */}
-          <span className="@min-[20rem]:inline-flex hidden gap-2">
-            <span>{f.blocks(blocks.filter(counted).length)}</span>
-            {usage && (
-              <span>
-                {usage.unpriced ? "~" : ""}
-                {costLabel(usage.costUsd)}
-              </span>
-            )}
+          {/* Only when wide (as in the day view), add the block count. Cost stays in the tooltip */}
+          <span className="@min-[20rem]:inline hidden">
+            {f.blocks(blocks.filter(counted).length)}
           </span>
         </span>
       )}
@@ -403,6 +396,7 @@ function useGridSize(ref: React.RefObject<HTMLDivElement | null>) {
 
 function DayColumn({
   day,
+  detailed,
   blocks,
   hourPx,
   projects,
@@ -413,6 +407,8 @@ function DayColumn({
   onSelect,
 }: {
   day: number;
+  /** Day view: wide blocks also show the summary body and PRs. */
+  detailed: boolean;
   blocks: PlacedBlock[];
   hourPx: number;
   projects: Map<number, Project>;
@@ -444,6 +440,7 @@ function DayColumn({
         <Block
           key={`${b.session.id}-${b.start}`}
           block={b}
+          detailed={detailed}
           hourPx={hourPx}
           project={b.session.projectId !== null ? projects.get(b.session.projectId) : undefined}
           selected={
@@ -459,6 +456,7 @@ function DayColumn({
 
 function Block({
   block,
+  detailed,
   hourPx,
   project,
   selected,
@@ -466,13 +464,14 @@ function Block({
   onSelect,
 }: {
   block: PlacedBlock;
+  detailed: boolean;
   hourPx: number;
   project: Project | undefined;
   selected: boolean;
   faded: boolean;
   onSelect: (id: string, at: number) => void;
 }) {
-  const { session, start, end, col, cols, span, depth } = block;
+  const { session, segment, start, end, col, cols, span, depth } = block;
   const height = (Math.max(end - start, MIN_BLOCK_MS) / HOUR) * hourPx - 2;
   // Tighten the padding on short blocks so one line fits even at the minimum height (MIN_BLOCK_MS)
   const short = height < 34;
@@ -480,82 +479,110 @@ function Block({
   const visible =
     block.coveredFrom === null ? height : ((block.coveredFrom - start) / HOUR) * hourPx;
   const lines = Math.max(1, Math.min(3, Math.floor((visible - 8) / 16.5)));
-  const label = block.segment.headline;
+  const label = segment.headline;
   const range = `${hhmm(block.dayStart + start)}–${hhmm(block.dayStart + end)}`;
   const working = session.active && isLastSegment(block);
   // Before summarizing, the heading is the raw first prompt ("sorry, meant for another session", etc.),
   // which is noise next to summarized work. Tone down background and text. In-progress work is
   // just waiting for its summary, so it is excluded
-  const dim = !block.segment.summarized && !working;
+  const dim = !segment.summarized && !working;
+  // In the day view a tall block has room to be read without opening the drawer
+  const body = detailed && visible >= 96 ? segment.body : null;
+  const { commits, prs } = segment.activity;
   const m = calendarMessages();
   const f = formatMessages();
   const projectName = project?.name ?? f.unknownProject;
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          onClick={() => onSelect(session.id, block.segment.start)}
-          aria-pressed={selected}
-          data-selected={selected || undefined}
-          aria-label={m.blockAria(label, projectName, dateLabel(block.dayStart), range)}
+      {/* The button fills the block and sits on top, so the block can hold Markdown (lists etc.),
+          which is not allowed inside a button. The visible content below is never interactive */}
+      <div
+        className={cn(
+          // Pale background with a strong left edge. Kept quieter than the time column gradient
+          "@container group absolute flex flex-col gap-0.5 overflow-hidden rounded-r-md rounded-l-[3px] border-l-[3px] pr-1.5 pl-1.5",
+          short ? "py-px" : "py-1",
+          // Stacked blocks get a base-colored outline to separate them from the one below
+          depth > 0 && "shadow-[0_0_0_1px_var(--card)]",
+          // Mixing in oklab keeps hues from turning gray on the dark navy background
+          dim
+            ? "bg-[color-mix(in_oklab,var(--c)_var(--mix-block-dim),var(--card))] text-muted-foreground"
+            : "bg-[color-mix(in_oklab,var(--c)_var(--mix-block),var(--card))] text-foreground",
+          "has-[>button:hover]:bg-[color-mix(in_oklab,var(--c)_var(--mix-block-hover),var(--card))]",
+          selected &&
+            "bg-[color-mix(in_oklab,var(--c)_var(--mix-block-selected),var(--card))] text-foreground",
+          "has-[>button:focus-visible]:outline-2 has-[>button:focus-visible]:outline-ring has-[>button:focus-visible]:outline-offset-1",
+          selected && "outline-2 outline-foreground outline-offset-1",
+          block.continuesBefore && "rounded-t-none",
+          block.continuesAfter && "rounded-b-none",
+          // Non-matching blocks keep only their shape. Restore them on hover/focus and when selected so they stay readable
+          faded &&
+            !selected &&
+            "opacity-30 transition-opacity has-[>button:focus-visible]:opacity-100 has-[>button:hover]:opacity-100 motion-reduce:transition-none",
+        )}
+        style={
+          {
+            top: (start / HOUR) * hourPx + 1,
+            height,
+            left: `calc(${(col / cols) * 100}% + ${2 + depth * INDENT_PX}px)`,
+            width: `calc(${(span / cols) * 100}% - ${4 + depth * INDENT_PX}px)`,
+            // Later blocks draw on top. Even when selected, a block never hides the ones stacked over it
+            zIndex: 1 + depth * 2 + (selected ? 1 : 0),
+            borderLeftColor: "var(--c)",
+            "--c": projectColor(project),
+          } as React.CSSProperties
+        }
+      >
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={() => onSelect(session.id, segment.start)}
+            aria-pressed={selected}
+            data-selected={selected || undefined}
+            aria-label={m.blockAria(label, projectName, dateLabel(block.dayStart), range)}
+            className="absolute inset-0 z-[1] outline-none"
+          />
+        </TooltipTrigger>
+        <span
           className={cn(
-            // Pale background with a strong left edge. Kept quieter than the time column gradient
-            "absolute flex flex-col gap-0.5 overflow-hidden rounded-r-md rounded-l-[3px] border-l-[3px] pr-1.5 pl-1.5 text-left",
-            short ? "py-px" : "py-1",
-            // Stacked blocks get a base-colored outline to separate them from the one below
-            depth > 0 && "shadow-[0_0_0_1px_var(--card)]",
-            // Mixing in oklab keeps hues from turning gray on the dark navy background
-            dim
-              ? "bg-[color-mix(in_oklab,var(--c)_var(--mix-block-dim),var(--card))] text-muted-foreground"
-              : "bg-[color-mix(in_oklab,var(--c)_var(--mix-block),var(--card))] text-foreground",
-            "hover:bg-[color-mix(in_oklab,var(--c)_var(--mix-block-hover),var(--card))]",
-            selected &&
-              "bg-[color-mix(in_oklab,var(--c)_var(--mix-block-selected),var(--card))] text-foreground",
-            "focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-1",
-            selected && "outline-2 outline-foreground outline-offset-1",
-            block.continuesBefore && "rounded-t-none",
-            block.continuesAfter && "rounded-b-none",
-            // Non-matching blocks keep only their shape. Restore them on hover/focus and when selected so they stay readable
-            faded &&
-              !selected &&
-              "opacity-30 transition-opacity hover:opacity-100 focus-visible:opacity-100 motion-reduce:transition-none",
+            "text-xs",
+            dim && !selected ? "font-normal" : "font-medium",
+            short ? "leading-4" : "leading-snug",
+            LINE_CLAMP[short ? 1 : body ? 2 : lines],
           )}
-          style={
-            {
-              top: (start / HOUR) * hourPx + 1,
-              height,
-              left: `calc(${(col / cols) * 100}% + ${2 + depth * INDENT_PX}px)`,
-              width: `calc(${(span / cols) * 100}% - ${4 + depth * INDENT_PX}px)`,
-              // Later blocks draw on top. Even when selected, a block never hides the ones stacked over it
-              zIndex: 1 + depth * 2 + (selected ? 1 : 0),
-              borderLeftColor: "var(--c)",
-              "--c": projectColor(project),
-            } as React.CSSProperties
-          }
         >
-          <span
-            className={cn(
-              "text-xs",
-              dim && !selected ? "font-normal" : "font-medium",
-              short ? "leading-4" : "leading-snug",
-              LINE_CLAMP[short ? 1 : lines],
-            )}
-          >
-            {label}
+          {label}
+        </span>
+        {height >= 52 && visible >= 52 && (
+          <span className="flex min-w-0 items-center gap-1.5 font-num text-[11px] text-muted-foreground">
+            <span className="shrink-0">{range}</span>
+            {/* Several sessions of one project share a color, so the worktree tells them apart */}
+            {detailed && session.label && <span className="truncate">{session.label}</span>}
+            {detailed && prs > 0 && <PrChips block={block} />}
           </span>
-          {height >= 52 && visible >= 52 && (
-            <span className="font-num text-[11px] text-muted-foreground">{range}</span>
-          )}
-          {working && (
-            <span
-              className="absolute right-1.5 bottom-1.5 size-1.5 animate-pulse rounded-full bg-[var(--c)] motion-reduce:animate-none"
-              title={f.working}
-            />
-          )}
-        </button>
-      </TooltipTrigger>
+        )}
+        {body && (
+          <div className="min-h-0 flex-1 overflow-hidden text-foreground/85 [mask-image:linear-gradient(to_bottom,black_calc(100%-1.5rem),transparent)]">
+            <Markdown plain className="mt-1 space-y-1 text-xs leading-relaxed [&_li+li]:mt-0.5">
+              {body}
+            </Markdown>
+          </div>
+        )}
+        {/* What came out of it, so the work that shipped stands out among blocks of one color */}
+        {!short && !detailed && (commits > 0 || prs > 0) && (
+          <span className="absolute right-1.5 bottom-1 flex @max-[5rem]:hidden items-center gap-1 font-num text-[10px] text-muted-foreground">
+            {prs > 0 && <GitPullRequest className="size-3 text-primary" />}
+            {commits > 0 && <GitCommitHorizontal className="size-3" />}
+            {working && <span className="w-1.5" />}
+          </span>
+        )}
+        {working && (
+          <span
+            className="absolute right-1.5 bottom-1.5 size-1.5 animate-pulse rounded-full bg-[var(--c)] motion-reduce:animate-none"
+            title={f.working}
+          />
+        )}
+      </div>
       <TooltipContent side="right" className="max-w-72 flex-col items-start gap-0.5">
         <p className="font-medium">{label}</p>
         <p className="opacity-80">
@@ -565,10 +592,25 @@ function Block({
         <p className="font-num opacity-80">
           {m.rangeDuration(range, durationLabel(block.end - block.start))}
         </p>
+        {(commits > 0 || prs > 0) && <p className="opacity-80">{f.commitsPrs(commits, prs)}</p>}
         {faded && <p className="opacity-60">{m.notMatching}</p>}
         {dim && <p className="opacity-60">{m.notSummarized}</p>}
       </TooltipContent>
     </Tooltip>
+  );
+}
+
+/** PR numbers of a block, as plain labels (the block itself is the button). */
+function PrChips({ block }: { block: PlacedBlock }) {
+  return (
+    <span className="flex min-w-0 shrink items-center gap-1 overflow-hidden text-primary">
+      <GitPullRequest className="size-3 shrink-0" />
+      {block.segment.prs.map((a) => (
+        <span key={a.ref} className="shrink-0">
+          #{/\/pull\/(\d+)/.exec(a.ref)?.[1] ?? "?"}
+        </span>
+      ))}
+    </span>
   );
 }
 

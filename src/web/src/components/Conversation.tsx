@@ -3,7 +3,7 @@ import { ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import { useMessages } from "@/hooks/queries.ts";
 import { conversationMessages } from "@/i18n/messages/conversation.ts";
-import { hhmm } from "@/lib/dates.ts";
+import { dateLabel, hhmm, isSameDay } from "@/lib/dates.ts";
 import { cn } from "@/lib/utils.ts";
 import { Markdown } from "./Markdown.tsx";
 
@@ -65,15 +65,21 @@ export function Conversation({
     return <p className="text-destructive text-sm">{t.loadFailed(query.error.message)}</p>;
   if (messages.length === 0) return <p className="text-muted-foreground text-sm">{t.empty}</p>;
 
+  // Entries show only the time, so mark where the date changes. Sessions often run over several days
+  let day: number | null = null;
   return (
     <ol className="space-y-3">
-      {messages.map((m) =>
-        m.kind === "tool_result" ? null : (
+      {messages.map((m) => {
+        if (m.kind === "tool_result") return null;
+        const newDay = m.ts !== null && (day === null || !isSameDay(day, m.ts));
+        if (newDay) day = m.ts;
+        return [
+          newDay && m.ts !== null && <DaySeparator key={`day-${m.id}`} ts={m.ts} />,
           <li key={m.id} id={`msg-${m.id}`} className="scroll-mt-4">
             <Entry message={m} result={m.toolUseId ? results.get(m.toolUseId) : undefined} />
-          </li>
-        ),
-      )}
+          </li>,
+        ];
+      })}
       <div ref={sentinel} />
       {hasNextPage && (
         <button
@@ -86,6 +92,16 @@ export function Conversation({
         </button>
       )}
     </ol>
+  );
+}
+
+function DaySeparator({ ts }: { ts: number }) {
+  return (
+    <li className="flex items-center gap-3 pt-1 font-num text-muted-foreground text-xs">
+      <span className="h-px flex-1 bg-border" />
+      <time>{dateLabel(ts)}</time>
+      <span className="h-px flex-1 bg-border" />
+    </li>
   );
 }
 

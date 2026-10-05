@@ -131,7 +131,8 @@ sequenceDiagram
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/health` | Liveness check (used by the Launcher) |
-| GET | `/api/calendar?from&to` | Sessions in the period and their sections (start, end, headline, prompt count, token usage, activity) |
+| GET | `/api/calendar?from&to` | Sessions in the period and their sections (start, end, headline, summary body, PRs, prompt count, token usage, activity) |
+| GET | `/api/search?q` | Sections matching every space-separated term across all periods, newest first (up to 50). Looks at headlines, summary bodies, session titles and branches, PR and commit titles, and the main conversation's prompts and replies. A plain `LIKE` scan (tens of ms on real data); queries under 2 characters return nothing |
 | GET | `/api/spans?from&to` | Only the start, end and project of work blocks overlapping the period. Used for the "days with records" dots in the date picker; assigning to days is done in the UI's local time |
 | GET | `/api/sessions/:id` | Session details (per-section summaries, artifacts, subagents) |
 | GET | `/api/sessions/:id/messages?cursor&limit` | Paginated conversation |
@@ -161,7 +162,10 @@ Request and response types live in `src/shared` and are shared by the server and
 ```
 
 - Blocks that overlap in time are placed side by side, as in Google Calendar
-- Blocks show the summary headline. If there isn't enough height, only the headline is shown, with the full text on hover
+- Blocks show the summary headline. If there isn't enough height, only the headline is shown, with the full text on hover. Blocks with commits or PRs carry a small mark
+- In the week view, days running several sessions in parallel get more width. If lanes would still be too narrow (e.g. with the drawer open), the selected day and its neighbors keep their width
+- In the day view, tall blocks also show the worktree name, PR numbers and the summary body
+- The search field filters the shown period and, while focused, lists matching work from every period; picking one jumps there
 - The drawer is synced with the URL (`?session=`) and stays open across reloads
 
 ## 7. Directory layout

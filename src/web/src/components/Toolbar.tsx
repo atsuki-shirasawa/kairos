@@ -1,27 +1,30 @@
-import type { CalendarSession, Project } from "@shared/api.ts";
+import type { CalendarSession, Project, SearchHit } from "@shared/api.ts";
 import {
   CalendarDays,
+  Check,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
   Ellipsis,
   List,
   Monitor,
   Moon,
-  Search,
   Sun,
-  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.tsx";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
+import { useCopy } from "@/hooks/useCopy.ts";
 import type { Theme } from "@/hooks/useTheme.ts";
 import { LOCALES, type Locale, setLocale, useLocale } from "@/i18n/index.ts";
+import { formatMessages } from "@/i18n/messages/format.ts";
 import { toolbarMessages } from "@/i18n/messages/toolbar.ts";
 import type { Layout, View } from "@/lib/dates.ts";
 import type { Filter } from "@/lib/filter.ts";
 import { cn } from "@/lib/utils.ts";
 import { DatePicker } from "./DatePicker.tsx";
 import { FilterMenu } from "./FilterMenu.tsx";
+import { SearchField, type SearchState } from "./SearchField.tsx";
 
 interface Props {
   view: View;
@@ -40,6 +43,13 @@ interface Props {
   onJump: (day: number) => void;
   /** The search field. App holds the ref because the `/` key focuses it. */
   searchRef: React.RefObject<HTMLInputElement | null>;
+  /** Results of the keyword across every period. */
+  search: SearchState;
+  projectMap: Map<number, Project>;
+  onOpenHit: (hit: SearchHit) => void;
+  /** The shown work as Markdown (empty when there is none). Built only when copying. */
+  report: () => string;
+  hasWork: boolean;
   theme: Theme;
   onTheme: (theme: Theme) => void;
   /** The "⋯" menu (theme, language, shortcuts). App owns its open state because `?` opens it too. */
@@ -95,6 +105,11 @@ export function Toolbar({
   onToday,
   onJump,
   searchRef,
+  search,
+  projectMap,
+  onOpenHit,
+  report,
+  hasWork,
   theme,
   onTheme,
   menuOpen,
@@ -153,6 +168,9 @@ export function Toolbar({
           value={filter.q}
           period={view}
           onChange={(q) => onFilter({ ...filter, q })}
+          search={search}
+          projects={projectMap}
+          onOpen={onOpenHit}
         />
         <ToggleGroup
           type="single"
@@ -197,6 +215,7 @@ export function Toolbar({
           </ToggleGroupItem>
         </ToggleGroup>
         <span className="mx-1 h-5 w-px bg-border" aria-hidden />
+        <CopyReportButton view={view} report={report} hasWork={hasWork} />
         <FilterMenu projects={projects} sessions={sessions} filter={filter} onFilter={onFilter} />
         <Popover open={menuOpen} onOpenChange={onMenuOpen}>
           <PopoverTrigger asChild>
@@ -280,6 +299,47 @@ export function Toolbar({
 }
 
 /**
+ * Copies the shown period's work as Markdown, for a stand-up note or a weekly report.
+ * It follows the filter, so narrowing to one project first copies only that project.
+ */
+function CopyReportButton({
+  view,
+  report,
+  hasWork,
+}: {
+  view: View;
+  report: () => string;
+  hasWork: boolean;
+}) {
+  const m = toolbarMessages();
+  const [state, copy] = useCopy();
+  const label = !hasWork
+    ? m.nothingToReport(view)
+    : state === "copied"
+      ? m.copiedReport
+      : state === "failed"
+        ? formatMessages().copyFailed
+        : m.copyReport(view);
+  return (
+    // A disabled button gets no tooltip, so it stays enabled and does nothing without work
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      onClick={() => hasWork && copy(report())}
+      aria-disabled={!hasWork}
+      className={cn(!hasWork && "opacity-50")}
+      aria-label={label}
+      title={label}
+    >
+      {state === "copied" ? <Check className="text-primary" /> : <ClipboardList />}
+      <span className="sr-only" aria-live="polite">
+        {state === "idle" ? "" : label}
+      </span>
+    </Button>
+  );
+}
+
+/**
  * The app mark (`public/favicon.svg`; see "Mark" in docs/design.md).
  * While importing, a progress ring is drawn around it. Text would change the header width and
  * shift the buttons.
@@ -313,70 +373,5 @@ function Logo({ progress }: { progress: { done: number; total: number } | null }
         </svg>
       )}
     </span>
-  );
-}
-
-/**
- * Search by headline or title. Narrow by default, widened only while in use.
- * It only searches the period on screen, which the placeholder says.
- */
-function SearchField({
-  inputRef,
-  value,
-  period,
-  onChange,
-}: {
-  inputRef: React.RefObject<HTMLInputElement | null>;
-  value: string;
-  period: "week" | "day";
-  onChange: (q: string) => void;
-}) {
-  const m = toolbarMessages();
-  return (
-    <div className="relative flex items-center">
-      <Search className="pointer-events-none absolute left-2 size-3.5 text-muted-foreground" />
-      <input
-        ref={inputRef}
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => {
-          // Esc clears the input, or leaves the field when empty. Leaving with Enter lets j / k walk the results
-          if (e.key === "Escape") {
-            if (value) onChange("");
-            else e.currentTarget.blur();
-          } else if (e.key === "Enter") e.currentTarget.blur();
-          else return;
-          e.preventDefault();
-        }}
-        placeholder={m.searchPlaceholder(period)}
-        aria-label={m.searchLabel(period)}
-        className={cn(
-          "peer h-7 w-36 rounded-md border bg-card pr-7 pl-7 text-sm outline-none transition-[width] duration-150 placeholder:text-muted-foreground focus:w-56 focus-visible:border-ring",
-          value && "w-56 border-primary/50",
-        )}
-      />
-      {value ? (
-        <button
-          type="button"
-          className="absolute right-1 flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
-          onClick={() => {
-            onChange("");
-            inputRef.current?.focus();
-          }}
-          aria-label={m.clearSearch}
-          title={m.clearSearchTitle}
-        >
-          <X className="size-3.5" />
-        </button>
-      ) : (
-        <kbd
-          className="pointer-events-none absolute right-1.5 rounded border bg-muted px-1 font-num text-[10px] text-muted-foreground leading-4 peer-focus:hidden"
-          aria-hidden
-        >
-          /
-        </kbd>
-      )}
-    </div>
   );
 }

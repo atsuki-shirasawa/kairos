@@ -7,6 +7,8 @@ import type {
   MessagesResponse,
   Project,
   ProjectUpdate,
+  SearchField,
+  SearchHit,
   Section,
   SessionDetail,
   Span,
@@ -21,6 +23,21 @@ import { costOf } from "./pricing.ts";
 export const ACTIVE_WINDOW_MS = 5 * 60_000;
 export const MESSAGES_DEFAULT_LIMIT = 200;
 export const MESSAGES_MAX_LIMIT = 1000;
+export const SEARCH_LIMIT = 50;
+/** Extra terms add little and each one is another scan condition. */
+const SEARCH_MAX_TERMS = 5;
+/** Search fields, most telling first. A hit reports the first of these that matched. */
+const SEARCH_FIELDS: SearchField[] = [
+  "headline",
+  "summary",
+  "pr",
+  "commit",
+  "title",
+  "branch",
+  "prompt",
+  "reply",
+];
+const SNIPPET_CHARS = 120;
 
 interface ProjectRow {
   id: number;
@@ -230,6 +247,9 @@ export class Queries {
           end: g.end,
           headline: g.headline ?? g.fallback_title ?? fallback,
           summarized: g.headline !== null,
+          // A headline-only section has an empty body; treat it as not summarized yet
+          body: g.body || null,
+          prs: this.prs(r.id, g.start, g.end),
           promptCount: g.prompt_count,
           usage: this.usage(r.id, g.start, g.end),
           activity: this.activity(r.id, g.start, g.end),
@@ -308,6 +328,118 @@ export class Queries {
       prs: artifacts.filter((a) => a.kind === "pr"),
       subagents,
       usage: this.usage(id),
+    };
+  }
+
+  /** PRs opened within a work block (counted the same way as `activity().prs`). */
+  private prs(sessionId: string, from: number, to: number): Artifact[] {
+    return this.db
+      .query<Artifact, [string, number, number]>(
+        `SELECT kind, ref, title, ts FROM artifacts
+         WHERE session_id = ? AND kind = 'pr' AND is_copy = 0 AND ts BETWEEN ? AND ? ORDER BY ts`,
+      )
+      .all(sessionId, from, to + ARTIFACT_GRACE_MS);
+  }
+
+  /**
+   * Work blocks matching every space-separated term, across all periods, newest first.
+   * Looks at what a person would remember a piece of work by: the summary, the session title and
+   * branch, PR and commit titles, and the prompts and replies of the main conversation.
+   * Each term may match a different place; the hit reports the most telling place the first term matched.
+   * A plain LIKE scan: on a year of real logs this takes tens of milliseconds, so no FTS index is needed.
+   */
+  search(query: string, limit = SEARCH_LIMIT): { hits: SearchHit[]; more: boolean } {
+    const terms = query.toLowerCase().split(/\s+/).filter(Boolean).slice(0, SEARCH_MAX_TERMS);
+    if (terms.length === 0) return { hits: [], more: false };
+
+    // Every place a section can match, as (session, section start, field, text) rows
+    const sources = `
+      SELECT g.session_id AS sid, g.start, 'headline' AS field, COALESCE(sm.headline, g.fallback_title) AS text
+        FROM segments g LEFT JOIN summaries sm ON sm.session_id = g.session_id AND sm.start = g.start
+      UNION ALL
+      SELECT session_id, start, 'summary', body FROM summaries WHERE body != ''
+      UNION ALL
+      SELECT g.session_id, g.start, 'title',
+             COALESCE(s.custom_title, '') || char(10) || COALESCE(s.agent_name, '') || char(10) ||
+             COALESCE(s.ai_title, '') || char(10) || COALESCE(s.label, '')
+        FROM segments g JOIN sessions s ON s.id = g.session_id
+      UNION ALL
+      SELECT g.session_id, g.start, 'branch', s.branch
+        FROM segments g JOIN sessions s ON s.id = g.session_id WHERE s.branch != 'HEAD'
+      UNION ALL
+      SELECT g.session_id, g.start, a.kind, COALESCE(a.title, '') || char(10) || a.ref
+        FROM artifacts a JOIN segments g ON g.session_id = a.session_id
+         AND a.ts BETWEEN g.start AND g.end + ${ARTIFACT_GRACE_MS}
+       WHERE a.is_copy = 0
+      UNION ALL
+      SELECT g.session_id, g.start, CASE m.kind WHEN 'prompt' THEN 'prompt' ELSE 'reply' END, m.text
+        FROM messages m JOIN segments g ON g.session_id = m.session_id AND m.ts BETWEEN g.start AND g.end
+       WHERE m.kind IN ('prompt', 'assistant') AND m.agent_id IS NULL AND m.is_copy = 0`;
+    // Bound parameters only; the terms are escaped for LIKE
+    const like = terms.map((t) => `%${t.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
+    const conds = like
+      .map((_, i) => `MAX(lower(src.text) LIKE ?${i + 1} ESCAPE '\\')`)
+      .join(" AND ");
+    const rank = SEARCH_FIELDS.map((f, i) => `WHEN '${f}' THEN ${i}`).join(" ");
+    const rows = this.db
+      .query<
+        {
+          sid: string;
+          start: number;
+          end: number;
+          project_id: number | null;
+          label: string | null;
+          headline: string | null;
+          fallback_title: string | null;
+          custom_title: string | null;
+          agent_name: string | null;
+          ai_title: string | null;
+          first_prompt: string | null;
+          field: SearchField;
+          text: string;
+        },
+        string[]
+      >(
+        `WITH src AS (${sources}),
+         matched AS (
+           SELECT src.sid, src.start FROM src
+           JOIN sessions s ON s.id = src.sid AND s.prompt_count > 0
+           GROUP BY src.sid, src.start HAVING ${conds}
+         ),
+         best AS (
+           SELECT src.sid, src.start, src.field, src.text,
+                  ROW_NUMBER() OVER (PARTITION BY src.sid, src.start
+                                     ORDER BY CASE src.field ${rank} END) AS n
+           FROM src JOIN matched USING (sid, start)
+           WHERE lower(src.text) LIKE ?1 ESCAPE '\\'
+         )
+         SELECT b.sid, b.start, g.end, s.project_id, s.label, sm.headline, g.fallback_title,
+                s.custom_title, s.agent_name, s.ai_title, s.first_prompt, b.field, b.text
+         FROM best b
+         JOIN segments g ON g.session_id = b.sid AND g.start = b.start
+         JOIN sessions s ON s.id = b.sid
+         LEFT JOIN summaries sm ON sm.session_id = b.sid AND sm.start = b.start
+         WHERE b.n = 1
+         ORDER BY b.start DESC
+         LIMIT ${limit + 1}`,
+      )
+      .all(...like);
+    const first = terms[0] ?? "";
+    return {
+      hits: rows.slice(0, limit).map((r) => {
+        const headline = r.headline ?? r.fallback_title ?? title(r);
+        return {
+          sessionId: r.sid,
+          projectId: r.project_id,
+          label: r.label,
+          start: r.start,
+          end: r.end,
+          headline,
+          field: r.field,
+          snippet: r.field === "headline" ? "" : excerpt(r.text, first),
+        };
+      }),
+      more: rows.length > limit,
     };
   }
 
@@ -430,6 +562,15 @@ export class Queries {
       nextCursor: rows.length > limit && last ? `${last.file_id}:${last.seq}` : null,
     };
   }
+}
+
+/** About SNIPPET_CHARS of `text` around the first occurrence of `term`, on one line. */
+export function excerpt(text: string, term: string): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  const at = Math.max(0, flat.toLowerCase().indexOf(term));
+  const from = Math.max(0, at - Math.floor(SNIPPET_CHARS / 3));
+  const to = Math.min(flat.length, from + SNIPPET_CHARS);
+  return `${from > 0 ? "…" : ""}${flat.slice(from, to)}${to < flat.length ? "…" : ""}`;
 }
 
 function parseCursor(cursor: string | null | undefined): [number, number] {

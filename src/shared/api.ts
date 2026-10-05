@@ -70,6 +70,10 @@ export interface CalendarSegment {
   /** AI summary headline; otherwise the first line of the first prompt (or of Claude's last reply). */
   headline: string;
   summarized: boolean;
+  /** AI summary body (Markdown), shown inside wide blocks of the day view. null if not generated yet. */
+  body: string | null;
+  /** PRs opened within this time, for the day view and the copied report. */
+  prs: Artifact[];
   /** Number of user prompts (prompts and slash commands). */
   promptCount: number;
   /** Token usage within this time; null if none was recorded. */
@@ -116,6 +120,38 @@ export interface Span {
  */
 export interface SpansResponse {
   spans: Span[];
+}
+
+/** Where a search hit was found, most telling first. */
+export type SearchField =
+  | "headline"
+  | "summary"
+  | "title"
+  | "branch"
+  | "pr"
+  | "commit"
+  | "prompt"
+  | "reply";
+
+/** One work block (section) matching a search, across every period. */
+export interface SearchHit {
+  sessionId: string;
+  projectId: number | null;
+  /** Worktree name etc. */
+  label: string | null;
+  /** The section's start and end. */
+  start: number;
+  end: number;
+  headline: string;
+  field: SearchField;
+  /** A short excerpt around the match (plain text). Empty when the headline itself matched. */
+  snippet: string;
+}
+
+export interface SearchResponse {
+  hits: SearchHit[];
+  /** More sections matched than were returned. */
+  more: boolean;
 }
 
 export interface Artifact {

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { Activity, CalendarSession, Project } from "../../src/shared/api.ts";
 import {
   hideSessions,
+  hitKey,
   isBrief,
   NO_FILTER,
   narrowSessions,
@@ -36,6 +37,8 @@ function session(
     end: i * 1000 + 500,
     headline: g.headline,
     summarized: true,
+    body: null,
+    prs: [],
     promptCount: 1,
     usage: null,
     activity: { ...NONE, ...g.activity },
@@ -140,6 +143,16 @@ describe("segmentMatcher", () => {
 
   test("outcome keeps only blocks with a commit or PR", () => {
     expect(match({ outcome: true })).toEqual(["Fix the login screen"]);
+  });
+
+  test("blocks the server found for the keyword match even when their headline doesn't", () => {
+    const readme = s.segments[1];
+    const hits = new Set([hitKey(s.id, readme?.start ?? 0)]);
+    const m = segmentMatcher({ ...NO_FILTER, q: "pull/42" }, projects, hits);
+    expect(s.segments.filter((g) => m(s, g)).map((g) => g.headline)).toEqual(["Update the README"]);
+    // The outcome condition still applies to them
+    const both = segmentMatcher({ ...NO_FILTER, q: "pull/42", outcome: true }, projects, hits);
+    expect(s.segments.filter((g) => both(s, g))).toEqual([]);
   });
 });
 

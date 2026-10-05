@@ -33,11 +33,10 @@ export const toolbarMessages = defineMessages({
     shortcutClose: "Close details",
     shortcutMenu: "This menu",
     importing: (percent: number) => `Importing ${percent}%`,
-    searchPlaceholder: (u: Unit) => (u === "week" ? "Search this week" : "Search this day"),
-    searchLabel: (u: Unit) =>
-      `Search ${u === "week" ? "this week" : "this day"} by headline, title or project name`,
-    clearSearch: "Clear search",
-    clearSearchTitle: "Clear search (Esc)",
+    copyReport: (u: Unit) =>
+      `Copy ${u === "week" ? "this week's" : "this day's"} work as Markdown (for a stand-up note or report)`,
+    copiedReport: "Copied as Markdown",
+    nothingToReport: (u: Unit) => `No work ${u === "week" ? "this week" : "this day"} to copy`,
   },
   ja: {
     prev: (u: Unit) => `前の${u === "week" ? "週" : "日"}`,
@@ -68,10 +67,10 @@ export const toolbarMessages = defineMessages({
     shortcutClose: "詳細を閉じる",
     shortcutMenu: "このメニュー",
     importing: (percent: number) => `取り込み中 ${percent}%`,
-    searchPlaceholder: (u: Unit) => `${u === "week" ? "この週" : "この日"}で探す`,
-    searchLabel: (u: Unit) =>
-      `${u === "week" ? "この週" : "この日"}の作業を見出し・タイトル・プロジェクト名で探す`,
-    clearSearch: "検索を消す",
-    clearSearchTitle: "検索を消す（Esc）",
+    copyReport: (u: Unit) =>
+      `${u === "week" ? "この週" : "この日"}の作業を Markdown でコピー（日報・朝会・週報などに）`,
+    copiedReport: "Markdown でコピーしました",
+    nothingToReport: (u: Unit) =>
+      `${u === "week" ? "この週" : "この日"}はコピーする作業がありません`,
   },
 });

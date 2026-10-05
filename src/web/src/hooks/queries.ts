@@ -6,7 +6,13 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { api } from "@/lib/api.ts";
+
+/** Waits this long after the last keystroke before searching every period. */
+const SEARCH_DEBOUNCE_MS = 200;
+/** The server ignores shorter queries (`MIN_QUERY_CHARS` in the API). */
+export const MIN_SEARCH_CHARS = 2;
 
 export const keys = {
   calendar: (from: number, to: number) => ["calendar", from, to] as const,
@@ -14,6 +20,8 @@ export const keys = {
   spans: (from: number, to: number) => ["calendar", "spans", from, to] as const,
   session: (id: string) => ["session", id] as const,
   messages: (id: string, agent: string | null) => ["messages", id, agent] as const,
+  // Nested under "calendar" so new sessions and summaries refresh the results too
+  search: (q: string) => ["calendar", "search", q] as const,
 };
 
 export function useCalendar(from: number, to: number) {
@@ -32,6 +40,25 @@ export function useSpans(from: number, to: number, enabled: boolean) {
     enabled,
     placeholderData: keepPreviousData, // Keep the previous month's dots while moving between months
   });
+}
+
+/** Work matching the keyword across every period. Idle until the query is long enough. */
+export function useSearch(q: string) {
+  const query = q.trim();
+  const [debounced, setDebounced] = useState(query);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(query), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [query]);
+  const result = useQuery({
+    queryKey: keys.search(debounced),
+    queryFn: () => api.search(debounced),
+    enabled: [...debounced].length >= MIN_SEARCH_CHARS,
+    placeholderData: keepPreviousData, // Keep the list steady while typing
+  });
+  // Results for an earlier query (while typing or debouncing) must not filter the calendar
+  const current = debounced === query && !result.isPlaceholderData;
+  return { ...result, current };
 }
 
 export function useSession(id: string | null) {

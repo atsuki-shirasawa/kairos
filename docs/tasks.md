@@ -109,4 +109,4 @@ On 2026-10-05, the unit of summaries changed from sessions to sections (calendar
 
 ## Deferred (Requirements §3.2)
 
-Full-text search / daily and weekly reports / monthly heat map / Codex support / notes and tags
+Monthly heat map / Codex support / notes and tags (search and reports were added on 2026-10-05)

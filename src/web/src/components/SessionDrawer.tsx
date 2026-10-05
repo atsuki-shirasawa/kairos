@@ -1,6 +1,7 @@
 import type { Artifact, Project, Section, SessionDetail, Subagent, Usage } from "@shared/api.ts";
 import { ARTIFACT_GRACE_MS } from "@shared/constants.ts";
 import {
+  Check,
   ChevronDown,
   ChevronRight,
   ChevronUp,
@@ -10,12 +11,15 @@ import {
   GitPullRequest,
   RefreshCw,
   Sparkles,
+  SquareTerminal,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button.tsx";
 import { useRequestSummary, useSession } from "@/hooks/queries.ts";
+import { useCopy } from "@/hooks/useCopy.ts";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
+import { formatMessages } from "@/i18n/messages/format.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { dateLabel, durationLabel, hhmm, isSameDay, relativeDay } from "@/lib/dates.ts";
 import {
@@ -27,6 +31,7 @@ import {
   troubleDetail,
 } from "@/lib/format.ts";
 import { issueBaseUrl } from "@/lib/issueLinks.ts";
+import { resumeCommand } from "@/lib/shell.ts";
 import { cn } from "@/lib/utils.ts";
 import { Conversation } from "./Conversation.tsx";
 import { Hint } from "./Hint.tsx";
@@ -96,6 +101,7 @@ export function SessionDrawer({ id, at, onClose, onSelect, onPrev, onNext }: Pro
               )}
             </div>
             <div className="-mr-1.5 flex shrink-0 items-center">
+              {data && <ResumeButton session={data} />}
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -151,6 +157,36 @@ export function SessionDrawer({ id, at, onClose, onSelect, onPrev, onNext }: Pro
         </div>
       </aside>
     </>
+  );
+}
+
+/**
+ * Copies `cd <dir> && claude --resume <id>`. Looking back usually ends in picking the work up again,
+ * and Kairos never runs anything itself, so the command goes to the user's own terminal.
+ */
+function ResumeButton({ session: s }: { session: SessionDetail }) {
+  const t = drawerMessages();
+  const [state, copy] = useCopy();
+  const label =
+    state === "copied"
+      ? t.copiedResume
+      : state === "failed"
+        ? formatMessages().copyFailed
+        : t.copyResume;
+  return (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      onClick={() => copy(resumeCommand(s.id, s.launchCwd))}
+      aria-label={label}
+      title={label}
+    >
+      {state === "copied" ? <Check className="text-primary" /> : <SquareTerminal />}
+      {/* Announce the result; the icon change alone is silent */}
+      <span className="sr-only" aria-live="polite">
+        {state === "idle" ? "" : label}
+      </span>
+    </Button>
   );
 }
 
@@ -927,7 +963,7 @@ function ProjectLine({
   );
 }
 
-/** The selected period. Today / yesterday are shown as words, followed by duration and cost separated by dots. */
+/** The selected period. Today / yesterday are shown as words, followed by the duration. */
 function SectionTime({ session: s, section }: { session: SessionDetail; section: Section }) {
   const t = drawerMessages();
   const sameDay = isSameDay(section.start, section.end);
@@ -939,17 +975,8 @@ function SectionTime({ session: s, section }: { session: SessionDetail; section:
   return (
     <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 font-num text-muted-foreground text-xs">
       <span className="rounded-md bg-muted px-1.5 py-0.5 text-foreground">{range}</span>
+      {/* Cost lives in "Numbers" below; the heading says only when and how long */}
       <span className="whitespace-nowrap">{durationLabel(section.end - section.start)}</span>
-      {/* The period number is visible in the session flow, so only cost is added as the key figure */}
-      {section.usage && (
-        <>
-          <span aria-hidden>·</span>
-          <Hint text={t.costNote} className="whitespace-nowrap">
-            {section.usage.unpriced ? "~" : ""}
-            {costLabel(section.usage.costUsd)}
-          </Hint>
-        </>
-      )}
       {s.active && last && (
         <span className="inline-flex items-center gap-1 whitespace-nowrap text-primary">
           <span className="size-1.5 animate-pulse rounded-full bg-primary motion-reduce:animate-none" />

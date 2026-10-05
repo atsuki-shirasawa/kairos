@@ -9,6 +9,7 @@ import type {
   Message,
   MessagesResponse,
   Project,
+  SearchResponse,
   SessionDetail,
   SpansResponse,
 } from "../../src/shared/api.ts";
@@ -143,7 +144,46 @@ describe("work block activity", () => {
   });
 });
 
+describe("GET /api/search", () => {
+  const search = (q: string) => json<SearchResponse>(`/api/search?q=${encodeURIComponent(q)}`);
+
+  test("finds the work block a commit or PR belongs to, across periods", async () => {
+    const commit = await search("validate email");
+    expect(commit.hits).toMatchObject([{ sessionId: SID.basic, field: "commit" }]);
+    const pr = await search("pull/42");
+    expect(pr.hits).toMatchObject([{ sessionId: SID.basic, field: "pr" }]);
+    // The PR is in the second block, the commit in the first
+    expect(pr.hits[0]?.start).toBeGreaterThan(commit.hits[0]?.start ?? Infinity);
+  });
+
+  test("every term must match, but each may match a different place", async () => {
+    expect((await search("validate pull/42")).hits).toEqual([]);
+    expect((await search("ログイン validate")).hits.map((h) => h.sessionId)).toEqual([SID.basic]);
+  });
+
+  test("ignores queries that are too short, and treats LIKE wildcards literally", async () => {
+    expect(await search("a")).toEqual({ hits: [], more: false });
+    expect((await search("%_")).hits).toEqual([]);
+  });
+
+  test("leaves out sessions without user prompts", async () => {
+    // The headless session's only reply is "ok"
+    const res = await search("ok");
+    expect(res.hits.map((h) => h.sessionId)).not.toContain(SID.headless);
+  });
+});
+
 describe("GET /api/calendar", () => {
+  test("returns each block's PRs and summary body", async () => {
+    const res = await json<CalendarResponse>(`/api/calendar?from=${DAY_FROM}&to=${DAY_TO}`);
+    const basic = res.sessions.find((s) => s.id === SID.basic);
+    expect(basic?.segments.map((g) => g.prs.map((a) => a.ref))).toEqual([
+      [],
+      ["https://github.com/me/app/pull/42"],
+    ]);
+    expect(basic?.segments.map((g) => g.body)).toEqual([null, null]);
+  });
+
   test("returns prompt count and token usage (with API-price cost) per work block", async () => {
     const res = await json<CalendarResponse>(`/api/calendar?from=${DAY_FROM}&to=${DAY_TO}`);
     const [segment] = res.sessions.find((s) => s.id === SID.usage)?.segments ?? [];

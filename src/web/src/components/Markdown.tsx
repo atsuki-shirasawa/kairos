@@ -7,16 +7,19 @@ import { cn } from "@/lib/utils.ts";
 /**
  * Renders Markdown from conversations and summaries. Raw HTML is never rendered (react-markdown's default).
  * Images are not loaded, and links open in a new tab.
- * With `issueBaseUrl`, `#123` in the text links to that repository's issue / PR.
+ * With `issueBaseUrl`, `#123` in the text links to that repository's issue / PR. With `plain`, no links.
  */
 export function Markdown({
   children,
   className,
   issueBaseUrl,
+  plain = false,
 }: {
   children: string;
   className?: string;
   issueBaseUrl?: string | null;
+  /** Links render as plain text, for Markdown placed inside something clickable (a calendar block). */
+  plain?: boolean;
 }) {
   return (
     <div
@@ -37,11 +40,14 @@ export function Markdown({
           issueBaseUrl ? [remarkGfm, [remarkIssueLinks, { baseUrl: issueBaseUrl }]] : [remarkGfm]
         }
         components={{
-          a: ({ href, children: c }) => (
-            <a href={href} target="_blank" rel="noreferrer">
-              {c}
-            </a>
-          ),
+          a: ({ href, children: c }) =>
+            plain ? (
+              <span>{c}</span>
+            ) : (
+              <a href={href} target="_blank" rel="noreferrer">
+                {c}
+              </a>
+            ),
           img: ({ alt, src }) => (
             <span className="text-muted-foreground">
               {conversationMessages().image(alt || String(src ?? ""))}

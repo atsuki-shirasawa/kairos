@@ -16,6 +16,7 @@ export const formatMessages = defineMessages({
     blocks: (n: number) => (n === 1 ? "1 block" : `${n} blocks`),
     commitsPrs: (commits: number, prs: number) => `Commits ${commits} · PRs ${prs}`,
     trouble: (n: number) => `Snags ${n}`,
+    copyFailed: "Couldn't copy to the clipboard",
   },
   ja: {
     toolErrors: (n: number) => `ツールのエラー ${n}`,
@@ -29,6 +30,7 @@ export const formatMessages = defineMessages({
     blocks: (n: number) => `${n} 件`,
     commitsPrs: (commits: number, prs: number) => `コミット ${commits}・PR ${prs}`,
     trouble: (n: number) => `つまずき ${n}`,
+    copyFailed: "クリップボードにコピーできませんでした",
   },
 });
 
