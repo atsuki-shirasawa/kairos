@@ -118,10 +118,13 @@ export function Toolbar({
   const m = toolbarMessages();
   const locale = useLocale();
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b bg-background px-4">
-      <span className="flex shrink-0 items-center gap-2">
+    <header className="flex h-16 shrink-0 items-center gap-3 border-b bg-background px-5">
+      {/* The wordmark is the one place Syne appears: a wide geometric face, so the name reads apart from the Plex UI */}
+      <span className="flex shrink-0 items-center gap-2.5 pr-1">
         <Logo progress={progress} />
-        <span className="font-semibold text-[15px] tracking-wide">Kairos</span>
+        <span className="font-mark font-semibold text-[21px] text-foreground leading-none tracking-[-0.01em]">
+          Kairos
+        </span>
       </span>
       <span className="h-5 w-px shrink-0 bg-border" aria-hidden />
 
@@ -350,13 +353,13 @@ function Logo({ progress }: { progress: { done: number; total: number } | null }
   // Circumference of radius 9. stroke-dasharray draws only the completed part
   const length = 2 * Math.PI * 9;
   return (
-    <span className="relative flex size-5 items-center justify-center" title={label}>
+    <span className="relative flex size-7 items-center justify-center" title={label}>
       {/* Screen readers still hear the percentage, as with the old text display */}
       <span className="sr-only" aria-live="polite">
         {label}
       </span>
       {/* Reuse the favicon so the shape and color live in one place. Same color in every theme */}
-      <img src="/favicon.svg" className="size-4" alt="" />
+      <img src="/favicon.svg" className="size-[22px]" alt="" />
       {progress && (
         <svg className="absolute inset-0 -rotate-90" viewBox="0 0 20 20" aria-hidden>
           <circle cx="10" cy="10" r="9" fill="none" strokeWidth="1.5" className="stroke-border" />

@@ -28,21 +28,6 @@ const INDENT_PX = 8;
 /** Spelled out per line count so Tailwind can pick up the class names. */
 const LINE_CLAMP = ["", "line-clamp-1", "line-clamp-2", "line-clamp-3"] as const;
 
-/**
- * Background of the time column: night (indigo) → dawn → day (base) → dusk (amber) → night.
- * Stops are fractions of 24 hours.
- */
-const SKY = `linear-gradient(to bottom,
-  var(--night) 0%, var(--night) ${(4.5 / 24) * 100}%,
-  var(--dawn) ${(6.5 / 24) * 100}%,
-  color-mix(in srgb, var(--dawn) 25%, transparent) ${(9 / 24) * 100}%,
-  transparent ${(11 / 24) * 100}%, transparent ${(15 / 24) * 100}%,
-  color-mix(in srgb, var(--dusk) 60%, transparent) ${(17 / 24) * 100}%,
-  var(--dusk) ${(18 / 24) * 100}%,
-  var(--night) ${(20 / 24) * 100}%, var(--night) 100%)`;
-
-const isNightHour = (h: number) => h < 6 || h >= 20;
-
 interface Props {
   days: number[];
   sessions: CalendarSession[];
@@ -173,14 +158,11 @@ export function CalendarGrid({
           onScroll={measureEdges}
         >
           <div className={cn("grid", animate)} style={{ ...template, height: 24 * hourPx }}>
-            <div className="relative" style={{ background: SKY }} aria-hidden>
+            <div className="relative" aria-hidden>
               {Array.from({ length: 23 }, (_, i) => i + 1).map((h) => (
                 <span
                   key={h}
-                  className={cn(
-                    "absolute right-2 -translate-y-1/2 font-num text-[11px]",
-                    isNightHour(h) ? "text-white/80" : "text-foreground/60",
-                  )}
+                  className="absolute right-2 -translate-y-1/2 font-num text-[11px] text-muted-foreground"
                   style={{ top: h * hourPx }}
                 >
                   {h}:00
