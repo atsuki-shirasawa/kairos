@@ -245,7 +245,7 @@ export function Toolbar({
 }
 
 /**
- * アプリの印。時刻の列と同じ「夜明け → 夕方 → 夜」の色で、アプリの主題（時間帯）を小さく示す。
+ * アプリの印（`public/favicon.svg`。由来は docs/design.md の「印」）。
  * 取り込み中は周りに進み具合のリングを描く。文字で出すとヘッダーの幅が動き、ボタンの位置がずれるため。
  */
 function Logo({ progress }: { progress: { done: number; total: number } | null }) {
@@ -259,14 +259,8 @@ function Logo({ progress }: { progress: { done: number; total: number } | null }
       <span className="sr-only" aria-live="polite">
         {label}
       </span>
-      {/* ダークのトークンは暗く濁るので、どちらのテーマでもライトの値で描く */}
-      <span
-        className="size-4 rounded-full ring-1 ring-border"
-        style={{
-          background: "linear-gradient(160deg, #c4d0ea 0%, #efc98a 55%, #3a4a7c 100%)",
-        }}
-        aria-hidden
-      />
+      {/* ファビコンと同じ印をそのまま使い、形と色を 1 か所で持つ。色はテーマによらず同じ */}
+      <img src="/favicon.svg" className="size-4" alt="" />
       {progress && (
         <svg className="absolute inset-0 -rotate-90" viewBox="0 0 20 20" aria-hidden>
           <circle cx="10" cy="10" r="9" fill="none" strokeWidth="1.5" className="stroke-border" />

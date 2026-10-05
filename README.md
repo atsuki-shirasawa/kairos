@@ -1,4 +1,4 @@
-# Kairos
+# <img src="src/web/public/favicon.svg" width="32" alt=""> Kairos
 
 Claude Code のセッション履歴から、「この日・この時間に何をしていたか」をカレンダーで振り返る個人用 Web アプリ。
 

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <title>Kairos</title>
+  <!-- Kairos の印。時刻の列と同じ「夜明け → 夕方 → 夜」の円を、斜めの刃で切る。
+       好機の神 Kairos は剃刀の刃の上に立つとされ、その一瞬を切り取ることを表す -->
+  <defs>
+    <linearGradient id="g" x1="0.3" y1="0" x2="0.7" y2="1">
+      <stop offset="0" stop-color="#c4d0ea"/>
+      <stop offset="0.55" stop-color="#efc98a"/>
+      <stop offset="1" stop-color="#3a4a7c"/>
+    </linearGradient>
+    <clipPath id="l"><path d="M0 0H19L11 32H0Z"/></clipPath>
+    <clipPath id="r"><path d="M21.6 0H32V32H13.6Z"/></clipPath>
+  </defs>
+  <g clip-path="url(#l)"><circle cx="15.2" cy="16" r="14" fill="url(#g)"/></g>
+  <g clip-path="url(#r)"><circle cx="16.8" cy="16" r="14" fill="url(#g)"/></g>
+</svg>
