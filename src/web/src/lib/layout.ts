@@ -1,9 +1,14 @@
-// カレンダーの日の列に、作業ブロックを重ならないように並べる（Google カレンダーと同じく横に分ける）。
+// カレンダーの日の列に、作業ブロックを重ならないように並べる。
+// Google カレンダーと同じく、開始が見出し 1 行ぶん以上離れていれば同じ列に少しずらして重ね、
+// 開始がほぼ同時で見出しがぶつかるときだけ横に分ける。横に分けると週表示で列が細くなりすぎるため。
 import type { CalendarSegment, CalendarSession } from "@shared/api.ts";
 import { DAY, MINUTE } from "./dates.ts";
 
-/** 短すぎるブロックも読めるよう、描画上はこの長さを最低限確保する。 */
-export const MIN_BLOCK_MS = 20 * MINUTE;
+/**
+ * 短すぎるブロックも見出しが 1 行読めるよう、描画上はこの長さを最低限確保する。
+ * 重ねるときも、前のブロックの見出しが隠れないようこの長さだけ開始をずらす。
+ */
+export const MIN_BLOCK_MS = 25 * MINUTE;
 
 export interface PlacedBlock {
   session: CalendarSession;
@@ -17,9 +22,20 @@ export interface PlacedBlock {
   /** 前の日から続いている／次の日へ続く。 */
   continuesBefore: boolean;
   continuesAfter: boolean;
+  /** 横に分けたときの列と、まとまり全体の列数。 */
   col: number;
   cols: number;
+  /** 右隣の空いている列へ広げる数（1 なら自分の列だけ）。 */
+  span: number;
+  /** 同じ列で下に重なっているブロックの数。その数だけ右にずらし、上に描く。 */
+  depth: number;
+  /** 上に別のブロックが重なり始める時刻（日の 0 時から）。見出しはそこまでに収める。 */
+  coveredFrom: number | null;
 }
+
+type Item = Omit<PlacedBlock, "col" | "cols" | "span" | "depth" | "coveredFrom">;
+
+const visualEnd = (b: { start: number; end: number }) => Math.max(b.end, b.start + MIN_BLOCK_MS);
 
 /** `dayStart` の日に表示するブロックを、重なりを考えて配置する。 */
 export function layoutDay(
@@ -27,7 +43,7 @@ export function layoutDay(
   dayStart: number,
   dayEnd = dayStart + DAY,
 ): PlacedBlock[] {
-  const items: Omit<PlacedBlock, "col" | "cols">[] = [];
+  const items: Item[] = [];
   for (const session of sessions) {
     for (const segment of session.segments) {
       const { start: s, end: e } = segment;
@@ -43,30 +59,48 @@ export function layoutDay(
       });
     }
   }
+  // 長いものを先に置くと、短いものがその上に重なって見出しが両方読める
   items.sort((a, b) => a.start - b.start || b.end - a.end);
 
   const placed: PlacedBlock[] = [];
-  let cluster: PlacedBlock[] = [];
-  let columnsEnd: number[] = [];
+  let columns: PlacedBlock[][] = [];
   let clusterEnd = -1;
   const closeCluster = () => {
-    for (const b of cluster) b.cols = columnsEnd.length;
-    placed.push(...cluster);
-    cluster = [];
-    columnsEnd = [];
-  };
-  for (const item of items) {
-    const visualEnd = Math.max(item.end, item.start + MIN_BLOCK_MS);
-    if (item.start >= clusterEnd) closeCluster();
-    let col = columnsEnd.findIndex((end) => end <= item.start);
-    if (col === -1) {
-      col = columnsEnd.length;
-      columnsEnd.push(visualEnd);
-    } else {
-      columnsEnd[col] = visualEnd;
+    const all = columns.flat();
+    for (const b of all) {
+      b.cols = columns.length;
+      // 右の列に見た目で重なるブロックがなければ、そこまで広げる
+      let span = 1;
+      while (
+        b.col + span < columns.length &&
+        !columns[b.col + span]?.some((o) => o.start < visualEnd(b) && b.start < visualEnd(o))
+      )
+        span++;
+      b.span = span;
     }
-    cluster.push({ ...item, col, cols: 1 });
-    clusterEnd = Math.max(clusterEnd, visualEnd);
+    placed.push(...all);
+    columns = [];
+  };
+
+  for (const item of items) {
+    if (item.start >= clusterEnd) closeCluster();
+    // 列の最後のブロックと開始が見出し 1 行ぶん離れていれば、その列に重ねられる。
+    // 重ねられる列のうち、下に残っているブロックがいちばん少ない列を選ぶ（空いた列なら全幅で置ける）
+    let col = -1;
+    let depth = 0;
+    columns.forEach((c, i) => {
+      if ((c.at(-1)?.start ?? -Infinity) + MIN_BLOCK_MS > item.start) return;
+      const d = c.filter((o) => visualEnd(o) > item.start).length;
+      if (col === -1 || d < depth) [col, depth] = [i, d];
+    });
+    if (col === -1) {
+      col = columns.length;
+      columns.push([]);
+    }
+    const column = columns[col] ?? [];
+    for (const o of column) if (visualEnd(o) > item.start) o.coveredFrom ??= item.start;
+    column.push({ ...item, col, cols: 1, span: 1, depth, coveredFrom: null });
+    clusterEnd = Math.max(clusterEnd, visualEnd(item));
   }
   closeCluster();
   return placed;

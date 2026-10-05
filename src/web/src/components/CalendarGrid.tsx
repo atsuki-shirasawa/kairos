@@ -8,6 +8,10 @@ import { cn } from "@/lib/utils.ts";
 
 const HOUR_PX = 48;
 const GUTTER = "3.5rem";
+/** 同じ列で重ねたブロックを右にずらす幅。下のブロックの左端の色が見えるようにする。 */
+const INDENT_PX = 8;
+/** Tailwind がクラス名を拾えるよう、行数ごとのクラスを書き下しておく。 */
+const LINE_CLAMP = ["", "line-clamp-1", "line-clamp-2", "line-clamp-3"] as const;
 
 /**
  * 時刻の列の地色。夜（藍）→ 夜明け → 昼（地色）→ 夕方（琥珀）→ 夜。
@@ -58,7 +62,13 @@ export function CalendarGrid({
       scrollRef.current.scrollTop = Math.max(0, (earliest / HOUR - 0.75) * HOUR_PX);
   }, [firstDay]);
 
-  const template = { gridTemplateColumns: `${GUTTER} repeat(${days.length}, minmax(0, 1fr))` };
+  // 作業のない日（今日より後の日など）は細くし、作業のある日に幅を回す。
+  // すべて空なら均等にする（fr の合計が 1 未満だと余白が残るため）
+  const anyBusy = columns.some((c) => c.length > 0);
+  const tracks = columns.map((c) =>
+    anyBusy && c.length === 0 ? "minmax(2.5rem, 0.15fr)" : "minmax(0, 1fr)",
+  );
+  const template = { gridTemplateColumns: `${GUTTER} ${tracks.join(" ")}` };
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-card">
@@ -71,7 +81,7 @@ export function CalendarGrid({
               key={day}
               type="button"
               onClick={() => onOpenDay(day)}
-              className="flex items-baseline gap-1.5 border-l px-3 py-2 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+              className="flex min-w-0 items-baseline gap-1.5 overflow-hidden whitespace-nowrap border-l px-2.5 py-2 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
               title="この日を表示"
             >
               <span
@@ -150,6 +160,16 @@ function DayColumn({
         backgroundImage: `repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px ${HOUR_PX}px)`,
       }}
     >
+      {/* 現在時刻の線はブロックの下に描く。直前の短いブロックを隠さないため */}
+      {today && (
+        <div
+          className="pointer-events-none absolute inset-x-0 h-0.5 bg-primary"
+          style={{ top: ((now - day) / HOUR) * HOUR_PX }}
+          aria-hidden
+        >
+          <span className="absolute -top-[3px] -left-1 size-2 rounded-full bg-primary" />
+        </div>
+      )}
       {blocks.map((b) => (
         <Block
           key={`${b.session.id}-${b.start}`}
@@ -161,15 +181,6 @@ function DayColumn({
           onSelect={onSelect}
         />
       ))}
-      {today && (
-        <div
-          className="pointer-events-none absolute inset-x-0 z-10 h-0.5 bg-primary"
-          style={{ top: ((now - day) / HOUR) * HOUR_PX }}
-          aria-hidden
-        >
-          <span className="absolute -top-[3px] -left-1 size-2 rounded-full bg-primary" />
-        </div>
-      )}
     </div>
   );
 }
@@ -185,8 +196,14 @@ function Block({
   selected: boolean;
   onSelect: (id: string, at: number) => void;
 }) {
-  const { session, start, end, col, cols } = block;
+  const { session, start, end, col, cols, span, depth } = block;
   const height = (Math.max(end - start, MIN_BLOCK_MS) / HOUR) * HOUR_PX - 2;
+  // 最低限の高さ（MIN_BLOCK_MS）でも 1 行は入るよう、短いときは余白を詰める
+  const short = height < 34;
+  // 上に別のブロックが重なるなら、見出しはそこまでに見えている高さに収める
+  const visible =
+    block.coveredFrom === null ? height : ((block.coveredFrom - start) / HOUR) * HOUR_PX;
+  const lines = Math.max(1, Math.min(3, Math.floor((visible - 8) / 16.5)));
   const label = block.segment.headline;
   const range = `${hhmm(block.dayStart + start)}–${hhmm(block.dayStart + end)}`;
 
@@ -200,11 +217,14 @@ function Block({
           aria-label={`${label}（${range}）`}
           className={cn(
             // 地は淡い色、左端だけ濃い色。時刻列のグラデーションより目立たせない
-            "absolute flex flex-col gap-0.5 overflow-hidden rounded-r-md rounded-l-[3px] border-l-[3px] py-1 pr-1.5 pl-1.5 text-left text-foreground",
+            "absolute flex flex-col gap-0.5 overflow-hidden rounded-r-md rounded-l-[3px] border-l-[3px] pr-1.5 pl-1.5 text-left text-foreground",
+            short ? "py-px" : "py-1",
+            // 重ねたブロックは地色の縁で下のブロックと分ける
+            depth > 0 && "shadow-[0_0_0_1px_var(--card)]",
             "bg-[color-mix(in_srgb,var(--c)_20%,var(--card))] hover:bg-[color-mix(in_srgb,var(--c)_32%,var(--card))]",
             selected && "bg-[color-mix(in_srgb,var(--c)_42%,var(--card))]",
             "focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-1",
-            selected && "z-20 outline-2 outline-foreground outline-offset-1",
+            selected && "outline-2 outline-foreground outline-offset-1",
             block.continuesBefore && "rounded-t-none",
             block.continuesAfter && "rounded-b-none",
           )}
@@ -212,24 +232,25 @@ function Block({
             {
               top: (start / HOUR) * HOUR_PX + 1,
               height,
-              left: `calc(${(col / cols) * 100}% + 2px)`,
-              width: `calc(${100 / cols}% - 4px)`,
+              left: `calc(${(col / cols) * 100}% + ${2 + depth * INDENT_PX}px)`,
+              width: `calc(${(span / cols) * 100}% - ${4 + depth * INDENT_PX}px)`,
+              // 後から始まったものほど上に描く。選択中も、上に重なったブロックは隠さない
+              zIndex: 1 + depth * 2 + (selected ? 1 : 0),
               borderLeftColor: "var(--c)",
               "--c": projectColor(project),
             } as React.CSSProperties
           }
         >
-          {height >= 18 && (
-            <span
-              className={cn(
-                "font-medium text-xs leading-snug",
-                height < 34 ? "line-clamp-1" : "line-clamp-3",
-              )}
-            >
-              {label}
-            </span>
-          )}
-          {height >= 52 && (
+          <span
+            className={cn(
+              "font-medium text-xs",
+              short ? "leading-4" : "leading-snug",
+              LINE_CLAMP[short ? 1 : lines],
+            )}
+          >
+            {label}
+          </span>
+          {height >= 52 && visible >= 52 && (
             <span className="font-num text-[11px] text-muted-foreground">{range}</span>
           )}
           {session.active && isLastSegment(block) && (
@@ -240,9 +261,9 @@ function Block({
           )}
         </button>
       </TooltipTrigger>
-      <TooltipContent side="right" className="max-w-72">
+      <TooltipContent side="right" className="max-w-72 flex-col items-start gap-0.5">
         <p className="font-medium">{label}</p>
-        <p className="mt-0.5 opacity-80">
+        <p className="opacity-80">
           {project?.name ?? "プロジェクト不明"}
           {session.label ? `（${session.label}）` : ""}
         </p>

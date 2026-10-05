@@ -21,18 +21,22 @@ function session(id: string, ...spans: [number, number][]): CalendarSession {
   };
 }
 
-const cols = (blocks: ReturnType<typeof layoutDay>) =>
+/** ブロックごとの [列, 列数, 広げる列数, 重なりの深さ]。 */
+const placement = (blocks: ReturnType<typeof layoutDay>) =>
   Object.fromEntries(
-    blocks.map((b) => [`${b.session.id}@${(b.start / 3_600_000).toFixed(1)}`, [b.col, b.cols]]),
+    blocks.map((b) => [
+      `${b.session.id}@${(b.start / 3_600_000).toFixed(2)}`,
+      [b.col, b.cols, b.span, b.depth],
+    ]),
   );
 
 describe("layoutDay", () => {
   test("重ならないブロックはそれぞれ全幅", () => {
     const blocks = layoutDay([session("a", [at(9), at(10)]), session("b", [at(11), at(12)])], DAY0);
-    expect(cols(blocks)).toEqual({ "a@9.0": [0, 1], "b@11.0": [0, 1] });
+    expect(placement(blocks)).toEqual({ "a@9.00": [0, 1, 1, 0], "b@11.00": [0, 1, 1, 0] });
   });
 
-  test("重なるブロックは横に並べ、重なりのまとまりごとに列数を決める", () => {
+  test("開始が見出し 1 行ぶん以上離れていれば、横に分けずに同じ列へずらして重ねる", () => {
     const blocks = layoutDay(
       [
         session("a", [at(9), at(12)]),
@@ -42,11 +46,31 @@ describe("layoutDay", () => {
       ],
       DAY0,
     );
-    expect(cols(blocks)).toEqual({
-      "a@9.0": [0, 2],
-      "b@10.0": [1, 2],
-      "c@11.5": [1, 2],
-      "d@15.0": [0, 1],
+    expect(placement(blocks)).toEqual({
+      "a@9.00": [0, 1, 1, 0],
+      "b@10.00": [0, 1, 1, 1],
+      // b は見た目の上でも 11 時に終わっているので、a の上に 1 段だけ重ねる
+      "c@11.50": [0, 1, 1, 1],
+      "d@15.00": [0, 1, 1, 0],
+    });
+    // a の見出しは、b が重なり始める 10 時までに収める
+    expect(blocks.find((b) => b.session.id === "a")?.coveredFrom).toBe(10 * 3_600_000);
+    expect(blocks.find((b) => b.session.id === "c")?.coveredFrom).toBeNull();
+  });
+
+  test("開始がほぼ同時で見出しがぶつかるときだけ横に分ける", () => {
+    const blocks = layoutDay(
+      [
+        session("long", [at(9), at(12)]),
+        session("x", [at(10), at(10.1)]),
+        session("y", [at(10.1), at(10.5)]),
+      ],
+      DAY0,
+    );
+    expect(placement(blocks)).toEqual({
+      "long@9.00": [0, 2, 1, 0],
+      "x@10.00": [0, 2, 1, 1],
+      "y@10.10": [1, 2, 1, 0],
     });
   });
 
@@ -55,7 +79,26 @@ describe("layoutDay", () => {
       [session("a", [at(9), at(9)]), session("b", [at(9.1), at(9.2)])],
       DAY0,
     );
-    expect(cols(blocks)).toEqual({ "a@9.0": [0, 2], "b@9.1": [1, 2] });
+    expect(placement(blocks)).toEqual({ "a@9.00": [0, 2, 1, 0], "b@9.10": [1, 2, 1, 0] });
+  });
+
+  test("下に残るブロックが少ない列を選び、右の列が空いていればそこまで広げる", () => {
+    const blocks = layoutDay(
+      [
+        session("a", [at(9), at(12)]),
+        session("b", [at(9.05), at(9.2)]),
+        session("c", [at(9.1), at(9.3)]),
+        session("d", [at(10), at(10.5)]),
+      ],
+      DAY0,
+    );
+    expect(placement(blocks)).toEqual({
+      "a@9.00": [0, 3, 1, 0],
+      "b@9.05": [1, 3, 1, 0],
+      "c@9.10": [2, 3, 1, 0],
+      // a の上に重ねるより、b が終わって空いた列に置き、c の列まで広げる
+      "d@10.00": [1, 3, 2, 0],
+    });
   });
 
   test("日をまたぐブロックは日ごとに切る", () => {
