@@ -13,4 +13,5 @@ export const SID = {
   blog: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
   prTitles: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
   usage: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+  fragments: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
 } as const;

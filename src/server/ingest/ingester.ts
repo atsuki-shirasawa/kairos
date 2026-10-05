@@ -42,7 +42,7 @@ export const PARSER_VERSION = 5;
  * Bump when the calculation of derived data that can be recomputed from the DB (aggregates, work blocks,
  * project assignment from the startup cwd) changes. All sessions are recomputed, even those whose logs are gone.
  */
-export const DERIVED_VERSION = 3;
+export const DERIVED_VERSION = 4;
 const FALLBACK_TITLE_CHARS = 120;
 
 const LIMIT = { text: 20_000, toolInput: 4_000, toolResult: 4_000, short: 2_000 };
@@ -695,6 +695,7 @@ export class Ingester {
       this.gapMs,
     )) {
       const inside = used.filter((r) => r.ts >= start && r.ts <= end);
+      if (!isWork(inside)) continue;
       const prompts = inside.filter(isPrompt).length;
       this.q.insertSegment.run(sessionId, start, end, prompts, fallbackTitle(inside));
     }
@@ -743,6 +744,16 @@ function finishScan(stats: ScanStats, started: number): ScanStats {
 function drawnActivity(rows: ActivityRow[]): ActivityRow[] {
   const human = rows.filter((r) => r.is_scheduled === 0);
   return human.length ? human : rows;
+}
+
+/**
+ * Whether a block of activity is worth drawing. A block with neither a request (a prompt, a command
+ * or a `/loop` tick) nor a tool call is a fragment after a break: a compaction, an API error, or a
+ * short reply to a notification. Prompt-less blocks with tool calls stay, since that is Claude
+ * acting on a notification on its own, often with commits.
+ */
+function isWork(inside: ActivityRow[]): boolean {
+  return inside.some((r) => isPrompt(r) || r.kind === "scheduled" || r.kind === "tool_use");
 }
 
 /** Whether a row is something the user asked for (a prompt or a slash command). */

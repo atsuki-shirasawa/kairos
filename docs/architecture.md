@@ -52,7 +52,7 @@ There is only one process, `kairos serve`, which handles ingest, summaries, the 
 | Launcher | `kairos ensure`: checks `/api/health` and, if there's no response, starts `kairos serve` detached. A PID file prevents double starts | `src/cli` |
 | Watcher | Watches `~/.claude/projects` recursively and hands changed jsonl files to the Ingester. Bursts of changes are coalesced (debounce) | `fs.watch` (recursive) |
 | Ingester | Reads only the appended part from the offset in `ingest_state`. A half-written trailing line is left for next time. Classifies, normalizes and stores records | `src/server/ingest` |
-| Segmenter | Builds work blocks from the activity times of human-initiated turns (split at 15 minutes). Recomputed on every session update | `src/server/ingest/segments.ts` |
+| Segmenter | Builds work blocks from the activity times of human-initiated turns (split at 15 minutes), dropping blocks with neither a request nor a tool call. Recomputed on every session update | `src/server/ingest/segments.ts` |
 | Summarizer | Queues sessions that need summaries and runs `claude -p` one at a time | `src/server/summarize` |
 | API | REST for the calendar, details, conversations, summaries and project settings, plus SSE for update notifications | Hono |
 | Web UI | Week and day calendar, detail drawer, filters (projects, keywords, etc.). English by default, Japanese selectable (`src/web/src/i18n`) | React + Tailwind + shadcn/ui |
@@ -85,6 +85,7 @@ sequenceDiagram
 | Human prompt | `type=user` and `origin.kind=human` (any `promptSource`; `sdk` is also human input, e.g. from the desktop app). Includes slash commands |
 | Automatic-run turn | From a user record with `turnOrigin=scheduled` until the next human prompt. Set `messages.is_scheduled=1` and exclude from work-block computation. `task-notification` and `peer` don't change how a turn is treated |
 | Headless session | Zero human prompts. Not shown on the calendar |
+| Prompt-less work block | A block with no human prompt, `/loop` tick or tool call (a compaction, an API error or a short reply to a notification after a break) isn't drawn. Prompt-less blocks with tool calls stay: Claude acting on a notification on its own |
 | Worktree | If the launch cwd is `<repo>/.claude/worktrees/<name>`, the project is `<repo>` and `<name>` becomes a secondary label. A later `relocated` / `worktree-state` only affects the secondary label |
 | Title | `custom-title` > `agent-name` > `ai-title` > the first human prompt |
 | Recap | Store `system/away_summary` and use it as a placeholder until the AI summary is ready |

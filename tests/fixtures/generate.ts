@@ -359,6 +359,38 @@ function usage(): void {
   write(APP, b);
 }
 
+// ---------------------------------------------------------------- 13. prompt-less fragments
+function fragments(): void {
+  const b = new LogBuilder(SID.fragments, APP);
+  header(b);
+  b.prompt(660, "キャッシュの層を足して");
+  const bg = b.toolUse(660.5, "Bash", { command: "bun run bench", run_in_background: true });
+  b.toolResult(660.5, bg, "Command running in background with ID: bg02");
+  b.text(662, "ベンチマークをバックグラウンドで回しています。");
+  b.turnEnd(662);
+  // A notification long after the work, answered with a short reply only → no block
+  b.taskNotification(700, "bg02", "completed", "bench: 1.8x faster");
+  b.text(700.2, "ベンチマークが終わりました。1.8 倍速くなっています。");
+  b.turnEnd(700.2);
+  // A notification that Claude acts on (tools, a commit) without a prompt → still a block
+  b.taskNotification(760, "bg03", "completed", "lint: 2 warnings");
+  b.bash(761, "bun run format", "Formatted 2 files");
+  b.bash(
+    764,
+    'git commit -am "style: fix lint warnings"',
+    "[main 5e6f7a8] style: fix lint warnings\n 2 files changed, 4 insertions(+)",
+  );
+  b.text(765, "警告を直してコミットしました。");
+  b.turnEnd(765);
+  // Only a compaction and an API error after a long break → no block
+  b.system(820, "compact_boundary", {
+    content: "Conversation compacted",
+    compactMetadata: { trigger: "auto", preTokens: 300_000, postTokens: 15_000 },
+  });
+  b.apiError(820.1, "API Error: 529 Overloaded");
+  write(APP, b);
+}
+
 if (import.meta.main) {
   rmSync(ROOT, { recursive: true, force: true });
   for (const scenario of [
@@ -374,6 +406,7 @@ if (import.meta.main) {
     blog,
     prTitles,
     usage,
+    fragments,
   ]) {
     scenario();
   }

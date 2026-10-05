@@ -88,12 +88,12 @@ describe("recap input", () => {
   test("lists the project's sections in the period with their PRs and commits", () => {
     const input = loadRecapInput(db, { projectId: APP, from: FROM, to: TO });
     expect(input?.projectName).toBe("app");
-    expect(input?.sections.length).toBe(14);
+    expect(input?.sections.length).toBe(16);
     expect(input?.sections.map((s) => s.start)).toEqual(
       [...(input?.sections.map((s) => s.start) ?? [])].sort((a, b) => a - b),
     );
     expect(input?.prs.map((p) => /\d+$/.exec(p.ref)?.[0])).toEqual(["42", "43", "44", "45"]);
-    expect(input?.commits.length).toBe(2);
+    expect(input?.commits.length).toBe(3);
   });
 
   test("is null for a period or project without work", () => {

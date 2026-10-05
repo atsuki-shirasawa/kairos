@@ -286,6 +286,20 @@ describe("README scenarios", () => {
     expect(own(SID.continuedTo)).toBe(30_000);
   });
 
+  test("13. fragments: prompt-less blocks are drawn only when Claude used tools", () => {
+    expect(session(SID.fragments).prompt_count).toBe(1);
+    expect(segments(SID.fragments)).toEqual([
+      [min(660), min(662)],
+      [min(760), min(765)],
+    ]);
+    expect(
+      count(
+        "SELECT COUNT(*) AS n FROM artifacts WHERE session_id = ? AND kind = 'commit'",
+        SID.fragments,
+      ),
+    ).toBe(1);
+  });
+
   test("10. another project, next day", () => {
     const s = session(SID.blog);
     expect(s.project).toBe("/Users/me/dev/blog");
