@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { serveStatic } from "hono/bun";
+import { removePid, writePid } from "../cli/daemon.ts";
 import { HOST, PORT } from "../shared/constants.ts";
 import { createApp } from "./api/app.ts";
 import { openDb } from "./db/index.ts";
@@ -47,20 +48,29 @@ export async function serve(opts: ServeOptions = {}): Promise<void> {
   // 画面は / だけ（状態はクエリで持つ）なので、SPA 用のフォールバックは置かない。
   if (existsSync(WEB_DIST)) app.use("/*", serveStatic({ root: WEB_DIST }));
 
-  const server = Bun.serve({
-    hostname: HOST,
-    port: opts.port ?? PORT,
-    fetch: app.fetch,
-    idleTimeout: 0, // SSE の接続を切らない
-  });
-  console.log(`kairos: serving http://${HOST}:${server.port}/`);
+  let server: ReturnType<typeof Bun.serve>;
+  try {
+    server = Bun.serve({
+      hostname: HOST,
+      port: opts.port ?? PORT,
+      fetch: app.fetch,
+      idleTimeout: 0, // SSE の接続を切らない
+    });
+  } catch (e) {
+    // 別のプロセスがポートを使っている（多くは、すでに起動している Kairos）
+    console.error(`kairos: cannot listen on ${HOST}:${opts.port ?? PORT}:`, e);
+    db.close();
+    process.exit(1);
+  }
+  writePid(process.pid);
+  log(`serving http://${HOST}:${server.port}/ (pid ${process.pid})`);
+  if (!existsSync(WEB_DIST))
+    log("画面がビルドされていません。`bun run build` を実行してください（API だけ動きます）");
 
   const stats = await ingester.scanAsync((done, total) =>
     events.publish({ type: "ingest.progress", done, total }),
   );
-  console.log(
-    `kairos: ingested ${stats.changed}/${stats.files} files in ${(stats.ms / 1000).toFixed(1)}s`,
-  );
+  log(`ingested ${stats.changed}/${stats.files} files in ${(stats.ms / 1000).toFixed(1)}s`);
   if (stats.sessions.size) events.publish({ type: "sessions.updated", ids: [...stats.sessions] });
 
   const stopWatching = watchProjects(ingester, (ids) => {
@@ -74,8 +84,14 @@ export async function serve(opts: ServeOptions = {}): Promise<void> {
     summarizer.stop();
     server.stop(true);
     db.close();
+    removePid(process.pid);
+    log("stopped");
     process.exit(0);
   };
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
+}
+
+function log(message: string): void {
+  console.log(`${new Date().toISOString()} kairos: ${message}`);
 }
