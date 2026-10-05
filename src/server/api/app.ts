@@ -1,5 +1,5 @@
 import type { Database } from "bun:sqlite";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { version } from "../../../package.json";
 import type {
@@ -11,6 +11,7 @@ import type {
   SearchResponse,
   ServerEvent,
   Settings,
+  SettingsUpdate,
   SpansResponse,
 } from "../../shared/api.ts";
 import type { EventHub } from "../events.ts";
@@ -24,9 +25,11 @@ import { guardHost, guardWrite } from "./security.ts";
 export const MAX_RANGE_MS = 62 * 24 * 60 * 60_000;
 /** Project colors are stored as palette keys (p0–p7). The actual colors are set per theme by the web app. */
 const PALETTE_KEY = /^p[0-7]$/;
+/** How long an idle SSE connection waits before sending a keep-alive comment. */
 const KEEPALIVE_MS = 15_000;
 /** Shortest search query (in characters) that is run; shorter ones match nearly everything. */
 export const MIN_QUERY_CHARS = 2;
+/** Longer queries are cut to this many characters. */
 const MAX_QUERY_CHARS = 200;
 
 /** Dependencies of the API. `summarizer` is absent when summaries are off; `now` is for tests. */
@@ -85,23 +88,14 @@ export function createApp({ db, events, summarizer, now }: AppDeps): Hono {
     return project ? c.json(project) : c.json({ error: "project not found" }, 404);
   });
 
-  const settings = (): Settings => ({
-    summaryLang: summarizer?.lang ?? storedSummaryLang(db) ?? DEFAULT_SUMMARY_LANG,
-    summaryLangFixed: summarizer?.langFixed ?? false,
-  });
-
-  app.get("/api/settings", (c) => c.json<Settings>(settings()));
+  app.get("/api/settings", (c) => c.json<Settings>(currentSettings(db, summarizer)));
 
   // The UI sends its language here, so summaries follow it. Existing summaries are kept
   app.patch("/api/settings", async (c) => {
-    const body = await c.req.json<unknown>().catch(() => null);
-    const lang =
-      typeof body === "object" && body !== null
-        ? (body as Record<string, unknown>).summaryLang
-        : undefined;
-    if (!isSummaryLang(lang)) return c.json({ error: "invalid request" }, 400);
-    storeSummaryLang(db, lang);
-    return c.json<Settings>(settings());
+    const update = parseSettingsUpdate(await c.req.json<unknown>().catch(() => null));
+    if (!update) return c.json({ error: "invalid request" }, 400);
+    storeSummaryLang(db, update.summaryLang);
+    return c.json<Settings>(currentSettings(db, summarizer));
   });
 
   app.get("/api/sessions/:id", (c) => {
@@ -151,43 +145,69 @@ export function createApp({ db, events, summarizer, now }: AppDeps): Hono {
     );
   });
 
-  app.get("/api/events", (c) =>
-    streamSSE(c, async (stream) => {
-      const queue: ServerEvent[] = [];
-      let wake: (() => void) | null = null;
-      const unsubscribe = events.subscribe((e) => {
-        queue.push(e);
-        wake?.();
-      });
-      stream.onAbort(() => {
-        unsubscribe();
-        wake?.();
-      });
-      await stream.writeSSE({ event: "ready", data: "{}", retry: 3000 });
-      while (!stream.aborted) {
-        const next = queue.shift();
-        if (next) {
-          await stream.writeSSE({ event: next.type, data: JSON.stringify(next) });
-          continue;
-        }
-        // Wait for the next event or until it is time to send a keep-alive comment
-        const timedOut = await new Promise<boolean>((resolve) => {
-          const timer = setTimeout(() => resolve(true), KEEPALIVE_MS);
-          wake = () => {
-            clearTimeout(timer);
-            resolve(false);
-          };
-        });
-        wake = null;
-        if (timedOut) await stream.write(": keepalive\n\n");
-      }
-      unsubscribe();
-    }),
-  );
+  app.get("/api/events", (c) => streamEvents(c, events));
 
   return app;
 }
 
+/**
+ * Streams hub events to one client as SSE until it disconnects, with a keep-alive comment
+ * whenever nothing has been sent for `KEEPALIVE_MS`.
+ */
+function streamEvents(c: Context, events: EventHub): Response {
+  return streamSSE(c, async (stream) => {
+    const queue: ServerEvent[] = [];
+    let wake: (() => void) | null = null;
+    /** Resolves true after `KEEPALIVE_MS`, or false as soon as `wake` is called. */
+    const idle = () =>
+      new Promise<boolean>((resolve) => {
+        const timer = setTimeout(() => resolve(true), KEEPALIVE_MS);
+        wake = () => {
+          clearTimeout(timer);
+          resolve(false);
+        };
+      });
+    const unsubscribe = events.subscribe((e) => {
+      queue.push(e);
+      wake?.();
+    });
+    stream.onAbort(() => {
+      unsubscribe();
+      wake?.();
+    });
+    await stream.writeSSE({ event: "ready", data: "{}", retry: 3000 });
+    while (!stream.aborted) {
+      const next = queue.shift();
+      if (next) {
+        await stream.writeSSE({ event: next.type, data: JSON.stringify(next) });
+        continue;
+      }
+      const timedOut = await idle();
+      wake = null;
+      if (timedOut) await stream.write(": keepalive\n\n");
+    }
+    unsubscribe();
+  });
+}
+
+/** The settings as they apply now: a language fixed at startup wins over the stored one. */
+function currentSettings(db: Database, summarizer: Summarizer | undefined): Settings {
+  return {
+    summaryLang: summarizer?.lang ?? storedSummaryLang(db) ?? DEFAULT_SUMMARY_LANG,
+    summaryLangFixed: summarizer?.langFixed ?? false,
+  };
+}
+
+/** Validates a `PATCH /api/settings` body; null if it is not a supported language. */
+function parseSettingsUpdate(body: unknown): SettingsUpdate | null {
+  const lang =
+    typeof body === "object" && body !== null
+      ? (body as Record<string, unknown>).summaryLang
+      : undefined;
+  return isSummaryLang(lang) ? { summaryLang: lang } : null;
+}
+
+/** Validates a `PATCH /api/projects/:id` body; null unless it changes something, and only validly. */
 function parseProjectUpdate(body: unknown): ProjectUpdate | null {
   if (typeof body !== "object" || body === null) return null;
   const b = body as Record<string, unknown>;
@@ -204,6 +224,7 @@ function parseProjectUpdate(body: unknown): ProjectUpdate | null {
   return Object.keys(update).length ? update : null;
 }
 
+/** Validates a `POST /api/recaps` body; null unless the project id and range are valid. */
 function parseRecapRequest(body: unknown): RecapRequest | null {
   if (typeof body !== "object" || body === null) return null;
   const { projectId, from, to } = body as Record<string, unknown>;

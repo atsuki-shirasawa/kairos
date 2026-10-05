@@ -158,6 +158,9 @@ function toUsage(rows: UsageRow[]): Usage | null {
   return u.tokens > 0 ? u : null;
 }
 
+/** The part of `Activity` counted from messages. */
+type MessageCounts = Omit<Activity, "commits" | "prs" | "claudeMs" | "effort">;
+
 /** Tools that modify files. The tool_use text (input summary) is the file path. */
 const EDIT_TOOLS = "'Edit', 'Write', 'MultiEdit', 'NotebookEdit'";
 
@@ -170,6 +173,25 @@ function title(r: {
 }): string {
   const first = r.first_prompt?.trim().split("\n")[0]?.slice(0, 120);
   return r.custom_title || r.agent_name || r.ai_title || first || "(Untitled session)";
+}
+
+/** A section's headline: its summary's, else the block's own title, else the session's. */
+function sectionHeadline(
+  g: { headline: string | null; fallback_title: string | null },
+  sessionTitle: string,
+): string {
+  return g.headline ?? g.fallback_title ?? sessionTitle;
+}
+
+/** A section's summary body, or null when it has none yet. */
+function summaryBody(g: { body: string | null }): string | null {
+  // A headline-only section has an empty body; treat it as not summarized yet
+  return g.body || null;
+}
+
+/** Whether a session that last did something at `endedAt` still counts as in progress. */
+function isActive(endedAt: number | null, now: number): boolean {
+  return endedAt !== null && now - endedAt < ACTIVE_WINDOW_MS;
 }
 
 /** Read queries behind the API, plus the few writes the UI can make (project settings). */
@@ -204,6 +226,11 @@ export class Queries {
     if (update.hidden !== undefined) {
       this.db.query("UPDATE projects SET hidden = ? WHERE id = ?").run(update.hidden ? 1 : 0, id);
     }
+    return this.project(id);
+  }
+
+  /** One project by id, or null if absent. */
+  private project(id: number): Project | null {
     const row = this.db
       .query<ProjectRow, [number]>(
         "SELECT id, path, name, repo, color, hidden FROM projects WHERE id = ?",
@@ -304,14 +331,13 @@ export class Queries {
         startedAt: r.started_at ?? 0,
         endedAt: r.ended_at ?? 0,
         promptCount: r.prompt_count,
-        active: r.ended_at !== null && now - r.ended_at < ACTIVE_WINDOW_MS,
+        active: isActive(r.ended_at, now),
         segments: segQuery.all(r.id, from, to).map((g) => ({
           start: g.start,
           end: g.end,
-          headline: g.headline ?? g.fallback_title ?? fallback,
+          headline: sectionHeadline(g, fallback),
           summarized: g.headline !== null,
-          // A headline-only section has an empty body; treat it as not summarized yet
-          body: g.body || null,
+          body: summaryBody(g),
           prs: this.prs(r.id, g.start, g.end),
           promptCount: g.prompt_count,
           usage: this.usage(r.id, g.start, g.end),
@@ -326,55 +352,16 @@ export class Queries {
     const s = this.db.query<SessionRow, [string]>("SELECT * FROM sessions WHERE id = ?").get(id);
     if (!s) return null;
 
-    const project = s.project_id
-      ? this.db
-          .query<ProjectRow, [number]>(
-            "SELECT id, path, name, repo, color, hidden FROM projects WHERE id = ?",
-          )
-          .get(s.project_id)
-      : null;
-    const artifacts = this.db
-      .query<Artifact, [string]>(
-        "SELECT kind, ref, title, ts FROM artifacts WHERE session_id = ? AND is_copy = 0 ORDER BY ts",
-      )
-      .all(id);
-    const subagents = this.db
-      .query<Subagent, [string]>(
-        `SELECT a.id, a.agent_type AS agentType, a.description, a.tool_use_id AS toolUseId,
-                MIN(m.ts) AS startedAt, MAX(m.ts) AS endedAt
-         FROM subagents a LEFT JOIN messages m ON m.session_id = a.session_id AND m.agent_id = a.id
-         WHERE a.session_id = ? GROUP BY a.id ORDER BY startedAt`,
-      )
-      .all(id);
-    const prev = this.db
-      .query<{ id: string }, [string]>("SELECT id FROM sessions WHERE continued_in = ? LIMIT 1")
-      .get(id);
+    const project = s.project_id ? this.project(s.project_id) : null;
+    const artifacts = this.artifacts(id);
+    const subagents = this.subagents(id);
+    const continuedFrom = this.predecessorOf(id);
     const fallback = title(s);
-    const sections = this.db
-      .query<SectionRow, [string]>(`${SECTION_SELECT} WHERE g.session_id = ? ORDER BY g.start`)
-      .all(id)
-      .map(
-        (g): Section => ({
-          start: g.start,
-          end: g.end,
-          promptCount: g.prompt_count,
-          headline: g.headline ?? g.fallback_title ?? fallback,
-          // A headline-only section has an empty body; treat it as not summarized yet
-          body: g.body || null,
-          model: g.model,
-          createdAt: g.created_at,
-          stale: g.covered_until !== null && g.covered_until < g.end,
-          summarizable: isSummarizable({ start: g.start, end: g.end, promptCount: g.prompt_count }),
-          pending: this.summaries.isPending(id, g.start),
-          error: this.summaries.errorOf(id, g.start),
-          usage: this.usage(id, g.start, g.end),
-          activity: this.activity(id, g.start, g.end),
-        }),
-      );
+    const sections = this.sections(id, fallback);
 
     return {
       id: s.id,
-      project: project ? toProject(project) : null,
+      project,
       launchCwd: s.launch_cwd,
       label: s.label,
       branch: s.branch,
@@ -383,16 +370,70 @@ export class Queries {
       awaySummary: s.away_summary,
       startedAt: s.started_at,
       endedAt: s.ended_at,
-      active: s.ended_at !== null && this.now() - s.ended_at < ACTIVE_WINDOW_MS,
+      active: isActive(s.ended_at, this.now()),
       promptCount: s.prompt_count,
       scheduledRuns: s.scheduled_runs,
-      continuedFrom: prev?.id ?? null,
+      continuedFrom,
       continuedIn: s.continued_in,
       commits: artifacts.filter((a) => a.kind === "commit"),
       prs: artifacts.filter((a) => a.kind === "pr"),
       subagents,
       usage: this.usage(id),
     };
+  }
+
+  /** The session's commits and PRs in time order, excluding copies from the previous session. */
+  private artifacts(sessionId: string): Artifact[] {
+    return this.db
+      .query<Artifact, [string]>(
+        "SELECT kind, ref, title, ts FROM artifacts WHERE session_id = ? AND is_copy = 0 ORDER BY ts",
+      )
+      .all(sessionId);
+  }
+
+  /** The session's subagents, with the span of their messages, in start order. */
+  private subagents(sessionId: string): Subagent[] {
+    return this.db
+      .query<Subagent, [string]>(
+        `SELECT a.id, a.agent_type AS agentType, a.description, a.tool_use_id AS toolUseId,
+                MIN(m.ts) AS startedAt, MAX(m.ts) AS endedAt
+         FROM subagents a LEFT JOIN messages m ON m.session_id = a.session_id AND m.agent_id = a.id
+         WHERE a.session_id = ? GROUP BY a.id ORDER BY startedAt`,
+      )
+      .all(sessionId);
+  }
+
+  /** The session this one was continued from, or null. */
+  private predecessorOf(sessionId: string): string | null {
+    return (
+      this.db
+        .query<{ id: string }, [string]>("SELECT id FROM sessions WHERE continued_in = ? LIMIT 1")
+        .get(sessionId)?.id ?? null
+    );
+  }
+
+  /** Every section of the session with its summary state, usage and activity, in order. */
+  private sections(sessionId: string, sessionTitle: string): Section[] {
+    return this.db
+      .query<SectionRow, [string]>(`${SECTION_SELECT} WHERE g.session_id = ? ORDER BY g.start`)
+      .all(sessionId)
+      .map(
+        (g): Section => ({
+          start: g.start,
+          end: g.end,
+          promptCount: g.prompt_count,
+          headline: sectionHeadline(g, sessionTitle),
+          body: summaryBody(g),
+          model: g.model,
+          createdAt: g.created_at,
+          stale: g.covered_until !== null && g.covered_until < g.end,
+          summarizable: isSummarizable({ start: g.start, end: g.end, promptCount: g.prompt_count }),
+          pending: this.summaries.isPending(sessionId, g.start),
+          error: this.summaries.errorOf(sessionId, g.start),
+          usage: this.usage(sessionId, g.start, g.end),
+          activity: this.activity(sessionId, g.start, g.end),
+        }),
+      );
   }
 
   /** PRs opened within a work block (counted the same way as `activity().prs`). */
@@ -413,104 +454,41 @@ export class Queries {
    * A plain LIKE scan: on a year of real logs this takes tens of milliseconds, so no FTS index is needed.
    */
   search(query: string, limit = SEARCH_LIMIT): { hits: SearchHit[]; more: boolean } {
-    const terms = query.toLowerCase().split(/\s+/).filter(Boolean).slice(0, SEARCH_MAX_TERMS);
+    const terms = searchTerms(query);
     if (terms.length === 0) return { hits: [], more: false };
-
-    // Every place a section can match, as (session, section start, field, text) rows
-    const sources = `
-      SELECT g.session_id AS sid, g.start, 'headline' AS field, COALESCE(sm.headline, g.fallback_title) AS text
-        FROM segments g LEFT JOIN summaries sm ON sm.session_id = g.session_id AND sm.start = g.start
-      UNION ALL
-      SELECT session_id, start, 'summary', body FROM summaries WHERE body != ''
-      UNION ALL
-      SELECT g.session_id, g.start, 'title',
-             COALESCE(s.custom_title, '') || char(10) || COALESCE(s.agent_name, '') || char(10) ||
-             COALESCE(s.ai_title, '') || char(10) || COALESCE(s.label, '')
-        FROM segments g JOIN sessions s ON s.id = g.session_id
-      UNION ALL
-      SELECT g.session_id, g.start, 'branch', s.branch
-        FROM segments g JOIN sessions s ON s.id = g.session_id WHERE s.branch != 'HEAD'
-      UNION ALL
-      SELECT g.session_id, g.start, a.kind, COALESCE(a.title, '') || char(10) || a.ref
-        FROM artifacts a JOIN segments g ON g.session_id = a.session_id
-         AND a.ts BETWEEN g.start AND g.end + ${ARTIFACT_GRACE_MS}
-       WHERE a.is_copy = 0
-      UNION ALL
-      SELECT g.session_id, g.start, CASE m.kind WHEN 'prompt' THEN 'prompt' ELSE 'reply' END, m.text
-        FROM messages m JOIN segments g ON g.session_id = m.session_id AND m.ts BETWEEN g.start AND g.end
-       WHERE m.kind IN ('prompt', 'assistant') AND m.agent_id IS NULL AND m.is_copy = 0`;
-    // Bound parameters only; the terms are escaped for LIKE
-    const like = terms.map((t) => `%${t.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
-    const conds = like
-      .map((_, i) => `MAX(lower(src.text) LIKE ?${i + 1} ESCAPE '\\')`)
-      .join(" AND ");
-    const rank = SEARCH_FIELDS.map((f, i) => `WHEN '${f}' THEN ${i}`).join(" ");
     const rows = this.db
-      .query<
-        {
-          sid: string;
-          start: number;
-          end: number;
-          project_id: number | null;
-          label: string | null;
-          headline: string | null;
-          fallback_title: string | null;
-          custom_title: string | null;
-          agent_name: string | null;
-          ai_title: string | null;
-          first_prompt: string | null;
-          field: SearchField;
-          text: string;
-        },
-        string[]
-      >(
-        `WITH src AS (${sources}),
-         matched AS (
-           SELECT src.sid, src.start FROM src
-           JOIN sessions s ON s.id = src.sid AND s.prompt_count > 0
-           GROUP BY src.sid, src.start HAVING ${conds}
-         ),
-         best AS (
-           SELECT src.sid, src.start, src.field, src.text,
-                  ROW_NUMBER() OVER (PARTITION BY src.sid, src.start
-                                     ORDER BY CASE src.field ${rank} END) AS n
-           FROM src JOIN matched USING (sid, start)
-           WHERE lower(src.text) LIKE ?1 ESCAPE '\\'
-         )
-         SELECT b.sid, b.start, g.end, s.project_id, s.label, sm.headline, g.fallback_title,
-                s.custom_title, s.agent_name, s.ai_title, s.first_prompt, b.field, b.text
-         FROM best b
-         JOIN segments g ON g.session_id = b.sid AND g.start = b.start
-         JOIN sessions s ON s.id = b.sid
-         LEFT JOIN summaries sm ON sm.session_id = b.sid AND sm.start = b.start
-         WHERE b.n = 1
-         ORDER BY b.start DESC
-         LIMIT ${limit + 1}`,
-      )
-      .all(...like);
+      .query<SearchRow, string[]>(searchSql(terms.length, limit))
+      .all(...terms.map(likePattern));
     const first = terms[0] ?? "";
     return {
-      hits: rows.slice(0, limit).map((r) => {
-        const headline = r.headline ?? r.fallback_title ?? title(r);
-        return {
-          sessionId: r.sid,
-          projectId: r.project_id,
-          label: r.label,
-          start: r.start,
-          end: r.end,
-          headline,
-          field: r.field,
-          snippet: r.field === "headline" ? "" : excerpt(r.text, first),
-        };
-      }),
+      hits: rows.slice(0, limit).map((r) => toSearchHit(r, first)),
       more: rows.length > limit,
     };
   }
 
   /** What was done within a work block (including subagents, excluding copies in continued sessions). */
   private activity(sessionId: string, from: number, to: number): Activity {
-    const m = this.db
-      .query<Omit<Activity, "commits" | "prs" | "claudeMs" | "effort">, [string, number, number]>(
+    const m = this.messageCounts(sessionId, from, to);
+    const artifacts = this.artifactCounts(sessionId, from, to);
+    return {
+      commits: artifacts?.commits ?? 0,
+      prs: artifacts?.prs ?? 0,
+      filesEdited: m?.filesEdited ?? 0,
+      toolCalls: m?.toolCalls ?? 0,
+      subagents: m?.subagents ?? 0,
+      toolErrors: m?.toolErrors ?? 0,
+      interrupts: m?.interrupts ?? 0,
+      apiErrors: m?.apiErrors ?? 0,
+      compactions: m?.compactions ?? 0,
+      claudeMs: this.claudeMs(sessionId, from, to),
+      effort: this.dominantEffort(sessionId, from, to),
+    };
+  }
+
+  /** The `activity` counts that come from messages (tool calls, edits, errors, ...). */
+  private messageCounts(sessionId: string, from: number, to: number): MessageCounts | null {
+    return this.db
+      .query<MessageCounts, [string, number, number]>(
         `SELECT COALESCE(SUM(kind = 'tool_use'), 0) AS toolCalls,
                 COUNT(DISTINCT CASE WHEN kind = 'tool_use' AND tool_name IN (${EDIT_TOOLS}) AND text != ''
                                     THEN text END) AS filesEdited,
@@ -522,37 +500,44 @@ export class Queries {
          FROM messages WHERE session_id = ? AND is_copy = 0 AND ts BETWEEN ? AND ?`,
       )
       .get(sessionId, from, to);
-    const artifacts = this.db
+  }
+
+  /** Commits and PRs within a work block, allowing for ones recorded just after it ends. */
+  private artifactCounts(
+    sessionId: string,
+    from: number,
+    to: number,
+  ): { commits: number; prs: number } | null {
+    return this.db
       .query<{ commits: number; prs: number }, [string, number, number]>(
         `SELECT COALESCE(SUM(kind = 'commit'), 0) AS commits, COALESCE(SUM(kind = 'pr'), 0) AS prs
          FROM artifacts WHERE session_id = ? AND is_copy = 0 AND ts BETWEEN ? AND ?`,
       )
       .get(sessionId, from, to + ARTIFACT_GRACE_MS);
-    // Turns ending inside this block. A turn starts and ends within one block
-    const turns = this.db
-      .query<{ ms: number | null }, [string, number, number]>(
-        "SELECT SUM(duration_ms) AS ms FROM turns WHERE session_id = ? AND is_copy = 0 AND ts BETWEEN ? AND ?",
-      )
-      .get(sessionId, from, to);
-    const effort = this.db
-      .query<{ effort: string }, [string, number, number]>(
-        `SELECT effort FROM usage WHERE session_id = ? AND is_copy = 0 AND effort IS NOT NULL AND ts BETWEEN ? AND ?
+  }
+
+  /** Time Claude spent on turns ending inside a work block, or null if none were timed. */
+  private claudeMs(sessionId: string, from: number, to: number): number | null {
+    // A turn starts and ends within one block, so its end places it
+    return (
+      this.db
+        .query<{ ms: number | null }, [string, number, number]>(
+          "SELECT SUM(duration_ms) AS ms FROM turns WHERE session_id = ? AND is_copy = 0 AND ts BETWEEN ? AND ?",
+        )
+        .get(sessionId, from, to)?.ms ?? null
+    );
+  }
+
+  /** The effort level behind most of the output in a work block, or null if none was recorded. */
+  private dominantEffort(sessionId: string, from: number, to: number): string | null {
+    return (
+      this.db
+        .query<{ effort: string }, [string, number, number]>(
+          `SELECT effort FROM usage WHERE session_id = ? AND is_copy = 0 AND effort IS NOT NULL AND ts BETWEEN ? AND ?
          GROUP BY effort ORDER BY SUM(output) DESC LIMIT 1`,
-      )
-      .get(sessionId, from, to);
-    return {
-      commits: artifacts?.commits ?? 0,
-      prs: artifacts?.prs ?? 0,
-      filesEdited: m?.filesEdited ?? 0,
-      toolCalls: m?.toolCalls ?? 0,
-      subagents: m?.subagents ?? 0,
-      toolErrors: m?.toolErrors ?? 0,
-      interrupts: m?.interrupts ?? 0,
-      apiErrors: m?.apiErrors ?? 0,
-      compactions: m?.compactions ?? 0,
-      claudeMs: turns?.ms ?? null,
-      effort: effort?.effort ?? null,
-    };
+        )
+        .get(sessionId, from, to)?.effort ?? null
+    );
   }
 
   /**
@@ -637,7 +622,109 @@ export function excerpt(text: string, term: string): string {
   return `${from > 0 ? "…" : ""}${flat.slice(from, to)}${to < flat.length ? "…" : ""}`;
 }
 
+/** Splits a `fileId:seq` cursor; a missing or malformed one starts from the beginning. */
 function parseCursor(cursor: string | null | undefined): [number, number] {
   const m = /^(\d+):(\d+)$/.exec(cursor ?? "");
   return m ? [Number(m[1]), Number(m[2])] : [-1, -1];
+}
+
+/** Every place a section can match, as (session, section start, field, text) rows. */
+const SEARCH_SOURCES = `
+      SELECT g.session_id AS sid, g.start, 'headline' AS field, COALESCE(sm.headline, g.fallback_title) AS text
+        FROM segments g LEFT JOIN summaries sm ON sm.session_id = g.session_id AND sm.start = g.start
+      UNION ALL
+      SELECT session_id, start, 'summary', body FROM summaries WHERE body != ''
+      UNION ALL
+      SELECT g.session_id, g.start, 'title',
+             COALESCE(s.custom_title, '') || char(10) || COALESCE(s.agent_name, '') || char(10) ||
+             COALESCE(s.ai_title, '') || char(10) || COALESCE(s.label, '')
+        FROM segments g JOIN sessions s ON s.id = g.session_id
+      UNION ALL
+      SELECT g.session_id, g.start, 'branch', s.branch
+        FROM segments g JOIN sessions s ON s.id = g.session_id WHERE s.branch != 'HEAD'
+      UNION ALL
+      SELECT g.session_id, g.start, a.kind, COALESCE(a.title, '') || char(10) || a.ref
+        FROM artifacts a JOIN segments g ON g.session_id = a.session_id
+         AND a.ts BETWEEN g.start AND g.end + ${ARTIFACT_GRACE_MS}
+       WHERE a.is_copy = 0
+      UNION ALL
+      SELECT g.session_id, g.start, CASE m.kind WHEN 'prompt' THEN 'prompt' ELSE 'reply' END, m.text
+        FROM messages m JOIN segments g ON g.session_id = m.session_id AND m.ts BETWEEN g.start AND g.end
+       WHERE m.kind IN ('prompt', 'assistant') AND m.agent_id IS NULL AND m.is_copy = 0`;
+
+/** CASE arms ordering fields by `SEARCH_FIELDS`, so the most telling match comes first. */
+const SEARCH_FIELD_RANK = SEARCH_FIELDS.map((f, i) => `WHEN '${f}' THEN ${i}`).join(" ");
+
+/** A matching section with the session fields its headline falls back to. */
+interface SearchRow {
+  sid: string;
+  start: number;
+  end: number;
+  project_id: number | null;
+  label: string | null;
+  headline: string | null;
+  fallback_title: string | null;
+  custom_title: string | null;
+  agent_name: string | null;
+  ai_title: string | null;
+  first_prompt: string | null;
+  field: SearchField;
+  text: string;
+}
+
+/** The query's lowercased, space-separated terms, up to `SEARCH_MAX_TERMS`. */
+function searchTerms(query: string): string[] {
+  return query.toLowerCase().split(/\s+/).filter(Boolean).slice(0, SEARCH_MAX_TERMS);
+}
+
+/** A LIKE pattern matching `term` anywhere, with LIKE's wildcards and escape character escaped. */
+function likePattern(term: string): string {
+  return `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+}
+
+/**
+ * Search SQL for `termCount` terms bound as ?1..?n (from `likePattern`). Only the term count and
+ * the internal `limit` shape the SQL; the terms themselves are always bound parameters.
+ */
+function searchSql(termCount: number, limit: number): string {
+  const conds = Array.from(
+    { length: termCount },
+    (_, i) => `MAX(lower(src.text) LIKE ?${i + 1} ESCAPE '\\')`,
+  ).join(" AND ");
+  return `WITH src AS (${SEARCH_SOURCES}),
+         matched AS (
+           SELECT src.sid, src.start FROM src
+           JOIN sessions s ON s.id = src.sid AND s.prompt_count > 0
+           GROUP BY src.sid, src.start HAVING ${conds}
+         ),
+         best AS (
+           SELECT src.sid, src.start, src.field, src.text,
+                  ROW_NUMBER() OVER (PARTITION BY src.sid, src.start
+                                     ORDER BY CASE src.field ${SEARCH_FIELD_RANK} END) AS n
+           FROM src JOIN matched USING (sid, start)
+           WHERE lower(src.text) LIKE ?1 ESCAPE '\\'
+         )
+         SELECT b.sid, b.start, g.end, s.project_id, s.label, sm.headline, g.fallback_title,
+                s.custom_title, s.agent_name, s.ai_title, s.first_prompt, b.field, b.text
+         FROM best b
+         JOIN segments g ON g.session_id = b.sid AND g.start = b.start
+         JOIN sessions s ON s.id = b.sid
+         LEFT JOIN summaries sm ON sm.session_id = b.sid AND sm.start = b.start
+         WHERE b.n = 1
+         ORDER BY b.start DESC
+         LIMIT ${limit + 1}`;
+}
+
+/** A search row as the API reports it, with a snippet around `firstTerm` unless the headline matched. */
+function toSearchHit(r: SearchRow, firstTerm: string): SearchHit {
+  return {
+    sessionId: r.sid,
+    projectId: r.project_id,
+    label: r.label,
+    start: r.start,
+    end: r.end,
+    headline: sectionHeadline(r, title(r)),
+    field: r.field,
+    snippet: r.field === "headline" ? "" : excerpt(r.text, firstTerm),
+  };
 }

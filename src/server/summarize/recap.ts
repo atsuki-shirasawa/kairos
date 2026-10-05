@@ -72,23 +72,7 @@ export function loadRecapInput(db: Database, t: RecapTarget): RecapInput | null 
     .all(t.projectId, t.from, t.to);
   if (rows.length === 0) return null;
 
-  const artifacts = db.query<
-    { kind: string; ref: string; title: string | null },
-    [string, number, number]
-  >(
-    `SELECT kind, ref, title FROM artifacts
-     WHERE session_id = ? AND is_copy = 0 AND ts BETWEEN ? AND ? ORDER BY ts`,
-  );
-  const prs = new Map<string, string | null>();
-  const commits: string[] = [];
-  for (const r of rows) {
-    for (const a of artifacts.all(r.session_id, r.start, r.end + ARTIFACT_GRACE_MS)) {
-      if (a.kind === "pr") {
-        if (!prs.has(a.ref)) prs.set(a.ref, a.title);
-      } else if (a.title && commits.length < MAX_COMMITS)
-        commits.push(a.title.split("\n")[0] ?? "");
-    }
-  }
+  const { prs, commits } = collectArtifacts(db, rows);
   return {
     projectName: project.name,
     from: t.from,
@@ -99,9 +83,34 @@ export function loadRecapInput(db: Database, t: RecapTarget): RecapInput | null 
       headline: (r.headline ?? r.title ?? "(untitled)").split("\n")[0] ?? "",
       body: r.body,
     })),
-    prs: [...prs].map(([ref, title]) => ({ ref, title })),
+    prs,
     commits,
   };
+}
+
+/** PRs (first title per ref) and commit subjects made during the sections, in time order. */
+function collectArtifacts(
+  db: Database,
+  sections: { session_id: string; start: number; end: number }[],
+): Pick<RecapInput, "prs" | "commits"> {
+  const artifacts = db.query<
+    { kind: string; ref: string; title: string | null },
+    [string, number, number]
+  >(
+    `SELECT kind, ref, title FROM artifacts
+     WHERE session_id = ? AND is_copy = 0 AND ts BETWEEN ? AND ? ORDER BY ts`,
+  );
+  const prs = new Map<string, string | null>();
+  const commits: string[] = [];
+  for (const r of sections) {
+    for (const a of artifacts.all(r.session_id, r.start, r.end + ARTIFACT_GRACE_MS)) {
+      if (a.kind === "pr") {
+        if (!prs.has(a.ref)) prs.set(a.ref, a.title);
+      } else if (a.title && commits.length < MAX_COMMITS)
+        commits.push(a.title.split("\n")[0] ?? "");
+    }
+  }
+  return { prs: [...prs].map(([ref, title]) => ({ ref, title })), commits };
 }
 
 /** Fingerprint of the input. A stored recap whose hash differs was written before the work changed. */
