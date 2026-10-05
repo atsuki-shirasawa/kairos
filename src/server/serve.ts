@@ -7,7 +7,9 @@ import { openDb } from "./db/index.ts";
 import { EventHub } from "./events.ts";
 import { Ingester } from "./ingest/ingester.ts";
 import { watchProjects } from "./ingest/watcher.ts";
-import { DEFAULT_CLAUDE_DIR, DEFAULT_DB_PATH } from "./paths.ts";
+import { DATA_DIR, DEFAULT_CLAUDE_DIR, DEFAULT_DB_PATH } from "./paths.ts";
+import { runClaude } from "./summarize/claude.ts";
+import { DEFAULT_MODEL, Summarizer } from "./summarize/summarizer.ts";
 
 const WEB_DIST = join(import.meta.dir, "../../dist/web");
 
@@ -15,6 +17,10 @@ export interface ServeOptions {
   port?: number;
   claudeDir?: string;
   dbPath?: string;
+  /** 要約に使うモデル（claude --model に渡す）。 */
+  summaryModel?: string;
+  /** false なら要約を自動では作らない（ドロワーから頼んだときだけ作る）。 */
+  autoSummary?: boolean;
 }
 
 /**
@@ -24,7 +30,18 @@ export async function serve(opts: ServeOptions = {}): Promise<void> {
   const db = openDb(opts.dbPath ?? DEFAULT_DB_PATH);
   const events = new EventHub();
   const ingester = new Ingester(db, join(opts.claudeDir ?? DEFAULT_CLAUDE_DIR, "projects"));
-  const app = createApp({ db, events });
+  const model = opts.summaryModel ?? DEFAULT_MODEL;
+  const summarizer = new Summarizer(
+    db,
+    (prompt) => runClaude(prompt, { model, cwd: join(DATA_DIR, "summarizer") }),
+    {
+      model,
+      auto: opts.autoSummary ?? true,
+      onUpdated: (t) =>
+        events.publish({ type: "summary.updated", sessionId: t.sessionId, start: t.start }),
+    },
+  );
+  const app = createApp({ db, events, summarizer });
 
   // ビルド済みの Web があれば配信する。開発中は Vite が配信し、/api だけここへプロキシされる。
   // 画面は / だけ（状態はクエリで持つ）なので、SPA 用のフォールバックは置かない。
@@ -46,12 +63,15 @@ export async function serve(opts: ServeOptions = {}): Promise<void> {
   );
   if (stats.sessions.size) events.publish({ type: "sessions.updated", ids: [...stats.sessions] });
 
-  const stopWatching = watchProjects(ingester, (ids) =>
-    events.publish({ type: "sessions.updated", ids }),
-  );
+  const stopWatching = watchProjects(ingester, (ids) => {
+    events.publish({ type: "sessions.updated", ids });
+    summarizer.poke();
+  });
+  summarizer.start();
 
   const shutdown = () => {
     stopWatching();
+    summarizer.stop();
     server.stop(true);
     db.close();
     process.exit(0);

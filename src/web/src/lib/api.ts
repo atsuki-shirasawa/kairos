@@ -52,6 +52,13 @@ export const api = {
 
   session: (id: string) => request<SessionDetail>(`/api/sessions/${encodeURIComponent(id)}`),
 
+  requestSummary: (id: string, start: number) =>
+    request<{ queued: true }>(`/api/sessions/${encodeURIComponent(id)}/sections/${start}/summary`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    }),
+
   messages: (
     id: string,
     opts: { agent?: string; cursor?: string | null; limit?: number; copies?: boolean } = {},
@@ -70,7 +77,7 @@ export const api = {
 export function subscribe(onEvent: (event: ServerEvent) => void): () => void {
   const source = new EventSource("/api/events");
   const handler = (e: MessageEvent<string>) => onEvent(JSON.parse(e.data) as ServerEvent);
-  const types: ServerEvent["type"][] = ["sessions.updated", "ingest.progress"];
+  const types: ServerEvent["type"][] = ["sessions.updated", "summary.updated", "ingest.progress"];
   for (const t of types) source.addEventListener(t, handler);
   return () => source.close();
 }

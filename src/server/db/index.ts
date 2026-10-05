@@ -108,6 +108,27 @@ const MIGRATIONS: string[] = [
     created_at     INTEGER NOT NULL
   );
   `,
+  // 2: 要約をセッション単位からセクション（作業ブロック）単位にする
+  `
+  ALTER TABLE segments ADD COLUMN prompt_count INTEGER NOT NULL DEFAULT 0;
+  -- LLM で要約しない短いセクションの見出し（最初の発言、なければ Claude の最後の返答）
+  ALTER TABLE segments ADD COLUMN fallback_title TEXT;
+
+  DROP TABLE summaries;
+  CREATE TABLE summaries (
+    session_id     TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    start          INTEGER NOT NULL,
+    headline       TEXT NOT NULL,
+    body           TEXT NOT NULL,
+    model          TEXT NOT NULL,
+    covered_until  INTEGER NOT NULL,
+    created_at     INTEGER NOT NULL,
+    PRIMARY KEY (session_id, start)
+  );
+
+  -- 小さな設定値（派生データのバージョンなど）
+  CREATE TABLE kv (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

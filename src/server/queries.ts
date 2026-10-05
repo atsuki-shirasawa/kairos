@@ -6,10 +6,11 @@ import type {
   MessagesResponse,
   Project,
   ProjectUpdate,
+  Section,
   SessionDetail,
   Subagent,
-  Summary,
 } from "../shared/api.ts";
+import { isSummarizable } from "../shared/sections.ts";
 
 /** 最後の活動からこの時間以内なら「作業中」とみなす。 */
 export const ACTIVE_WINDOW_MS = 5 * 60_000;
@@ -26,6 +27,46 @@ interface ProjectRow {
 
 const toProject = (r: ProjectRow): Project => ({ ...r, hidden: r.hidden === 1 });
 
+export interface SummaryState {
+  isPending(sessionId: string, start: number): boolean;
+  errorOf(sessionId: string, start: number): string | null;
+}
+
+interface SessionRow {
+  id: string;
+  project_id: number | null;
+  launch_cwd: string | null;
+  label: string | null;
+  branch: string | null;
+  custom_title: string | null;
+  agent_name: string | null;
+  ai_title: string | null;
+  first_prompt: string | null;
+  away_summary: string | null;
+  continued_in: string | null;
+  started_at: number | null;
+  ended_at: number | null;
+  prompt_count: number;
+  scheduled_runs: number;
+}
+
+interface SectionRow {
+  start: number;
+  end: number;
+  prompt_count: number;
+  fallback_title: string | null;
+  headline: string | null;
+  body: string | null;
+  model: string | null;
+  covered_until: number | null;
+  created_at: number | null;
+}
+
+/** セクションと、あればその要約。 */
+const SECTION_SELECT = `SELECT g.start, g.end, g.prompt_count, g.fallback_title,
+         sm.headline, sm.body, sm.model, sm.covered_until, sm.created_at
+  FROM segments g LEFT JOIN summaries sm ON sm.session_id = g.session_id AND sm.start = g.start`;
+
 /** タイトル: `/rename` の名前 > エージェント名 > Claude Code の自動タイトル > 最初の発言の 1 行目。 */
 function title(r: {
   custom_title: string | null;
@@ -41,6 +82,8 @@ export class Queries {
   constructor(
     private readonly db: Database,
     private readonly now: () => number = Date.now,
+    /** 要約の進み具合（Summarizer が答える）。 */
+    private readonly summaries: SummaryState = { isPending: () => false, errorOf: () => null },
   ) {}
 
   projects(): Project[] {
@@ -70,25 +113,8 @@ export class Queries {
   /** 作業ブロックが [from, to) と重なる、人の発言があるセッション。 */
   calendar(from: number, to: number): CalendarSession[] {
     const rows = this.db
-      .query<
-        {
-          id: string;
-          project_id: number | null;
-          label: string | null;
-          custom_title: string | null;
-          agent_name: string | null;
-          ai_title: string | null;
-          first_prompt: string | null;
-          headline: string | null;
-          started_at: number;
-          ended_at: number;
-          prompt_count: number;
-        },
-        [number, number]
-      >(
-        `SELECT s.id, s.project_id, s.label, s.custom_title, s.agent_name, s.ai_title, s.first_prompt,
-                sm.headline, s.started_at, s.ended_at, s.prompt_count
-         FROM sessions s LEFT JOIN summaries sm ON sm.session_id = s.id
+      .query<SessionRow, [number, number]>(
+        `SELECT s.* FROM sessions s
          WHERE s.prompt_count > 0
            AND EXISTS (SELECT 1 FROM segments g WHERE g.session_id = s.id AND g.start < ?2 AND g.end >= ?1)
          ORDER BY s.started_at`,
@@ -96,54 +122,33 @@ export class Queries {
       .all(from, to);
     if (rows.length === 0) return [];
 
-    const segments = new Map<string, [number, number][]>();
-    const segQuery = this.db.query<{ start: number; end: number }, [string, number, number]>(
-      "SELECT start, end FROM segments WHERE session_id = ?1 AND start < ?3 AND end >= ?2 ORDER BY start",
+    const segQuery = this.db.query<SectionRow, [string, number, number]>(
+      `${SECTION_SELECT} WHERE g.session_id = ?1 AND g.start < ?3 AND g.end >= ?2 ORDER BY g.start`,
     );
-    for (const r of rows) {
-      segments.set(
-        r.id,
-        segQuery.all(r.id, from, to).map((g) => [g.start, g.end]),
-      );
-    }
     const now = this.now();
-    return rows.map((r) => ({
-      id: r.id,
-      projectId: r.project_id,
-      label: r.label,
-      title: title(r),
-      headline: r.headline,
-      startedAt: r.started_at,
-      endedAt: r.ended_at,
-      promptCount: r.prompt_count,
-      active: now - r.ended_at < ACTIVE_WINDOW_MS,
-      segments: segments.get(r.id) ?? [],
-    }));
+    return rows.map((r) => {
+      const fallback = title(r);
+      return {
+        id: r.id,
+        projectId: r.project_id,
+        label: r.label,
+        title: fallback,
+        startedAt: r.started_at ?? 0,
+        endedAt: r.ended_at ?? 0,
+        promptCount: r.prompt_count,
+        active: r.ended_at !== null && now - r.ended_at < ACTIVE_WINDOW_MS,
+        segments: segQuery.all(r.id, from, to).map((g) => ({
+          start: g.start,
+          end: g.end,
+          headline: g.headline ?? g.fallback_title ?? fallback,
+          summarized: g.headline !== null,
+        })),
+      };
+    });
   }
 
   session(id: string): SessionDetail | null {
-    const s = this.db
-      .query<
-        {
-          id: string;
-          project_id: number | null;
-          launch_cwd: string | null;
-          label: string | null;
-          branch: string | null;
-          custom_title: string | null;
-          agent_name: string | null;
-          ai_title: string | null;
-          first_prompt: string | null;
-          away_summary: string | null;
-          continued_in: string | null;
-          started_at: number | null;
-          ended_at: number | null;
-          prompt_count: number;
-          scheduled_runs: number;
-        },
-        [string]
-      >("SELECT * FROM sessions WHERE id = ?")
-      .get(id);
+    const s = this.db.query<SessionRow, [string]>("SELECT * FROM sessions WHERE id = ?").get(id);
     if (!s) return null;
 
     const project = s.project_id
@@ -160,13 +165,34 @@ export class Queries {
       .all(id);
     const subagents = this.db
       .query<Subagent, [string]>(
-        `SELECT id, agent_type AS agentType, description, tool_use_id AS toolUseId
-         FROM subagents WHERE session_id = ? ORDER BY rowid`,
+        `SELECT a.id, a.agent_type AS agentType, a.description, a.tool_use_id AS toolUseId,
+                MIN(m.ts) AS startedAt, MAX(m.ts) AS endedAt
+         FROM subagents a LEFT JOIN messages m ON m.session_id = a.session_id AND m.agent_id = a.id
+         WHERE a.session_id = ? GROUP BY a.id ORDER BY startedAt`,
       )
       .all(id);
     const prev = this.db
       .query<{ id: string }, [string]>("SELECT id FROM sessions WHERE continued_in = ? LIMIT 1")
       .get(id);
+    const fallback = title(s);
+    const sections = this.db
+      .query<SectionRow, [string]>(`${SECTION_SELECT} WHERE g.session_id = ? ORDER BY g.start`)
+      .all(id)
+      .map(
+        (g): Section => ({
+          start: g.start,
+          end: g.end,
+          promptCount: g.prompt_count,
+          headline: g.headline ?? g.fallback_title ?? fallback,
+          body: g.body,
+          model: g.model,
+          createdAt: g.created_at,
+          stale: g.covered_until !== null && g.covered_until < g.end,
+          summarizable: isSummarizable({ start: g.start, end: g.end, promptCount: g.prompt_count }),
+          pending: this.summaries.isPending(id, g.start),
+          error: this.summaries.errorOf(id, g.start),
+        }),
+      );
 
     return {
       id: s.id,
@@ -174,8 +200,8 @@ export class Queries {
       launchCwd: s.launch_cwd,
       label: s.label,
       branch: s.branch,
-      title: title(s),
-      summary: this.summary(id, s.ended_at),
+      title: fallback,
+      sections,
       awaySummary: s.away_summary,
       startedAt: s.started_at,
       endedAt: s.ended_at,
@@ -187,32 +213,6 @@ export class Queries {
       commits: artifacts.filter((a) => a.kind === "commit"),
       prs: artifacts.filter((a) => a.kind === "pr"),
       subagents,
-    };
-  }
-
-  private summary(id: string, endedAt: number | null): Summary | null {
-    const r = this.db
-      .query<
-        {
-          headline: string;
-          body: string;
-          model: string;
-          covered_until: number | null;
-          created_at: number;
-        },
-        [string]
-      >(
-        "SELECT headline, body, model, covered_until, created_at FROM summaries WHERE session_id = ?",
-      )
-      .get(id);
-    if (!r) return null;
-    return {
-      headline: r.headline,
-      body: r.body,
-      model: r.model,
-      coveredUntil: r.covered_until,
-      createdAt: r.created_at,
-      stale: endedAt !== null && (r.covered_until ?? 0) < endedAt,
     };
   }
 

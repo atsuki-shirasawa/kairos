@@ -95,6 +95,8 @@ sequenceDiagram
 
 ## 4. 要約の流れ
 
+要約はセクション（カレンダーの 1 ブロック）単位。1 セッションが最大 15 ブロックに分かれる実データでは、セッション単位の要約だと同じ見出しが並んでしまうため。
+
 ```mermaid
 sequenceDiagram
     participant S as Summarizer
@@ -102,30 +104,31 @@ sequenceDiagram
     participant C as claude CLI
     participant UI as Web UI
 
-    loop 1 分ごと + touched イベント
-        S->>DB: 要約対象を探す
-        Note over S,DB: 最終活動から 30 分以上経過<br/>かつ要約なし or covered_until < ended_at<br/>かつ直近 7 日以内
+    loop 1 分ごと + 取り込みのたび
+        S->>DB: 要約対象のセクションを探す（新しいものから）
+        Note over S,DB: 10 分以上 or 発言 2 回以上<br/>かつ 終わっている（最後の活動から 30 分 or 後ろに次のセクション）<br/>かつ 要約なし or covered_until < end<br/>かつ 直近 7 日以内
     end
-    S->>DB: messages から抜粋を作る（最大 6 万字・先頭と末尾を優先）
-    S->>C: stdin にプロンプト + 抜粋
+    S->>DB: そのセクションの messages から抜粋を作る（最大 6 万字・先頭と末尾を優先）
+    S->>C: プロンプト（セッション名・それまでのセクションの見出し・抜粋）
     C-->>S: 見出し + 本文（Markdown）
-    S->>DB: summaries を upsert（covered_until = ended_at）
-    S-->>UI: SSE: summary.updated [id]
+    S->>DB: summaries を upsert（キーは session_id + start、covered_until = end）
+    S-->>UI: SSE: summary.updated
 ```
 
-- 並列数は 1。失敗したら指数バックオフで最大 3 回まで再試行する
-- 7 日より前のセッションは、ドロワーを開いたとき（`POST /summary`）に優先キューへ積む
-- `claude` は専用の作業ディレクトリで実行し、`--tools ""`・`--strict-mcp-config`・`--setting-sources project` を付けて副作用をなくす
+- 並列数は 1。失敗したら理由を記録し、1 分・2 分・4 分おいて最大 3 回まで再試行する
+- 短いセクションと 7 日より前のセクションは、ドロワーのボタン（`POST /api/sessions/:id/sections/:start/summary`）で優先キューへ積める
+- 要約のないセクションの見出しは、取り込み時に計算する `segments.fallback_title`（最初の発言、なければ Claude の最後の返答の 1 行目）
+- `claude` は専用の作業ディレクトリで実行し、`--no-session-persistence`・`--tools ""`・`--strict-mcp-config`・`--setting-sources project` を付けて副作用をなくす
 
 ## 5. API
 
 | メソッド | パス | 内容 |
 |---|---|---|
 | GET | `/api/health` | 起動確認（Launcher が使う） |
-| GET | `/api/calendar?from&to` | 期間内の作業ブロック（セッション ID・プロジェクト・見出し・開始・終了・状態） |
-| GET | `/api/sessions/:id` | セッション詳細（要約・成果物・統計の最小限） |
+| GET | `/api/calendar?from&to` | 期間内のセッションと、そのセクション（開始・終了・見出し） |
+| GET | `/api/sessions/:id` | セッション詳細（セクションごとの要約・成果物・サブエージェント） |
 | GET | `/api/sessions/:id/messages?cursor&limit` | 会話をページングで取得 |
-| POST | `/api/sessions/:id/summary` | 要約の生成・再生成をキューに積む |
+| POST | `/api/sessions/:id/sections/:start/summary` | セクションの要約の生成・再生成を優先キューに積む（202） |
 | GET | `/api/projects` | プロジェクト一覧（色・非表示フラグ） |
 | PATCH | `/api/projects/:id` | 色・非表示の変更 |
 | GET | `/api/events` | SSE（`sessions.updated` / `summary.updated` / `ingest.progress`） |

@@ -12,7 +12,7 @@ P1（取り込み）の受け入れ基準として使う。「人の発言」は
 
 | # | セッション | 起動ディレクトリ | 見どころ | 期待値 |
 |---|---|---|---|---|
-| 1 | `1111…` basic | `/Users/me/dev/app` | 通常の作業。thinking、Edit、成功と失敗のコミット、PR、バックグラウンドタスクの通知、peer メッセージ、中断、`custom-title`、`away_summary` | 人の発言 3。タイトルは「ログイン機能」（`custom-title` > `ai-title`）。作業ブロック 2: 0–5 分、45–50.2 分。コミット 1（`1a2b3c4 feat: add login form`、失敗したものは数えない）。PR #42。振り返り文（`away_summary`）あり |
+| 1 | `1111…` basic | `/Users/me/dev/app` | 通常の作業。thinking、Edit、成功と失敗のコミット、PR、バックグラウンドタスクの通知、peer メッセージ、中断、`custom-title`、`away_summary` | 人の発言 3。タイトルは「ログイン機能」（`custom-title` > `ai-title`）。作業ブロック 2: 0–5 分、45–50.2 分。コミット 2（`1a2b3c4 feat: add login form` と、`-q` で作り `git log` で確かめた `9f8e7d6 fix: validate email`。失敗したものは数えない）。PR #42。振り返り文（`away_summary`）あり |
 | 2 | `2222…` loop | `/Users/me/dev/app` | `/loop 30m` と 4 回の自動実行。2 回目の実行中にタスク通知 | 人の発言 2。自動実行 4 回。作業ブロック 2: 0–1 分、150–151 分（自動実行の 30・60・90・120 分台は描かない。通知も自動実行のターンに含める） |
 | 3 | `3333…` headless | `/Users/me/tmp/probe` | `claude -p` 相当。`promptSource=sdk`、origin なし | 人の発言 0 → カレンダーに出さない |
 | 4 | `4444…` worktree | `/Users/me/dev/app/.claude/worktrees/fix-header` | worktree の中で起動 | プロジェクトは `/Users/me/dev/app`、補助ラベル `fix-header`。作業ブロック 200–202 分 |

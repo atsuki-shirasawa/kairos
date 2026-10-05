@@ -11,7 +11,7 @@ export interface Project {
   /** プロジェクトを表すパス（worktree は親リポジトリにまとめてある）。 */
   path: string;
   name: string;
-  /** `#rrggbb`。未設定ならフロントが既定の色を割り当てる。 */
+  /** パレットのキー（`p0`〜`p7`）。未設定ならフロントが ID から割り当てる。 */
   color: string | null;
   hidden: boolean;
 }
@@ -21,7 +21,14 @@ export interface ProjectUpdate {
   hidden?: boolean;
 }
 
-export type Segment = [start: number, end: number];
+/** カレンダーに描く 1 ブロック（セクション）。 */
+export interface CalendarSegment {
+  start: number;
+  end: number;
+  /** AI 要約の見出し。なければ最初の発言（または Claude の最後の返答）の 1 行目。 */
+  headline: string;
+  summarized: boolean;
+}
 
 /** カレンダーに描く 1 セッション。 */
 export interface CalendarSession {
@@ -30,14 +37,12 @@ export interface CalendarSession {
   /** worktree 名などの補助ラベル。 */
   label: string | null;
   title: string;
-  /** AI 要約の見出し。未生成なら null。 */
-  headline: string | null;
   startedAt: number;
   endedAt: number;
   promptCount: number;
   /** 最後の活動から間もない（作業中の可能性が高い）。 */
   active: boolean;
-  segments: Segment[];
+  segments: CalendarSegment[];
 }
 
 export interface CalendarResponse {
@@ -60,16 +65,30 @@ export interface Subagent {
   agentType: string | null;
   description: string | null;
   toolUseId: string | null;
+  /** 会話の最初と最後の時刻。 */
+  startedAt: number | null;
+  endedAt: number | null;
 }
 
-export interface Summary {
+/** セッションの中の 1 セクション（カレンダーの 1 ブロック）。 */
+export interface Section {
+  start: number;
+  end: number;
+  promptCount: number;
+  /** AI 要約の見出し。なければ最初の発言（または Claude の最後の返答）の 1 行目。 */
   headline: string;
-  body: string;
-  model: string;
-  coveredUntil: number | null;
-  createdAt: number;
-  /** 要約の後にセッションが続いている。 */
+  /** AI 要約の本文（Markdown）。未生成なら null。 */
+  body: string | null;
+  model: string | null;
+  createdAt: number | null;
+  /** 要約の後にセクションが続いている。 */
   stale: boolean;
+  /** LLM で要約する対象か（短いセクションは対象外）。 */
+  summarizable: boolean;
+  /** 要約を作っている最中。 */
+  pending: boolean;
+  /** 直近の要約に失敗した理由。 */
+  error: string | null;
 }
 
 export interface SessionDetail {
@@ -79,7 +98,8 @@ export interface SessionDetail {
   label: string | null;
   branch: string | null;
   title: string;
-  summary: Summary | null;
+  /** 時刻順のセクション。 */
+  sections: Section[];
   /** Claude Code が書いた振り返り文。AI 要約ができるまでの仮表示に使う。 */
   awaySummary: string | null;
   startedAt: number | null;
@@ -131,4 +151,5 @@ export interface MessagesResponse {
 /** `/api/events`（Server-Sent Events）で届くイベント。 */
 export type ServerEvent =
   | { type: "sessions.updated"; ids: string[] }
+  | { type: "summary.updated"; sessionId: string; start: number }
   | { type: "ingest.progress"; done: number; total: number };

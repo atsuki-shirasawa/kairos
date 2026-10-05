@@ -15,13 +15,17 @@ commands:
 
 options:
   --claude-dir <path>   Claude Code の設定ディレクトリ（既定: ${DEFAULT_CLAUDE_DIR}）
-  --db <path>           DB ファイル（既定: ${DEFAULT_DB_PATH}）`;
+  --db <path>           DB ファイル（既定: ${DEFAULT_DB_PATH}）
+  --summary-model <m>   要約に使うモデル（既定: haiku）
+  --no-auto-summary     要約を自動では作らない（ドロワーから頼んだときだけ作る）`;
 
 const { positionals, values } = parseArgs({
   allowPositionals: true,
   options: {
     "claude-dir": { type: "string", default: DEFAULT_CLAUDE_DIR },
     db: { type: "string", default: DEFAULT_DB_PATH },
+    "summary-model": { type: "string" },
+    "no-auto-summary": { type: "boolean" },
     help: { type: "boolean", short: "h" },
   },
 });
@@ -30,7 +34,12 @@ const [command] = positionals;
 
 switch (values.help ? undefined : command) {
   case "serve":
-    await serve({ claudeDir: values["claude-dir"], dbPath: values.db });
+    await serve({
+      claudeDir: values["claude-dir"],
+      dbPath: values.db,
+      ...(values["summary-model"] ? { summaryModel: values["summary-model"] } : {}),
+      autoSummary: !values["no-auto-summary"],
+    });
     break;
   case "ingest":
     ingest(values["claude-dir"], values.db);

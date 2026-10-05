@@ -88,17 +88,21 @@ describe("GET /api/calendar", () => {
   test("作業ブロック・タイトル・ラベルを返す", async () => {
     const res = await json<CalendarResponse>(`/api/calendar?from=${DAY_FROM}&to=${DAY_TO}`);
     const loop = res.sessions.find((s) => s.id === SID.loop);
-    expect(loop?.segments).toEqual([
+    expect(loop?.segments.map((g) => [g.start, g.end])).toEqual([
       [min(0), min(1)],
       [min(150), min(151)],
     ]);
+    // 要約がないセクションの見出しは、最初の発言（なければコマンド）の 1 行目
+    expect(loop?.segments.map((g) => g.headline)).toEqual(["/loop 30m", "ループ止めて"]);
     expect(res.sessions.find((s) => s.id === SID.basic)?.title).toBe("ログイン機能");
     expect(res.sessions.find((s) => s.id === SID.worktree)?.label).toBe("fix-header");
   });
 
   test("期間に一部だけ重なる作業ブロックも返す", async () => {
     const res = await json<CalendarResponse>(`/api/calendar?from=${min(4)}&to=${min(46)}`);
-    expect(res.sessions.find((s) => s.id === SID.basic)?.segments).toEqual([
+    expect(
+      res.sessions.find((s) => s.id === SID.basic)?.segments.map((g) => [g.start, g.end]),
+    ).toEqual([
       [min(0), min(5)],
       [min(45), min(50.2)],
     ]);
@@ -121,8 +125,8 @@ describe("GET /api/calendar", () => {
 describe("プロジェクト", () => {
   test("色と非表示を変更できる", async () => {
     const [app1] = (await json<Project[]>("/api/projects")).filter((p) => p.name === "app");
-    const res = await patch(`/api/projects/${app1?.id}`, { color: "#3366ff", hidden: true });
-    expect(await res.json()).toMatchObject({ name: "app", color: "#3366ff", hidden: true });
+    const res = await patch(`/api/projects/${app1?.id}`, { color: "p3", hidden: true });
+    expect(await res.json()).toMatchObject({ name: "app", color: "p3", hidden: true });
     expect((await patch(`/api/projects/${app1?.id}`, { color: null })).status).toBe(200);
   });
 
@@ -142,10 +146,9 @@ describe("GET /api/sessions/:id", () => {
       branch: "feature/login",
       promptCount: 3,
       awaySummary: "ログインフォームを実装して PR #42 を作成した。次はレビュー対応。",
-      summary: null,
     });
     expect(d.project?.path).toBe("/Users/me/dev/app");
-    expect(d.commits.map((c) => c.ref)).toEqual(["1a2b3c4"]);
+    expect(d.commits.map((c) => c.ref)).toEqual(["1a2b3c4", "9f8e7d6"]);
     expect(d.prs.map((p) => p.title)).toEqual(["#42 me/app"]);
   });
 
@@ -163,20 +166,59 @@ describe("GET /api/sessions/:id", () => {
         agentType: "code-reviewer",
         description: "PR #42 のレビュー",
         toolUseId: "toolu_6666660001",
+        startedAt: min(300.6),
+        endedAt: min(304.5),
       },
     ]);
   });
 
-  test("要約があれば見出しと古さを返す", async () => {
-    db.query("INSERT INTO summaries VALUES (?, 'ログイン実装', '- 目的: …', 'haiku', ?, ?)").run(
+  test("セクションごとの要約と、要約のないセクションの見出し", async () => {
+    db.query(
+      "INSERT INTO summaries VALUES (?, ?, 'ログインフォームの実装', '- 目的: …', 'haiku', ?, ?)",
+    ).run(
       SID.basic,
-      min(5),
+      min(0),
+      min(4), // セクションの終わり（5 分）より前までしか含んでいない
       now,
     );
     const d = await json<SessionDetail>(`/api/sessions/${SID.basic}`);
-    expect(d.summary).toMatchObject({ headline: "ログイン実装", stale: true }); // 45 分以降の作業を含んでいない
+    expect(d.sections.map((x) => [x.start, x.end])).toEqual([
+      [min(0), min(5)],
+      [min(45), min(50.2)],
+    ]);
+    expect(d.sections[0]).toMatchObject({
+      headline: "ログインフォームの実装",
+      body: "- 目的: …",
+      stale: true,
+      promptCount: 1,
+      summarizable: false,
+      pending: false,
+      error: null,
+    });
+    expect(d.sections[1]).toMatchObject({
+      headline: "PR を作って",
+      body: null,
+      promptCount: 2,
+      summarizable: true,
+    });
     const cal = await json<CalendarResponse>(`/api/calendar?from=${DAY_FROM}&to=${DAY_TO}`);
-    expect(cal.sessions.find((s) => s.id === SID.basic)?.headline).toBe("ログイン実装");
+    expect(
+      cal.sessions.find((s) => s.id === SID.basic)?.segments.map((g) => [g.headline, g.summarized]),
+    ).toEqual([
+      ["ログインフォームの実装", true],
+      ["PR を作って", false],
+    ]);
+  });
+
+  test("要約の依頼: 要約が無効なら 503、セクションがなければ 404", async () => {
+    const post = (path: string) =>
+      app.request(`${URL_BASE}${path}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+      });
+    expect((await post(`/api/sessions/${SID.basic}/sections/${min(0)}/summary`)).status).toBe(503);
+    expect((await post(`/api/sessions/${SID.basic}/sections/123/summary`)).status).toBe(404);
   });
 
   test("存在しないセッションは 404", async () => {

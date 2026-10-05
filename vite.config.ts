@@ -22,5 +22,7 @@ export default defineConfig({
   build: {
     outDir: r("./dist/web"),
     emptyOutDir: true,
+    // ローカルで配信するだけなので、1 本のバンドルで構わない（gzip 後 200KB 程度）
+    chunkSizeWarningLimit: 800,
   },
 });

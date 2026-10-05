@@ -2,6 +2,7 @@ import type { Database, Statement } from "bun:sqlite";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { classifyUser, commandText } from "./classify.ts";
+import { extractCommit, GIT_COMMIT_RE } from "./commits.ts";
 import { resolveProject, worktreeName } from "./project.ts";
 import { readNewLines } from "./reader.ts";
 import {
@@ -18,11 +19,15 @@ import {
 import { DEFAULT_GAP_MS, toSegments } from "./segments.ts";
 
 /** 解釈ルールを変えたら上げる。上がると、元ログが残っているファイルは読み直される。 */
-export const PARSER_VERSION = 1;
+export const PARSER_VERSION = 2;
+/**
+ * messages から計算する派生データ（集計・作業ブロック）の計算方法を変えたら上げる。
+ * 上がると全セッションを計算し直す。元ログが消えたセッションも DB の messages から作り直せる。
+ */
+export const DERIVED_VERSION = 2;
+const FALLBACK_TITLE_CHARS = 120;
 
 const LIMIT = { text: 20_000, toolInput: 4_000, toolResult: 4_000, short: 2_000 };
-const GIT_COMMIT_RE = /\bgit\s+(?:-[Cc]\s+\S+\s+)*commit\b/;
-const COMMIT_OUT_RE = /^\[[^\]\n]+? (?:\(root-commit\) )?([0-9a-f]{7,40})\] (.+)$/m;
 const RECAP_SUFFIX = /\s*\(disable recaps in \/config\)\s*$/;
 
 export type LogFile =
@@ -50,8 +55,8 @@ export function classifyPath(projectsDir: string, path: string): LogFile | null 
 interface FileState {
   /** 自動実行（/loop・cron）が起こしたターンの最中か。 */
   autoTurn: boolean;
-  /** 結果待ちの git commit の tool_use id。 */
-  pendingCommits: string[];
+  /** 結果待ちの git commit。tool_use id → コマンド。 */
+  pendingCommits: Record<string, string>;
 }
 
 interface Ctx {
@@ -61,6 +66,13 @@ interface Ctx {
   state: FileState;
   launchKnown: boolean;
   branchKnown: boolean;
+}
+
+interface ActivityRow {
+  ts: number;
+  is_scheduled: number;
+  kind: string;
+  text: string | null;
 }
 
 interface StateRow {
@@ -98,6 +110,7 @@ export class Ingester {
   /** projects 配下の全ファイルを取り込む。セッション本体 → サブエージェントの順に処理する。 */
   scan(onProgress?: (done: number, total: number) => void): ScanStats {
     const started = performance.now();
+    this.refreshAllIfOutdated();
     const files = this.listFiles();
     const sessions = new Set<string>();
     let changed = 0;
@@ -119,6 +132,7 @@ export class Ingester {
     sliceMs = 30,
   ): Promise<ScanStats> {
     const started = performance.now();
+    this.refreshAllIfOutdated();
     const files = this.listFiles();
     const sessions = new Set<string>();
     let changed = 0;
@@ -179,7 +193,7 @@ export class Ingester {
     this.db.transaction(() => {
       this.q.ensureSession.run(file.sessionId);
       let fileId: number;
-      let state: FileState = { autoTurn: false, pendingCommits: [] };
+      let state: FileState = { autoTurn: false, pendingCommits: {} };
       if (st) {
         fileId = st.id;
         if (res.restarted) {
@@ -355,12 +369,14 @@ export class Ingester {
         toolUseId,
         isError,
       });
-      const pending = toolUseId ? ctx.state.pendingCommits.indexOf(toolUseId) : -1;
-      if (pending === -1) return;
-      ctx.state.pendingCommits.splice(pending, 1);
-      const m = isError || interrupted ? null : COMMIT_OUT_RE.exec(output);
-      if (m?.[1])
-        this.q.insertArtifact.run(ctx.sessionId, "commit", m[1], m[2] ?? null, ts, ctx.fileId);
+      const command = toolUseId ? ctx.state.pendingCommits[toolUseId] : undefined;
+      if (!toolUseId || command === undefined) return;
+      delete ctx.state.pendingCommits[toolUseId];
+      const commit = isError || interrupted ? null : extractCommit(command, output);
+      if (!commit) return;
+      // SHA が分からないときは件名で識別する（同じ件名の重複は 1 件にまとまる）
+      const ref = commit.sha ?? `subject:${commit.subject}`;
+      this.q.insertArtifact.run(ctx.sessionId, "commit", ref, commit.subject, ts, ctx.fileId);
     });
   }
 
@@ -386,8 +402,9 @@ export class Ingester {
           toolUseId,
           meta: clip(JSON.stringify(input, null, 2), LIMIT.toolInput),
         });
-        if (name === "Bash" && toolUseId && GIT_COMMIT_RE.test(str(input.command) ?? "")) {
-          ctx.state.pendingCommits.push(toolUseId);
+        const command = str(input.command) ?? "";
+        if (name === "Bash" && toolUseId && GIT_COMMIT_RE.test(command)) {
+          ctx.state.pendingCommits[toolUseId] = command.slice(0, LIMIT.short);
         }
       }
       // thinking は保存しない
@@ -472,13 +489,42 @@ export class Ingester {
       sessionId,
     );
 
-    const rows = this.q.activity.all(sessionId) as { ts: number; is_scheduled: number }[];
+    const rows = this.q.activity.all(sessionId) as ActivityRow[];
     // 自動実行のターンは描かない。自動実行しかないセッションは見えなくならないよう全体を使う。
     const human = rows.filter((r) => r.is_scheduled === 0);
-    const times = (human.length ? human : rows).map((r) => r.ts);
+    const used = human.length ? human : rows;
     this.q.clearSegments.run(sessionId);
-    for (const [start, end] of toSegments(times, this.gapMs))
-      this.q.insertSegment.run(sessionId, start, end);
+    for (const [start, end] of toSegments(
+      used.map((r) => r.ts),
+      this.gapMs,
+    )) {
+      const inside = used.filter((r) => r.ts >= start && r.ts <= end);
+      const prompts = inside.filter((r) => r.kind === "prompt" || r.kind === "command");
+      const firstPrompt = prompts.find((r) => r.kind === "prompt") ?? prompts[0];
+      const lastReply = inside.findLast((r) => r.kind === "assistant");
+      const title =
+        (firstPrompt ?? lastReply)?.text?.trim().split("\n")[0]?.slice(0, FALLBACK_TITLE_CHARS) ??
+        null;
+      this.q.insertSegment.run(sessionId, start, end, prompts.length, title);
+    }
+  }
+
+  /** 派生データの計算方法が変わっていたら、全セッションを計算し直す。 */
+  refreshAllIfOutdated(): boolean {
+    const row = this.db
+      .query<{ value: string }, []>("SELECT value FROM kv WHERE key = 'derived_version'")
+      .get();
+    if (row && Number(row.value) === DERIVED_VERSION) return false;
+    this.db.transaction(() => {
+      for (const { id } of this.db.query<{ id: string }, []>("SELECT id FROM sessions").all())
+        this.refreshSession(id);
+      this.db
+        .query(
+          "INSERT INTO kv (key, value) VALUES ('derived_version', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        )
+        .run(String(DERIVED_VERSION));
+    })();
+    return true;
   }
 }
 
@@ -558,11 +604,16 @@ function prepareStatements(db: Database) {
     updateAggregate: p(
       "UPDATE sessions SET started_at = ?, ended_at = ?, prompt_count = ?, scheduled_runs = ?, first_prompt = ? WHERE id = ?",
     ),
+    // 作業ブロックの計算に使う活動。見出し用に、発言と返答だけは本文の先頭も取る
     activity: p(
-      "SELECT ts, is_scheduled FROM messages WHERE session_id = ? AND agent_id IS NULL AND is_copy = 0 AND ts IS NOT NULL ORDER BY ts",
+      `SELECT ts, is_scheduled, kind,
+              CASE WHEN kind IN ('prompt', 'command', 'assistant') THEN substr(text, 1, 400) END AS text
+       FROM messages WHERE session_id = ? AND agent_id IS NULL AND is_copy = 0 AND ts IS NOT NULL ORDER BY ts, file_id, seq`,
     ),
     clearSegments: p("DELETE FROM segments WHERE session_id = ?"),
-    insertSegment: p("INSERT OR IGNORE INTO segments (session_id, start, end) VALUES (?, ?, ?)"),
+    insertSegment: p(
+      "INSERT OR IGNORE INTO segments (session_id, start, end, prompt_count, fallback_title) VALUES (?, ?, ?, ?, ?)",
+    ),
   };
 }
 

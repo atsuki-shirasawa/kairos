@@ -52,6 +52,12 @@ function basic(): void {
     "[feature/login 1a2b3c4] feat: add login form\n 2 files changed, 48 insertions(+)",
   );
   b.bash(4.5, 'git commit -m "chore: retry"', "nothing to commit, working tree clean", true);
+  // 実ログに多い形: -q で出力を抑え、git log で確かめる
+  b.bash(
+    4.7,
+    'git commit -q -m "fix: validate email" && git log --oneline -2',
+    "9f8e7d6 fix: validate email\n1a2b3c4 feat: add login form",
+  );
   b.text(5, "ログインフォームを実装し、コミットしました。");
   b.turnEnd(5);
   b.meta("ai-title", { aiTitle: "ログインフォーム実装" });

@@ -10,21 +10,24 @@ import type {
 } from "../../shared/api.ts";
 import type { EventHub } from "../events.ts";
 import { Queries } from "../queries.ts";
+import type { Summarizer } from "../summarize/summarizer.ts";
 import { guardHost, guardWrite } from "./security.ts";
 
 /** カレンダーで一度に取れる期間の上限（月表示 + 前後の余白）。 */
 export const MAX_RANGE_MS = 62 * 24 * 60 * 60_000;
-const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+/** プロジェクトの色はパレットのキー（p0〜p7）で持つ。値はテーマごとに Web 側で決まる。 */
+const PALETTE_KEY = /^p[0-7]$/;
 const KEEPALIVE_MS = 15_000;
 
 export interface AppDeps {
   db: Database;
   events: EventHub;
+  summarizer?: Summarizer;
   now?: () => number;
 }
 
-export function createApp({ db, events, now }: AppDeps): Hono {
-  const q = new Queries(db, now);
+export function createApp({ db, events, summarizer, now }: AppDeps): Hono {
+  const q = new Queries(db, now, summarizer);
   const app = new Hono();
 
   app.use("*", guardHost);
@@ -61,6 +64,17 @@ export function createApp({ db, events, now }: AppDeps): Hono {
   app.get("/api/sessions/:id", (c) => {
     const session = q.session(c.req.param("id"));
     return session ? c.json(session) : c.json({ error: "session not found" }, 404);
+  });
+
+  // セクションの要約を作る（作り直す）。結果は SSE の summary.updated で知らせる。
+  app.post("/api/sessions/:id/sections/:start/summary", (c) => {
+    const id = c.req.param("id");
+    const start = Number(c.req.param("start"));
+    const section = q.session(id)?.sections.find((s) => s.start === start);
+    if (!section) return c.json({ error: "section not found" }, 404);
+    if (!summarizer) return c.json({ error: "要約は無効になっています" }, 503);
+    summarizer.request(id, start);
+    return c.json({ queued: true }, 202);
   });
 
   app.get("/api/sessions/:id/messages", (c) => {
@@ -119,7 +133,8 @@ function parseProjectUpdate(body: unknown): ProjectUpdate | null {
   const b = body as Record<string, unknown>;
   const update: ProjectUpdate = {};
   if ("color" in b) {
-    if (b.color !== null && !(typeof b.color === "string" && HEX_COLOR.test(b.color))) return null;
+    if (b.color !== null && !(typeof b.color === "string" && PALETTE_KEY.test(b.color)))
+      return null;
     update.color = b.color as string | null;
   }
   if ("hidden" in b) {

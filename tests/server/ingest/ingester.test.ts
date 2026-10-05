@@ -71,6 +71,7 @@ describe("README のシナリオ", () => {
       .all(SID.basic);
     expect(artifacts).toEqual([
       { kind: "commit", ref: "1a2b3c4", title: "feat: add login form" },
+      { kind: "commit", ref: "9f8e7d6", title: "fix: validate email" },
       { kind: "pr", ref: "https://github.com/me/app/pull/42", title: "#42 me/app" },
     ]);
   });
