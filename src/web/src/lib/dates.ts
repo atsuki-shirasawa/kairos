@@ -1,14 +1,19 @@
 // Date arithmetic and labels. Times are in the browser's local time zone.
 import { dateMessages } from "@/i18n/messages/dates.ts";
 
+/** One minute in ms. */
 export const MINUTE = 60_000;
+/** One hour in ms. */
 export const HOUR = 60 * MINUTE;
+/** 24 hours in ms. A calendar day can differ across DST; use `addDays` to step days. */
 export const DAY = 24 * HOUR;
 
+/** Length of the shown period. */
 export type View = "week" | "day";
 /** `list` is the summary's table tab (kept under its old name so existing URLs still open it). */
 export type Layout = "calendar" | "list" | "summary";
 
+/** Local midnight of the day containing `t`. */
 export function startOfDay(t: number): number {
   const d = new Date(t);
   d.setHours(0, 0, 0, 0);
@@ -37,18 +42,22 @@ export function rangeOf(view: View, anchor: number): { from: number; to: number;
   return { from, to: addDays(from, n), days };
 }
 
+/** The anchor moved one period (week or day) back or forward. */
 export function shift(view: View, anchor: number, dir: -1 | 1): number {
   return addDays(anchor, (view === "week" ? 7 : 1) * dir);
 }
 
+/** Short weekday name in the UI language ("Mon"). */
 export function weekday(t: number): string {
   return dateMessages().weekdays[new Date(t).getDay()] ?? "";
 }
 
+/** Whether both times fall on the same local day. */
 export function isSameDay(a: number, b: number): boolean {
   return startOfDay(a) === startOfDay(b);
 }
 
+/** Clock time as "9:05" (24-hour, unpadded hour). */
 export function hhmm(t: number): string {
   const d = new Date(t);
   return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
@@ -147,6 +156,7 @@ export function relativeDay(t: number, now = Date.now()): string | null {
   return diff === 0 ? m.today : diff === 1 ? m.yesterday : null;
 }
 
+/** Duration in the UI language ("1h 30m"), rounded to minutes and at least one minute. */
 export function durationLabel(ms: number): string {
   const m = Math.max(1, Math.round(ms / MINUTE));
   const msg = dateMessages();
@@ -161,6 +171,7 @@ export function toISODate(t: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** Local midnight of a URL date (YYYY-MM-DD), or null when it isn't one. */
 export function fromISODate(s: string | null): number | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s ?? "");
   if (!m) return null;

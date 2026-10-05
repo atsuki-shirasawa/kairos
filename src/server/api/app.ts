@@ -25,9 +25,11 @@ export const MAX_RANGE_MS = 62 * 24 * 60 * 60_000;
 /** Project colors are stored as palette keys (p0–p7). The actual colors are set per theme by the web app. */
 const PALETTE_KEY = /^p[0-7]$/;
 const KEEPALIVE_MS = 15_000;
+/** Shortest search query (in characters) that is run; shorter ones match nearly everything. */
 export const MIN_QUERY_CHARS = 2;
 const MAX_QUERY_CHARS = 200;
 
+/** Dependencies of the API. `summarizer` is absent when summaries are off; `now` is for tests. */
 export interface AppDeps {
   db: Database;
   events: EventHub;
@@ -35,6 +37,7 @@ export interface AppDeps {
   now?: () => number;
 }
 
+/** Builds the Hono app: Host and write guards first, then the JSON API and the SSE stream. */
 export function createApp({ db, events, summarizer, now }: AppDeps): Hono {
   const q = new Queries(db, now, summarizer);
   const app = new Hono();

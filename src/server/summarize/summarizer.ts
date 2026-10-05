@@ -18,6 +18,7 @@ import {
   recapKey,
 } from "./recap.ts";
 
+/** Model used for summaries unless `--summary-model` is given; cheap suffices for excerpts. */
 export const DEFAULT_MODEL = "haiku";
 const POLL_MS = 60_000;
 const MAX_ATTEMPTS = 3;
@@ -25,6 +26,7 @@ const RETRY_BASE_MS = 60_000;
 /** More than a week of projects; past it, a request is refused rather than queued behind the rest. */
 export const MAX_RECAP_QUEUE = 20;
 
+/** Answers a prompt with the LLM. Production uses `runClaude`; tests pass a stub. */
 export type Runner = (prompt: string) => Promise<string>;
 
 /**
@@ -80,6 +82,7 @@ export class Summarizer {
     } = {},
   ) {}
 
+  /** Model recorded with each summary and recap it writes. */
   get model(): string {
     return this.opts.model ?? DEFAULT_MODEL;
   }
@@ -98,11 +101,13 @@ export class Summarizer {
     return this.opts.now?.() ?? Date.now();
   }
 
+  /** Whether the section is queued or being summarized now. */
   isPending(sessionId: string, start: number): boolean {
     const k = key({ sessionId, start });
     return this.current === k || this.queue.some((t) => key(t) === k);
   }
 
+  /** Message of the section's last failed attempt; null once it succeeds or is requested again. */
   errorOf(sessionId: string, start: number): string | null {
     return this.failures.get(key({ sessionId, start }))?.message ?? null;
   }
@@ -115,11 +120,13 @@ export class Summarizer {
     this.poke();
   }
 
+  /** Whether the recap is queued or being written now. */
   isRecapPending(t: RecapTarget): boolean {
     const k = recapKey(t);
     return this.currentRecap === k || this.recaps.some((r) => recapKey(r) === k);
   }
 
+  /** Message of the recap's latest failed attempt; null once it succeeds or is requested again. */
   recapErrorOf(t: RecapTarget): string | null {
     return this.recapErrors.get(recapKey(t)) ?? null;
   }
@@ -142,12 +149,14 @@ export class Summarizer {
     this.wake?.();
   }
 
+  /** Starts the background loop. Calling it again while running does nothing. */
   start(): void {
     if (this.running) return;
     this.running = true;
     void this.loop();
   }
 
+  /** Stops the loop after the current run; queued work is kept but not processed. */
   stop(): void {
     this.running = false;
     this.poke();

@@ -1,23 +1,29 @@
 // Small helpers for reading jsonl records type-safely.
 
+/** A parsed JSON object whose fields are not trusted yet. */
 export type Rec = Record<string, unknown>;
 
+/** Whether the value is a plain object (not null or an array). */
 export function isRec(v: unknown): v is Rec {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+/** The value if it is a string, otherwise undefined. */
 export function str(v: unknown): string | undefined {
   return typeof v === "string" ? v : undefined;
 }
 
+/** The value if it is a plain object, otherwise undefined. */
 export function rec(v: unknown): Rec | undefined {
   return isRec(v) ? v : undefined;
 }
 
+/** The value if it is an array, otherwise an empty one, so callers can iterate without checks. */
 export function list(v: unknown): unknown[] {
   return Array.isArray(v) ? v : [];
 }
 
+/** Epoch ms from an ISO timestamp string; null when missing or unparsable. */
 export function parseTs(v: unknown): number | null {
   if (typeof v !== "string") return null;
   const t = Date.parse(v);

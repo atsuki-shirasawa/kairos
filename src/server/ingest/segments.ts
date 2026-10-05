@@ -1,6 +1,7 @@
 /** Default gap that separates work blocks (15 minutes). */
 export const DEFAULT_GAP_MS = 15 * 60_000;
 
+/** A work block as [start, end] in epoch ms (both ends are activity times). */
 export type Segment = [start: number, end: number];
 
 /** Splits ascending times wherever the gap is longer than `gapMs`. */

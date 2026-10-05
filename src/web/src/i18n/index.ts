@@ -5,8 +5,10 @@
 // so every render after a switch sees the new locale.
 import { useSyncExternalStore } from "react";
 
+/** A supported UI language. */
 export type Locale = "en" | "ja";
 
+/** Languages offered in the "⋯" menu, in display order. */
 export const LOCALES: Locale[] = ["en", "ja"];
 
 const KEY = "kairos.locale";
@@ -23,10 +25,12 @@ function load(): Locale {
 let current: Locale = typeof localStorage === "undefined" ? "en" : load();
 const listeners = new Set<() => void>();
 
+/** The current UI language, for code outside React (dates, formatting). */
 export function getLocale(): Locale {
   return current;
 }
 
+/** Switches the UI language, saves it in this browser and notifies `useLocale` subscribers. */
 export function setLocale(next: Locale): void {
   if (next === current) return;
   current = next;
@@ -44,6 +48,7 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
+/** The current UI language, re-rendering when it changes. */
 export function useLocale(): Locale {
   return useSyncExternalStore(subscribe, getLocale, getLocale);
 }

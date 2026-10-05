@@ -4,6 +4,7 @@
  * (reviewed or reopened ones) be opened too. GitHub redirects `/issues/<n>` to the PR when it is one.
  */
 
+/** The subset of an mdast node this plugin reads and writes. */
 export interface MdNode {
   type: string;
   value?: string;
@@ -20,6 +21,7 @@ export function issueBaseUrl(repo: string | null | undefined): string | null {
   return `https://${repo}`;
 }
 
+/** The plugin. `baseUrl` comes from `issueBaseUrl`; pass the plugin only when it isn't null. */
 export function remarkIssueLinks({ baseUrl }: { baseUrl: string }) {
   return (tree: MdNode) => {
     walk(tree, baseUrl);

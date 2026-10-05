@@ -10,12 +10,14 @@ export const RECAP_LIMIT = 40_000;
 const BODY_CHARS = 700;
 const MAX_COMMITS = 40;
 
+/** The project and period [from, to) a recap covers. Together they identify the recap. */
 export interface RecapTarget {
   projectId: number;
   from: number;
   to: number;
 }
 
+/** One section as fed to a recap. */
 export interface RecapSection {
   start: number;
   end: number;
@@ -24,6 +26,7 @@ export interface RecapSection {
   body: string | null;
 }
 
+/** Everything a recap prompt is built from. */
 export interface RecapInput {
   projectName: string;
   from: number;
@@ -33,6 +36,7 @@ export interface RecapInput {
   commits: string[];
 }
 
+/** String key for a recap target, for queue and error lookups. */
 export const recapKey = (t: RecapTarget) => `${t.projectId}:${t.from}:${t.to}`;
 
 /**
@@ -146,6 +150,7 @@ const RULES: Record<SummaryLang, LangRules> = {
   ja: { name: "Japanese", style: "簡潔な常体（〜した、〜を追加）", open: "未完了" },
 };
 
+/** Prompt asking for a few sentences on what was done in the project during the period. */
 export function buildRecapPrompt(
   input: RecapInput,
   lang: SummaryLang = DEFAULT_SUMMARY_LANG,

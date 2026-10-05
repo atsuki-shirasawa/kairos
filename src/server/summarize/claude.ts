@@ -1,11 +1,15 @@
 import { mkdirSync } from "node:fs";
 
+/** A `claude -p` run failed (no command, timeout, exit code). The message is shown in the UI. */
 export class SummaryError extends Error {}
 
+/** How to run `claude -p`. */
 export interface ClaudeOptions {
+  /** Model passed to `--model` (an alias such as `haiku` or a full model ID). */
   model: string;
   /** Working directory. A dedicated empty directory, so no project's CLAUDE.md or settings are loaded. */
   cwd: string;
+  /** Kills the run after this many ms (default: 3 minutes). */
   timeoutMs?: number;
 }
 

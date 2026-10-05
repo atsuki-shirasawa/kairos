@@ -13,6 +13,7 @@ export function storedSummaryLang(db: Database): SummaryLang | null {
   return isSummaryLang(v) ? v : null;
 }
 
+/** Saves the UI's summary language so it outlives restarts. */
 export function storeSummaryLang(db: Database, lang: SummaryLang): void {
   db.query(
     "INSERT INTO kv (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",

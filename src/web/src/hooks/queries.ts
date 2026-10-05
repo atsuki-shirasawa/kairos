@@ -15,6 +15,7 @@ const SEARCH_DEBOUNCE_MS = 200;
 /** The server ignores shorter queries (`MIN_QUERY_CHARS` in the API). */
 export const MIN_SEARCH_CHARS = 2;
 
+/** React Query keys. Everything nested under "calendar" is refetched when sessions change. */
 export const keys = {
   calendar: (from: number, to: number) => ["calendar", from, to] as const,
   // Nested under "calendar" so import notifications refetch it along with the calendar
@@ -28,6 +29,7 @@ export const keys = {
   recaps: (from: number, to: number) => ["calendar", "recaps", from, to] as const,
 };
 
+/** Sessions and projects of the period [from, to), the data every layout draws. */
 export function useCalendar(from: number, to: number, enabled = true) {
   return useQuery({
     queryKey: keys.calendar(from, to),
@@ -75,6 +77,7 @@ export function useRecaps(from: number, to: number, enabled: boolean) {
   });
 }
 
+/** Asks the server to (re)write a project's recap for a period. Runs in the background. */
 export function useRequestRecap() {
   const client = useQueryClient();
   return useMutation({
@@ -101,6 +104,7 @@ export function useSummaryLangSync(locale: Locale) {
   }, [data, locale, client]);
 }
 
+/** One session's details for the drawer. Idle while no session is open (`id` is null). */
 export function useSession(id: string | null) {
   return useQuery({
     queryKey: keys.session(id ?? ""),
@@ -109,6 +113,7 @@ export function useSession(id: string | null) {
   });
 }
 
+/** A session's conversation (or one subagent's when `agent` is set), paged 100 at a time. */
 export function useMessages(id: string | null, agent: string | null) {
   return useInfiniteQuery({
     queryKey: keys.messages(id ?? "", agent),
@@ -120,6 +125,7 @@ export function useMessages(id: string | null, agent: string | null) {
   });
 }
 
+/** Asks the server to (re)summarize the section starting at the given time (epoch ms). */
 export function useRequestSummary(sessionId: string) {
   const client = useQueryClient();
   return useMutation({
@@ -128,6 +134,7 @@ export function useRequestSummary(sessionId: string) {
   });
 }
 
+/** Saves a project's settings (color, hidden) and refetches everything that shows projects. */
 export function useUpdateProject() {
   const client = useQueryClient();
   return useMutation({

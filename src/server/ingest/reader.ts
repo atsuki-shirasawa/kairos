@@ -1,11 +1,13 @@
 import { closeSync, openSync, readSync, statSync } from "node:fs";
 
+/** One complete line of a log file. */
 export interface Line {
   /** Byte offset of the line start. Used to order messages. */
   offset: number;
   text: string;
 }
 
+/** Result of an incremental read, with what is needed to resume the next one. */
 export interface ReadResult {
   lines: Line[];
   /** Where to start reading next time: the start of a trailing line without a newline (still being written). */

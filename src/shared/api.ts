@@ -1,11 +1,13 @@
 // API types shared by the server and the web app. All times are milliseconds since the Unix epoch.
 
+/** `GET /api/health`. `name` lets `kairos ensure` tell Kairos from another app on the port. */
 export interface HealthResponse {
   ok: true;
   name: "kairos";
   version: string;
 }
 
+/** A project: one repository (worktrees included) or directory sessions ran in. */
 export interface Project {
   id: number;
   /** Path that identifies the project (worktrees are grouped under their parent repository). */
@@ -19,6 +21,7 @@ export interface Project {
   hidden: boolean;
 }
 
+/** `PATCH /api/projects/:id` body. Omitted fields are left as they are; a null color clears it. */
 export interface ProjectUpdate {
   color?: string | null;
   hidden?: boolean;
@@ -96,6 +99,7 @@ export interface CalendarSession {
   segments: CalendarSegment[];
 }
 
+/** `GET /api/calendar`: sessions with work blocks in [from, to), plus the projects to filter by. */
 export interface CalendarResponse {
   from: number;
   to: number;
@@ -148,12 +152,14 @@ export interface SearchHit {
   snippet: string;
 }
 
+/** `GET /api/search`: matching sections, newest first, capped at `SEARCH_LIMIT`. */
 export interface SearchResponse {
   hits: SearchHit[];
   /** More sections matched than were returned. */
   more: boolean;
 }
 
+/** A commit or PR made during a session. */
 export interface Artifact {
   kind: "commit" | "pr";
   /** SHA for a commit, URL for a PR. */
@@ -162,6 +168,7 @@ export interface Artifact {
   ts: number | null;
 }
 
+/** A subagent launched from a session. */
 export interface Subagent {
   id: string;
   agentType: string | null;
@@ -196,6 +203,7 @@ export interface Section {
   activity: Activity;
 }
 
+/** `GET /api/sessions/:id`: everything the session drawer shows. */
 export interface SessionDetail {
   id: string;
   project: Project | null;
@@ -221,6 +229,7 @@ export interface SessionDetail {
   usage: Usage | null;
 }
 
+/** What a stored message is, as shown in the conversation view. */
 export type MessageKind =
   | "prompt"
   | "command"
@@ -234,6 +243,7 @@ export type MessageKind =
   | "compact"
   | "error";
 
+/** One message of a session's conversation (main thread or a subagent). */
 export interface Message {
   id: string;
   ts: number | null;
@@ -249,6 +259,7 @@ export interface Message {
   isCopy: boolean;
 }
 
+/** `GET /api/sessions/:id/messages`: one page of the conversation, in log order. */
 export interface MessagesResponse {
   messages: Message[];
   /** Value to pass as `cursor` to fetch more; null once everything has been fetched. */
@@ -279,6 +290,7 @@ export interface RecapsResponse {
   recaps: Recap[];
 }
 
+/** `POST /api/recaps` body: the project and period [from, to) to write a recap for. */
 export interface RecapRequest {
   projectId: number;
   from: number;
@@ -293,6 +305,7 @@ export interface Settings {
   summaryLangFixed: boolean;
 }
 
+/** `PATCH /api/settings` body. */
 export interface SettingsUpdate {
   summaryLang: "en" | "ja";
 }

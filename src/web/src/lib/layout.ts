@@ -11,6 +11,7 @@ import { DAY, MINUTE } from "./dates.ts";
  */
 export const MIN_BLOCK_MS = 25 * MINUTE;
 
+/** A work block positioned in a day column of the calendar. */
 export interface PlacedBlock {
   session: CalendarSession;
   /** The original section (heading, and start/end before clipping to the day). */

@@ -11,6 +11,7 @@ export const DEFAULT_CLAUDE_DIR = join(homedir(), ".claude");
 export const DATA_DIR =
   process.env.KAIROS_DATA_DIR ?? join(homedir(), "Library", "Application Support", "kairos");
 
+/** SQLite database used when `--db` is not given. */
 export const DEFAULT_DB_PATH = join(DATA_DIR, "kairos.db");
 
 /** PID of the running server. */

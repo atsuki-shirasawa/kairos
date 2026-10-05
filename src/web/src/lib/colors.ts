@@ -12,6 +12,7 @@ export const PALETTE = (["p0", "p1", "p2", "p3", "p4", "p5", "p6", "p7"] as cons
   },
 }));
 
+/** A stored project color (`p0`–`p7`). */
 export type PaletteKey = (typeof PALETTE)[number]["key"];
 
 /**

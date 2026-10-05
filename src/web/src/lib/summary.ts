@@ -6,6 +6,7 @@ import { sumActivity, sumUsage } from "./format.ts";
 import { blocksOfDay, busyMs, type DayBlock } from "./layout.ts";
 import { activityOf, counted, usageOf } from "./totals.ts";
 
+/** One project's share of the period, for the summary view's project cards. */
 export interface ProjectSummary {
   projectId: number | null;
   /** Working time on this project. Parallel sessions within the project count once. */
@@ -19,6 +20,7 @@ export interface ProjectSummary {
   usage: Usage | null;
 }
 
+/** One day of the period, for the summary view's daily chart. */
 export interface DaySummary {
   day: number;
   /** Working time on the day (union of all blocks). */
@@ -27,6 +29,7 @@ export interface DaySummary {
   projects: { projectId: number | null; busyMs: number }[];
 }
 
+/** Totals of the whole period, as the summary view shows them. */
 export interface PeriodSummary {
   /** Blocks counted once each (not per day they touch). */
   blocks: number;
@@ -58,6 +61,7 @@ function busyByDay(blocks: DayBlock[]): number {
   return total;
 }
 
+/** Totals of the period's blocks that pass `matches` (all of them by default). */
 export function summarize(
   days: number[],
   sessions: CalendarSession[],

@@ -188,6 +188,7 @@ export const MIGRATIONS: string[] = [
   `,
 ];
 
+/** Schema version once every migration is applied (stored in `PRAGMA user_version`). */
 export const SCHEMA_VERSION = MIGRATIONS.length;
 
 /** Opens the DB and applies pending migrations. `:memory:` works too (for tests). */

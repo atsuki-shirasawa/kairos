@@ -1,11 +1,13 @@
 // Builds the excerpt of a section that is passed to the LLM.
 
+/** A stored message, reduced to the columns the digest reads. */
 export interface DigestMessage {
   kind: string;
   text: string | null;
   tool_name: string | null;
 }
 
+/** Default cap on the digest length in characters; past it, the middle is dropped. */
 export const DIGEST_LIMIT = 60_000;
 const PROMPT_CHARS = 2_000;
 const REPLY_CHARS = 800;

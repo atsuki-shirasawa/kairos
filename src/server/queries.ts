@@ -23,8 +23,11 @@ import { loadRecapInput, type RecapTarget, recapHash } from "./summarize/recap.t
 
 /** Within this long after the last activity, a session counts as in progress. */
 export const ACTIVE_WINDOW_MS = 5 * 60_000;
+/** Messages returned per page when the request gives no `limit`. */
 export const MESSAGES_DEFAULT_LIMIT = 200;
+/** Upper bound on a requested `limit`, so one request cannot pull a whole long session. */
 export const MESSAGES_MAX_LIMIT = 1000;
+/** Sections returned per search; `more` tells the UI that further ones matched. */
 export const SEARCH_LIMIT = 50;
 /** Extra terms add little and each one is another scan condition. */
 const SEARCH_MAX_TERMS = 5;
@@ -52,6 +55,10 @@ interface ProjectRow {
 
 const toProject = (r: ProjectRow): Project => ({ ...r, hidden: r.hidden === 1 });
 
+/**
+ * Summary progress that the read queries report alongside stored summaries. Implemented by
+ * the Summarizer; without one, nothing is ever pending or failed.
+ */
 export interface SummaryState {
   isPending(sessionId: string, start: number): boolean;
   errorOf(sessionId: string, start: number): string | null;
@@ -165,6 +172,7 @@ function title(r: {
   return r.custom_title || r.agent_name || r.ai_title || first || "(Untitled session)";
 }
 
+/** Read queries behind the API, plus the few writes the UI can make (project settings). */
 export class Queries {
   constructor(
     private readonly db: Database,
@@ -188,6 +196,7 @@ export class Queries {
       .map(toProject);
   }
 
+  /** Applies the given color and visibility changes. Returns the result, or null if absent. */
   updateProject(id: number, update: ProjectUpdate): Project | null {
     if (update.color !== undefined) {
       this.db.query("UPDATE projects SET color = ? WHERE id = ?").run(update.color, id);
@@ -312,6 +321,7 @@ export class Queries {
     });
   }
 
+  /** What the session drawer shows (sections, artifacts, subagents, usage); null if absent. */
   session(id: string): SessionDetail | null {
     const s = this.db.query<SessionRow, [string]>("SELECT * FROM sessions WHERE id = ?").get(id);
     if (!s) return null;

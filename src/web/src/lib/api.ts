@@ -15,6 +15,7 @@ import type {
   SpansResponse,
 } from "@shared/api.ts";
 
+/** A non-2xx API response. `message` is the server's `error` field when it sent one. */
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -41,6 +42,7 @@ const query = (params: Record<string, string | number | boolean | null | undefin
   return s ? `?${s}` : "";
 };
 
+/** One method per server endpoint. Throws `ApiError` on a non-2xx response. */
 export const api = {
   health: () => request<HealthResponse>("/api/health"),
 

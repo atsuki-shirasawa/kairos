@@ -7,7 +7,7 @@ Design: [Requirements](docs/requirements.md) / [Architecture](docs/architecture.
 ## Commands
 
 ```sh
-bun run check      # Biome + type check + tests. Always run it at the end of a change
+bun run check      # Biome + type check + JSDoc check + tests. Always run it at the end of a change
 bun run format     # auto-fix with Biome
 bun test tests/server/ingest/ingester.test.ts   # a single test file
 bun run dev        # API :4319 + Vite :5173. Run `kairos stop` first (same port)
@@ -36,6 +36,8 @@ To deploy to the locally running server, use `/ship-local` (check → build → 
 ## Writing
 
 - Comments, docs, test names and commit messages are in English. Comments explain *why*
+- **Every export has a JSDoc** (functions, components, hooks, types, constants, and public members of exported classes). `bun run jsdoc` (`scripts/check-jsdoc.ts`, part of `check`) fails on a missing one. Say what it is and why it exists, not the signature again
+- If a step inside a function needs a comment to explain *what* it does, the function is likely doing too much: extract that step into a named, documented function instead. Inline comments are for *why* (a constraint, a log-format quirk, a trade-off)
 - UI copy is never hard-coded; it goes in the `en` / `ja` dictionaries (see `.claude/rules/web.md`)
 - Server and CLI output is in English
 - Follow the Biome config (double quotes, semicolons, 100-column lines). Edited files are auto-formatted by a hook

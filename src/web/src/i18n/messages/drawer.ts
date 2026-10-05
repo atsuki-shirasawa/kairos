@@ -1,5 +1,6 @@
 import { defineMessages } from "../index.ts";
 
+/** Copy for the session drawer (details of a session and its sections). */
 export const drawerMessages = defineMessages({
   en: {
     /** Separator between items listed on one line. */

@@ -34,6 +34,7 @@ const PRICES: Record<string, Price> = {
 const CACHE_WRITE_5M = 1.25;
 const CACHE_WRITE_1H = 2;
 
+/** Token counts by billing category. Cache writes are split by TTL since they cost differently. */
 export interface TokenCounts {
   input: number;
   output: number;

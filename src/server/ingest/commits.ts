@@ -1,11 +1,13 @@
 // Extracts the SHA and subject of commits created by Bash git commit calls.
 
+/** Matches a `git commit` command, allowing `-C <dir>` / `-c <key=value>` options before it. */
 export const GIT_COMMIT_RE = /\bgit\s+(?:-[Cc]\s+\S+\s+)*commit\b/;
 /** Normal output: `[main 1a2b3c4] feat: add login form` (the first commit includes `(root-commit)`) */
 const BRACKET_RE = /^\[[^\]\n]+? (?:\(root-commit\) )?([0-9a-f]{7,40})\] (.+)$/m;
 /** A `git log --oneline` line: `1a2b3c4 feat: add login form` */
 const ONELINE_RE = /^([0-9a-f]{7,40}) (.+)$/gm;
 
+/** A commit found in a Bash call. Either part is null when the log does not reveal it. */
 export interface Commit {
   sha: string | null;
   subject: string | null;

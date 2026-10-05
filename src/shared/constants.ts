@@ -1,5 +1,6 @@
 /** Local port Kairos listens on. Also used by the SessionStart hook to check that it is running. */
 export const PORT = 4319;
+/** The server binds only to loopback, so the logs are never reachable from the network. */
 export const HOST = "127.0.0.1";
 /** Names accepted in the Host header. Anything else is rejected, to defend against DNS rebinding. */
 export const ALLOWED_HOSTS = ["127.0.0.1", "localhost"] as const;

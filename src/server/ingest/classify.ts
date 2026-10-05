@@ -1,5 +1,6 @@
 import { contentText, list, type Rec, rec, str } from "./records.ts";
 
+/** What a `type=user` record actually is. Only `prompt` and `command` are typed by the user. */
 export type UserKind =
   | "prompt" // Text typed by the user
   | "command" // Slash command typed by the user

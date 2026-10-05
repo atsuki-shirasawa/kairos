@@ -3,12 +3,15 @@
 /** Language the summaries are written in. Set with `--summary-lang`. */
 export type SummaryLang = "en" | "ja";
 
+/** Summary language when neither `--summary-lang` nor the UI has chosen one. */
 export const DEFAULT_SUMMARY_LANG: SummaryLang = "en";
 
+/** Whether the value is a supported summary language (validates API input and stored settings). */
 export function isSummaryLang(v: unknown): v is SummaryLang {
   return v === "en" || v === "ja";
 }
 
+/** What a section summary prompt is built from. */
 export interface PromptInput {
   sessionTitle: string;
   projectName: string | null;
@@ -55,6 +58,7 @@ function contextOf(input: PromptInput): string {
     .join("\n");
 }
 
+/** Prompt asking for a headline plus a goal / done / outcome body for one section. */
 export function buildPrompt(input: PromptInput, lang: SummaryLang = DEFAULT_SUMMARY_LANG): string {
   const r = RULES[lang];
   return `Below is an excerpt from one continuous stretch of work (a section) in a Claude Code session.
@@ -100,6 +104,7 @@ ${input.digest}
 `;
 }
 
+/** A summary split into its headline and Markdown body. */
 export interface ParsedSummary {
   headline: string;
   body: string;

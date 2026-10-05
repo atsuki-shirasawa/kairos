@@ -1,6 +1,7 @@
 // Extracts the title of PRs created by Bash gh pr create calls.
 // Neither pr-link records nor the result's gitOperation carry the title, so read it from the arguments.
 
+/** Matches a `gh pr create` command anywhere in a Bash call. */
 export const GH_PR_CREATE_RE = /\bgh\s+pr\s+create\b/;
 
 /** A shell word. `dynamic` means it contains `$…` or `` `…` `` and its value is decided at run time. */

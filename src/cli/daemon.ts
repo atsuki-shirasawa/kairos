@@ -9,6 +9,10 @@ import { HOST, PORT } from "../shared/constants.ts";
 /** For this long, a server that just started and does not answer yet counts as "starting", so it is not started twice. */
 const STARTING_GRACE_MS = 30_000;
 
+/**
+ * Probes `/api/health`. Returns the body only when Kairos answers, so another app on the port
+ * reads as down.
+ */
 export async function health(port = PORT, timeoutMs = 300): Promise<HealthResponse | null> {
   try {
     const res = await fetch(`http://${HOST}:${port}/api/health`, {
@@ -27,6 +31,7 @@ interface PidFile {
   at: number;
 }
 
+/** Reads the PID file (`<pid> <written at>`). null when it is missing or unreadable. */
 export function readPid(): PidFile | null {
   try {
     const [pid, at] = readFileSync(PID_PATH, "utf8").trim().split(/\s+/).map(Number);
@@ -36,6 +41,7 @@ export function readPid(): PidFile | null {
   }
 }
 
+/** Records the server's PID with the current time, which `ensure` uses to judge "starting". */
 export function writePid(pid: number): void {
   mkdirSync(dirname(PID_PATH), { recursive: true });
   writeFileSync(PID_PATH, `${pid} ${Date.now()}\n`);
@@ -46,6 +52,7 @@ export function removePid(pid: number): void {
   if (readPid()?.pid === pid) rmSync(PID_PATH, { force: true });
 }
 
+/** Whether a process with this PID exists (signal 0 checks without killing it). */
 export function isAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
@@ -55,6 +62,7 @@ export function isAlive(pid: number): boolean {
   }
 }
 
+/** What `ensure` found: already answering, started elsewhere and not up yet, or started now. */
 export type EnsureResult = "running" | "starting" | "started";
 
 /**

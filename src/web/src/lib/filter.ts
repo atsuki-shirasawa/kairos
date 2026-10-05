@@ -2,6 +2,7 @@
 // you never want to see), these are "just for now" conditions kept in the URL.
 import type { CalendarSegment, CalendarSession, Project } from "@shared/api.ts";
 
+/** Temporary conditions narrowing what the period shows. Kept in the URL. */
 export interface Filter {
   /** Substring match on headline, title, worktree name and project name. Every space-separated word must match. */
   q: string;
@@ -11,6 +12,7 @@ export interface Filter {
   hideBrief: boolean;
 }
 
+/** No conditions: everything not in a hidden project shows. */
 export const NO_FILTER: Filter = { q: "", outcome: false, hideBrief: false };
 
 /** Sessions with at most this many prompts and no hands-on work count as "quick questions". */
@@ -19,6 +21,7 @@ export const BRIEF_PROMPTS = 2;
 /** Whether a temporary filter (keyword, outcome) is active. Hiding conditions don't count. */
 export const isFocused = (f: Filter) => f.q.trim() !== "" || f.outcome;
 
+/** Whether any condition, including hiding quick questions, is active. */
 export const isFiltered = (f: Filter) => isFocused(f) || f.hideBrief;
 
 /**
@@ -45,6 +48,7 @@ export function hideSessions(
   );
 }
 
+/** Whether a block (a section of a session) passes the current filter. */
 export type SegmentMatch = (session: CalendarSession, segment: CalendarSegment) => boolean;
 
 /** Key of a block in the server's search hits. */

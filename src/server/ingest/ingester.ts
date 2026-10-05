@@ -38,6 +38,7 @@ const FALLBACK_TITLE_CHARS = 120;
 const LIMIT = { text: 20_000, toolInput: 4_000, toolResult: 4_000, short: 2_000 };
 const RECAP_SUFFIX = /\s*\(disable recaps in \/config\)\s*$/;
 
+/** Kind of a file under the projects directory, with the IDs its path encodes. */
 export type LogFile =
   | { kind: "session"; sessionId: string }
   | { kind: "subagent"; sessionId: string; agentId: string }
@@ -93,6 +94,7 @@ interface StateRow {
   state: string;
 }
 
+/** Outcome of one scan: files seen, files that changed, touched session IDs, and elapsed ms. */
 export interface ScanStats {
   files: number;
   changed: number;
@@ -100,6 +102,10 @@ export interface ScanStats {
   ms: number;
 }
 
+/**
+ * Incrementally ingests the logs under `projectsDir` into the DB, resuming each file from its
+ * saved offset. Never writes to the logs themselves.
+ */
 export class Ingester {
   private readonly q: ReturnType<typeof prepareStatements>;
   private readonly setters: Record<SessionField, Statement>;
@@ -163,6 +169,7 @@ export class Ingester {
     return { files: files.length, changed, sessions, ms: performance.now() - started };
   }
 
+  /** Log files to ingest: main session files first, then subagent logs and their meta files. */
   listFiles(): string[] {
     if (!existsSync(this.projectsDir)) return [];
     const main: string[] = [];

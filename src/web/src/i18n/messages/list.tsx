@@ -4,6 +4,7 @@ import { defineMessages } from "../index.ts";
 const COST_NOTE_EN = "Estimated from API list prices (not what a subscription actually costs)";
 const COST_NOTE_JA = "API の料金表で換算した目安（サブスクリプションでの支払いとは一致しない）";
 
+/** Optional columns of the summary's table, which the user can show or hide. */
 export type ColumnKey =
   | "duration"
   | "claude"
@@ -19,6 +20,7 @@ export type ColumnKey =
 /** Typed so that both languages name every column of `COLUMNS` in components/SessionList.tsx. */
 const columns = (c: Record<ColumnKey, { label: string; title?: string }>) => c;
 
+/** Copy for the summary's table (session list): column labels, sorting, totals and cost notes. */
 export const listMessages = defineMessages({
   en: {
     costNote: COST_NOTE_EN,

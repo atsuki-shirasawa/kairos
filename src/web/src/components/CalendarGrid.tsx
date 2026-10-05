@@ -51,6 +51,7 @@ interface Edge {
   scrollTo: number;
 }
 
+/** The calendar layout: a time grid with one column per day, drawing work blocks at their times. */
 export function CalendarGrid({
   days,
   sessions,

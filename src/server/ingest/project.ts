@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 
+/** The project a session belongs to, resolved from its working directory. */
 export interface ProjectRef {
   /** Path that identifies the project (the parent repository for a worktree). */
   path: string;

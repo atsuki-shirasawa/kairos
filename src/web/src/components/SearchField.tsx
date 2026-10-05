@@ -8,6 +8,7 @@ import { projectColor } from "@/lib/colors.ts";
 import { dateLabel, hhmm } from "@/lib/dates.ts";
 import { cn } from "@/lib/utils.ts";
 
+/** Cross-period search results as the search panel shows them (owned by App's search query). */
 export interface SearchState {
   hits: SearchHit[];
   more: boolean;

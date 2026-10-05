@@ -15,6 +15,7 @@ import { DEFAULT_MODEL, Summarizer } from "./summarize/summarizer.ts";
 
 const WEB_DIST = join(import.meta.dir, "../../dist/web");
 
+/** Options for `kairos serve`. Paths default to the real Claude Code and Kairos locations. */
 export interface ServeOptions {
   port?: number;
   claudeDir?: string;

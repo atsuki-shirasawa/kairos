@@ -1,5 +1,6 @@
 import { defineMessages } from "../index.ts";
 
+/** Copy for the calendar grid: day headers, block tooltips and off-screen hints. */
 export const calendarMessages = defineMessages({
   en: {
     openDay: (date: string) => `Open ${date} in day view`,

@@ -26,6 +26,10 @@ import {
 import { orderedBlocks, selectedSegment, stepBlock } from "@/lib/navigation.ts";
 import { buildReport } from "@/lib/report.ts";
 
+/**
+ * Root component: owns the URL-synced view state and wires the toolbar, the period body
+ * (calendar, summary or table) and the session drawer together, plus the global shortcuts.
+ */
 export function App() {
   const [theme, setTheme] = useTheme();
   const [state, update] = useUrlState();

@@ -8,6 +8,7 @@ export interface ListSort {
   desc: boolean;
 }
 
+/** Time order; left out of the URL. */
 export const DEFAULT_SORT: ListSort = { key: "start", desc: false };
 
 /** View state. Synced with the URL (?view=&layout=&date=&session=&sort=&q=&outcome=&brief=), so it survives reloads and the back button. */
@@ -67,6 +68,10 @@ function write(s: UrlState, push: boolean): void {
   else history.replaceState(null, "", url);
 }
 
+/**
+ * The view state and a patch function that also rewrites the URL.
+ * Pass `push: true` for steps the back button should undo (opening a block, a search hit).
+ */
 export function useUrlState(): [
   UrlState,
   (patch: Partial<UrlState>, opts?: { push?: boolean }) => void,

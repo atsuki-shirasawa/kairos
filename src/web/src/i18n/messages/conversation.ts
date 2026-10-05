@@ -1,5 +1,6 @@
 import { defineMessages } from "../index.ts";
 
+/** Copy for the conversation transcript in the drawer and its Markdown rendering. */
 export const conversationMessages = defineMessages({
   en: {
     loading: "Loading conversation…",
