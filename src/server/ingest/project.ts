@@ -109,8 +109,11 @@ export function readGitRemote(dir: string): string | null | undefined {
   }
 }
 
-/** git の設定ファイルとして読める大きさまで。これを超えるものや FIFO・デバイスは読まない。 */
-const MAX_GIT_FILE = 64 * 1024;
+/**
+ * 読むファイルの大きさの上限。ブランチの多いリポジトリでは config が 100KB を超えるので余裕を持たせ、
+ * それでも同期で読んで一瞬で終わる大きさにとどめる。FIFO・デバイスは大きさに関係なく読まない。
+ */
+export const MAX_GIT_FILE = 4 * 1024 * 1024;
 
 /**
  * 普通の小さなファイルだけを読む。取り込みは同期で動くので、FIFO や `/dev/zero` へのリンク、

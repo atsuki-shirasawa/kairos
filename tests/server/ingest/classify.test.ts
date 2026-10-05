@@ -3,7 +3,12 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { classifyUser, commandText, type UserKind } from "../../../src/server/ingest/classify.ts";
-import { parseRemote, readGitRemote, resolveProject } from "../../../src/server/ingest/project.ts";
+import {
+  MAX_GIT_FILE,
+  parseRemote,
+  readGitRemote,
+  resolveProject,
+} from "../../../src/server/ingest/project.ts";
 import { toSegments } from "../../../src/server/ingest/segments.ts";
 
 const user = (content: unknown, extra: Record<string, unknown> = {}) => ({
@@ -157,11 +162,12 @@ describe("readGitRemote", () => {
     expect(readGitRemote(fifo)).toBeNull();
     const big = join(root, "big");
     mkdirSync(join(big, ".git"), { recursive: true });
-    writeFileSync(
-      join(big, ".git", "config"),
-      `${"#".repeat(70 * 1024)}\n${config("git@github.com:o/r.git")}`,
-    );
+    const padded = (n: number) => `${"#".repeat(n)}\n${config("git@github.com:o/r.git")}`;
+    writeFileSync(join(big, ".git", "config"), padded(MAX_GIT_FILE));
     expect(readGitRemote(big)).toBeNull();
+    // ブランチの多いリポジトリの config（100KB 超）は読める
+    writeFileSync(join(big, ".git", "config"), padded(200 * 1024));
+    expect(readGitRemote(big)).toBe("git@github.com:o/r.git");
   });
   test("git でなければ null、ディレクトリがなければ判断できない（undefined）", () => {
     const plain = join(root, "plain");
