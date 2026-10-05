@@ -19,12 +19,18 @@ To deploy to the locally running server, use `/ship-local` (check → build → 
 ## Layout
 
 - `src/cli/` — the `kairos` command (`ensure` / `open` / `serve` / `ingest`, etc.). `daemon.ts` handles background start and the PID file
-- `src/server/ingest/` — incremental read (`reader`) → classify (`classify`) → store (`ingester`) → work blocks (`segments`)
+- `src/server/ingest/` — incremental read (`reader`) → classify (`classify`) → store (`ingester`) → work blocks (`segments`). `watcher` re-ingests changed files while the server runs
+- `src/server/db/` — schema and `MIGRATIONS`
 - `src/server/summarize/` — per-section summaries. Runs `claude -p` with side-effect-free settings. The output language follows the UI language (stored on the server via `PATCH /api/settings`); `--summary-lang <en|ja>` fixes it instead. Existing summaries are kept and can be regenerated from the drawer
 - `src/server/api/` — Hono. `security.ts` holds Host validation, CSP and write protection
 - `src/shared/` — API types and constants shared by the server and the UI
 - `src/web/` — React 19 + Tailwind v4 + shadcn/ui (`@/` is `src/web/src`)
 - `src/web/src/i18n/` — UI language (English by default, Japanese selectable from the "⋯" menu, saved per browser). Messages live in `messages/*.ts` via `defineMessages`
+
+## Data
+
+- DB and PID file: `~/Library/Application Support/kairos/` (`kairos.db`, `kairos.pid`); server log: `~/Library/Logs/kairos/server.log`. Inspect the DB with `sqlite3 -readonly`
+- `KAIROS_DATA_DIR` moves all of these. Always set it when starting an extra server (previews, experiments); otherwise it overwrites the real PID file and `kairos stop` / `restart` lose track of the running daemon
 
 ## Rules
 
