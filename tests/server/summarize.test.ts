@@ -197,6 +197,20 @@ describe("prompt", () => {
     expect(parseSummary("   \n")).toBeNull();
   });
 
+  test("parseSummary skips a label line above the real headline", () => {
+    expect(parseSummary("サマリー\nまとめ画面の実装\n\n- 目的: x")?.headline).toBe(
+      "まとめ画面の実装",
+    );
+    expect(parseSummary("**Summary:**\nRecap queue\n- Goal: x")?.headline).toBe("Recap queue");
+    expect(parseSummary("サマリー")).toBeNull();
+  });
+
+  test("parseSummary drops blank lines between bullets but keeps nesting", () => {
+    expect(parseSummary("H\n\n- Goal: g\n\n- Done:\n  - a\n\n  - b\n\n- Outcome: o")?.body).toBe(
+      "- Goal: g\n- Done:\n  - a\n  - b\n- Outcome: o",
+    );
+  });
+
   test("buildDigest keeps the start and the end when too long", () => {
     const messages = [
       { kind: "prompt", text: "最初の依頼", tool_name: null },
@@ -230,10 +244,18 @@ describe("prompt", () => {
     expect(ja).toContain("Write a summary in Japanese");
     expect(ja).toContain("15〜35 字、体言止め");
     expect(ja).toContain("- 目的: …");
-    expect(ja).toContain("- やったこと: …");
+    expect(ja).toContain("- やったこと:");
     expect(ja).toContain("- 結果: …");
     expect(buildTitlePrompt(input, "ja")).toContain("single-line headline in Japanese");
     expect(buildTitlePrompt(input)).toContain("3–8 words");
+  });
+
+  test("both prompts carry the headline rules", () => {
+    const input = { sessionTitle: "t", projectName: null, previous: [], digest: "d" };
+    for (const prompt of [buildPrompt(input), buildTitlePrompt(input, "ja")]) {
+      expect(prompt).toContain("Name the concrete thing worked on");
+      expect(prompt).toContain("Describe the work, not its progress");
+    }
   });
 });
 
