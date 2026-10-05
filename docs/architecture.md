@@ -218,3 +218,19 @@ kairos/
 | Log | `~/Library/Logs/kairos/server.log` |
 | PID | `~/Library/Application Support/kairos/kairos.pid` |
 | Working directory for summaries | `~/Library/Application Support/kairos/summarizer/` |
+
+## 9. Performance
+
+Measured on 2026-10-05 (P6-2) on an Apple M4 with 16 GB, Bun 1.3.11, against real logs: 1.0 GB in 645 jsonl files (1,068 files including subagent logs), 222 sessions, 117,869 messages.
+
+| What | Result | How |
+|---|---|---|
+| First ingest (empty DB) | 7.9 s, peak memory about 580 MB | `kairos ingest --db <empty path>` under `/usr/bin/time -l` |
+| Ingest on later starts | 0.1–0.2 s when nothing changed; about 1 s when a few files grew | `ingested … in` lines in `server.log` |
+| DB size | 174 MB (about 17% of the logs) | file size after the first ingest |
+| Server start until it answers | 0.18 s | `kairos ensure` until `/api/health` responds |
+| `GET /api/calendar` for a busy week (92 KB) | 205 ms right after start, 30–45 ms after that | `curl -w %{time_total}` |
+| `GET /api/sessions/:id` / `…/messages` for the largest session | 45 ms / 14 ms | same |
+| Page open until the week's data is in | about 0.2 s (HTML parsed at 0.10 s, `/api/calendar` done at 0.20 s, `load` at 0.63 s once fonts arrive) | Navigation and Resource Timing in Chrome |
+
+Start to display is well within the 1-second goal (Requirements §4), because the screen renders from the DB and ingest runs in the background. The first ingest is the slow part, and it happens once. The bundle is served uncompressed (JS 671 KB, CSS 569 KB); that costs nothing noticeable over loopback, so it is left as is.
