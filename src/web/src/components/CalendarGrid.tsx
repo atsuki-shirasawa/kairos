@@ -1,12 +1,16 @@
 import type { CalendarSession, Project } from "@shared/api.ts";
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip.tsx";
 import { projectColor } from "@/lib/colors.ts";
 import { DAY, durationLabel, HOUR, hhmm, isSameDay, weekday } from "@/lib/dates.ts";
 import { layoutDay, MIN_BLOCK_MS, type PlacedBlock } from "@/lib/layout.ts";
 import { cn } from "@/lib/utils.ts";
 
-const HOUR_PX = 48;
+/** 1 時間の最小の高さ。これより低いと短いブロックの見出しが読めない。 */
+const MIN_HOUR_PX = 48;
+/** 開いたときに見せる時間帯（時）。画面の高さにこの範囲が収まるよう 1 時間の高さを決め、中央に置く。 */
+const VIEW_START = 8;
+const VIEW_END = 20;
 const GUTTER = "3.5rem";
 /** 同じ列で重ねたブロックを右にずらす幅。下のブロックの左端の色が見えるようにする。 */
 const INDENT_PX = 8;
@@ -51,16 +55,18 @@ export function CalendarGrid({
   onOpenDay,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { hourPx, viewportPx } = useHourPx(scrollRef);
   const columns = useMemo(() => days.map((day) => layoutDay(sessions, day)), [days, sessions]);
   const firstDay = days[0] ?? 0;
 
-  // 期間が変わったら、最初の作業の少し前までスクロールする（なければ 8 時）
-  const earliest = Math.min(...columns.flat().map((b) => b.start), 8 * HOUR);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: 期間（firstDay）が変わったときだけ動かす
+  // 期間が変わったら、見せる時間帯の真ん中が画面の中央に来るようにスクロールする。
+  // 高さが変わったときも合わせ直す（測る前の仮の高さで一度スクロールしてしまうため）
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 期間（firstDay）が変わったときにも動かす
   useLayoutEffect(() => {
-    if (scrollRef.current)
-      scrollRef.current.scrollTop = Math.max(0, (earliest / HOUR - 0.75) * HOUR_PX);
-  }, [firstDay]);
+    if (!scrollRef.current) return;
+    const center = ((VIEW_START + VIEW_END) / 2) * hourPx;
+    scrollRef.current.scrollTop = Math.max(0, center - viewportPx / 2);
+  }, [firstDay, hourPx, viewportPx]);
 
   // 作業のない日（今日より後の日など）は細くし、作業のある日に幅を回す。
   // すべて空なら均等にする（fr の合計が 1 未満だと余白が残るため）
@@ -101,7 +107,7 @@ export function CalendarGrid({
       </div>
 
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
-        <div className="grid" style={{ ...template, height: 24 * HOUR_PX }}>
+        <div className="grid" style={{ ...template, height: 24 * hourPx }}>
           <div className="relative" style={{ background: SKY }} aria-hidden>
             {Array.from({ length: 23 }, (_, i) => i + 1).map((h) => (
               <span
@@ -110,7 +116,7 @@ export function CalendarGrid({
                   "absolute right-2 -translate-y-1/2 font-num text-[11px]",
                   isNightHour(h) ? "text-white/80" : "text-foreground/60",
                 )}
-                style={{ top: h * HOUR_PX }}
+                style={{ top: h * hourPx }}
               >
                 {h}:00
               </span>
@@ -122,6 +128,7 @@ export function CalendarGrid({
               key={day}
               day={day}
               blocks={columns[i] ?? []}
+              hourPx={hourPx}
               projects={projects}
               selectedId={selectedId}
               selectedAt={selectedAt}
@@ -135,9 +142,34 @@ export function CalendarGrid({
   );
 }
 
+/**
+ * スクロール領域の高さから 1 時間の高さを決める。見せる時間帯がちょうど収まる高さにし、
+ * 低い画面では最小の高さで止める。ウィンドウの大きさが変わったら測り直す。
+ */
+function useHourPx(ref: React.RefObject<HTMLDivElement | null>) {
+  const [size, setSize] = useState({ hourPx: MIN_HOUR_PX, viewportPx: 0 });
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const viewportPx = el.clientHeight;
+      const hourPx = Math.max(MIN_HOUR_PX, viewportPx / (VIEW_END - VIEW_START));
+      setSize((prev) =>
+        prev.hourPx === hourPx && prev.viewportPx === viewportPx ? prev : { hourPx, viewportPx },
+      );
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref]);
+  return size;
+}
+
 function DayColumn({
   day,
   blocks,
+  hourPx,
   projects,
   selectedId,
   selectedAt,
@@ -146,6 +178,7 @@ function DayColumn({
 }: {
   day: number;
   blocks: PlacedBlock[];
+  hourPx: number;
   projects: Map<number, Project>;
   selectedId: string | null;
   selectedAt: number | null;
@@ -157,14 +190,14 @@ function DayColumn({
     <div
       className={cn("relative border-l", today && "bg-primary/[0.04]")}
       style={{
-        backgroundImage: `repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px ${HOUR_PX}px)`,
+        backgroundImage: `repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px ${hourPx}px)`,
       }}
     >
       {/* 現在時刻の線はブロックの下に描く。直前の短いブロックを隠さないため */}
       {today && (
         <div
           className="pointer-events-none absolute inset-x-0 h-0.5 bg-primary"
-          style={{ top: ((now - day) / HOUR) * HOUR_PX }}
+          style={{ top: ((now - day) / HOUR) * hourPx }}
           aria-hidden
         >
           <span className="absolute -top-[3px] -left-1 size-2 rounded-full bg-primary" />
@@ -174,6 +207,7 @@ function DayColumn({
         <Block
           key={`${b.session.id}-${b.start}`}
           block={b}
+          hourPx={hourPx}
           project={b.session.projectId !== null ? projects.get(b.session.projectId) : undefined}
           selected={
             b.session.id === selectedId && (selectedAt === null || b.segment.start === selectedAt)
@@ -187,22 +221,24 @@ function DayColumn({
 
 function Block({
   block,
+  hourPx,
   project,
   selected,
   onSelect,
 }: {
   block: PlacedBlock;
+  hourPx: number;
   project: Project | undefined;
   selected: boolean;
   onSelect: (id: string, at: number) => void;
 }) {
   const { session, start, end, col, cols, span, depth } = block;
-  const height = (Math.max(end - start, MIN_BLOCK_MS) / HOUR) * HOUR_PX - 2;
+  const height = (Math.max(end - start, MIN_BLOCK_MS) / HOUR) * hourPx - 2;
   // 最低限の高さ（MIN_BLOCK_MS）でも 1 行は入るよう、短いときは余白を詰める
   const short = height < 34;
   // 上に別のブロックが重なるなら、見出しはそこまでに見えている高さに収める
   const visible =
-    block.coveredFrom === null ? height : ((block.coveredFrom - start) / HOUR) * HOUR_PX;
+    block.coveredFrom === null ? height : ((block.coveredFrom - start) / HOUR) * hourPx;
   const lines = Math.max(1, Math.min(3, Math.floor((visible - 8) / 16.5)));
   const label = block.segment.headline;
   const range = `${hhmm(block.dayStart + start)}–${hhmm(block.dayStart + end)}`;
@@ -230,7 +266,7 @@ function Block({
           )}
           style={
             {
-              top: (start / HOUR) * HOUR_PX + 1,
+              top: (start / HOUR) * hourPx + 1,
               height,
               left: `calc(${(col / cols) * 100}% + ${2 + depth * INDENT_PX}px)`,
               width: `calc(${(span / cols) * 100}% - ${4 + depth * INDENT_PX}px)`,
