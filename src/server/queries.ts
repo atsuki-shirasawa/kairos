@@ -202,7 +202,8 @@ export class Queries {
           end: g.end,
           promptCount: g.prompt_count,
           headline: g.headline ?? g.fallback_title ?? fallback,
-          body: g.body,
+          // 見出しだけを作ったセクションは本文が空。要約はまだないものとして扱う
+          body: g.body || null,
           model: g.model,
           createdAt: g.created_at,
           stale: g.covered_until !== null && g.covered_until < g.end,

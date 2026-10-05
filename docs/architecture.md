@@ -116,8 +116,9 @@ sequenceDiagram
 ```
 
 - 並列数は 1。失敗したら理由を記録し、1 分・2 分・4 分おいて最大 3 回まで再試行する
-- 短いセクションと 7 日より前のセクションは、ドロワーのボタン（`POST /api/sessions/:id/sections/:start/summary`）で優先キューへ積める
-- 要約のないセクションの見出しは、取り込み時に計算する `segments.fallback_title`（最初の発言、なければ Claude の最後の返答の 1 行目）
+- 短いセクション（10 分未満かつ発言 1 回以下）は、自動では見出しだけを作る。`summaries` に本文を空文字で保存し、API では要約なし（`body: null`）として返す
+- 短いセクションの本文と 7 日より前のセクションは、ドロワーのボタン（`POST /api/sessions/:id/sections/:start/summary`）で優先キューへ積める
+- 見出しのないセクション（7 日より前・作業中・生成前）は、取り込み時に計算する `segments.fallback_title`（最初の発言、なければ Claude の最後の返答の 1 行目）を出す
 - `claude` は専用の作業ディレクトリで実行し、`--no-session-persistence`・`--tools ""`・`--strict-mcp-config`・`--setting-sources project` を付けて副作用をなくす
 
 ## 5. API

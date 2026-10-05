@@ -6,6 +6,7 @@ import { buildDigest } from "../../src/server/summarize/digest.ts";
 import { buildPrompt, parseSummary } from "../../src/server/summarize/prompt.ts";
 import { Summarizer } from "../../src/server/summarize/summarizer.ts";
 import type { SessionDetail } from "../../src/shared/api.ts";
+import { SUMMARY_MIN_DURATION_MS, SUMMARY_MIN_PROMPTS } from "../../src/shared/sections.ts";
 import { SID } from "../fixtures/ids.ts";
 import { min, setup } from "./ingest/helpers.ts";
 
@@ -40,21 +41,36 @@ const summaryOf = (sid: string, start: number) =>
     )
     .get(sid, start);
 
+/** 短いセクションに見出しを付けた扱いにする。本文まで作る対象の選び方だけを見るため。 */
+const skipTitles = () =>
+  db.run(
+    `INSERT INTO summaries
+     SELECT session_id, start, 'x', '', 'm', end, 0 FROM segments
+     WHERE end - start < ${SUMMARY_MIN_DURATION_MS} AND prompt_count < ${SUMMARY_MIN_PROMPTS}`,
+  );
+
 describe("Summarizer", () => {
-  test("自動の対象は、終わっていて、十分に長いか発言の多いセクションだけ", () => {
+  test("自動の対象は終わったセクション。短いものは見出しだけ、長いか発言の多いものは本文まで", () => {
     const picked: string[] = [];
     for (let t = summarizer.next(); t; t = summarizer.next()) {
-      picked.push(`${t.sessionId.slice(0, 4)}@${(t.start - min(0)) / 60_000}`);
+      picked.push(`${t.sessionId.slice(0, 4)}@${(t.start - min(0)) / 60_000}:${t.mode}`);
       db.query("INSERT INTO summaries VALUES (?, ?, 'x', 'y', 'm', 1e15, 0)").run(
         t.sessionId,
         t.start,
       );
     }
-    // basic の 45 分台（発言 2）、compaction の 380 分台（発言 2）、loop の 150 分台（発言 1・1 分）は対象外
-    expect(picked.sort()).toEqual(["1111@45", "7777@380"]);
+    // 本文まで作るのは basic の 45 分台（発言 2）と compaction の 380 分台（発言 2）だけ
+    expect(picked.filter((p) => p.endsWith(":summary")).sort()).toEqual([
+      "1111@45:summary",
+      "7777@380:summary",
+    ]);
+    // loop の 150 分台（発言 1・1 分）のような短いセクションは見出しだけ
+    expect(picked).toContain("2222@150:title");
+    expect(picked).toContain("1111@0:title");
   });
 
   test("要約して保存し、もう一度は選ばない", async () => {
+    skipTitles();
     const target = { sessionId: SID.basic, start: min(45) };
     expect(await summarizer.summarize(target)).toBe(true);
     expect(summaryOf(SID.basic, min(45))).toEqual({
@@ -76,6 +92,7 @@ describe("Summarizer", () => {
   });
 
   test("最後のセクションは、最後の活動から 30 分たつまで待つ", () => {
+    skipTitles();
     now = min(50.2) + 10 * 60_000;
     expect(summarizer.next()).toBeNull();
     now = min(50.2) + 31 * 60_000;
@@ -83,14 +100,16 @@ describe("Summarizer", () => {
   });
 
   test("7 日より前のセクションは自動では作らないが、頼まれれば作る", async () => {
+    skipTitles();
     now = min(50.2) + 8 * 24 * 60 * 60_000;
     expect(summarizer.next()).toBeNull();
     summarizer.request(SID.basic, min(0)); // 短いセクションでも頼まれれば作る
     expect(summarizer.isPending(SID.basic, min(0))).toBe(true);
-    expect(summarizer.next()).toEqual({ sessionId: SID.basic, start: min(0) });
+    expect(summarizer.next()).toEqual({ sessionId: SID.basic, start: min(0), mode: "summary" });
   });
 
   test("失敗は理由を記録し、時間をおいて再試行する", async () => {
+    skipTitles();
     reply = async () => {
       throw new Error("Not logged in");
     };
@@ -103,10 +122,23 @@ describe("Summarizer", () => {
     );
     expect(summarizer.next()).toBeNull(); // 再試行の時刻までは飛ばす
     now += 61_000;
-    expect(summarizer.next()).toEqual(target);
+    expect(summarizer.next()).toEqual({ ...target, mode: "summary" });
+  });
+
+  test("短いセクションは見出しだけを作り、本文は空にする", async () => {
+    reply = async () => "ログイン画面の下調べ\n\n- 余計な本文";
+    const target = { sessionId: SID.basic, start: min(0), mode: "title" as const };
+    expect(await summarizer.summarize(target)).toBe(true);
+    expect(prompts[0]).toContain("見出しを、日本語で 1 行だけ");
+    expect(summaryOf(SID.basic, min(0))).toMatchObject({
+      headline: "ログイン画面の下調べ",
+      body: "",
+    });
+    expect(summarizer.next()).not.toMatchObject({ sessionId: SID.basic, start: min(0) });
   });
 
   test("要約が古くなったら（セクションが続いたら）作り直す", async () => {
+    skipTitles();
     db.query("INSERT INTO summaries VALUES (?, ?, 'x', 'y', 'm', ?, 0)").run(
       SID.compaction,
       min(380),
@@ -117,7 +149,11 @@ describe("Summarizer", () => {
       min(45),
       min(50.2),
     );
-    expect(summarizer.next()).toEqual({ sessionId: SID.compaction, start: min(380) });
+    expect(summarizer.next()).toEqual({
+      sessionId: SID.compaction,
+      start: min(380),
+      mode: "summary",
+    });
   });
 });
 
