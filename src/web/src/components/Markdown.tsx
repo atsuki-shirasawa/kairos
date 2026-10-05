@@ -1,12 +1,22 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { remarkIssueLinks } from "@/lib/issueLinks.ts";
 import { cn } from "@/lib/utils.ts";
 
 /**
  * 会話や要約の Markdown を表示する。生の HTML は描画しない（react-markdown の既定）。
  * 画像は読み込まず、リンクは新しいタブで開く。
+ * `issueBaseUrl` を渡すと、本文の `#番号` をそのリポジトリの Issue / PR へのリンクにする。
  */
-export function Markdown({ children, className }: { children: string; className?: string }) {
+export function Markdown({
+  children,
+  className,
+  issueBaseUrl,
+}: {
+  children: string;
+  className?: string;
+  issueBaseUrl?: string | null;
+}) {
   return (
     <div
       className={cn(
@@ -22,7 +32,9 @@ export function Markdown({ children, className }: { children: string; className?
       )}
     >
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={
+          issueBaseUrl ? [remarkGfm, [remarkIssueLinks, { baseUrl: issueBaseUrl }]] : [remarkGfm]
+        }
         components={{
           a: ({ href, children: c }) => (
             <a href={href} target="_blank" rel="noreferrer">

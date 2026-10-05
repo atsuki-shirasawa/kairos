@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { useRequestSummary, useSession } from "@/hooks/queries.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { dateLabel, durationLabel, hhmm, isSameDay } from "@/lib/dates.ts";
+import { issueBaseUrl } from "@/lib/issueLinks.ts";
 import { cn } from "@/lib/utils.ts";
 import { Conversation } from "./Conversation.tsx";
 import { Markdown } from "./Markdown.tsx";
@@ -128,7 +129,7 @@ function Detail({
 
   return (
     <div className="space-y-8">
-      {section && <SectionSummary sessionId={s.id} section={section} />}
+      {section && <SectionSummary session={s} section={section} />}
 
       {(s.sections.length > 1 || s.awaySummary || s.continuedFrom || s.continuedIn) && (
         <Flow session={s} section={section} onSelect={onSelect} />
@@ -472,8 +473,8 @@ function AgentTabs({
 }
 
 /** 選んだセクションの要約。なければ作るボタン。短いセクションはその旨を出す。 */
-function SectionSummary({ sessionId, section }: { sessionId: string; section: Section }) {
-  const request = useRequestSummary(sessionId);
+function SectionSummary({ session: s, section }: { session: SessionDetail; section: Section }) {
+  const request = useRequestSummary(s.id);
   const busy = section.pending || request.isPending;
   const button = (label: string, Icon: typeof Sparkles) => (
     <Button
@@ -497,7 +498,10 @@ function SectionSummary({ sessionId, section }: { sessionId: string; section: Se
         <>
           {/* ドロワーで一番読む部分なので、ここだけ面と藍の線で浮かせる */}
           <div className="rounded-r-lg border-primary border-l-[3px] bg-accent/60 py-3 pr-4 pl-4">
-            <Markdown className="text-[15px] leading-7 [&_li+li]:mt-1 [&_li>ol]:mt-1 [&_li>ul]:mt-1 [&_strong]:font-semibold [&_strong]:text-primary">
+            <Markdown
+              issueBaseUrl={issueBaseUrl(s.project?.repo)}
+              className="text-[15px] leading-7 [&_li+li]:mt-1 [&_li>ol]:mt-1 [&_li>ul]:mt-1 [&_strong]:font-semibold [&_strong]:text-primary"
+            >
               {section.body}
             </Markdown>
           </div>
