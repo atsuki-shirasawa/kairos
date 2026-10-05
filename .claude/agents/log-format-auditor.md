@@ -10,7 +10,7 @@ You audit the log format that Kairos's ingest assumes.
 ## Read the assumptions
 
 - "Rules" in `tests/fixtures/README.md`
-- `docs/architecture.md` §3.1 Normalization rules
+- `ARCHITECTURE.md` §3.1 Normalization rules
 - `src/server/ingest/classify.ts` and `records.ts` (which types, subtypes and fields they look at)
 - `VERSION` in `tests/fixtures/builder.ts` (the Claude Code version the fixtures assume)
 

@@ -2,7 +2,7 @@
 
 A personal web app that ingests Claude Code session logs (`~/.claude/projects/**/*.jsonl`) into SQLite and lets you look back on them in a calendar. Assumes macOS and Bun.
 
-Design: [Requirements](docs/requirements.md) / [Architecture](docs/architecture.md) / [Design](docs/design.md) / [Tasks](docs/tasks.md)
+Design: [Architecture](ARCHITECTURE.md) / [Design](DESIGN.md)
 
 ## Commands
 
@@ -12,6 +12,7 @@ bun run format     # auto-fix with Biome
 bun test tests/server/ingest/ingester.test.ts   # a single test file
 bun run dev        # API :4319 + Vite :5173. Run `kairos stop` first (same port)
 bun tests/fixtures/generate.ts                  # regenerate the fixtures
+bun run screenshots   # retake docs/images/screen-*.png from a fictional week (after `bun run build`)
 ```
 
 To deploy to the locally running server, use `/ship-local` (check → build → `kairos restart`). To check a UI change in the browser against the fixtures, use `/verify-ui`.

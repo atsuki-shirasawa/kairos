@@ -9,7 +9,7 @@ paths:
 
 ## Interpretation rules
 
-- The current rules are the table in `docs/architecture.md` §3.1, and the evidence and expectations per scenario are in `tests/fixtures/README.md` (the source of truth). Read them before changing how records are classified
+- The current rules are the table in `ARCHITECTURE.md` §3.1, and the evidence and expectations per scenario are in `tests/fixtures/README.md` (the source of truth). Read them before changing how records are classified
 - When changing interpretation rules, add the scenario and tests first, then the code: use `/add-fixture-scenario`
 - If you suspect Claude Code's log format has changed, use the `log-format-auditor` agent to compare real logs against the rules
 

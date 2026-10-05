@@ -2,14 +2,34 @@
 
 A personal web app that turns your Claude Code session history into a calendar, so you can look back on what you were doing on a given day and at a given time.
 
+> **Kairos** is Greek for "the meaningful moment". Where *chronos* is the time a clock ticks off, *kairos* is the time when something happened — the app gives the hours on a calendar their meaning: what you did then.
+
 - Ingests the logs (`~/.claude/projects/**/*.jsonl`) read-only and stores them in SQLite. Even after Claude Code deletes its logs (30 days by default), Kairos keeps them
 - Automatically summarizes each work block (section) with `claude -p` (haiku)
+- Searches every period by summaries, prompts and replies, PR and commit titles, and branches
+- A summary view with working time, PRs, commits, tokens and estimated cost against the previous period, and per-project recaps written on request
+- Copies the shown period as a Markdown report (by day and project, with PR links) for a stand-up or a weekly report, and copies `claude --resume` for any session
 - Starts in the background whenever you launch Claude Code
 - The UI is in English by default; Japanese can be selected from the "⋯" menu (saved per browser)
 
-![Kairos architecture](docs/images/architecture.png)
+![Kairos week view with the detail drawer](docs/images/screen-week.png)
 
-Design docs: [Requirements](docs/requirements.md) / [Architecture](docs/architecture.md) / [Design](docs/design.md) / [Tasks](docs/tasks.md)
+Design docs: [Architecture](ARCHITECTURE.md) / [Design](DESIGN.md)
+
+## Background
+
+Kairos keeps read-only incremental parsing, work blocks split at pauses, live updates, commits and PRs as outcomes, and local-only security, and sets out to fix what got in the way:
+
+- Too many numbers (cache rate, tool stats, …) burying what you actually did
+- Narrow week-view blocks with barely readable titles, and a dated, English-only UI
+- Nothing older than the log retention period (about 30 days) could be viewed
+- Re-reading every log (about 900MB, 8 seconds) on each start, and waiting about 20 seconds for a summary after each click
+
+**Goal:** see at a glance what you were doing on a given day and at a given time.
+
+**Not in scope:** detailed cost and token analysis (only period totals and estimates are shown), team sharing or public access, acting on sessions (Kairos copies the resume command but never runs it), and syncing across machines. It is built for one personal Mac.
+
+Ideas for later: a monthly heat map, logs from other tools such as Codex, notes and tags on blocks.
 
 ## Setup
 
@@ -83,6 +103,20 @@ rm -rf ~/Library/Application\ Support/kairos ~/Library/Logs/kairos
 
 Then remove the `kairos ensure` entry from SessionStart in `~/.claude/settings.json`.
 
+## Troubleshooting
+
+Start with `kairos status` (is it running, which PID) and the log at `~/Library/Logs/kairos/server.log`.
+
+| Symptom | What to do |
+|---|---|
+| Nothing at http://127.0.0.1:4319 | Run `kairos open`. If it still doesn't answer, check the log: `cannot listen on 127.0.0.1:4319` means another process holds the port (often `bun run dev`) |
+| The page is empty or 404, but the API answers | The web UI isn't built (the log says so). Run `bun run build`, then `kairos restart` |
+| It doesn't start when Claude Code launches | Check that the SessionStart hook uses the absolute path to `kairos` (`which kairos`); hooks don't see your shell's `PATH` |
+| Summaries say "Couldn't summarize" | The drawer tells you why. Usually `claude` isn't logged in (run `claude` in a terminal and log in) or isn't installed (install it, then `kairos restart`). Press the button in the drawer to try again |
+| Recent work is missing or looks stale | Ingest runs on file changes; `kairos restart` re-reads anything changed since the last run |
+| The DB looks broken, or you want to start over | `kairos stop`, delete `~/Library/Application Support/kairos/kairos.db*`, then `kairos open`. Everything is ingested again, but **sessions whose original logs Claude Code already deleted are gone for good**, and only the last 7 days are re-summarized automatically |
+| `bun run dev` fails to start the API | The background server holds the same port. Run `kairos stop` first |
+
 ## Development
 
 ```sh
@@ -92,6 +126,8 @@ bun run format   # auto-fix with Biome
 ```
 
 `bun run dev` uses the same port as the background server, so run `kairos stop` first.
+
+`bun run screenshots` retakes the screenshots in `docs/images/` from a fictional week (needs `bun run build` and Google Chrome).
 
 The fictional test logs can be regenerated with `bun tests/fixtures/generate.ts` ([details](tests/fixtures/README.md)).
 

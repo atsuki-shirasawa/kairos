@@ -1,12 +1,12 @@
 # Kairos Architecture
 
-Last updated: 2026-10-05 / Related: [Requirements](requirements.md) / [Tasks](tasks.md)
+Last updated: 2026-10-05 / Related: [README](README.md) / [Design](DESIGN.md)
 
 ## 1. Overview
 
-![Kairos architecture](images/architecture.png)
+![Kairos architecture](docs/images/architecture.png)
 
-The image is rendered with [Archify](https://github.com/tt-a1i/archify) from [`images/architecture.archify.json`](images/architecture.archify.json); the Mermaid chart below has the full set of flows.
+The image is rendered with [Archify](https://github.com/tt-a1i/archify) from [`docs/images/architecture.archify.json`](docs/images/architecture.archify.json); the Mermaid chart below has the full set of flows.
 
 ```mermaid
 flowchart LR
@@ -57,6 +57,10 @@ There is only one process, `kairos serve`, which handles ingest, summaries, the 
 | API | REST for the calendar, details, conversations, summaries and project settings, plus SSE for update notifications | Hono |
 | Web UI | Week and day calendar, detail drawer, filters (projects, keywords, etc.). English by default, Japanese selectable (`src/web/src/i18n`) | React + Tailwind + shadcn/ui |
 
+Everything is TypeScript on Bun: Hono for the API, SQLite through `bun:sqlite`, React + Vite with Tailwind CSS and shadcn/ui for the UI, file watching + Server-Sent Events for live updates, and the `claude` CLI as a subprocess for summaries. The calendar is drawn with CSS Grid rather than a library, so its look can be tuned freely. API types in `src/shared` are shared by the server and the UI.
+
+The schema lives in `MIGRATIONS` in `src/server/db/index.ts`. A continued session starts with a copy of the previous session's conversation under the same uuids, so message uniqueness is per session, and copies are flagged with `is_copy` and left out of aggregates.
+
 ## 3. Ingest flow
 
 ```mermaid
@@ -87,6 +91,7 @@ sequenceDiagram
 | Headless session | Zero human prompts. Not shown on the calendar |
 | Prompt-less work block | A block with no human prompt, `/loop` tick or tool call (a compaction, an API error or a short reply to a notification after a break) isn't drawn. Prompt-less blocks with tool calls stay: Claude acting on a notification on its own |
 | Worktree | If the launch cwd is `<repo>/.claude/worktrees/<name>`, the project is `<repo>` and `<name>` becomes a secondary label. A later `relocated` / `worktree-state` only affects the secondary label |
+| Same repository | If `.git/config` has an `origin` remote, the project is named after the repository and other clones of the same remote merge into it (a directory name that differs becomes the secondary label). Only the file is read; no git commands run |
 | Title | `custom-title` > `agent-name` > `ai-title` > the first human prompt |
 | Recap | Store `system/away_summary` and use it as a placeholder until the AI summary is ready |
 | Tool output | Truncated to the first 4KB |
@@ -98,7 +103,7 @@ sequenceDiagram
 | Claude's working time and effort | Store `durationMs` of `system/turn_duration` in `turns`, and the response's `effort` in `usage.effort`. Copies in continued sessions are excluded by uuid |
 | Cost | An estimate converted with the API price list (`src/server/pricing.ts`). It won't match what you actually pay when using a subscription |
 
-The evidence for each rule and the fixture for each rule are collected in [tests/fixtures/README.md](../tests/fixtures/README.md).
+The evidence for each rule and the fixture for each rule are collected in [tests/fixtures/README.md](tests/fixtures/README.md).
 
 The parser has a `PARSER_VERSION`. Files whose `ingest_state.parser_version` doesn't match are re-read if the original log still exists.
 
@@ -166,19 +171,17 @@ Request and response types live in `src/shared` and are shared by the server and
 
 ## 6. Screen layout
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│ Kairos   [Week|Day]  ‹ Today ›  October 2026  W40  [Filter▾] │
-├──────┬───────────────────────────────────┬───────────────────┤
-│ Time │ Mon  Tue  Wed  Thu  Fri  Sat  Sun │ Detail drawer     │
-│ 9:00 │ ┌──┐                              │ Headline          │
-│      │ │Su│ ┌──┐                         │ Project, time     │
-│10:00 │ │mm│ │  │                         │ ─ Summary ─       │
-│      │ └──┘ └──┘                         │ Goal / Done …     │
-│      │                                   │ ─ Conversation ─  │
-│      │                                   │ ─ Commits, PRs ─  │
-└──────┴───────────────────────────────────┴───────────────────┘
-```
+![Week view with the detail drawer](docs/images/screen-week.png)
+
+Toolbar on top, the calendar (or the summary) below it, and the detail drawer on the right. Day view, where tall blocks also show their summary body:
+
+![Day view](docs/images/screen-day.png)
+
+The summary layout: period totals against the previous period, time by day and by project, and per-project recaps:
+
+![Summary view](docs/images/screen-summary.png)
+
+The screenshots are taken from a fictional week (`scripts/screenshots/demo.ts`) with `bun run screenshots`; retake them when the UI changes visibly.
 
 - Blocks that overlap in time are placed side by side, as in Google Calendar
 - Blocks show the summary headline. If there isn't enough height, only the headline is shown, with the full text on hover. Blocks with commits or PRs carry a small mark
@@ -193,7 +196,10 @@ Request and response types live in `src/shared` and are shared by the server and
 ```
 kairos/
 ├── .claude/            # Claude Code setup: path-scoped rules, hooks, skills, agents
-├── docs/
+├── docs/images/        # architecture diagram (rendered PNG and its Archify source)
+├── ARCHITECTURE.md     # this file
+├── DESIGN.md           # visual design for agents (DESIGN.md format)
+├── scripts/            # check-jsdoc.ts; screenshots/ (fictional demo week and the capture)
 ├── src/
 │   ├── cli/            # the kairos command (ensure / open / status / stop / restart / serve / ingest); daemon.ts
 │   ├── server/
@@ -221,7 +227,7 @@ kairos/
 
 ## 9. Performance
 
-Measured on 2026-10-05 (P6-2) on an Apple M4 with 16 GB, Bun 1.3.11, against real logs: 1.0 GB in 645 jsonl files (1,068 files including subagent logs), 222 sessions, 117,869 messages.
+Measured on 2026-10-05 on an Apple M4 with 16 GB, Bun 1.3.11, against real logs: 1.0 GB in 645 jsonl files (1,068 files including subagent logs), 222 sessions, 117,869 messages.
 
 | What | Result | How |
 |---|---|---|
@@ -233,4 +239,24 @@ Measured on 2026-10-05 (P6-2) on an Apple M4 with 16 GB, Bun 1.3.11, against rea
 | `GET /api/sessions/:id` / `…/messages` for the largest session | 45 ms / 14 ms | same |
 | Page open until the week's data is in | about 0.2 s (HTML parsed at 0.10 s, `/api/calendar` done at 0.20 s, `load` at 0.63 s once fonts arrive) | Navigation and Resource Timing in Chrome |
 
-Start to display is well within the 1-second goal (Requirements §4), because the screen renders from the DB and ingest runs in the background. The first ingest is the slow part, and it happens once. The bundle is served uncompressed (JS 671 KB, CSS 569 KB); that costs nothing noticeable over loopback, so it is left as is.
+Start to display is well within the goal of showing the screen within 1 second, because the screen renders from the DB and ingest runs in the background. The first ingest is the slow part, and it happens once. The bundle is served uncompressed (JS 671 KB, CSS 569 KB); that costs nothing noticeable over loopback, so it is left as is.
+
+## 10. Security
+
+The server holds and returns conversations from every project, so it is treated as sensitive even though it only runs locally. Two things are assumed hostile: **other sites open in the same browser**, and **text inside the logs** (pasted web pages, tool output, anything Claude read).
+
+| Threat | Defense | Where |
+|---|---|---|
+| Access from another machine | Listen on `127.0.0.1` only | `src/server/serve.ts` |
+| DNS rebinding (a page whose domain resolves to `127.0.0.1` reads the API) | Reject any request whose Host header isn't `127.0.0.1` or `localhost` | `guardHost` in `src/server/api/security.ts` |
+| CSRF (another page posts to the API) | Writes must be `Content-Type: application/json` — which a form or simple `fetch` can't send cross-origin without a preflight — and any Origin must be local. No CORS headers are ever sent | `guardWrite` |
+| XSS from log text | Markdown is rendered with `react-markdown` defaults: no raw HTML, no `dangerouslySetInnerHTML`, no images | `src/web/src/components/Markdown.tsx` |
+| Leaking to the outside by displaying a log (tracking pixels, remote fonts, scripts) | A CSP that allows only the app's own origin, plus `data:` images | `CSP` in `security.ts` |
+| Prompt injection into summaries | `claude -p` gets no tools (`--tools ""`), no MCP servers (`--strict-mcp-config`), only project settings, an empty working directory, and the excerpt on stdin rather than in arguments or a shell. The worst a hostile log can do is spoil its own summary | `src/server/summarize/claude.ts` |
+| Summaries showing up as sessions, or touching the logs | `--no-session-persistence`; Kairos never writes under `~/.claude` | same; a project hook blocks edits to `*.jsonl` |
+
+GET routes and SSE have no side effects, so only the guarded write routes can change anything.
+
+**What leaves the machine:** only the excerpts passed to `claude -p` for section summaries and recaps, sent through your own Claude Code login. Nothing else is fetched or sent.
+
+Changes to any of this go through the `security-reviewer` agent (see `.claude/rules/api.md`).

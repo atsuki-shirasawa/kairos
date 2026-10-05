@@ -16,7 +16,7 @@ Kairos's ingest is accepted against "the expectations table in the fixture READM
    - If it stands alone, add an ID to `SID` in `tests/fixtures/ids.ts` (in the form `cccccccc-cccc-4ccc-8ccc-cccccccccccc`), write a function in `generate.ts` under a `// ---- N. Name` heading, and add it to the scenario array at the end
    - Times are minutes from the base time (2026-09-28 00:00 UTC). Pick a time range whose work blocks don't overlap existing scenarios
 4. **Generate**: `bun tests/fixtures/generate.ts` (don't edit `tests/fixtures/claude/` directly; a hook also blocks it)
-5. **Write the expectations**: Add a row to the scenario table in `tests/fixtures/README.md`. If it's a rule confirmed by the study, also add it to the "Rules" table with its evidence. Keep `docs/architecture.md` §3.1 Normalization rules in sync
+5. **Write the expectations**: Add a row to the scenario table in `tests/fixtures/README.md`. If it's a rule confirmed by the study, also add it to the "Rules" table with its evidence. Keep `ARCHITECTURE.md` §3.1 Normalization rules in sync
 6. **Write the test**: Add `test("N. Name: what it checks")` to `describe` for the README scenarios in `tests/server/ingest/ingester.test.ts`. If it's only about classification, use `classify.test.ts`
 7. **Implement**: Confirm the test fails, then fix `src/server/ingest/`
 8. **Bump the version** (`src/server/ingest/ingester.ts`)

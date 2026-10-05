@@ -17,7 +17,7 @@ export function Brand({ progress }: { progress: ImportProgress }) {
 }
 
 /**
- * The app mark (`public/favicon.svg`; see "Mark" in docs/design.md).
+ * The app mark (`public/favicon.svg`; see "Components" in DESIGN.md).
  * While importing, a progress ring is drawn around it. Text would change the header width and
  * shift the buttons.
  */

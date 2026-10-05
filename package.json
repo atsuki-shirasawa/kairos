@@ -19,7 +19,8 @@
     "jsdoc": "bun scripts/check-jsdoc.ts",
     "format": "biome check --write .",
     "test": "bun test",
-    "check": "biome check . && bun run typecheck && bun run jsdoc && bun test"
+    "check": "biome check . && bun run typecheck && bun run jsdoc && bun test",
+    "screenshots": "bun scripts/screenshots/capture.ts"
   },
   "dependencies": {
     "@fontsource/ibm-plex-sans-condensed": "^5.3.0",
