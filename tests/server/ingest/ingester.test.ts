@@ -220,6 +220,72 @@ describe("README のシナリオ", () => {
     expect(segments(SID.prTitles)).toEqual([[min(540), min(546)]]);
   });
 
+  test("12. usage: 分かれた応答は message.id ごとに 1 件、出力は最大値、合成レコードは数えない", () => {
+    const rows = db
+      .query<Record<string, unknown>, [string]>(
+        `SELECT model, input, output, cache_read, cache_write_5m, cache_write_1h FROM usage
+         WHERE session_id = ? ORDER BY ts`,
+      )
+      .all(SID.usage);
+    expect(rows).toEqual([
+      {
+        model: "claude-opus-5-5",
+        input: 2_000,
+        output: 900,
+        cache_read: 30_000,
+        cache_write_5m: 0,
+        cache_write_1h: 8_000,
+      },
+      {
+        model: "claude-sonnet-5-5",
+        input: 500,
+        output: 300,
+        cache_read: 40_000,
+        cache_write_5m: 1_000,
+        cache_write_1h: 0,
+      },
+    ]);
+  });
+
+  test("8. 続きのセッション: 前のセッションの応答のコピーはトークンに数えない", () => {
+    const own = (id: string) =>
+      count(
+        "SELECT COALESCE(SUM(input + output + cache_read + cache_write_5m + cache_write_1h), 0) AS n FROM usage WHERE session_id = ? AND is_copy = 0",
+        id,
+      );
+    // 内訳のない cache_creation_input_tokens は 5 分の書き込みとみなす
+    expect(own(SID.continuedFrom)).toBe(24_800);
+    expect(own(SID.continuedTo)).toBe(24_800);
+  });
+
+  test("12. usage: effort を応答ごとに、ターンの所要時間をメインのセッションに記録する", () => {
+    expect(
+      db
+        .query<{ effort: string }, [string]>(
+          "SELECT effort FROM usage WHERE session_id = ? ORDER BY ts",
+        )
+        .all(SID.usage)
+        .map((r) => r.effort),
+    ).toEqual(["high", "medium"]);
+    expect(
+      db
+        .query<{ ts: number; duration_ms: number }, [string]>(
+          "SELECT ts, duration_ms FROM turns WHERE session_id = ?",
+        )
+        .all(SID.usage),
+    ).toEqual([{ ts: min(603), duration_ms: 170_000 }]);
+  });
+
+  test("8. 続きのセッション: コピーしたターンの所要時間は数えない", () => {
+    const own = (id: string) =>
+      count(
+        "SELECT COALESCE(SUM(duration_ms), 0) AS n FROM turns WHERE session_id = ? AND is_copy = 0",
+        id,
+      );
+    expect(own(SID.continuedFrom)).toBe(30_000);
+    expect(own(SID.continuedTo)).toBe(30_000);
+  });
+
   test("10. 別プロジェクト・翌日", () => {
     const s = session(SID.blog);
     expect(s.project).toBe("/Users/me/dev/blog");

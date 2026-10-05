@@ -12,17 +12,18 @@ P1（取り込み）の受け入れ基準として使う。「人の発言」は
 
 | # | セッション | 起動ディレクトリ | 見どころ | 期待値 |
 |---|---|---|---|---|
-| 1 | `1111…` basic | `/Users/me/dev/app` | 通常の作業。thinking、Edit、成功と失敗のコミット、PR、バックグラウンドタスクの通知、peer メッセージ、中断、`custom-title`、`away_summary` | 人の発言 3。タイトルは「ログイン機能」（`custom-title` > `ai-title`）。作業ブロック 2: 0–5 分、45–50.2 分。コミット 2（`1a2b3c4 feat: add login form` と、`-q` で作り `git log` で確かめた `9f8e7d6 fix: validate email`。失敗したものは数えない）。PR #42。振り返り文（`away_summary`）あり |
+| 1 | `1111…` basic | `/Users/me/dev/app` | 通常の作業。thinking、Edit、成功と失敗のコミット、PR、バックグラウンドタスクの通知、peer メッセージ、中断、`custom-title`、`away_summary` | 人の発言 3。タイトルは「ログイン機能」（`custom-title` > `ai-title`）。作業ブロック 2: 0–5 分、45–50.2 分。1 つ目はツール呼び出し 6・編集したファイル 1・ツールのエラー 1（失敗したコミット）・Claude の稼働 30 秒、2 つ目はツール呼び出し 2・中断 1・PR 1。コミット 2（`1a2b3c4 feat: add login form` と、`-q` で作り `git log` で確かめた `9f8e7d6 fix: validate email`。失敗したものは数えない）。PR #42。振り返り文（`away_summary`）あり |
 | 2 | `2222…` loop | `/Users/me/dev/app` | `/loop 30m` と 4 回の自動実行。2 回目の実行中にタスク通知 | 人の発言 2。自動実行 4 回。作業ブロック 2: 0–1 分、150–151 分（自動実行の 30・60・90・120 分台は描かない。通知も自動実行のターンに含める） |
 | 3 | `3333…` headless | `/Users/me/tmp/probe` | `claude -p` 相当。`promptSource=sdk`、origin なし | 人の発言 0 → カレンダーに出さない |
 | 4 | `4444…` worktree | `/Users/me/dev/app/.claude/worktrees/fix-header` | worktree の中で起動 | プロジェクトは `/Users/me/dev/app`、補助ラベル `fix-header`。作業ブロック 200–202 分 |
 | 5 | `5555…` relocated | `/Users/me/dev/app` | 途中で `EnterWorktree`（`worktree-state`・`relocated` レコード、以降は cwd が変わる） | プロジェクトは `/Users/me/dev/app`、補助ラベル `refactor-api`。作業ブロック 240–243 分 |
-| 6 | `6666…` subagent | `/Users/me/dev/app` | `Agent` ツールでサブエージェントを起動。ログは `<session>/subagents/agent-<id>.jsonl` と `.meta.json` | サブエージェント 1（`code-reviewer`、「PR #42 のレビュー」）。親の tool_use と `meta.json` の `toolUseId` で対応づく。作業ブロック 300–305.5 分 |
-| 7 | `7777…` compaction | `/Users/me/dev/app` | `/compact`、コマンド出力、`compact_boundary`、要約の user レコード（`isCompactSummary`） | 人の発言 3（`/compact` を含む。コマンド出力と要約は含まない）。compaction 1。作業ブロック 2: 360–362 分、380–383 分 |
-| 8 | `8888…` → `9999…` continued | `/Users/me/dev/app` | `continued-in` で続きのセッションへ。続き側の先頭に前セッションの会話のコピー（uuid・時刻は同じ、sessionId だけ書き換え）、同じ uuid の重複行 | `8888…`: 人の発言 1、続き先 `9999…`。`9999…`: コピーは前のセッションのものとして数えず、重複行は 1 件として、人の発言 1、作業ブロック 425–426 分。どちらのファイルを先に取り込んでも同じ結果になる |
+| 6 | `6666…` subagent | `/Users/me/dev/app` | `Agent` ツールでサブエージェントを起動。ログは `<session>/subagents/agent-<id>.jsonl` と `.meta.json` | サブエージェント 1（`code-reviewer`、「PR #42 のレビュー」）。親の tool_use と `meta.json` の `toolUseId` で対応づく。作業ブロック 300–305.5 分。サブエージェント 1、ツール呼び出し 2（サブエージェントの分を含む） |
+| 7 | `7777…` compaction | `/Users/me/dev/app` | `/compact`、コマンド出力、`compact_boundary`、要約の user レコード（`isCompactSummary`） | 人の発言 3（`/compact` を含む。コマンド出力と要約は含まない）。compaction 1（380–383 分のブロック）。作業ブロック 2: 360–362 分、380–383 分 |
+| 8 | `8888…` → `9999…` continued | `/Users/me/dev/app` | `continued-in` で続きのセッションへ。続き側の先頭に前セッションの会話とターンの所要時間のコピー（uuid・時刻は同じ、sessionId だけ書き換え）、同じ uuid の重複行 | `8888…`: 人の発言 1、続き先 `9999…`。`9999…`: コピーは前のセッションのものとして数えず、重複行は 1 件として、人の発言 1、作業ブロック 425–426 分、トークン 24,800（自分の応答 1 件だけ）、Claude の稼働 30 秒（コピーしたターンは数えない）。どちらのファイルを先に取り込んでも同じ結果になる |
 | 9 | `aaaa…` partial | `/Users/me/dev/app` | 最終行が改行なしで途切れている（書き込み中） | 完全な行だけ取り込む（人の発言 1、Claude の返答 1）。保存する offset は途切れた行の先頭 |
 | 10 | `bbbb…` blog | `/Users/me/dev/blog` | 別プロジェクト・翌日 | 2026-09-29 10:00–10:02 JST |
 | 11 | `cccc…` prTitles | `/Users/me/dev/app` | `gh pr create` を 3 回。`--title "…"`（`pr-link` は結果の後）、`-t '…'`（`pr-link` が結果より先）、`--title "$(…)"`（題名が実行時に決まる） | PR 3。題名は #43「feat: パスワード再設定メールを送る」、#44「fix: リンクの有効期限を 30 分にする」、#45 は題名を使わず「#45 me/app」。作業ブロック 540–546 分 |
+| 12 | `dddd…` usage | `/Users/me/dev/app` | 1 回の応答が 3 レコード（thinking・text・tool_use）に分かれ、同じ `message.id` で `output_tokens` だけが増える。1 時間キャッシュへの書き込み、別モデル（Sonnet 5.5）の応答、API エラーの合成レコード（`<synthetic>`）、effort の違う応答（high / medium）、所要時間 170 秒のターン | 応答 2 件。Opus 5.5: 入力 2,000・出力 900（最後のレコードの値）・キャッシュ読み 30,000・書き込み（1 時間）8,000。Sonnet 5.5: 入力 500・出力 300・キャッシュ読み 40,000・書き込み（5 分）1,000。合成レコードは数えない。作業ブロック 600–603 分の合計 82,700 トークン、API 料金換算 $0.1105、キャッシュ率 85.9%、主なモデル Opus 5.5、effort high（出力の多いほう）、API エラー 1、Claude の稼働 170 秒 |
 
 ## 判定ルール（調査で確定したもの）
 
@@ -38,3 +39,6 @@ P1（取り込み）の受け入れ基準として使う。「人の発言」は
 | 重複 | 同じセッション内の同じ `uuid` は 1 件 | |
 | PR の題名 | `gh pr create` の `--title` / `--title=` / `-t` の値。結果の `toolUseResult.gitOperation.pr`（`action: "created"`、番号と URL）で、どの PR の題名かを結び付ける（`gitOperation` がなければ出力の PR の URL）。値に `$(…)` や `` ` `` を含むものは実行時に決まるので使わない。取れなければ `pr-link` の「#番号 リポジトリ」 | `pr-link`（`prNumber`・`prUrl`・`prRepository`）にも `gitOperation.pr` にも題名はない。実ログで PR を作った 188 件中 186 件が `--title` か `-t` 付き。`pr-link` は結果の前にも後にも来る（35 件中 23 件が前） |
 | 続きのセッションのコピー | 前のセッション（`continued-in` で指している側）と同じ `uuid` のレコードはコピー。集計・作業ブロックから除く | 実ログで、コピーは sessionId だけ書き換えられ uuid・時刻は元のままと確認（18 件の `continued-in` すべて） |
+| トークン使用量 | `type=assistant` の `message.usage`。1 回の応答はブロックごとのレコードに分かれ、同じ `message.id` を持つ。入力・キャッシュの値はどのレコードも同じで、`output_tokens` は後のレコードほど大きいので、`message.id` ごとに最大値を取る。キャッシュの書き込みは `usage.cache_creation` の 5 分 / 1 時間の内訳で分ける（内訳がなければ 5 分とみなす）。`model=<synthetic>` は数えない。続きのセッションにある前のセッションと同じ `message.id` はコピー | 実ログ 87,421 レコード・46,428 応答（2026-10-05）で、同じ `message.id` の入力・キャッシュの値はすべて一致、`output_tokens` が異なる 7,352 応答はすべて最後のレコードが最大 |
+| effort | `type=assistant` の `effort`（high / medium）。同じ `message.id` のレコードでは常に同じ値。作業ブロックの effort は出力トークンがいちばん多い値 | 実ログ 87,587 レコード（2026-10-05）で、452 件（古い版）を除き付いている。同じ応答の中で値が変わるものは 0 件 |
+| Claude の稼働時間 | `system/turn_duration` の `durationMs`（ターンの開始から終わりまで）。レコードの時刻はターンの終わり。メインのセッションにだけある。続きのセッションには同じ `uuid` でコピーされるので、コピーは数えない | 実ログ 2,295 件のうちサブエージェントのファイルには 0 件、別のファイルと uuid が重なるものが 124 件 |

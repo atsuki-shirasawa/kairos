@@ -12,4 +12,5 @@ export const SID = {
   partial: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   blog: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
   prTitles: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+  usage: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
 } as const;

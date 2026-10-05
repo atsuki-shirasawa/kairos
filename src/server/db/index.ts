@@ -135,6 +135,42 @@ const MIGRATIONS: string[] = [
   ALTER TABLE projects ADD COLUMN repo TEXT;
   CREATE UNIQUE INDEX projects_repo ON projects(repo) WHERE repo IS NOT NULL;
   `,
+  // 4: トークン使用量。1 回の応答はブロックごとのレコードに分かれるので、message.id ごとに 1 行にまとめる
+  `
+  CREATE TABLE usage (
+    session_id      TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    message_id      TEXT NOT NULL,
+    agent_id        TEXT,
+    file_id         INTEGER NOT NULL REFERENCES ingest_state(id) ON DELETE CASCADE,
+    ts              INTEGER,
+    model           TEXT NOT NULL,
+    speed           TEXT,
+    input           INTEGER NOT NULL,
+    output          INTEGER NOT NULL,
+    cache_read      INTEGER NOT NULL,
+    cache_write_5m  INTEGER NOT NULL,
+    cache_write_1h  INTEGER NOT NULL,
+    is_copy         INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (session_id, message_id)
+  );
+  CREATE INDEX usage_time ON usage(session_id, ts);
+  `,
+  // 5: 応答の effort と、ターンの所要時間（Claude が動いていた時間）
+  `
+  ALTER TABLE usage ADD COLUMN effort TEXT;
+
+  -- system/turn_duration。ts はターンの終わり。続きのセッションには同じ uuid でコピーされる
+  CREATE TABLE turns (
+    session_id   TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    id           TEXT NOT NULL,
+    file_id      INTEGER NOT NULL REFERENCES ingest_state(id) ON DELETE CASCADE,
+    ts           INTEGER NOT NULL,
+    duration_ms  INTEGER NOT NULL,
+    is_copy      INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (session_id, id)
+  );
+  CREATE INDEX turns_time ON turns(session_id, ts);
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

@@ -1,21 +1,34 @@
-import type { Artifact, Project, Section, SessionDetail, Subagent } from "@shared/api.ts";
+import type { Artifact, Project, Section, SessionDetail, Subagent, Usage } from "@shared/api.ts";
+import { ARTIFACT_GRACE_MS } from "@shared/constants.ts";
 import {
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
   ExternalLink,
+  GitBranch,
   GitCommitHorizontal,
   GitPullRequest,
   RefreshCw,
   Sparkles,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button.tsx";
 import { useRequestSummary, useSession } from "@/hooks/queries.ts";
 import { projectColor } from "@/lib/colors.ts";
-import { dateLabel, durationLabel, hhmm, isSameDay } from "@/lib/dates.ts";
+import { dateLabel, durationLabel, hhmm, isSameDay, relativeDay } from "@/lib/dates.ts";
+import {
+  cacheRate,
+  costLabel,
+  modelLabel,
+  tokensLabel,
+  troubleCount,
+  troubleDetail,
+} from "@/lib/format.ts";
 import { issueBaseUrl } from "@/lib/issueLinks.ts";
 import { cn } from "@/lib/utils.ts";
 import { Conversation } from "./Conversation.tsx";
+import { Hint } from "./Hint.tsx";
 import { Markdown } from "./Markdown.tsx";
 
 interface Props {
@@ -24,54 +37,121 @@ interface Props {
   at: number | null;
   onClose: () => void;
   onSelect: (id: string, at: number | null) => void;
+  /** 時刻順で前・次の作業へ移る。端なら null。 */
+  onPrev: (() => void) | null;
+  onNext: (() => void) | null;
 }
 
-/** 右側の詳細。見出しは上に固定し、その下に要約 → セッションの流れ → 成果 → 会話を並べる。 */
-export function SessionDrawer({ id, at, onClose, onSelect }: Props) {
+/** 右側の詳細。見出しは上に固定し、その下に要約 → セッションの流れ → 成果 → 会話 → 数字を並べる。 */
+export function SessionDrawer({ id, at, onClose, onSelect, onPrev, onNext }: Props) {
   const { data, isPending, isError, error } = useSession(id);
-  // 会話は補助の情報なので畳んでおく。開いたらドロワーを閉じるまで開いたままにする
+  // 会話と数字は補助の情報なので畳んでおく。開いたらドロワーを閉じるまで開いたままにする
+  // （j / k で別の作業へ移っても、同じ見え方で比べられるように）
   const [showConversation, setShowConversation] = useState(false);
+  const [showNumbers, setShowNumbers] = useState(false);
   const section = data
     ? (data.sections.find((x) => x.start === at) ?? data.sections.at(-1) ?? null)
     : null;
 
+  // 狭い画面ではカレンダーの上に重ねるので、開いたらフォーカスをドロワーへ移す
+  const asideRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (matchMedia("(width < 64rem)").matches) asideRef.current?.focus();
+  }, []);
+
+  // 別の作業へ移ったら先頭（要約）から見せる。j / k で続けて読むときに、前の位置が残らないように。
+  // 会話を開いているときは、会話が選んだ時間の発言へ移すので触らない
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const conversationOpen = useRef(showConversation);
+  conversationOpen.current = showConversation;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 選んだ作業が変わったときだけ動かす
+  useEffect(() => {
+    if (!conversationOpen.current) scrollRef.current?.scrollTo({ top: 0 });
+  }, [id, at]);
+
   return (
-    <aside
-      className={cn(
-        "flex w-full shrink-0 flex-col border-l bg-card",
-        "max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-30 max-lg:max-w-md max-lg:shadow-2xl",
-        "lg:w-[26rem] xl:w-[30rem]",
-      )}
-      aria-label="セッションの詳細"
-    >
-      {/* 見出しはスクロールさせない。会話まで下りても、どの作業の詳細かが分かるように */}
-      <header className="flex min-h-14 shrink-0 items-start gap-2 border-b py-4 pr-3 pl-4">
-        <div className="min-w-0 flex-1">
+    <>
+      {/* 狭い画面で重ねたときだけ、背景を暗くして外側のクリックで閉じられるようにする */}
+      <div className="fixed inset-0 z-20 bg-black/30 lg:hidden" onClick={onClose} aria-hidden />
+      <aside
+        ref={asideRef}
+        tabIndex={-1}
+        className={cn(
+          "flex w-full shrink-0 flex-col border-l bg-card outline-none",
+          "max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-30 max-lg:max-w-md max-lg:shadow-2xl",
+          "lg:w-[26rem] xl:w-[30rem]",
+        )}
+        aria-label="セッションの詳細"
+      >
+        {/* 見出しはスクロールさせない。会話まで下りても、どの作業の詳細かが分かるように */}
+        <header className="shrink-0 border-b px-4 pt-2 pb-4">
+          {/* 1 行目にどこの作業か（プロジェクト・worktree・ブランチ）と操作を置き、見出しに幅を回す */}
+          <div className="flex h-9 items-center gap-2">
+            <div className="min-w-0 flex-1">
+              {data && (
+                <ProjectLine project={data.project} label={data.label} branch={data.branch} />
+              )}
+            </div>
+            <div className="-mr-1.5 flex shrink-0 items-center">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={onPrev ?? undefined}
+                disabled={!onPrev}
+                aria-label="前の作業（k）"
+                title="前の作業（k）"
+              >
+                <ChevronUp />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={onNext ?? undefined}
+                disabled={!onNext}
+                aria-label="次の作業（j）"
+                title="次の作業（j）"
+              >
+                <ChevronDown />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={onClose}
+                aria-label="詳細を閉じる（Esc）"
+                title="詳細を閉じる（Esc）"
+              >
+                <X />
+              </Button>
+            </div>
+          </div>
           {data && <DetailHeader session={data} section={section} />}
+        </header>
+        <div
+          ref={scrollRef}
+          className="min-h-0 flex-1 overflow-y-auto px-5 pt-5 pb-10"
+          data-drawer-scroll
+        >
+          {isPending && <p className="text-muted-foreground text-sm">読み込み中…</p>}
+          {isError && (
+            <p className="text-destructive text-sm">
+              セッションを読み込めませんでした: {error.message}
+            </p>
+          )}
+          {data && (
+            <Detail
+              key={data.id}
+              session={data}
+              section={section}
+              onSelect={onSelect}
+              showConversation={showConversation}
+              onShowConversation={setShowConversation}
+              showNumbers={showNumbers}
+              onShowNumbers={setShowNumbers}
+            />
+          )}
         </div>
-        <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="詳細を閉じる">
-          <X />
-        </Button>
-      </header>
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-5 pb-10" data-drawer-scroll>
-        {isPending && <p className="text-muted-foreground text-sm">読み込み中…</p>}
-        {isError && (
-          <p className="text-destructive text-sm">
-            セッションを読み込めませんでした: {error.message}
-          </p>
-        )}
-        {data && (
-          <Detail
-            key={data.id}
-            session={data}
-            section={section}
-            onSelect={onSelect}
-            showConversation={showConversation}
-            onShowConversation={setShowConversation}
-          />
-        )}
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 }
 
@@ -85,19 +165,18 @@ function DetailHeader({
   const headline = section?.headline ?? s.title;
   return (
     // 左の色の線で、カレンダーのどのブロックの詳細かを結びつける
-    <div className="space-y-1 border-l-[3px] pl-3" style={{ borderColor: projectColor(s.project) }}>
+    <div className="mt-1 border-l-[3px] pl-3" style={{ borderColor: projectColor(s.project) }}>
       <h2
-        className="line-clamp-2 text-balance font-semibold text-[17px] leading-snug"
+        className="line-clamp-2 text-balance font-semibold text-[17px] leading-snug tracking-tight"
         title={headline}
       >
         {headline}
       </h2>
       {section && section.headline !== s.title && (
-        <p className="line-clamp-1 text-muted-foreground text-xs" title={s.title}>
+        <p className="mt-0.5 line-clamp-1 text-muted-foreground text-xs" title={s.title}>
           {s.title}
         </p>
       )}
-      <ProjectLine project={s.project} label={s.label} branch={s.branch} />
       {section && <SectionTime session={s} section={section} />}
     </div>
   );
@@ -109,12 +188,16 @@ function Detail({
   onSelect,
   showConversation,
   onShowConversation,
+  showNumbers,
+  onShowNumbers,
 }: {
   session: SessionDetail;
   section: Section | null;
   onSelect: Props["onSelect"];
   showConversation: boolean;
   onShowConversation: (show: boolean) => void;
+  showNumbers: boolean;
+  onShowNumbers: (show: boolean) => void;
 }) {
   const [agent, setAgent] = useState<string | null>(null);
   const multiSection = section !== null && s.sections.length > 1;
@@ -127,6 +210,11 @@ function Detail({
     onShowConversation(true);
   };
 
+  // 開いた会話は下へ読み込み続けるので、その後ろに置くと数字にたどり着けない。開いているときは会話の前に出す
+  const numbers = (
+    <Numbers session={s} section={section} open={showNumbers} onOpen={onShowNumbers} />
+  );
+
   return (
     <div className="space-y-8">
       {section && <SectionSummary session={s} section={section} />}
@@ -138,6 +226,8 @@ function Detail({
       {(s.commits.length > 0 || s.prs.length > 0) && section && (
         <Outcomes session={s} section={section} />
       )}
+
+      {showConversation && numbers}
 
       {showConversation ? (
         <Block
@@ -171,6 +261,201 @@ function Detail({
           )}
         </button>
       )}
+
+      {!showConversation && numbers}
+    </div>
+  );
+}
+
+/**
+ * 使用量と活動。振り返りの主役（何をしたか）ではないので畳んでおき、要点だけを 1 行で見せる。
+ * 要件定義でコスト・トークンの分析はスコープ外としており、作業が数字に埋もれないようにするため。
+ */
+function Numbers({
+  session: s,
+  section,
+  open,
+  onOpen,
+}: {
+  session: SessionDetail;
+  section: Section | null;
+  open: boolean;
+  onOpen: (open: boolean) => void;
+}) {
+  const u = section ? section.usage : s.usage;
+  const trouble = section ? troubleCount(section.activity) : 0;
+  if (!u && !section) return null;
+  if (!open)
+    return (
+      <button
+        type="button"
+        onClick={() => onOpen(true)}
+        aria-expanded={false}
+        className="flex w-full items-center gap-1.5 rounded-md border border-dashed px-3 py-2 text-left text-muted-foreground text-sm hover:bg-accent hover:text-foreground"
+      >
+        <ChevronRight className="size-4 shrink-0" />
+        数字
+        <span className="ml-auto truncate font-num text-xs">
+          {[
+            u && `${tokensLabel(u.tokens)} トークン`,
+            u && `${u.unpriced ? "~" : ""}${costLabel(u.costUsd)}`,
+            trouble > 0 && `つまずき ${trouble}`,
+          ]
+            .filter(Boolean)
+            .join("・")}
+        </span>
+      </button>
+    );
+  return (
+    <div className="space-y-8">
+      <UsageBlock
+        session={s}
+        section={section}
+        action={
+          <Button variant="ghost" size="xs" onClick={() => onOpen(false)} aria-expanded>
+            畳む
+          </Button>
+        }
+      />
+      {section && <ActivityBlock section={section} />}
+    </div>
+  );
+}
+
+const COST_NOTE = "API の料金表で換算した目安（サブスクリプションでの支払いとは一致しない）";
+
+/** 選んだ時間のトークン使用量と内訳。区間が複数あれば、セッション全体の合計も添える。 */
+function UsageBlock({
+  session: s,
+  section,
+  action,
+}: {
+  session: SessionDetail;
+  section: Section | null;
+  action?: React.ReactNode;
+}) {
+  const u = section ? section.usage : s.usage;
+  const rate = u ? cacheRate(u) : null;
+  const showTotal = s.usage && section && (s.sections.length > 1 || u?.tokens !== s.usage.tokens);
+  return (
+    <Block title={section ? "この時間の使用量" : "使用量"} action={action}>
+      {u ? (
+        <>
+          <dl className="grid grid-cols-4 gap-2">
+            <Stat label="トークン" value={tokensLabel(u.tokens)} />
+            <Stat
+              label="API 料金換算"
+              value={`${u.unpriced ? "~" : ""}${costLabel(u.costUsd)}`}
+              title={u.unpriced ? `${COST_NOTE}。料金の分からないモデルの分を含まない` : COST_NOTE}
+            />
+            <Stat
+              label="キャッシュ"
+              value={rate === null ? "—" : `${Math.round(rate * 100)}%`}
+              title="入力のうちキャッシュから読んだ割合"
+            />
+            <Stat label="発言" value={String(section?.promptCount ?? s.promptCount)} />
+          </dl>
+          <p className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 font-num text-muted-foreground text-xs">
+            <span>入力 {tokensLabel(u.input)}</span>
+            <span>出力 {tokensLabel(u.output)}</span>
+            <span>キャッシュ読み込み {tokensLabel(u.cacheRead)}</span>
+            <span>書き込み {tokensLabel(u.cacheWrite)}</span>
+            {u.model && <span>{modelLabel(u.model)}</span>}
+          </p>
+        </>
+      ) : (
+        <p className="text-muted-foreground text-sm">
+          この時間のトークン使用量の記録はありません。
+        </p>
+      )}
+      {showTotal && s.usage && <SessionTotal session={s} usage={s.usage} />}
+    </Block>
+  );
+}
+
+/** 選んだ時間にしたこと。数が 0 のものも並べ、何もなかったことが分かるようにする。 */
+function ActivityBlock({ section }: { section: Section }) {
+  const a = section.activity;
+  const span = section.end - section.start;
+  const trouble = troubleCount(a);
+  const items: [string, React.ReactNode, string?][] = [
+    [
+      "Claude の稼働",
+      a.claudeMs === null ? (
+        "—"
+      ) : (
+        <>
+          {durationLabel(a.claudeMs)}
+          {span > 0 && (
+            <span className="ml-1 font-normal text-muted-foreground text-xs">
+              {Math.min(100, Math.round((a.claudeMs / span) * 100))}%
+            </span>
+          )}
+        </>
+      ),
+      "Claude がターンを進めていた時間（考える・ツールを動かす）。括弧はこの時間の長さに対する割合",
+    ],
+    ["コミット・PR", `${a.commits}・${a.prs}`],
+    ["編集したファイル", a.filesEdited],
+    ["ツール呼び出し", a.toolCalls, "サブエージェントの分を含む"],
+    ["サブエージェント", a.subagents],
+    [
+      "つまずき",
+      <span key="t" className={cn(trouble > 0 && "text-warn")}>
+        {trouble}
+        {trouble > 0 && (
+          <span className="block font-normal text-muted-foreground text-xs">
+            {troubleDetail(a)}
+          </span>
+        )}
+      </span>,
+      "ツールのエラー・人による中断・API のエラー",
+    ],
+    ["会話の圧縮", a.compactions, "compaction の回数"],
+    ["effort", a.effort ?? "—", "出力トークンがいちばん多い effort"],
+  ];
+  return (
+    <Block title="この時間の活動">
+      <dl className="grid grid-cols-3 gap-x-4 gap-y-2.5 text-sm">
+        {items.map(([label, value, title]) => (
+          <div key={label} className="min-w-0">
+            <dt className="truncate text-[11px] text-muted-foreground">
+              <Hint text={title} focusable>
+                {label}
+              </Hint>
+            </dt>
+            <dd className="font-medium font-num tabular-nums">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </Block>
+  );
+}
+
+function SessionTotal({ session: s, usage }: { session: SessionDetail; usage: Usage }) {
+  return (
+    <p className="mt-3 border-t pt-2 text-muted-foreground text-xs">
+      セッション全体（{s.sections.length} 区間
+      {s.scheduledRuns > 0 && `・自動実行 ${s.scheduledRuns} 回を含む`}）:{" "}
+      <span className="font-medium font-num text-foreground">{tokensLabel(usage.tokens)}</span>{" "}
+      トークン・
+      <Hint className="font-medium font-num text-foreground" text={COST_NOTE}>
+        {usage.unpriced ? "~" : ""}
+        {costLabel(usage.costUsd)}
+      </Hint>
+    </p>
+  );
+}
+
+function Stat({ label, value, title }: { label: string; value: string; title?: string }) {
+  return (
+    <div className="min-w-0 rounded-md border px-2.5 py-1.5">
+      <dt className="truncate text-[11px] text-muted-foreground">
+        <Hint text={title} focusable>
+          {label}
+        </Hint>
+      </dt>
+      <dd className="font-medium font-num text-base tabular-nums">{value}</dd>
     </div>
   );
 }
@@ -319,9 +604,8 @@ const OUTCOME_LIMIT = 5;
 /** 成果。選んだ時間のものを先に出し、セッション全体のものは畳んでおく。 */
 function Outcomes({ session: s, section }: { session: SessionDetail; section: Section }) {
   const all = [...s.prs, ...s.commits];
-  // PR のリンクは作成の少し後に記録されることがあるので、終わりに 5 分の余裕を持たせる
   const inSection = (a: Artifact) =>
-    a.ts !== null && a.ts >= section.start && a.ts <= section.end + 5 * 60_000;
+    a.ts !== null && a.ts >= section.start && a.ts <= section.end + ARTIFACT_GRACE_MS;
   const here = all.filter(inSection);
   const rest = all.filter((a) => !inSection(a));
   return (
@@ -500,7 +784,7 @@ function SectionSummary({ session: s, section }: { session: SessionDetail; secti
           <div className="rounded-r-lg border-primary border-l-[3px] bg-accent/60 py-3 pr-4 pl-4">
             <Markdown
               issueBaseUrl={issueBaseUrl(s.project?.repo)}
-              className="text-[15px] leading-7 [&_li+li]:mt-1 [&_li>ol]:mt-1 [&_li>ul]:mt-1 [&_strong]:font-semibold [&_strong]:text-primary"
+              className="text-[15px] leading-7 [&_li+li]:mt-1 [&_li>ol]:mt-1 [&_li>ul]:mt-1 [&_strong]:font-semibold"
             >
               {section.body}
             </Markdown>
@@ -598,6 +882,7 @@ function Tab({ active, children, ...props }: { active: boolean } & React.Compone
   );
 }
 
+/** プロジェクト・worktree・ブランチを 1 行に収める。長いものは省略し、全体はツールチップで読む。 */
 function ProjectLine({
   project,
   label,
@@ -607,35 +892,63 @@ function ProjectLine({
   label: string | null;
   branch: string | null;
 }) {
+  const showBranch = branch && branch !== "HEAD";
   return (
-    <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+    <p
+      className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs"
+      title={[project?.repo, project?.path, label, showBranch ? branch : null]
+        .filter(Boolean)
+        .join("\n")}
+    >
       <span
-        className="inline-flex items-center gap-1.5"
-        title={project?.repo ? `${project.repo}\n${project.path}` : project?.path}
-      >
-        <span className="size-2.5 rounded-sm" style={{ background: projectColor(project) }} />
+        className="size-2 shrink-0 rounded-full"
+        style={{ background: projectColor(project) }}
+      />
+      <span className="shrink-0 font-medium text-foreground">
         {project?.name ?? "プロジェクト不明"}
       </span>
-      {label && <span className="text-muted-foreground">{label}</span>}
-      {branch && branch !== "HEAD" && (
-        <code className="text-muted-foreground text-xs">{branch}</code>
+      {label && (
+        <>
+          <span aria-hidden>/</span>
+          <span className="min-w-0 truncate">{label}</span>
+        </>
+      )}
+      {showBranch && (
+        <span className="ml-1 inline-flex min-w-0 shrink items-center gap-1">
+          <GitBranch className="size-3 shrink-0" />
+          <span className="truncate font-mono text-[11px]">{branch}</span>
+        </span>
       )}
     </p>
   );
 }
 
+/** 選んだ時間。日付は今日・昨日なら言葉で出し、長さとコストを点で区切って並べる。 */
 function SectionTime({ session: s, section }: { session: SessionDetail; section: Section }) {
   const sameDay = isSameDay(section.start, section.end);
   const last = section === s.sections.at(-1);
+  const day = relativeDay(section.start) ?? dateLabel(section.start);
+  const range = sameDay
+    ? `${day} ${hhmm(section.start)}–${hhmm(section.end)}`
+    : `${day} ${hhmm(section.start)} – ${dateLabel(section.end)} ${hhmm(section.end)}`;
   return (
-    <p className="font-num text-muted-foreground text-sm">
-      {dateLabel(section.start)} {hhmm(section.start)}–{sameDay ? "" : `${dateLabel(section.end)} `}
-      {hhmm(section.end)}
-      <span className="ml-2">{durationLabel(section.end - section.start)}</span>
-      {s.active && last && <span className="ml-2 text-primary">作業中</span>}
-      {s.sections.length > 1 && (
-        <span className="ml-2">
-          {s.sections.indexOf(section) + 1} / {s.sections.length} 区間
+    <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 font-num text-muted-foreground text-xs">
+      <span className="rounded-md bg-muted px-1.5 py-0.5 text-foreground">{range}</span>
+      <span className="whitespace-nowrap">{durationLabel(section.end - section.start)}</span>
+      {/* 区間の番号は「セッションの流れ」で分かるので出さず、要点の数字としてコストだけ添える */}
+      {section.usage && (
+        <>
+          <span aria-hidden>·</span>
+          <Hint text={COST_NOTE} className="whitespace-nowrap">
+            {section.usage.unpriced ? "~" : ""}
+            {costLabel(section.usage.costUsd)}
+          </Hint>
+        </>
+      )}
+      {s.active && last && (
+        <span className="inline-flex items-center gap-1 whitespace-nowrap text-primary">
+          <span className="size-1.5 animate-pulse rounded-full bg-primary motion-reduce:animate-none" />
+          作業中
         </span>
       )}
     </p>

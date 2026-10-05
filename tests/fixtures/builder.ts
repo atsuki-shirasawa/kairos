@@ -204,6 +204,72 @@ export class LogBuilder {
     });
   }
 
+  /**
+   * 1 回の応答を、実ログと同じくブロックごとのレコードに分けて書く。どのレコードも同じ message.id と
+   * 入力・キャッシュの量を持ち、output_tokens だけが書き進むにつれて増える（最後のレコードが最終値）。
+   */
+  response(
+    minute: number,
+    blocks: Rec[],
+    usage: { input: number; output: number; cacheRead: number; cache5m: number; cache1h: number },
+    opts: { model?: string; speed?: string; effort?: string } = {},
+  ): Rec[] {
+    this.msg += 1;
+    const id = `msg_${this.sessionId.slice(0, 6)}${this.sidechain?.agentId ?? ""}${String(this.msg).padStart(4, "0")}`;
+    return blocks.map((block, i) => {
+      const last = i === blocks.length - 1;
+      return this.chain("assistant", minute, {
+        requestId: `req_${id}`,
+        message: {
+          id,
+          type: "message",
+          role: "assistant",
+          model: opts.model ?? "claude-opus-5-5",
+          content: [block],
+          stop_reason: last ? "end_turn" : null,
+          usage: {
+            input_tokens: usage.input,
+            cache_creation_input_tokens: usage.cache5m + usage.cache1h,
+            cache_read_input_tokens: usage.cacheRead,
+            output_tokens: last
+              ? usage.output
+              : Math.ceil((usage.output * (i + 1)) / blocks.length / 2),
+            server_tool_use: { web_search_requests: 0, web_fetch_requests: 0 },
+            service_tier: "standard",
+            cache_creation: {
+              ephemeral_1h_input_tokens: usage.cache1h,
+              ephemeral_5m_input_tokens: usage.cache5m,
+            },
+            inference_geo: "global",
+            speed: opts.speed ?? "standard",
+          },
+        },
+        effort: opts.effort ?? "high",
+      });
+    });
+  }
+
+  /** API エラーの代わりに Claude Code が書く合成の返答（model が `<synthetic>`、usage はすべて 0）。 */
+  apiError(minute: number, text: string): Rec {
+    return this.chain("assistant", minute, {
+      message: {
+        id: `synthetic-${this.n + 1}`,
+        type: "message",
+        role: "assistant",
+        model: "<synthetic>",
+        content: [{ type: "text", text }],
+        stop_reason: "stop_sequence",
+        usage: {
+          input_tokens: 0,
+          output_tokens: 0,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0,
+        },
+      },
+      isApiErrorMessage: true,
+    });
+  }
+
   text(minute: number, text: string): Rec {
     return this.assistant(minute, [{ type: "text", text }]);
   }

@@ -266,7 +266,10 @@ function continued(): void {
 
   const b = new LogBuilder(SID.continuedTo, APP);
   // 続きのセッションは、前のセッションの会話を uuid・時刻はそのまま、sessionId だけ書き換えてコピーして始まる
-  for (const r of a.records.filter((r) => r.type === "user" || r.type === "assistant"))
+  // ターンの所要時間（system/turn_duration）も同じ uuid でコピーされる
+  for (const r of a.records.filter(
+    (r) => r.type === "user" || r.type === "assistant" || r.subtype === "turn_duration",
+  ))
     b.raw({ ...r, sessionId: SID.continuedTo });
   header(b);
   const p = b.prompt(425, "後半の作業");
@@ -329,6 +332,33 @@ function prTitles(): void {
   write(APP, b);
 }
 
+// ---------------------------------------------------------------- 12. トークン使用量
+function usage(): void {
+  const b = new LogBuilder(SID.usage, APP);
+  header(b);
+  b.prompt(600, "依存関係を最新にして");
+  // 1 回の応答（thinking・text・tool_use）が 3 レコードに分かれる。数えるのは 1 回だけ
+  b.response(
+    600.5,
+    [
+      { type: "thinking", thinking: "", signature: "sig" },
+      { type: "text", text: "package.json を確かめます。" },
+      { type: "tool_use", id: "toolu_usage0001", name: "Bash", input: { command: "bun outdated" } },
+    ],
+    { input: 2_000, output: 900, cacheRead: 30_000, cache5m: 0, cache1h: 8_000 },
+  );
+  b.toolResult(601, "toolu_usage0001", "react 19.2.0 → 19.3.0");
+  b.apiError(602, "API Error: 529 Overloaded");
+  b.response(
+    603,
+    [{ type: "text", text: "react を 19.3.0 に上げました。" }],
+    { input: 500, output: 300, cacheRead: 40_000, cache5m: 1_000, cache1h: 0 },
+    { model: "claude-sonnet-5-5", effort: "medium" },
+  );
+  b.turnEnd(603, 170_000);
+  write(APP, b);
+}
+
 if (import.meta.main) {
   rmSync(ROOT, { recursive: true, force: true });
   for (const scenario of [
@@ -343,6 +373,7 @@ if (import.meta.main) {
     partial,
     blog,
     prTitles,
+    usage,
   ]) {
     scenario();
   }

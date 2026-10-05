@@ -74,7 +74,91 @@ test("GET /api/health", async () => {
   expect(await json<HealthResponse>("/api/health")).toMatchObject({ ok: true, name: "kairos" });
 });
 
+test("GET /api/sessions/:id はセクションごとと、セッション全体の使用量を返す", async () => {
+  const s = await json<SessionDetail>(`/api/sessions/${SID.usage}`);
+  expect(s.sections.map((x) => x.usage?.tokens)).toEqual([82_700]);
+  expect(s.usage).toMatchObject({ tokens: 82_700, model: "claude-opus-5-5", unpriced: false });
+  // 続きのセッションは、前のセッションからのコピーを数えない
+  const next = await json<SessionDetail>(`/api/sessions/${SID.continuedTo}`);
+  expect(next.usage?.tokens).toBe(24_800);
+});
+
+describe("作業ブロックの活動", () => {
+  const activities = async (id: string) =>
+    (await json<SessionDetail>(`/api/sessions/${id}`)).sections.map((x) => x.activity);
+  const none = {
+    commits: 0,
+    prs: 0,
+    filesEdited: 0,
+    toolCalls: 0,
+    subagents: 0,
+    toolErrors: 0,
+    interrupts: 0,
+    apiErrors: 0,
+    compactions: 0,
+    claudeMs: null,
+    effort: null,
+  };
+
+  test("1. basic: 成果・編集したファイル・つまずき・Claude の稼働をブロックごとに数える", async () => {
+    expect(await activities(SID.basic)).toEqual([
+      {
+        ...none,
+        commits: 2,
+        filesEdited: 1,
+        toolCalls: 6,
+        toolErrors: 1,
+        claudeMs: 30_000,
+        effort: "high",
+      },
+      { ...none, prs: 1, toolCalls: 2, interrupts: 1, claudeMs: 30_000, effort: "high" },
+    ]);
+  });
+
+  test("6. サブエージェント: 起動した数と、サブエージェントのツール呼び出しも数える", async () => {
+    const [a] = await activities(SID.subagent);
+    expect(a).toMatchObject({ subagents: 1, toolCalls: 2 });
+  });
+
+  test("7. compaction: 会話の圧縮を数える", async () => {
+    const [, b] = await activities(SID.compaction);
+    expect(b?.compactions).toBe(1);
+  });
+
+  test("12. usage: effort は出力の多いほう、API エラーとターンの所要時間を数える", async () => {
+    const [a] = await activities(SID.usage);
+    expect(a).toMatchObject({ effort: "high", apiErrors: 1, claudeMs: 170_000, toolCalls: 1 });
+  });
+
+  test("8. 続きのセッション: コピーしたターンは稼働に数えない", async () => {
+    const [a] = await activities(SID.continuedTo);
+    expect(a?.claudeMs).toBe(30_000);
+  });
+
+  test("カレンダーのブロックにも同じ活動を付ける", async () => {
+    const res = await json<CalendarResponse>(`/api/calendar?from=${DAY_FROM}&to=${DAY_TO}`);
+    const basic = res.sessions.find((s) => s.id === SID.basic);
+    expect(basic?.segments.map((g) => g.activity.commits)).toEqual([2, 0]);
+  });
+});
+
 describe("GET /api/calendar", () => {
+  test("作業ブロックごとに、発言数とトークン使用量（API 料金での換算つき）を返す", async () => {
+    const res = await json<CalendarResponse>(`/api/calendar?from=${DAY_FROM}&to=${DAY_TO}`);
+    const [segment] = res.sessions.find((s) => s.id === SID.usage)?.segments ?? [];
+    expect(segment?.promptCount).toBe(1);
+    expect(segment?.usage).toEqual({
+      tokens: 82_700,
+      input: 2_500,
+      output: 1_200,
+      cacheRead: 70_000,
+      cacheWrite: 9_000,
+      costUsd: expect.closeTo(0.1105, 6),
+      unpriced: false,
+      model: "claude-opus-5-5",
+    });
+  });
+
   test("期間と重なるセッションを返し、人の発言がないセッションは除く", async () => {
     const res = await json<CalendarResponse>(`/api/calendar?from=${DAY_FROM}&to=${DAY_TO}`);
     const ids = res.sessions.map((s) => s.id);

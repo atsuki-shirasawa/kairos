@@ -1,5 +1,6 @@
 import type { Database } from "bun:sqlite";
 import type {
+  Activity,
   Artifact,
   CalendarSession,
   MessageKind,
@@ -9,8 +10,11 @@ import type {
   Section,
   SessionDetail,
   Subagent,
+  Usage,
 } from "../shared/api.ts";
+import { ARTIFACT_GRACE_MS } from "../shared/constants.ts";
 import { isSummarizable } from "../shared/sections.ts";
+import { costOf } from "./pricing.ts";
 
 /** 最後の活動からこの時間以内なら「作業中」とみなす。 */
 export const ACTIVE_WINDOW_MS = 5 * 60_000;
@@ -67,6 +71,59 @@ interface SectionRow {
 const SECTION_SELECT = `SELECT g.start, g.end, g.prompt_count, g.fallback_title,
          sm.headline, sm.body, sm.model, sm.covered_until, sm.created_at
   FROM segments g LEFT JOIN summaries sm ON sm.session_id = g.session_id AND sm.start = g.start`;
+
+interface UsageRow {
+  model: string;
+  speed: string | null;
+  input: number;
+  output: number;
+  cache_read: number;
+  cache_write_5m: number;
+  cache_write_1h: number;
+}
+
+/** モデル・速度ごとの合計を 1 つにまとめ、料金を換算する。 */
+function toUsage(rows: UsageRow[]): Usage | null {
+  if (rows.length === 0) return null;
+  const u: Usage = {
+    tokens: 0,
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheWrite: 0,
+    costUsd: 0,
+    unpriced: false,
+    model: null,
+  };
+  const outputByModel = new Map<string, number>();
+  for (const r of rows) {
+    const cacheWrite = r.cache_write_5m + r.cache_write_1h;
+    u.input += r.input;
+    u.output += r.output;
+    u.cacheRead += r.cache_read;
+    u.cacheWrite += cacheWrite;
+    u.tokens += r.input + r.output + r.cache_read + cacheWrite;
+    const cost = costOf(
+      r.model,
+      {
+        input: r.input,
+        output: r.output,
+        cacheRead: r.cache_read,
+        cacheWrite5m: r.cache_write_5m,
+        cacheWrite1h: r.cache_write_1h,
+      },
+      r.speed,
+    );
+    if (cost === null) u.unpriced = true;
+    else u.costUsd += cost;
+    outputByModel.set(r.model, (outputByModel.get(r.model) ?? 0) + r.output);
+  }
+  u.model = [...outputByModel].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  return u.tokens > 0 ? u : null;
+}
+
+/** ファイルを書き換えるツール。tool_use の text（入力の要約）がファイルパスになる。 */
+const EDIT_TOOLS = "'Edit', 'Write', 'MultiEdit', 'NotebookEdit'";
 
 /** タイトル: `/rename` の名前 > エージェント名 > Claude Code の自動タイトル > 最初の発言の 1 行目。 */
 function title(r: {
@@ -160,6 +217,9 @@ export class Queries {
           end: g.end,
           headline: g.headline ?? g.fallback_title ?? fallback,
           summarized: g.headline !== null,
+          promptCount: g.prompt_count,
+          usage: this.usage(r.id, g.start, g.end),
+          activity: this.activity(r.id, g.start, g.end),
         })),
       };
     });
@@ -210,6 +270,8 @@ export class Queries {
           summarizable: isSummarizable({ start: g.start, end: g.end, promptCount: g.prompt_count }),
           pending: this.summaries.isPending(id, g.start),
           error: this.summaries.errorOf(id, g.start),
+          usage: this.usage(id, g.start, g.end),
+          activity: this.activity(id, g.start, g.end),
         }),
       );
 
@@ -232,7 +294,73 @@ export class Queries {
       commits: artifacts.filter((a) => a.kind === "commit"),
       prs: artifacts.filter((a) => a.kind === "pr"),
       subagents,
+      usage: this.usage(id),
     };
+  }
+
+  /** 作業ブロックの中でしたこと（サブエージェントの分を含み、続きのセッションのコピーは除く）。 */
+  private activity(sessionId: string, from: number, to: number): Activity {
+    const m = this.db
+      .query<Omit<Activity, "commits" | "prs" | "claudeMs" | "effort">, [string, number, number]>(
+        `SELECT COALESCE(SUM(kind = 'tool_use'), 0) AS toolCalls,
+                COUNT(DISTINCT CASE WHEN kind = 'tool_use' AND tool_name IN (${EDIT_TOOLS}) AND text != ''
+                                    THEN text END) AS filesEdited,
+                COALESCE(SUM(kind = 'tool_use' AND agent_id IS NULL AND tool_name IN ('Agent', 'Task')), 0) AS subagents,
+                COALESCE(SUM(kind = 'tool_result' AND is_error = 1), 0) AS toolErrors,
+                COALESCE(SUM(kind = 'interrupt'), 0) AS interrupts,
+                COALESCE(SUM(kind = 'error'), 0) AS apiErrors,
+                COALESCE(SUM(kind = 'compact'), 0) AS compactions
+         FROM messages WHERE session_id = ? AND is_copy = 0 AND ts BETWEEN ? AND ?`,
+      )
+      .get(sessionId, from, to);
+    const artifacts = this.db
+      .query<{ commits: number; prs: number }, [string, number, number]>(
+        `SELECT COALESCE(SUM(kind = 'commit'), 0) AS commits, COALESCE(SUM(kind = 'pr'), 0) AS prs
+         FROM artifacts WHERE session_id = ? AND is_copy = 0 AND ts BETWEEN ? AND ?`,
+      )
+      .get(sessionId, from, to + ARTIFACT_GRACE_MS);
+    // ターンの終わりがこのブロックの中にあるもの。ターンはブロックの中で始まって終わる
+    const turns = this.db
+      .query<{ ms: number | null }, [string, number, number]>(
+        "SELECT SUM(duration_ms) AS ms FROM turns WHERE session_id = ? AND is_copy = 0 AND ts BETWEEN ? AND ?",
+      )
+      .get(sessionId, from, to);
+    const effort = this.db
+      .query<{ effort: string }, [string, number, number]>(
+        `SELECT effort FROM usage WHERE session_id = ? AND is_copy = 0 AND effort IS NOT NULL AND ts BETWEEN ? AND ?
+         GROUP BY effort ORDER BY SUM(output) DESC LIMIT 1`,
+      )
+      .get(sessionId, from, to);
+    return {
+      commits: artifacts?.commits ?? 0,
+      prs: artifacts?.prs ?? 0,
+      filesEdited: m?.filesEdited ?? 0,
+      toolCalls: m?.toolCalls ?? 0,
+      subagents: m?.subagents ?? 0,
+      toolErrors: m?.toolErrors ?? 0,
+      interrupts: m?.interrupts ?? 0,
+      apiErrors: m?.apiErrors ?? 0,
+      compactions: m?.compactions ?? 0,
+      claudeMs: turns?.ms ?? null,
+      effort: effort?.effort ?? null,
+    };
+  }
+
+  /**
+   * トークン使用量（サブエージェントを含み、続きのセッションのコピーは除く）。
+   * 期間を指定すると、その時間内の応答だけ。自動実行のターンは作業ブロックの外なので、ブロックの分には入らない。
+   */
+  private usage(sessionId: string, from = 0, to = Number.MAX_SAFE_INTEGER): Usage | null {
+    return toUsage(
+      this.db
+        .query<UsageRow, [string, number, number]>(
+          `SELECT model, speed, SUM(input) AS input, SUM(output) AS output, SUM(cache_read) AS cache_read,
+                  SUM(cache_write_5m) AS cache_write_5m, SUM(cache_write_1h) AS cache_write_1h
+           FROM usage WHERE session_id = ? AND is_copy = 0 AND COALESCE(ts, 0) BETWEEN ? AND ?
+           GROUP BY model, speed`,
+        )
+        .all(sessionId, from, to),
+    );
   }
 
   /**

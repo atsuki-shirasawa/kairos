@@ -1,13 +1,41 @@
 import { describe, expect, test } from "bun:test";
 import type { CalendarSession } from "../../src/shared/api.ts";
-import { addDays, rangeLabel, rangeOf, startOfWeek } from "../../src/web/src/lib/dates.ts";
-import { layoutDay } from "../../src/web/src/lib/layout.ts";
+import {
+  addDays,
+  dateLabel,
+  isoWeek,
+  rangeOf,
+  rangeTitle,
+  relativeDay,
+  startOfWeek,
+} from "../../src/web/src/lib/dates.ts";
+import { blocksOfDay, busyMs, layoutDay } from "../../src/web/src/lib/layout.ts";
 
 const DAY0 = new Date(2026, 9, 5).getTime(); // 2026-10-05（月）0 時
 const at = (h: number) => DAY0 + h * 3_600_000;
 
 function session(id: string, ...spans: [number, number][]): CalendarSession {
-  const segments = spans.map(([start, end]) => ({ start, end, headline: id, summarized: false }));
+  const segments = spans.map(([start, end]) => ({
+    start,
+    end,
+    headline: id,
+    summarized: false,
+    promptCount: 1,
+    usage: null,
+    activity: {
+      commits: 0,
+      prs: 0,
+      filesEdited: 0,
+      toolCalls: 0,
+      subagents: 0,
+      toolErrors: 0,
+      interrupts: 0,
+      apiErrors: 0,
+      compactions: 0,
+      claudeMs: null,
+      effort: null,
+    },
+  }));
   return {
     id,
     projectId: 1,
@@ -129,9 +157,82 @@ describe("dates", () => {
     expect(rangeOf("week", sunday).days).toHaveLength(7);
   });
 
-  test("期間の見出し", () => {
-    expect(rangeLabel("week", DAY0)).toBe("2026年10月5日 – 11日");
-    expect(rangeLabel("week", new Date(2026, 8, 30).getTime())).toBe("2026年9月28日 – 10月4日");
-    expect(rangeLabel("day", DAY0)).toBe("2026年10月5日（月）");
+  test("期間の見出しは月を主役にし、年と週番号を添える", () => {
+    expect(rangeTitle("week", DAY0)).toEqual({
+      title: "10月",
+      sub: null,
+      year: "2026",
+      week: "W41",
+    });
+    expect(rangeTitle("week", new Date(2026, 8, 30).getTime()).title).toBe("9月 – 10月");
+    expect(rangeTitle("week", new Date(2026, 11, 30).getTime()).year).toBe("2026 – 2027");
+    expect(rangeTitle("day", DAY0)).toEqual({
+      title: "10月5日",
+      sub: "月曜日",
+      year: "2026",
+      week: null,
+    });
+  });
+
+  test("ISO 週番号は年をまたぐ週も正しく数える", () => {
+    expect(isoWeek(new Date(2026, 0, 1).getTime())).toBe(1);
+    expect(isoWeek(new Date(2027, 0, 1).getTime())).toBe(53);
+    expect(isoWeek(new Date(2024, 11, 30).getTime())).toBe(1);
+  });
+
+  test("日付は短く書き、今年でなければ年を付ける", () => {
+    expect(dateLabel(DAY0, DAY0)).toBe("10/5 月");
+    expect(dateLabel(new Date(2025, 9, 5).getTime(), DAY0)).toBe("2025/10/5 日");
+    expect(relativeDay(DAY0 + 3_600_000, DAY0 + 5 * 3_600_000)).toBe("今日");
+    expect(relativeDay(addDays(DAY0, -1), DAY0)).toBe("昨日");
+    expect(relativeDay(addDays(DAY0, -2), DAY0)).toBeNull();
+  });
+});
+
+describe("blocksOfDay", () => {
+  test("日をまたぐブロックは日ごとに切り、続きの印を付ける", () => {
+    const s = session("a", [at(22), at(26)]);
+    const [today] = blocksOfDay([s], DAY0);
+    const [tomorrow] = blocksOfDay([s], addDays(DAY0, 1));
+    expect([today?.start, today?.end, today?.continuesBefore, today?.continuesAfter]).toEqual([
+      22 * 3_600_000,
+      24 * 3_600_000,
+      false,
+      true,
+    ]);
+    expect([tomorrow?.start, tomorrow?.end, tomorrow?.continuesBefore]).toEqual([
+      0,
+      2 * 3_600_000,
+      true,
+    ]);
+  });
+
+  test("セッションをまたいで開始順に並べる", () => {
+    const blocks = blocksOfDay(
+      [session("a", [at(9), at(10)], [at(14), at(15)]), session("b", [at(11), at(12)])],
+      DAY0,
+    );
+    expect(blocks.map((b) => `${b.session.id}@${b.start / 3_600_000}`)).toEqual([
+      "a@9",
+      "b@11",
+      "a@14",
+    ]);
+  });
+});
+
+describe("busyMs", () => {
+  test("並行したブロックの重なりは 1 回だけ数える", () => {
+    const h = 3_600_000;
+    expect(
+      busyMs([
+        { start: 9 * h, end: 11 * h },
+        { start: 10 * h, end: 12 * h },
+        { start: 14 * h, end: 15 * h },
+      ]),
+    ).toBe(4 * h);
+  });
+
+  test("ブロックがなければ 0", () => {
+    expect(busyMs([])).toBe(0);
   });
 });

@@ -24,6 +24,45 @@ export interface ProjectUpdate {
   hidden?: boolean;
 }
 
+/** トークン使用量。サブエージェントの分も含む。 */
+export interface Usage {
+  /** 入力・出力・キャッシュの読み書きの合計。 */
+  tokens: number;
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  /** API の料金表で換算した額（米ドル）。サブスクリプションでの実際の支払いとは一致しない目安。 */
+  costUsd: number;
+  /** 料金の分からないモデルの分があり、costUsd に含めていない。 */
+  unpriced: boolean;
+  /** 出力トークンがいちばん多いモデル。 */
+  model: string | null;
+}
+
+/** 作業ブロックの中でしたこと。サブエージェントの分も含む。 */
+export interface Activity {
+  commits: number;
+  prs: number;
+  /** Edit / Write などで書き換えたファイルの数（同じファイルは 1 つ）。 */
+  filesEdited: number;
+  toolCalls: number;
+  /** 起動したサブエージェントの数。 */
+  subagents: number;
+  /** 失敗したツール呼び出し。 */
+  toolErrors: number;
+  /** 人が止めた回数。 */
+  interrupts: number;
+  /** API のエラー（混雑・上限など）。 */
+  apiErrors: number;
+  /** 会話の圧縮（compaction）の回数。 */
+  compactions: number;
+  /** Claude がターンを進めていた時間の合計（ミリ秒）。記録のない古い版のログでは null。 */
+  claudeMs: number | null;
+  /** 出力トークンがいちばん多い effort。 */
+  effort: string | null;
+}
+
 /** カレンダーに描く 1 ブロック（セクション）。 */
 export interface CalendarSegment {
   start: number;
@@ -31,6 +70,11 @@ export interface CalendarSegment {
   /** AI 要約の見出し。なければ最初の発言（または Claude の最後の返答）の 1 行目。 */
   headline: string;
   summarized: boolean;
+  /** 人の発言（プロンプトとスラッシュコマンド）の数。 */
+  promptCount: number;
+  /** この時間内のトークン使用量。記録がなければ null。 */
+  usage: Usage | null;
+  activity: Activity;
 }
 
 /** カレンダーに描く 1 セッション。 */
@@ -96,6 +140,9 @@ export interface Section {
   pending: boolean;
   /** 直近の要約に失敗した理由。 */
   error: string | null;
+  /** この時間内のトークン使用量。記録がなければ null。 */
+  usage: Usage | null;
+  activity: Activity;
 }
 
 export interface SessionDetail {
@@ -119,6 +166,8 @@ export interface SessionDetail {
   commits: Artifact[];
   prs: Artifact[];
   subagents: Subagent[];
+  /** セッション全体のトークン使用量（作業ブロックの外の自動実行も含む）。 */
+  usage: Usage | null;
 }
 
 export type MessageKind =

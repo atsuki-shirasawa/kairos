@@ -1,7 +1,8 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarGrid } from "@/components/CalendarGrid.tsx";
 import { SessionDrawer } from "@/components/SessionDrawer.tsx";
+import { SessionList } from "@/components/SessionList.tsx";
 import { Toolbar } from "@/components/Toolbar.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { useCalendar } from "@/hooks/queries.ts";
@@ -10,6 +11,15 @@ import { useNow } from "@/hooks/useNow.ts";
 import { useSystemTheme } from "@/hooks/useTheme.ts";
 import { useUrlState } from "@/hooks/useUrlState.ts";
 import { dateLabel, rangeOf, shift, startOfDay } from "@/lib/dates.ts";
+import {
+  type Filter,
+  hideSessions,
+  isFocused,
+  NO_FILTER,
+  narrowSessions,
+  segmentMatcher,
+} from "@/lib/filter.ts";
+import { orderedBlocks, selectedSegment, stepBlock } from "@/lib/navigation.ts";
 
 export function App() {
   useSystemTheme();
@@ -24,15 +34,43 @@ export function App() {
 
   const projects = calendar.data?.projects ?? [];
   const projectMap = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
+  const sessions = calendar.data?.sessions ?? [];
   const visible = useMemo(
-    () =>
-      (calendar.data?.sessions ?? []).filter(
-        (s) => s.projectId === null || !projectMap.get(s.projectId)?.hidden,
-      ),
-    [calendar.data, projectMap],
+    () => hideSessions(calendar.data?.sessions ?? [], projectMap, state.filter),
+    [calendar.data, projectMap, state.filter],
+  );
+  const matches = useMemo(
+    () => segmentMatcher(state.filter, projectMap),
+    [state.filter, projectMap],
+  );
+  const focused = useMemo(() => narrowSessions(visible, matches), [visible, matches]);
+  const setFilter = useCallback((filter: Filter) => update({ filter }), [update]);
+
+  // 時刻順に前後の作業へ移る（j / k とドロワーの ↑ ↓）。履歴は積まず、戻るボタンで一つずつ戻らずに済むようにする。
+  // 絞り込み中は、条件に合う作業だけをたどる
+  const ordered = useMemo(() => orderedBlocks(focused, from, to), [focused, from, to]);
+  const currentAt = selectedSegment(visible, state.session, state.at)?.start ?? state.at;
+  const current = state.session && currentAt !== null ? { id: state.session, at: currentAt } : null;
+  const prev = stepBlock(ordered, current, -1);
+  const next = stepBlock(ordered, current, 1);
+  const goTo = useCallback(
+    (b: { id: string; at: number } | null) => b && update({ session: b.id, at: b.at }),
+    [update],
   );
 
-  // ← → で前後へ、t で今日、w / d で週・日、Esc で詳細を閉じる
+  // 閉じたら、開いたブロック（行）へフォーカスを戻す。キーボードで続けてたどれるように
+  const closeDrawer = useCallback(() => {
+    const el = document.querySelector<HTMLElement>(
+      "main button[data-selected], main tr[data-selected] button",
+    );
+    update({ session: null, at: null });
+    el?.focus({ preventScroll: true });
+  }, [update]);
+
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  // ← → で前後へ、t で今日、w / d で週・日、c / l でカレンダー・リスト、j / k で次・前の作業、
+  // Esc で詳細を閉じる、? で一覧。一覧は Toolbar.tsx の SHORTCUTS
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -48,38 +86,67 @@ export function App() {
       else if (e.key === "t") update({ anchor: startOfDay(Date.now()) });
       else if (e.key === "w") update({ view: "week" });
       else if (e.key === "d") update({ view: "day" });
-      else if (e.key === "Escape" && state.session) update({ session: null, at: null });
+      else if (e.key === "c") update({ layout: "calendar" });
+      else if (e.key === "l") update({ layout: "list" });
+      else if (e.key === "j") goTo(next ?? null);
+      else if (e.key === "k") goTo(prev ?? null);
+      // 配列によっては Shift+/ の key が "/" のまま届くので、両方を受け付ける
+      else if (e.key === "?" || (e.key === "/" && e.shiftKey)) setHelpOpen((v) => !v);
+      // ポップオーバー（一覧・プロジェクト）を開いているときの Esc は、それを閉じるだけにする（ツールチップは除く）。
+      // Radix が閉じる前のこの時点では、中身がまだ DOM に残っている
+      else if (
+        e.key === "Escape" &&
+        state.session &&
+        !document.querySelector("[data-slot=popover-content]")
+      )
+        closeDrawer();
       else return;
       e.preventDefault();
     };
     addEventListener("keydown", onKey);
     return () => removeEventListener("keydown", onKey);
-  }, [state.view, state.anchor, state.session, update]);
+  }, [state.view, state.anchor, state.session, update, goTo, prev, next, closeDrawer]);
+
+  // カレンダーとリストは同じものを描き分けるだけなので、渡すものも同じ
+  const body = {
+    days,
+    sessions: visible,
+    projects: projectMap,
+    selectedId: state.session,
+    selectedAt: state.at,
+    now,
+    matches,
+    onSelect: (session: string, at: number) => update({ session, at }, { push: true }),
+    onOpenDay: (day: number) => update({ view: "day", anchor: day }),
+  };
+
+  const period = state.view === "week" ? "この週" : "この日";
 
   return (
     <div className="flex h-full flex-col">
       <Toolbar
         view={state.view}
+        layout={state.layout}
         anchor={state.anchor}
         projects={projects}
-        sessions={calendar.data?.sessions ?? []}
+        sessions={sessions}
+        filter={state.filter}
+        onFilter={setFilter}
         progress={progress}
         onView={(view) => update({ view })}
+        onLayout={(layout) => update({ layout })}
         onMove={(dir) => update({ anchor: shift(state.view, state.anchor, dir) })}
         onToday={() => update({ anchor: startOfDay(Date.now()) })}
+        helpOpen={helpOpen}
+        onHelpOpen={setHelpOpen}
       />
       <div className="flex min-h-0 flex-1">
         <main className="relative flex min-w-0 flex-1 flex-col">
-          <CalendarGrid
-            days={days}
-            sessions={visible}
-            projects={projectMap}
-            selectedId={state.session}
-            selectedAt={state.at}
-            now={now}
-            onSelect={(session, at) => update({ session, at }, { push: true })}
-            onOpenDay={(day) => update({ view: "day", anchor: day })}
-          />
+          {state.layout === "list" ? (
+            <SessionList {...body} sort={state.sort} onSort={(sort) => update({ sort })} />
+          ) : (
+            <CalendarGrid {...body} />
+          )}
           {calendar.isError && (
             <Notice>
               Kairos のサーバーに接続できません。ターミナルで <code>kairos ensure</code>{" "}
@@ -88,21 +155,42 @@ export function App() {
           )}
           {calendar.isSuccess && visible.length === 0 && (
             <EmptyNotice
-              period={state.view === "week" ? "この週" : "この日"}
+              period={period}
               progress={progress}
-              hiddenOnly={calendar.data.sessions.length > 0}
+              hiddenBy={
+                sessions.length === 0
+                  ? null
+                  : hideSessions(sessions, projectMap, NO_FILTER).length === 0
+                    ? "project"
+                    : "brief"
+              }
               prev={calendar.data.prev}
               next={calendar.data.next}
               onJump={(t) => update({ anchor: startOfDay(t) })}
             />
+          )}
+          {visible.length > 0 && focused.length === 0 && isFocused(state.filter) && (
+            <Notice>
+              <p>{period}に、絞り込みの条件に合う作業はありません。</p>
+              <Button
+                variant="outline"
+                size="xs"
+                className="mt-2"
+                onClick={() => setFilter({ ...state.filter, q: "", outcome: false })}
+              >
+                条件を外す
+              </Button>
+            </Notice>
           )}
         </main>
         {state.session && (
           <SessionDrawer
             id={state.session}
             at={state.at}
-            onClose={() => update({ session: null, at: null })}
+            onClose={closeDrawer}
             onSelect={(session, at) => update({ session, at }, { push: true })}
+            onPrev={prev ? () => goTo(prev) : null}
+            onNext={next ? () => goTo(next) : null}
           />
         )}
       </div>
@@ -114,14 +202,15 @@ export function App() {
 function EmptyNotice({
   period,
   progress,
-  hiddenOnly,
+  hiddenBy,
   prev,
   next,
   onJump,
 }: {
   period: string;
   progress: { done: number; total: number } | null;
-  hiddenOnly: boolean;
+  /** 記録はあるが、すべて隠している。何で隠したか。 */
+  hiddenBy: "project" | "brief" | null;
   prev: number | null;
   next: number | null;
   onJump: (t: number) => void;
@@ -133,11 +222,18 @@ function EmptyNotice({
         %）。終わると、ここに表示されます。
       </Notice>
     );
-  if (hiddenOnly)
+  if (hiddenBy === "project")
     return (
       <Notice>
         {period}
-        の記録は、すべて非表示のプロジェクトのものです。右上の「プロジェクト」から表示を戻せます。
+        の記録は、すべて非表示のプロジェクトのものです。右上の「絞り込み」から表示を戻せます。
+      </Notice>
+    );
+  if (hiddenBy === "brief")
+    return (
+      <Notice>
+        {period}
+        の記録は、隠しているちょっとした質問か、非表示のプロジェクトのものです。右上の「絞り込み」から表示を戻せます。
       </Notice>
     );
   if (prev === null && next === null)
@@ -151,12 +247,14 @@ function EmptyNotice({
         {prev !== null && (
           <Button variant="outline" size="xs" onClick={() => onJump(prev)}>
             <ChevronLeft />
-            前の記録（{dateLabel(prev)}）
+            前の記録
+            <span className="font-num text-muted-foreground">{dateLabel(prev)}</span>
           </Button>
         )}
         {next !== null && (
           <Button variant="outline" size="xs" onClick={() => onJump(next)}>
-            次の記録（{dateLabel(next)}）
+            次の記録
+            <span className="font-num text-muted-foreground">{dateLabel(next)}</span>
             <ChevronRight />
           </Button>
         )}

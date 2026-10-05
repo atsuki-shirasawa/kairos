@@ -27,7 +27,7 @@ import {
 import { DEFAULT_GAP_MS, toSegments } from "./segments.ts";
 
 /** 解釈ルールを変えたら上げる。上がると、元ログが残っているファイルは読み直される。 */
-export const PARSER_VERSION = 3;
+export const PARSER_VERSION = 5;
 /**
  * DB から計算し直せる派生データ（集計・作業ブロック・起動時の cwd からのプロジェクトの割り当て）の
  * 計算方法を変えたら上げる。上がると全セッションを計算し直す。元ログが消えたセッションも作り直せる。
@@ -211,6 +211,8 @@ export class Ingester {
         if (res.restarted) {
           this.q.clearFile.run(fileId);
           this.q.clearFileArtifacts.run(fileId);
+          this.q.clearFileUsage.run(fileId);
+          this.q.clearFileTurns.run(fileId);
         } else {
           state = { ...state, ...(JSON.parse(st.state) as Partial<FileState>) };
         }
@@ -421,6 +423,7 @@ export class Ingester {
       this.insert(ctx, id, seq, ts, "error", clip(contentText(msg.content), LIMIT.short));
       return;
     }
+    this.recordUsage(ctx, msg, str(r.effort) ?? null, ts);
     list(msg.content).forEach((b, i) => {
       const block = rec(b);
       if (!block) return;
@@ -447,6 +450,39 @@ export class Ingester {
     });
   }
 
+  /**
+   * 応答のトークン使用量。1 回の応答はブロックごとのレコードに分かれて同じ message.id を持ち、
+   * output_tokens だけが後のレコードほど大きいので、最大値を残す。
+   */
+  private recordUsage(ctx: Ctx, msg: Rec, effort: string | null, ts: number | null): void {
+    const u = rec(msg.usage);
+    const messageId = str(msg.id);
+    const model = str(msg.model);
+    if (!u || !messageId || !model) return;
+    const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+    const breakdown = rec(u.cache_creation);
+    const write1h = n(breakdown?.ephemeral_1h_input_tokens);
+    // 内訳がなければ、既定の 5 分の書き込みとみなす
+    const write5m = breakdown
+      ? n(breakdown.ephemeral_5m_input_tokens)
+      : n(u.cache_creation_input_tokens);
+    this.q.upsertUsage.run(
+      ctx.sessionId,
+      messageId,
+      ctx.agentId,
+      ctx.fileId,
+      ts,
+      model,
+      str(u.speed) ?? null,
+      effort,
+      n(u.input_tokens),
+      n(u.output_tokens),
+      n(u.cache_read_input_tokens),
+      write5m,
+      write1h,
+    );
+  }
+
   private handleSystem(ctx: Ctx, r: Rec, ts: number | null, seq: number): void {
     const id = str(r.uuid) ?? `${ctx.fileId}:${seq}`;
     if (r.subtype === "compact_boundary") {
@@ -454,6 +490,9 @@ export class Ingester {
       this.insert(ctx, id, seq, ts, "compact", "Conversation compacted", {
         meta: meta ? JSON.stringify(meta) : null,
       });
+    } else if (r.subtype === "turn_duration" && ctx.agentId === null) {
+      if (ts !== null && typeof r.durationMs === "number")
+        this.q.insertTurn.run(ctx.sessionId, id, ctx.fileId, ts, r.durationMs);
     } else if (r.subtype === "away_summary" && ctx.agentId === null) {
       this.set(ctx, "away_summary", str(r.content)?.replace(RECAP_SUFFIX, ""));
     }
@@ -540,6 +579,8 @@ export class Ingester {
     if (this.q.hasPredecessor.get(sessionId)) {
       this.q.markCopiedMessages.run(sessionId);
       this.q.markCopiedArtifacts.run(sessionId);
+      this.q.markCopiedUsage.run(sessionId);
+      this.q.markCopiedTurns.run(sessionId);
     }
     const agg = this.q.aggregate.get(sessionId) as {
       started: number | null;
@@ -621,6 +662,8 @@ function prepareStatements(db: Database) {
     deleteState: p("DELETE FROM ingest_state WHERE id = ?"),
     clearFile: p("DELETE FROM messages WHERE file_id = ?"),
     clearFileArtifacts: p("DELETE FROM artifacts WHERE file_id = ?"),
+    clearFileUsage: p("DELETE FROM usage WHERE file_id = ?"),
+    clearFileTurns: p("DELETE FROM turns WHERE file_id = ?"),
     ensureSession: p("INSERT OR IGNORE INTO sessions (id) VALUES (?)"),
     sessionInfo: p("SELECT launch_cwd, branch FROM sessions WHERE id = ?"),
     upsertProject: p(
@@ -651,6 +694,12 @@ function prepareStatements(db: Database) {
     insertArtifact: p(
       "INSERT OR IGNORE INTO artifacts (session_id, kind, ref, title, ts, file_id) VALUES (?, ?, ?, ?, ?, ?)",
     ),
+    upsertUsage: p(
+      `INSERT INTO usage (session_id, message_id, agent_id, file_id, ts, model, speed, effort,
+                          input, output, cache_read, cache_write_5m, cache_write_1h)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(session_id, message_id) DO UPDATE SET output = MAX(output, excluded.output)`,
+    ),
     upsertSubagent: p(
       `INSERT INTO subagents (id, session_id, agent_type, description, tool_use_id) VALUES (?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET agent_type = excluded.agent_type, description = excluded.description,
@@ -667,6 +716,21 @@ function prepareStatements(db: Database) {
       `UPDATE artifacts SET is_copy = EXISTS (
          SELECT 1 FROM artifacts a JOIN sessions prev ON prev.id = a.session_id
          WHERE prev.continued_in = ?1 AND a.kind = artifacts.kind AND a.ref = artifacts.ref)
+       WHERE session_id = ?1`,
+    ),
+    markCopiedUsage: p(
+      `UPDATE usage SET is_copy = EXISTS (
+         SELECT 1 FROM usage u JOIN sessions prev ON prev.id = u.session_id
+         WHERE prev.continued_in = ?1 AND u.message_id = usage.message_id)
+       WHERE session_id = ?1`,
+    ),
+    insertTurn: p(
+      "INSERT OR IGNORE INTO turns (session_id, id, file_id, ts, duration_ms) VALUES (?, ?, ?, ?, ?)",
+    ),
+    markCopiedTurns: p(
+      `UPDATE turns SET is_copy = EXISTS (
+         SELECT 1 FROM turns t JOIN sessions prev ON prev.id = t.session_id
+         WHERE prev.continued_in = ?1 AND t.id = turns.id)
        WHERE session_id = ?1`,
     ),
     hasPredecessor: p("SELECT 1 FROM sessions WHERE continued_in = ? LIMIT 1"),
@@ -704,6 +768,7 @@ function inputSummary(input: Rec): string {
   for (const key of [
     "command",
     "file_path",
+    "notebook_path",
     "pattern",
     "url",
     "description",

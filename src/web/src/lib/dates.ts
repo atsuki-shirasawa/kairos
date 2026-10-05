@@ -5,6 +5,7 @@ export const HOUR = 60 * MINUTE;
 export const DAY = 24 * HOUR;
 
 export type View = "week" | "day";
+export type Layout = "calendar" | "list";
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const;
 
@@ -53,22 +54,59 @@ export function hhmm(t: number): string {
   return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-/** 期間の見出し。週: 「2026年10月5日 – 11日」、日: 「2026年10月5日（月）」 */
-export function rangeLabel(view: View, anchor: number): string {
-  const { from, to } = rangeOf(view, anchor);
-  const a = new Date(from);
-  const head = `${a.getFullYear()}年${a.getMonth() + 1}月${a.getDate()}日`;
-  if (view === "day") return `${head}（${weekday(from)}）`;
-  const b = new Date(to - 1);
-  if (b.getFullYear() !== a.getFullYear())
-    return `${head} – ${b.getFullYear()}年${b.getMonth() + 1}月${b.getDate()}日`;
-  if (b.getMonth() !== a.getMonth()) return `${head} – ${b.getMonth() + 1}月${b.getDate()}日`;
-  return `${head} – ${b.getDate()}日`;
+/** ISO 8601 の週番号（月曜始まり、その年の最初の木曜を含む週が第 1 週）。 */
+export function isoWeek(t: number): number {
+  const d = new Date(startOfDay(t));
+  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+  const firstThursday = new Date(d.getFullYear(), 0, 4);
+  return (
+    1 +
+    Math.round(
+      ((d.getTime() - firstThursday.getTime()) / DAY - 3 + ((firstThursday.getDay() + 6) % 7)) / 7,
+    )
+  );
 }
 
-export function dateLabel(t: number): string {
+/**
+ * 期間の見出し。日の数字はカレンダーの列に出ているので、見出しは月を主役にする。
+ * 週: { title: "9月 – 10月", year: "2026", week: "W40" }、日: { title: "10月5日", sub: "月曜日", year: "2026" }
+ */
+export function rangeTitle(
+  view: View,
+  anchor: number,
+): { title: string; sub: string | null; year: string; week: string | null } {
+  const { from, to } = rangeOf(view, anchor);
+  const a = new Date(from);
+  if (view === "day")
+    return {
+      title: `${a.getMonth() + 1}月${a.getDate()}日`,
+      sub: `${weekday(from)}曜日`,
+      year: String(a.getFullYear()),
+      week: null,
+    };
+  const b = new Date(to - 1);
+  const months =
+    b.getMonth() === a.getMonth()
+      ? `${a.getMonth() + 1}月`
+      : `${a.getMonth() + 1}月 – ${b.getMonth() + 1}月`;
+  const year =
+    b.getFullYear() === a.getFullYear()
+      ? String(a.getFullYear())
+      : `${a.getFullYear()} – ${b.getFullYear()}`;
+  return { title: months, sub: null, year, week: `W${isoWeek(from)}` };
+}
+
+/** 日付の短い表記。「10/5 月」。今年でなければ年を付ける（「2025/10/5 日」）。 */
+export function dateLabel(t: number, now = Date.now()): string {
   const d = new Date(t);
-  return `${d.getMonth() + 1}月${d.getDate()}日（${weekday(t)}）`;
+  const md = `${d.getMonth() + 1}/${d.getDate()} ${weekday(t)}`;
+  return d.getFullYear() === new Date(now).getFullYear() ? md : `${d.getFullYear()}/${md}`;
+}
+
+/** 今日・昨日なら言葉で返す。それ以外は null。 */
+export function relativeDay(t: number, now = Date.now()): string | null {
+  const diff = Math.round((startOfDay(now) - startOfDay(t)) / DAY);
+  return diff === 0 ? "今日" : diff === 1 ? "昨日" : null;
 }
 
 export function durationLabel(ms: number): string {

@@ -51,7 +51,7 @@ flowchart LR
 | Segmenter | 人が起点のターンの活動時刻から作業ブロックを作る（15 分で分割）。セッション更新のたびに再計算する | `src/server/ingest/segments.ts` |
 | Summarizer | 要約が必要なセッションをキューに積み、1 件ずつ `claude -p` を実行する | `src/server/summarize` |
 | API | カレンダー・詳細・会話・要約・プロジェクト設定の REST と、更新通知の SSE | Hono |
-| Web UI | 週・日のカレンダー、詳細ドロワー、プロジェクト絞り込み | React + Tailwind + shadcn/ui |
+| Web UI | 週・日のカレンダー、詳細ドロワー、絞り込み（プロジェクト・キーワードなど） | React + Tailwind + shadcn/ui |
 
 ## 3. 取り込みの流れ
 
@@ -88,6 +88,10 @@ sequenceDiagram
 | thinking・画像 | 保存しない |
 | コミット | `git commit` を含む Bash 呼び出しが成功したもの |
 | PR | `pr-link` レコード。題名は `gh pr create` の `--title` から取り、結果の `gitOperation.pr` の URL で結び付ける |
+| トークン使用量 | assistant レコードの `message.usage` を `message.id` ごとに 1 件（`output_tokens` は最大値）として `usage` に保存する。サブエージェントの分も親のセッションに入れる。作業ブロックごとに、その時間内の分を合計して返す |
+| 活動 | 作業ブロックの時間内の messages・artifacts から数える。成果（コミット・PR、終わりから 5 分まで）、編集したファイル（Edit / Write などの対象の異なり数）、ツール呼び出し、サブエージェント、つまずき（ツールのエラー・中断・API のエラー）、会話の圧縮 |
+| Claude の稼働・effort | `system/turn_duration` の `durationMs` を `turns` に、応答の `effort` を `usage.effort` に保存する。続きのセッションのコピーは uuid で除く |
+| コスト | API の料金表（`src/server/pricing.ts`）で換算した目安。サブスクリプションで使っているときの実際の支払いとは一致しない |
 
 判定ルールの根拠と、ルールごとの fixture は [tests/fixtures/README.md](../tests/fixtures/README.md) にまとめた。
 
@@ -126,7 +130,7 @@ sequenceDiagram
 | メソッド | パス | 内容 |
 |---|---|---|
 | GET | `/api/health` | 起動確認（Launcher が使う） |
-| GET | `/api/calendar?from&to` | 期間内のセッションと、そのセクション（開始・終了・見出し） |
+| GET | `/api/calendar?from&to` | 期間内のセッションと、そのセクション（開始・終了・見出し・発言数・トークン使用量・活動） |
 | GET | `/api/sessions/:id` | セッション詳細（セクションごとの要約・成果物・サブエージェント） |
 | GET | `/api/sessions/:id/messages?cursor&limit` | 会話をページングで取得 |
 | POST | `/api/sessions/:id/sections/:start/summary` | セクションの要約の生成・再生成を優先キューに積む（202） |
@@ -142,7 +146,7 @@ sequenceDiagram
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ Kairos   [週|日]  ‹ 今日 ›  2026年10月 第1週     [プロジェクト▾] │
+│ Kairos   [週|日]  ‹ 今日 ›  2026年10月 第1週     [絞り込み▾]     │
 ├──────┬───────────────────────────────────┬───────────────────┤
 │ 時刻 │  月   火   水   木   金   土   日  │ 詳細ドロワー        │
 │ 9:00 │ ┌──┐                              │ 見出し              │

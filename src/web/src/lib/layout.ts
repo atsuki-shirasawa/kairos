@@ -33,17 +33,18 @@ export interface PlacedBlock {
   coveredFrom: number | null;
 }
 
-type Item = Omit<PlacedBlock, "col" | "cols" | "span" | "depth" | "coveredFrom">;
+/** 日の中に切り出した作業ブロック（配置の前）。リスト表示でもこのまま使う。 */
+export type DayBlock = Omit<PlacedBlock, "col" | "cols" | "span" | "depth" | "coveredFrom">;
 
 const visualEnd = (b: { start: number; end: number }) => Math.max(b.end, b.start + MIN_BLOCK_MS);
 
-/** `dayStart` の日に表示するブロックを、重なりを考えて配置する。 */
-export function layoutDay(
+/** `dayStart` の日にかかる作業ブロックを、日の範囲で切って開始順に返す。 */
+export function blocksOfDay(
   sessions: CalendarSession[],
   dayStart: number,
   dayEnd = dayStart + DAY,
-): PlacedBlock[] {
-  const items: Item[] = [];
+): DayBlock[] {
+  const items: DayBlock[] = [];
   for (const session of sessions) {
     for (const segment of session.segments) {
       const { start: s, end: e } = segment;
@@ -60,7 +61,16 @@ export function layoutDay(
     }
   }
   // 長いものを先に置くと、短いものがその上に重なって見出しが両方読める
-  items.sort((a, b) => a.start - b.start || b.end - a.end);
+  return items.sort((a, b) => a.start - b.start || b.end - a.end);
+}
+
+/** `dayStart` の日に表示するブロックを、重なりを考えて配置する。 */
+export function layoutDay(
+  sessions: CalendarSession[],
+  dayStart: number,
+  dayEnd = dayStart + DAY,
+): PlacedBlock[] {
+  const items = blocksOfDay(sessions, dayStart, dayEnd);
 
   const placed: PlacedBlock[] = [];
   let columns: PlacedBlock[][] = [];
@@ -104,4 +114,20 @@ export function layoutDay(
   }
   closeCluster();
   return placed;
+}
+
+/** ブロックの和集合の長さ。並行して進めたセッションを二重に数えないよう、重なりは 1 回だけ数える。 */
+export function busyMs(blocks: Pick<DayBlock, "start" | "end">[]): number {
+  const sorted = [...blocks].sort((a, b) => a.start - b.start);
+  let total = 0;
+  let curStart = -Infinity;
+  let curEnd = -Infinity;
+  for (const { start, end } of sorted) {
+    if (start > curEnd) {
+      if (curEnd > curStart) total += curEnd - curStart;
+      [curStart, curEnd] = [start, end];
+    } else curEnd = Math.max(curEnd, end);
+  }
+  if (curEnd > curStart) total += curEnd - curStart;
+  return total;
 }

@@ -36,6 +36,7 @@
   --color-dawn: var(--dawn);
   --color-dusk: var(--dusk);
   --color-night: var(--night);
+  --color-warn: var(--warn);
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -71,6 +72,15 @@
   --dusk: #efc98a;
   --night: #3a4a7c;
 
+  /* 注意を引く数字（つまずきなど）の文字色。黄土を暗くして白地でも読めるコントラストにする */
+  --warn: #8a6420;
+
+  /* 作業ブロックの地にプロジェクトの色を混ぜる割合。通常・ホバー・選択・要約前 */
+  --mix-block: 20%;
+  --mix-block-hover: 32%;
+  --mix-block-selected: 42%;
+  --mix-block-dim: 9%;
+
   /* プロジェクトの色（岩絵具）: 群青・緑青・黄土・藤・桜鼠・鉄・若竹・弁柄 */
   --p0: #4f6faf;
   --p1: #3f8f80;
@@ -105,6 +115,14 @@
   --dawn: #3d4f7e;
   --dusk: #6b5636;
   --night: #26335c;
+
+  --warn: #d1a650;
+
+  /* 紺の地に 20% では灰色に濁ってプロジェクトを見分けられないので、ダークでは多めに混ぜる */
+  --mix-block: 32%;
+  --mix-block-hover: 44%;
+  --mix-block-selected: 50%;
+  --mix-block-dim: 14%;
 
   --p0: #6f8fd0;
   --p1: #57ab9b;
