@@ -1,5 +1,6 @@
 import type { Artifact, Project, Section, SessionDetail, Subagent } from "@shared/api.ts";
 import {
+  ChevronRight,
   ExternalLink,
   GitCommitHorizontal,
   GitPullRequest,
@@ -27,6 +28,8 @@ interface Props {
 /** 右側の詳細。見出しは上に固定し、その下に要約 → セッションの流れ → 成果 → 会話を並べる。 */
 export function SessionDrawer({ id, at, onClose, onSelect }: Props) {
   const { data, isPending, isError, error } = useSession(id);
+  // 会話は補助の情報なので畳んでおく。開いたらドロワーを閉じるまで開いたままにする
+  const [showConversation, setShowConversation] = useState(false);
   const section = data
     ? (data.sections.find((x) => x.start === at) ?? data.sections.at(-1) ?? null)
     : null;
@@ -41,7 +44,7 @@ export function SessionDrawer({ id, at, onClose, onSelect }: Props) {
       aria-label="セッションの詳細"
     >
       {/* 見出しはスクロールさせない。会話まで下りても、どの作業の詳細かが分かるように */}
-      <header className="flex min-h-14 shrink-0 items-start gap-2 border-b py-3 pr-3 pl-5">
+      <header className="flex min-h-14 shrink-0 items-start gap-2 border-b py-4 pr-3 pl-4">
         <div className="min-w-0 flex-1">
           {data && <DetailHeader session={data} section={section} />}
         </div>
@@ -56,7 +59,16 @@ export function SessionDrawer({ id, at, onClose, onSelect }: Props) {
             セッションを読み込めませんでした: {error.message}
           </p>
         )}
-        {data && <Detail key={data.id} session={data} section={section} onSelect={onSelect} />}
+        {data && (
+          <Detail
+            key={data.id}
+            session={data}
+            section={section}
+            onSelect={onSelect}
+            showConversation={showConversation}
+            onShowConversation={setShowConversation}
+          />
+        )}
       </div>
     </aside>
   );
@@ -71,9 +83,10 @@ function DetailHeader({
 }) {
   const headline = section?.headline ?? s.title;
   return (
-    <div className="space-y-1">
+    // 左の色の線で、カレンダーのどのブロックの詳細かを結びつける
+    <div className="space-y-1 border-l-[3px] pl-3" style={{ borderColor: projectColor(s.project) }}>
       <h2
-        className="line-clamp-2 text-balance font-semibold text-base leading-snug"
+        className="line-clamp-2 text-balance font-semibold text-[17px] leading-snug"
         title={headline}
       >
         {headline}
@@ -93,16 +106,28 @@ function Detail({
   session: s,
   section,
   onSelect,
+  showConversation,
+  onShowConversation,
 }: {
   session: SessionDetail;
   section: Section | null;
   onSelect: Props["onSelect"];
+  showConversation: boolean;
+  onShowConversation: (show: boolean) => void;
 }) {
   const [agent, setAgent] = useState<string | null>(null);
-  const [jump, setJump] = useState<{ ts: number; key: number } | null>(null);
+  const multiSection = section !== null && s.sections.length > 1;
+  // 開いた状態で別のブロックへ移ったときも、選んだ時間の会話から見せる
+  const [jump, setJump] = useState<{ ts: number; key: number } | null>(
+    multiSection && section ? { ts: section.start, key: 0 } : null,
+  );
+  const openConversation = () => {
+    if (multiSection && section) setJump((j) => ({ ts: section.start, key: (j?.key ?? 0) + 1 }));
+    onShowConversation(true);
+  };
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-8">
       {section && <SectionSummary sessionId={s.id} section={section} />}
 
       {(s.sections.length > 1 || s.awaySummary || s.continuedFrom || s.continuedIn) && (
@@ -113,23 +138,38 @@ function Detail({
         <Outcomes session={s} section={section} />
       )}
 
-      <Block
-        title="会話"
-        action={
-          section && s.sections.length > 1 && agent === null ? (
-            <Button
-              variant="outline"
-              size="xs"
-              onClick={() => setJump((j) => ({ ts: section.start, key: (j?.key ?? 0) + 1 }))}
-            >
-              この時間の会話へ
-            </Button>
-          ) : null
-        }
-      >
-        <AgentTabs session={s} section={section} agent={agent} onChange={setAgent} />
-        <Conversation sessionId={s.id} agent={agent} jump={agent === null ? jump : null} />
-      </Block>
+      {showConversation ? (
+        <Block
+          title="会話"
+          action={
+            <div className="flex items-center gap-1">
+              {multiSection && agent === null && (
+                <Button variant="outline" size="xs" onClick={openConversation}>
+                  この時間の会話へ
+                </Button>
+              )}
+              <Button variant="ghost" size="xs" onClick={() => onShowConversation(false)}>
+                畳む
+              </Button>
+            </div>
+          }
+        >
+          <AgentTabs session={s} section={section} agent={agent} onChange={setAgent} />
+          <Conversation sessionId={s.id} agent={agent} jump={agent === null ? jump : null} />
+        </Block>
+      ) : (
+        <button
+          type="button"
+          onClick={openConversation}
+          className="flex w-full items-center gap-1.5 rounded-md border border-dashed px-3 py-2 text-left text-muted-foreground text-sm hover:bg-accent hover:text-foreground"
+        >
+          <ChevronRight className="size-4 shrink-0" />
+          {multiSection ? "この時間の会話を表示" : "会話を表示"}
+          {s.subagents.length > 0 && (
+            <span className="ml-auto text-xs">サブエージェント {s.subagents.length}</span>
+          )}
+        </button>
+      )}
     </div>
   );
 }
@@ -188,11 +228,16 @@ function Flow({
                   aria-current={selected}
                   title={x.headline}
                   className={cn(
-                    "flex w-full items-baseline gap-3 rounded-md px-2 py-1 text-left text-sm hover:bg-accent",
-                    selected && "bg-accent font-medium",
+                    "flex w-full items-baseline gap-3 rounded-r-md border-transparent border-l-2 px-2 py-1.5 text-left text-sm hover:bg-accent",
+                    selected && "border-primary bg-accent font-medium",
                   )}
                 >
-                  <span className="w-28 shrink-0 font-num text-muted-foreground text-xs">
+                  <span
+                    className={cn(
+                      "shrink-0 font-num text-muted-foreground text-xs",
+                      multiDay ? "w-24" : "w-[4.5rem]",
+                    )}
+                  >
                     {/* 日をまたぐセッションでは、最初の区間も含めてすべてに日付を付ける */}
                     {multiDay &&
                       `${new Date(x.start).getMonth() + 1}/${new Date(x.start).getDate()} `}
@@ -215,11 +260,7 @@ function Flow({
       )}
       {hiddenAfter > 0 && <Hidden count={hiddenAfter} where="後" />}
 
-      {s.awaySummary && (
-        <p className="mt-3 text-muted-foreground text-xs leading-relaxed">
-          Claude Code の振り返り: {s.awaySummary}
-        </p>
-      )}
+      {s.awaySummary && <AwaySummary text={s.awaySummary} />}
 
       {(s.continuedFrom || s.continuedIn) && (
         <div className="mt-3 flex gap-4 text-sm">
@@ -244,6 +285,22 @@ function Flow({
         </div>
       )}
     </Block>
+  );
+}
+
+/** Claude Code が残した振り返り。長く英語のことも多いので、3 行に抑えて開けるようにする。 */
+function AwaySummary({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => setOpen((v) => !v)}
+      aria-expanded={open}
+      className="mt-3 block w-full border-l-2 pl-3 text-left text-muted-foreground text-xs leading-relaxed hover:text-foreground"
+    >
+      <span className="mb-0.5 block font-medium">Claude Code の振り返り</span>
+      <span className={cn("block", !open && "line-clamp-3")}>{text}</span>
+    </button>
   );
 }
 
@@ -301,7 +358,7 @@ function Outcomes({ session: s, section }: { session: SessionDetail; section: Se
 
 function ArtifactList({ items }: { items: Artifact[] }) {
   return (
-    <ul className="space-y-1.5 text-sm">
+    <ul className="space-y-2 text-sm leading-snug">
       {items.map((a) =>
         a.kind === "pr" ? (
           <li key={a.ref} className="flex items-baseline gap-2">
@@ -431,10 +488,19 @@ function SectionSummary({ sessionId, section }: { sessionId: string; section: Se
   );
 
   return (
-    <Block title="この時間の要約" action={section.body ? button("作り直す", RefreshCw) : null}>
+    <Block
+      title="この時間の要約"
+      emphasis
+      action={section.body ? button("作り直す", RefreshCw) : null}
+    >
       {section.body ? (
         <>
-          <Markdown>{section.body}</Markdown>
+          {/* ドロワーで一番読む部分なので、ここだけ面と藍の線で浮かせる */}
+          <div className="rounded-r-lg border-primary border-l-[3px] bg-accent/60 py-3 pr-4 pl-4">
+            <Markdown className="text-[15px] leading-7 [&_li+li]:mt-1 [&_li>ol]:mt-1 [&_li>ul]:mt-1 [&_strong]:font-semibold [&_strong]:text-primary">
+              {section.body}
+            </Markdown>
+          </div>
           <p className="mt-2 text-muted-foreground text-xs">
             {section.stale && "要約の後も作業が続いています。"}
             {section.model && `${section.model} で作成`}
@@ -482,17 +548,29 @@ function summaryHint(error: string): string {
 
 function Block({
   title,
+  emphasis = false,
   action,
   children,
 }: {
   title: string;
+  /** 主役のブロック。見出しを藍にする */
+  emphasis?: boolean;
   action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <section>
-      <div className="mb-2 flex min-h-7 items-center justify-between gap-2">
-        <h3 className="font-medium text-muted-foreground text-sm">{title}</h3>
+      {/* 見出しの右に罫線を伸ばし、ブロックの境目を面ではなく線で示す */}
+      <div className="mb-3 flex min-h-7 items-center gap-3">
+        <h3
+          className={cn(
+            "shrink-0 font-semibold text-xs tracking-wide",
+            emphasis ? "text-primary" : "text-muted-foreground",
+          )}
+        >
+          {title}
+        </h3>
+        <span className="h-px flex-1 bg-border" />
         {action}
       </div>
       {children}
