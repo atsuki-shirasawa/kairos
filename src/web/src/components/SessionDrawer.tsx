@@ -52,10 +52,10 @@ interface Props {
 export function SessionDrawer({ id, at, onClose, onSelect, onPrev, onNext }: Props) {
   const t = drawerMessages();
   const { data, isPending, isError, error } = useSession(id);
-  // Conversation and numbers are secondary, so they start collapsed. Once opened they stay open until
-  // the drawer closes (so moving with j / k keeps the same view for comparison)
+  // The conversation is long, so it starts collapsed; the numbers start open. Either choice holds
+  // until the drawer closes (so moving with j / k keeps the same view for comparison)
   const [showConversation, setShowConversation] = useState(false);
-  const [showNumbers, setShowNumbers] = useState(false);
+  const [showNumbers, setShowNumbers] = useState(true);
   const section = data
     ? (data.sections.find((x) => x.start === at) ?? data.sections.at(-1) ?? null)
     : null;
@@ -305,9 +305,8 @@ function Detail({
 }
 
 /**
- * Usage and activity. Not the main point of looking back (what was done), so it starts collapsed
- * with just the key figures on one line. Cost and token analysis is out of scope in the requirements,
- * and this keeps the work from being buried in numbers.
+ * Usage and activity. Shown open by default, below what was done, so the numbers are at hand
+ * without pushing the summary down. Collapsed, the key figures stay on one line.
  */
 function Numbers({
   session: s,
@@ -964,8 +963,17 @@ function ProjectLine({
 }
 
 /** The selected period. Today / yesterday are shown as words, followed by the duration. */
+/**
+ * When and how long, then the key figures (Claude's time, tokens, cost, outcomes, snags) on the
+ * same line. The heading stays put, so stepping with j / k compares them in one place; the
+ * breakdown is in "Numbers" below. Figures that are zero are left out.
+ */
 function SectionTime({ session: s, section }: { session: SessionDetail; section: Section }) {
   const t = drawerMessages();
+  const f = formatMessages();
+  const u = section.usage;
+  const a = section.activity;
+  const trouble = troubleCount(a);
   const sameDay = isSameDay(section.start, section.end);
   const last = section === s.sections.at(-1);
   const day = relativeDay(section.start) ?? dateLabel(section.start);
@@ -975,8 +983,41 @@ function SectionTime({ session: s, section }: { session: SessionDetail; section:
   return (
     <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 font-num text-muted-foreground text-xs">
       <span className="rounded-md bg-muted px-1.5 py-0.5 text-foreground">{range}</span>
-      {/* Cost lives in "Numbers" below; the heading says only when and how long */}
       <span className="whitespace-nowrap">{durationLabel(section.end - section.start)}</span>
+      {a.claudeMs ? (
+        <Hint text={t.claudeTimeNote} className="whitespace-nowrap">
+          {t.claudeShort(durationLabel(a.claudeMs))}
+        </Hint>
+      ) : null}
+      {u && <span className="whitespace-nowrap">{t.tokens(tokensLabel(u.tokens))}</span>}
+      {u && (
+        <Hint text={u.unpriced ? t.costNoteUnpriced : t.costNote} className="whitespace-nowrap">
+          {u.unpriced ? "~" : ""}
+          {costLabel(u.costUsd)}
+        </Hint>
+      )}
+      {/* Icons rather than words keep the line short, as on the calendar's day headers */}
+      {a.commits + a.prs > 0 && (
+        <Hint text={f.commitsPrs(a.commits, a.prs)} className="inline-flex items-center gap-1.5">
+          {a.commits > 0 && (
+            <span className="inline-flex items-center gap-0.5">
+              <GitCommitHorizontal className="size-3" />
+              {a.commits}
+            </span>
+          )}
+          {a.prs > 0 && (
+            <span className="inline-flex items-center gap-0.5 text-primary">
+              <GitPullRequest className="size-3" />
+              {a.prs}
+            </span>
+          )}
+        </Hint>
+      )}
+      {trouble > 0 && (
+        <Hint text={troubleDetail(a)} className="whitespace-nowrap text-foreground/80">
+          {t.troubleCount(trouble)}
+        </Hint>
+      )}
       {s.active && last && (
         <span className="inline-flex items-center gap-1 whitespace-nowrap text-primary">
           <span className="size-1.5 animate-pulse rounded-full bg-primary motion-reduce:animate-none" />

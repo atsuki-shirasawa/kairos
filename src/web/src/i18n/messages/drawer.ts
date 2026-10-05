@@ -37,6 +37,7 @@ export const drawerMessages = defineMessages({
     cacheWrite: (v: string) => `Write ${v}`,
     noUsage: "No token usage recorded for this period.",
     claudeTime: "Claude active",
+    claudeShort: (duration: string) => `Claude ${duration}`,
     claudeTimeNote:
       "Time Claude spent working through turns (thinking, running tools). The percentage is relative to this period's length",
     commitsPrs: "Commits · PRs",
@@ -135,6 +136,7 @@ export const drawerMessages = defineMessages({
     cacheWrite: (v: string) => `書き込み ${v}`,
     noUsage: "この時間のトークン使用量の記録はありません。",
     claudeTime: "Claude の稼働",
+    claudeShort: (duration: string) => `Claude ${duration}`,
     claudeTimeNote:
       "Claude がターンを進めていた時間（考える・ツールを動かす）。括弧はこの時間の長さに対する割合",
     commitsPrs: "コミット・PR",
