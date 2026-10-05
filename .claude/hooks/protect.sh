@@ -1,6 +1,12 @@
 #!/bin/bash
-# PreToolUse: block direct edits to generated files. exit 2 rejects the call and returns the stderr reason to Claude.
+# PreToolUse: block edits to original logs and generated files. exit 2 rejects the call and returns the stderr reason to Claude.
 file=$(jq -r '.tool_input.file_path // empty')
+# Only the .jsonl logs: Claude Code's own memory files also live under ~/.claude/projects and stay writable
+case "$file" in
+  "$HOME"/.claude/projects/*.jsonl)
+    echo "Original Claude Code logs are read-only. Tests copy the fixtures into a temporary directory (tests/server/ingest/helpers.ts)." >&2
+    exit 2 ;;
+esac
 rel=${file#"$CLAUDE_PROJECT_DIR"/}
 case "$rel" in
   tests/fixtures/claude/*)

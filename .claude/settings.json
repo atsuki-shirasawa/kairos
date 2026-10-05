@@ -1,4 +1,7 @@
 {
+  "permissions": {
+    "allow": ["Bash(sqlite3 -readonly:*)"]
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -16,6 +19,17 @@
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format.sh",
             "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/rules-check.sh",
+            "timeout": 15
           }
         ]
       }

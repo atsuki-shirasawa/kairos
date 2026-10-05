@@ -28,18 +28,15 @@ To deploy to the locally running server, use `/ship-local` (check → build → 
 
 ## Rules
 
-- **Original logs are read-only.** Never write under `~/.claude`. Tests copy the fixtures into a temporary directory (`tests/server/ingest/helpers.ts`)
-- **`tests/fixtures/claude/` is generated.** Fix `tests/fixtures/generate.ts` / `builder.ts` and regenerate. `tests/fixtures/README.md` is the source of truth for scenario expectations; when changing interpretation rules, add the scenario and tests first (`/add-fixture-scenario`)
-- **Fixtures contain fictional data only.** Never copy text, paths, PRs, etc. from real logs. Conversation text in fixtures may be in any language
-- When interpretation rules change, bump `PARSER_VERSION`; when only the computation of aggregates, work blocks or project assignment changes, bump `DERIVED_VERSION` (`src/server/ingest/ingester.ts`)
-- **Add DB schema changes to the end of `MIGRATIONS` in `src/server/db/index.ts`.** Never rewrite existing entries
-- **Don't loosen API security**: new routes must go through `guardHost`, and write routes through `guardWrite`. Listen on `127.0.0.1` only. Don't render raw HTML or images from conversation Markdown. When you change any of this, check with the `security-reviewer` agent
-- If you suspect Claude Code's log format has changed, use the `log-format-auditor` agent to compare real logs against the rules
+- **Original logs are read-only.** Never write under `~/.claude/projects` (a hook blocks edits to `*.jsonl`)
+- Area-specific rules live in `.claude/rules/` and load when you touch those files: `ingest.md` (fixtures, `PARSER_VERSION` / `DERIVED_VERSION`), `db.md` (`MIGRATIONS` is append-only), `api.md` (`guardHost` / `guardWrite`, `claude -p` flags), `web.md` (i18n, Markdown rendering)
+- A Stop hook (`.claude/hooks/rules-check.sh`) flags a missing version bump or a rewritten migration
+- **Don't loosen API security** (Host validation, write protection, `127.0.0.1` only, no raw HTML or images from conversation Markdown). When you change any of it, check with the `security-reviewer` agent
 
 ## Writing
 
 - Comments, docs, test names and commit messages are in English. Comments explain *why*
-- UI copy is never hard-coded in components. Add it to the dictionaries in `src/web/src/i18n/messages/*.ts` with `defineMessages`, in both `en` and `ja`. English is the source of truth and Japanese must have the same shape (a missing key is a type error). Call the message function at render time, not at module level
+- UI copy is never hard-coded; it goes in the `en` / `ja` dictionaries (see `.claude/rules/web.md`)
 - Server and CLI output is in English
 - Follow the Biome config (double quotes, semicolons, 100-column lines). Edited files are auto-formatted by a hook
 - Imports include the extension (`./foo.ts`)
