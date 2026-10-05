@@ -1,13 +1,15 @@
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { CalendarGrid } from "@/components/CalendarGrid.tsx";
 import { SessionDrawer } from "@/components/SessionDrawer.tsx";
 import { Toolbar } from "@/components/Toolbar.tsx";
+import { Button } from "@/components/ui/button.tsx";
 import { useCalendar } from "@/hooks/queries.ts";
 import { useLiveUpdates } from "@/hooks/useLiveUpdates.ts";
 import { useNow } from "@/hooks/useNow.ts";
 import { useSystemTheme } from "@/hooks/useTheme.ts";
 import { useUrlState } from "@/hooks/useUrlState.ts";
-import { rangeOf, shift, startOfDay } from "@/lib/dates.ts";
+import { dateLabel, rangeOf, shift, startOfDay } from "@/lib/dates.ts";
 
 export function App() {
   useSystemTheme();
@@ -80,14 +82,19 @@ export function App() {
           />
           {calendar.isError && (
             <Notice>
-              サーバーに接続できません。`kairos serve` が動いているか確認してください。
+              Kairos のサーバーに接続できません。ターミナルで <code>kairos ensure</code>{" "}
+              を実行すると起動します。
             </Notice>
           )}
           {calendar.isSuccess && visible.length === 0 && (
-            <Notice>
-              {state.view === "week" ? "この週" : "この日"}の記録はありません。← →
-              で前後に移動できます。
-            </Notice>
+            <EmptyNotice
+              period={state.view === "week" ? "この週" : "この日"}
+              progress={progress}
+              hiddenOnly={calendar.data.sessions.length > 0}
+              prev={calendar.data.prev}
+              next={calendar.data.next}
+              onJump={(t) => update({ anchor: startOfDay(t) })}
+            />
           )}
         </main>
         {state.session && (
@@ -103,12 +110,70 @@ export function App() {
   );
 }
 
+/** 期間に表示するものがないとき、その理由と次にできることを出す。 */
+function EmptyNotice({
+  period,
+  progress,
+  hiddenOnly,
+  prev,
+  next,
+  onJump,
+}: {
+  period: string;
+  progress: { done: number; total: number } | null;
+  hiddenOnly: boolean;
+  prev: number | null;
+  next: number | null;
+  onJump: (t: number) => void;
+}) {
+  if (progress)
+    return (
+      <Notice>
+        ログを取り込んでいます（{Math.floor((progress.done / Math.max(progress.total, 1)) * 100)}
+        %）。終わると、ここに表示されます。
+      </Notice>
+    );
+  if (hiddenOnly)
+    return (
+      <Notice>
+        {period}
+        の記録は、すべて非表示のプロジェクトのものです。右上の「プロジェクト」から表示を戻せます。
+      </Notice>
+    );
+  if (prev === null && next === null)
+    return (
+      <Notice>まだ記録がありません。Claude Code で作業すると、数秒でここに表示されます。</Notice>
+    );
+  return (
+    <Notice>
+      <p>{period}の記録はありません。</p>
+      <div className="mt-2 flex flex-wrap justify-center gap-2">
+        {prev !== null && (
+          <Button variant="outline" size="xs" onClick={() => onJump(prev)}>
+            <ChevronLeft />
+            前の記録（{dateLabel(prev)}）
+          </Button>
+        )}
+        {next !== null && (
+          <Button variant="outline" size="xs" onClick={() => onJump(next)}>
+            次の記録（{dateLabel(next)}）
+            <ChevronRight />
+          </Button>
+        )}
+      </div>
+    </Notice>
+  );
+}
+
 function Notice({ children }: { children: React.ReactNode }) {
   return (
     <div className="pointer-events-none absolute inset-x-0 top-24 flex justify-center px-4">
-      <p className="rounded-md border bg-popover px-4 py-2 text-muted-foreground text-sm shadow-sm">
+      <div
+        className="pointer-events-auto rounded-md border bg-popover px-4 py-2 text-center text-muted-foreground text-sm shadow-sm"
+        role="status"
+      >
         {children}
-      </p>
+      </div>
     </div>
   );
 }

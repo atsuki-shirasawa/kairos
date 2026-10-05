@@ -47,6 +47,7 @@ export function createApp({ db, events, summarizer, now }: AppDeps): Hono {
       to,
       sessions: q.calendar(from, to),
       projects: q.projects(),
+      ...q.neighbors(from, to),
     });
   });
 

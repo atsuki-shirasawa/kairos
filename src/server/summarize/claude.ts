@@ -32,13 +32,21 @@ export async function runClaude(prompt: string, opts: ClaudeOptions): Promise<st
     ],
     { cwd: opts.cwd, stdin: new Blob([prompt]), stdout: "pipe", stderr: "pipe" },
   );
-  const timer = setTimeout(() => proc.kill(), opts.timeoutMs ?? 180_000);
+  const timeoutMs = opts.timeoutMs ?? 180_000;
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    proc.kill();
+  }, timeoutMs);
   try {
     const [out, err, code] = await Promise.all([
       new Response(proc.stdout).text(),
       new Response(proc.stderr).text(),
       proc.exited,
     ]);
+    // 止めたときの終了コードだけでは理由が分からないので、時間切れと分かる文にする
+    if (timedOut)
+      throw new SummaryError(`${Math.round(timeoutMs / 1000)} 秒以内に終わりませんでした`);
     if (code !== 0 || !out.trim()) {
       throw new SummaryError((err || out || `終了コード ${code}`).trim().slice(0, 500));
     }

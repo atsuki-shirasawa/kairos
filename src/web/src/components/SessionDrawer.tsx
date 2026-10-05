@@ -304,8 +304,8 @@ function ArtifactList({ items }: { items: Artifact[] }) {
     <ul className="space-y-1.5 text-sm">
       {items.map((a) =>
         a.kind === "pr" ? (
-          <li key={a.ref} className="flex items-center gap-2">
-            <GitPullRequest className="size-4 shrink-0 text-muted-foreground" />
+          <li key={a.ref} className="flex items-baseline gap-2">
+            <GitPullRequest className="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
             <PrLink artifact={a} />
           </li>
         ) : (
@@ -323,32 +323,35 @@ function ArtifactList({ items }: { items: Artifact[] }) {
 }
 
 /**
- * PR のリンク。ログには PR の題名がなく「#番号 リポジトリ」しか残らないので、
- * 番号を主に、リポジトリ名を補助として出す。
+ * PR のリンク。番号は URL から取り、題名と並べる。題名が取れなかった PR（`--fill` で作ったものなど）は
+ * 「#番号 リポジトリ」になっているので、リポジトリ名を補助として出す。
  */
 function PrLink({ artifact: a }: { artifact: Artifact }) {
-  const [, num, repo] = /^(#\d+)\s+(.+)$/.exec(a.title ?? "") ?? [];
+  const num = /\/pull\/(\d+)/.exec(a.ref)?.[1];
+  const repo = /^#\d+\s+(.+)$/.exec(a.title ?? "")?.[1];
   return (
     <a
       href={a.ref}
       target="_blank"
       rel="noreferrer"
-      className="inline-flex min-w-0 items-baseline gap-1.5 text-primary hover:underline"
+      className="min-w-0 break-words text-primary hover:underline"
     >
-      {num ? (
-        <>
-          <span className="font-medium font-num">{num}</span>
-          <span className="truncate text-muted-foreground text-xs">{repo}</span>
-        </>
+      {num && <span className="mr-1.5 font-medium font-num">#{num}</span>}
+      {repo ? (
+        <span className="text-muted-foreground text-xs">{repo}</span>
       ) : (
-        <span className="truncate">{a.title ?? a.ref}</span>
+        <span>{a.title ?? a.ref}</span>
       )}
-      <ExternalLink className="size-3 shrink-0 self-center" />
+      <ExternalLink className="ml-1 inline size-3" />
     </a>
   );
 }
 
-/** 会話の切り替え。選んだ時間に動いたサブエージェントだけをタブにし、ほかは選択肢にまとめる。 */
+/**
+ * 会話の切り替え。メインと、サブエージェントを選ぶ 1 つの選択欄を 1 行に並べる。
+ * サブエージェントは数十になることがあり、タブにすると会話が下へ押し出されるため。
+ * 選択欄では、選んだ時間に動いたものを先に出す。
+ */
 function AgentTabs({
   session: s,
   section,
@@ -369,41 +372,43 @@ function AgentTabs({
     a.endedAt >= section.start;
   const here = s.subagents.filter(during);
   const others = s.subagents.filter((a) => !during(a));
+  const selected = s.subagents.find((a) => a.id === agent) ?? null;
+  const option = (a: Subagent) => (
+    <option key={a.id} value={a.id}>
+      {a.startedAt ? `${hhmm(a.startedAt)} ` : ""}
+      {a.agentType ?? "サブエージェント"}
+      {a.description ? `: ${a.description}` : ""}
+    </option>
+  );
+
   return (
-    <div
-      className="mb-3 flex flex-wrap items-center gap-1.5"
-      role="tablist"
-      aria-label="会話の切り替え"
-    >
-      <Tab active={agent === null} onClick={() => onChange(null)}>
-        メイン
-      </Tab>
-      {here.map((a) => (
-        <Tab
-          key={a.id}
-          active={agent === a.id}
-          onClick={() => onChange(a.id)}
-          title={a.description ?? undefined}
-        >
-          {a.agentType ?? "サブエージェント"}
+    <div className="mb-3 space-y-1.5">
+      <div className="flex items-center gap-1.5">
+        <Tab active={agent === null} onClick={() => onChange(null)}>
+          メイン
         </Tab>
-      ))}
-      {others.length > 0 && (
         <select
-          aria-label="ほかの時間のサブエージェント"
-          className="rounded-full border bg-transparent px-2 py-0.5 text-muted-foreground text-xs"
-          value={others.some((a) => a.id === agent) ? (agent ?? "") : ""}
+          aria-label="サブエージェントの会話"
+          className={cn(
+            "min-w-0 flex-1 truncate rounded-full border bg-transparent px-2.5 py-0.5 text-xs",
+            selected ? "border-primary text-foreground" : "text-muted-foreground",
+          )}
+          value={agent ?? ""}
           onChange={(e) => onChange(e.target.value || null)}
         >
-          <option value="">ほかの時間（{others.length}）</option>
-          {others.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.startedAt ? `${hhmm(a.startedAt)} ` : ""}
-              {a.agentType ?? "サブエージェント"}
-              {a.description ? `: ${a.description}` : ""}
-            </option>
-          ))}
+          <option value="">サブエージェント（{s.subagents.length}）</option>
+          {here.length > 0 && <optgroup label="この時間">{here.map(option)}</optgroup>}
+          {others.length > 0 && (
+            <optgroup label={here.length > 0 ? "ほかの時間" : "このセッション"}>
+              {others.map(option)}
+            </optgroup>
+          )}
         </select>
+      </div>
+      {selected?.description && (
+        <p className="text-muted-foreground text-xs">
+          {selected.agentType ?? "サブエージェント"}への依頼: {selected.description}
+        </p>
       )}
     </div>
   );
@@ -447,12 +452,32 @@ function SectionSummary({ sessionId, section }: { sessionId: string; section: Se
           {!busy && button(section.summarizable ? "いま要約する" : "要約する", Sparkles)}
         </div>
       )}
-      {section.error && !busy && (
-        <p className="mt-2 text-destructive text-xs">要約できませんでした: {section.error}</p>
-      )}
+      {section.error && !busy && <SummaryFailure error={section.error} />}
       {request.isError && <p className="mt-2 text-destructive text-xs">{request.error.message}</p>}
     </Block>
   );
+}
+
+function SummaryFailure({ error }: { error: string }) {
+  return (
+    <div className="mt-2 space-y-1 text-xs">
+      <p className="text-destructive">要約できませんでした。{summaryHint(error)}</p>
+      <p className="break-words text-muted-foreground">詳細: {error}</p>
+    </div>
+  );
+}
+
+/** 要約の失敗理由（`claude -p` のエラー出力）から、次にすることを案内する。 */
+function summaryHint(error: string): string {
+  if (/not logged in|log ?in|authenticat/i.test(error))
+    return "Claude Code にログインしていません。ターミナルで claude を起動してログインしてから、もう一度要約してください。";
+  if (error.includes("claude コマンドが見つかりません"))
+    return "claude コマンドが見つかりません。Claude Code をインストールしてから、kairos restart で起動し直してください。";
+  if (error.includes("以内に終わりませんでした"))
+    return "時間がかかりすぎました。少し待ってから、もう一度要約してください。";
+  if (/rate.?limit|usage limit|overloaded|\b(429|529)\b/i.test(error))
+    return "利用上限か混雑で断られました。時間をおいて、もう一度要約してください。";
+  return "時間をおいて、もう一度要約してください。続くときは ~/Library/Logs/kairos/server.log を確認してください。";
 }
 
 function Block({
@@ -479,8 +504,7 @@ function Tab({ active, children, ...props }: { active: boolean } & React.Compone
   return (
     <button
       type="button"
-      role="tab"
-      aria-selected={active}
+      aria-pressed={active}
       className={cn(
         "rounded-full border px-3 py-0.5 text-xs",
         active ? "border-primary bg-primary text-primary-foreground" : "hover:bg-accent",

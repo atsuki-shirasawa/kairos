@@ -82,7 +82,19 @@ describe("GET /api/calendar", () => {
     expect(ids).toContain(SID.loop);
     expect(ids).not.toContain(SID.headless);
     expect(ids).not.toContain(SID.blog); // 翌日
-    expect(res.projects.map((p) => p.name).sort()).toEqual(["app", "blog", "probe"]);
+    // headless のセッションしかないプロジェクト（probe）は絞り込みにも出さない
+    expect(res.projects.map((p) => p.name).sort()).toEqual(["app", "blog"]);
+  });
+
+  test("空の期間からも移動できるよう、前後のいちばん近い作業ブロックを返す", async () => {
+    const day = await json<CalendarResponse>(`/api/calendar?from=${DAY_FROM}&to=${DAY_TO}`);
+    expect(day.prev).toBeNull();
+    expect(day.next).toBe(Date.UTC(2026, 8, 29, 1)); // 翌日の blog
+    const later = DAY_FROM + 7 * 24 * 60 * 60_000;
+    const empty = await json<CalendarResponse>(
+      `/api/calendar?from=${later}&to=${later + 24 * 60 * 60_000}`,
+    );
+    expect(empty).toMatchObject({ sessions: [], prev: Date.UTC(2026, 8, 29, 1), next: null });
   });
 
   test("作業ブロック・タイトル・ラベルを返す", async () => {

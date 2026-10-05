@@ -87,10 +87,16 @@ export class Queries {
     private readonly summaries: SummaryState = { isPending: () => false, errorOf: () => null },
   ) {}
 
+  /**
+   * プロジェクト一覧。人の発言があるセッションを持つものだけ（hook の動作確認などで
+   * headless のセッションしかないプロジェクトは、カレンダーに出ないので絞り込みにも出さない）。
+   */
   projects(): Project[] {
     return this.db
       .query<ProjectRow, []>(
-        "SELECT id, path, name, repo, color, hidden FROM projects ORDER BY name, path",
+        `SELECT id, path, name, repo, color, hidden FROM projects p
+         WHERE EXISTS (SELECT 1 FROM sessions s WHERE s.project_id = p.id AND s.prompt_count > 0)
+         ORDER BY name, path`,
       )
       .all()
       .map(toProject);
@@ -109,6 +115,17 @@ export class Queries {
       )
       .get(id);
     return row ? toProject(row) : null;
+  }
+
+  /** [from, to) の前後で、いちばん近い作業ブロックの開始（人の発言があるセッションのもの）。 */
+  neighbors(from: number, to: number): { prev: number | null; next: number | null } {
+    const one = (sql: string, t: number) =>
+      this.db.query<{ t: number | null }, [number]>(sql).get(t)?.t ?? null;
+    const base = "FROM segments g JOIN sessions s ON s.id = g.session_id WHERE s.prompt_count > 0";
+    return {
+      prev: one(`SELECT MAX(g.start) AS t ${base} AND g.end < ?`, from),
+      next: one(`SELECT MIN(g.start) AS t ${base} AND g.start >= ?`, to),
+    };
   }
 
   /** 作業ブロックが [from, to) と重なる、人の発言があるセッション。 */

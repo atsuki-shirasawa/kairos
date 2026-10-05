@@ -53,6 +53,10 @@ export interface CalendarResponse {
   to: number;
   sessions: CalendarSession[];
   projects: Project[];
+  /** 期間より前の、いちばん近い作業ブロックの開始。空の期間から移動できるようにする。 */
+  prev: number | null;
+  /** 期間より後の、いちばん近い作業ブロックの開始。 */
+  next: number | null;
 }
 
 export interface Artifact {
