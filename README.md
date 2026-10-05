@@ -16,16 +16,15 @@ A personal web app that turns your Claude Code session history into a calendar, 
 
 Design docs: [Architecture](ARCHITECTURE.md) / [Design](DESIGN.md)
 
-## Background
+## Goals
 
-Kairos keeps read-only incremental parsing, work blocks split at pauses, live updates, commits and PRs as outcomes, and local-only security, and sets out to fix what got in the way:
+**See at a glance what you were doing on a given day and at a given time.** That shapes the rest:
 
-- Too many numbers (cache rate, tool stats, …) burying what you actually did
-- Narrow week-view blocks with barely readable titles, and a dated, English-only UI
-- Nothing older than the log retention period (about 30 days) could be viewed
-- Re-reading every log (about 900MB, 8 seconds) on each start, and waiting about 20 seconds for a summary after each click
-
-**Goal:** see at a glance what you were doing on a given day and at a given time.
+- What you did comes first; numbers (tokens, cost, snags) stay in the background
+- Blocks are readable even in the week view, and each one is named by its summary
+- History outlives Claude Code's log retention (about 30 days), because it lives in Kairos's own DB
+- The screen appears right away: it renders from the DB, and ingest reads only what was appended
+- Summaries are written in the background, so they are already there when you open a block
 
 **Not in scope:** detailed cost and token analysis (only period totals and estimates are shown), team sharing or public access, acting on sessions (Kairos copies the resume command but never runs it), and syncing across machines. It is built for one personal Mac.
 
