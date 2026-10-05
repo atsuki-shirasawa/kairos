@@ -29,7 +29,7 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/rules-check.sh",
-            "timeout": 15
+            "timeout": 120
           }
         ]
       }

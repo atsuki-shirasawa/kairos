@@ -1,7 +1,8 @@
 #!/bin/bash
-# Stop: catch CLAUDE.md rules that `bun run check` can't see — a missing PARSER_VERSION /
-# DERIVED_VERSION bump, and rewrites of existing MIGRATIONS entries. It only reminds; it may
-# misfire on pure refactors, so it fires once per stop (stop_hook_active) and Claude can explain.
+# Stop: enforce the CLAUDE.md rules Claude might otherwise skip — run `bun run check` on
+# uncommitted code, catch what check can't see (a missing PARSER_VERSION / DERIVED_VERSION bump,
+# rewrites of existing MIGRATIONS entries) and ask for the reviewer agents the rules require.
+# It may misfire on pure refactors, so it fires once per stop (stop_hook_active) and Claude can explain.
 input=$(cat)
 [ "$(jq -r '.stop_hook_active // false' <<<"$input")" = "true" ] && exit 0
 cd "$CLAUDE_PROJECT_DIR" || exit 0
@@ -38,6 +39,36 @@ if changed "$db"; then
         if (oc > 0 && os < e - 1 && os + oc - 1 > s) { print "yes"; exit }
       }')
     [ -n "$rewritten" ] && issues+=("An existing MIGRATIONS entry in $db was modified. Revert it and append a new entry instead.")
+  fi
+fi
+
+# Reviewer reminders fire once per distinct diff of their paths, not on every stop: the hash of
+# the last diff we reminded about is kept under .git so a reviewed, unchanged diff stays quiet.
+reminded_dir="$(git rev-parse --git-dir)/claude-reminders"
+remind_once() {
+  local agent=$1 message=$2; shift 2
+  changed "$@" || return 0
+  local untracked fingerprint
+  untracked=$(git ls-files --others --exclude-standard -- "$@")
+  fingerprint=$( { git diff "$base" -- "$@"; [ -n "$untracked" ] && cat $untracked; } | shasum | cut -d' ' -f1)
+  [ "$(cat "$reminded_dir/$agent" 2>/dev/null)" = "$fingerprint" ] && return 0
+  mkdir -p "$reminded_dir" && echo "$fingerprint" >"$reminded_dir/$agent"
+  issues+=("$message")
+}
+
+remind_once security-reviewer \
+  "API security, summary execution or Markdown rendering changed. Run the security-reviewer agent." \
+  src/server/api src/server/summarize/claude.ts src/shared/constants.ts \
+  src/web/src/components/Markdown.tsx
+remind_once i18n-reviewer \
+  "UI components or message dictionaries changed. Run the i18n-reviewer agent." \
+  'src/web/src/*.tsx' src/web/src/i18n
+
+# CLAUDE.md asks for `bun run check` at the end of every change. It takes a few seconds, so run it
+# whenever code is uncommitted rather than trusting that it was run.
+if [ -n "$(git status --porcelain -- src tests scripts package.json biome.json 'tsconfig*.json')" ]; then
+  if ! output=$(bun run check 2>&1); then
+    issues+=("bun run check failed. Fix it before finishing:"$'\n'"$(tail -n 40 <<<"$output")")
   fi
 fi
 

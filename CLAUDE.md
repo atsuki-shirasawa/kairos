@@ -36,7 +36,7 @@ To deploy to the locally running server, use `/ship-local` (check → build → 
 
 - **Original logs are read-only.** Never write under `~/.claude/projects` (a hook blocks edits to `*.jsonl`)
 - Area-specific rules live in `.claude/rules/` and load when you touch those files: `ingest.md` (fixtures, `PARSER_VERSION` / `DERIVED_VERSION`), `db.md` (`MIGRATIONS` is append-only), `api.md` (`guardHost` / `guardWrite`, `claude -p` flags), `web.md` (i18n, Markdown rendering)
-- A Stop hook (`.claude/hooks/rules-check.sh`) flags a missing version bump or a rewritten migration
+- A Stop hook (`.claude/hooks/rules-check.sh`) runs `bun run check` when code is uncommitted, flags a missing version bump or a rewritten migration, and asks for `security-reviewer` / `i18n-reviewer` when their areas change (once per distinct diff)
 - **Don't loosen API security** (Host validation, write protection, `127.0.0.1` only, no raw HTML or images from conversation Markdown). When you change any of it, check with the `security-reviewer` agent
 
 ## Writing
