@@ -14,6 +14,7 @@ function session(active: boolean): CalendarSession {
     summarized: true,
     body: null,
     prs: [],
+    commits: [],
     promptCount: 1,
     usage: null,
     activity: {

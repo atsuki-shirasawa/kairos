@@ -77,6 +77,8 @@ export interface CalendarSegment {
   body: string | null;
   /** PRs opened within this time, for the day view and the copied report. */
   prs: Artifact[];
+  /** Commits made within this time, marked on the block at the moment they were made. */
+  commits: Artifact[];
   /** Number of user prompts (prompts and slash commands). */
   promptCount: number;
   /** Token usage within this time; null if none was recorded. */

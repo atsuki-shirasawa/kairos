@@ -174,13 +174,17 @@ describe("GET /api/search", () => {
 });
 
 describe("GET /api/calendar", () => {
-  test("returns each block's PRs and summary body", async () => {
+  test("returns each block's PRs, commits and summary body", async () => {
     const res = await json<CalendarResponse>(`/api/calendar?from=${DAY_FROM}&to=${DAY_TO}`);
     const basic = res.sessions.find((s) => s.id === SID.basic);
     expect(basic?.segments.map((g) => g.prs.map((a) => a.ref))).toEqual([
       [],
       ["https://github.com/me/app/pull/42"],
     ]);
+    // Commits carry their time so the calendar can mark them where they happened
+    const commits = basic?.segments.map((g) => g.commits) ?? [];
+    expect(commits.map((c) => c.length)).toEqual([2, 0]);
+    for (const c of commits[0] ?? []) expect(c.ts).toBeNumber();
     expect(basic?.segments.map((g) => g.body)).toEqual([null, null]);
   });
 

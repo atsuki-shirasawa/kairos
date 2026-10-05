@@ -13,6 +13,7 @@ function session(id: string, ...spans: [number, number][]): CalendarSession {
     summarized: true,
     body: null,
     prs: [],
+    commits: [],
     promptCount: 1,
     usage: null,
     activity: {

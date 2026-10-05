@@ -33,6 +33,7 @@ function session(
       summarized: true,
       body: null,
       prs: g.prs ?? [],
+      commits: [],
       promptCount: 1,
       usage: null,
       activity: {

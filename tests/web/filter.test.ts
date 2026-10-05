@@ -41,6 +41,7 @@ function session(
     summarized: true,
     body: null,
     prs: [],
+    commits: [],
     promptCount: 1,
     usage: null,
     activity: { ...NONE, ...g.activity },

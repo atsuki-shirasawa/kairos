@@ -338,7 +338,8 @@ export class Queries {
           headline: sectionHeadline(g, fallback),
           summarized: g.headline !== null,
           body: summaryBody(g),
-          prs: this.prs(r.id, g.start, g.end),
+          prs: this.blockArtifacts(r.id, "pr", g.start, g.end),
+          commits: this.blockArtifacts(r.id, "commit", g.start, g.end),
           promptCount: g.prompt_count,
           usage: this.usage(r.id, g.start, g.end),
           activity: this.activity(r.id, g.start, g.end),
@@ -436,14 +437,19 @@ export class Queries {
       );
   }
 
-  /** PRs opened within a work block (counted the same way as `activity().prs`). */
-  private prs(sessionId: string, from: number, to: number): Artifact[] {
+  /** Commits or PRs made within a work block (counted the same way as `activity()`). */
+  private blockArtifacts(
+    sessionId: string,
+    kind: Artifact["kind"],
+    from: number,
+    to: number,
+  ): Artifact[] {
     return this.db
-      .query<Artifact, [string, number, number]>(
+      .query<Artifact, [string, string, number, number]>(
         `SELECT kind, ref, title, ts FROM artifacts
-         WHERE session_id = ? AND kind = 'pr' AND is_copy = 0 AND ts BETWEEN ? AND ? ORDER BY ts`,
+         WHERE session_id = ? AND kind = ? AND is_copy = 0 AND ts BETWEEN ? AND ? ORDER BY ts`,
       )
-      .all(sessionId, from, to + ARTIFACT_GRACE_MS);
+      .all(sessionId, kind, from, to + ARTIFACT_GRACE_MS);
   }
 
   /**

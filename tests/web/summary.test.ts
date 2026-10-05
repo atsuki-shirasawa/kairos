@@ -53,6 +53,7 @@ function session(id: string, projectId: number | null, ...segments: Seg[]): Cale
       summarized: true,
       body: null,
       prs: g.prs ?? [],
+      commits: [],
       promptCount: 1,
       usage: g.usage ?? null,
       activity: {
