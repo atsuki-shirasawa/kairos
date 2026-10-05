@@ -5,9 +5,13 @@ import type {
   MessagesResponse,
   Project,
   ProjectUpdate,
+  RecapRequest,
+  RecapsResponse,
   SearchResponse,
   ServerEvent,
   SessionDetail,
+  Settings,
+  SettingsUpdate,
   SpansResponse,
 } from "@shared/api.ts";
 
@@ -49,6 +53,15 @@ export const api = {
 
   projects: () => request<Project[]>("/api/projects"),
 
+  settings: () => request<Settings>("/api/settings"),
+
+  updateSettings: (update: SettingsUpdate) =>
+    request<Settings>("/api/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(update),
+    }),
+
   updateProject: (id: number, update: ProjectUpdate) =>
     request<Project>(`/api/projects/${id}`, {
       method: "PATCH",
@@ -63,6 +76,16 @@ export const api = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: "{}",
+    }),
+
+  recaps: (from: number, to: number) =>
+    request<RecapsResponse>(`/api/recaps${query({ from, to })}`),
+
+  requestRecap: (target: RecapRequest) =>
+    request<{ queued: true }>("/api/recaps", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(target),
     }),
 
   messages: (
@@ -83,7 +106,12 @@ export const api = {
 export function subscribe(onEvent: (event: ServerEvent) => void): () => void {
   const source = new EventSource("/api/events");
   const handler = (e: MessageEvent<string>) => onEvent(JSON.parse(e.data) as ServerEvent);
-  const types: ServerEvent["type"][] = ["sessions.updated", "summary.updated", "ingest.progress"];
+  const types: ServerEvent["type"][] = [
+    "sessions.updated",
+    "summary.updated",
+    "recap.updated",
+    "ingest.progress",
+  ];
   for (const t of types) source.addEventListener(t, handler);
   return () => source.close();
 }

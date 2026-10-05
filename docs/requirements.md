@@ -39,7 +39,7 @@ Build a personal web app that lets you look back, on a calendar, on what you wer
 
 **Out of scope**
 
-- Cost and token analysis
+- Detailed cost and token analysis (cache rates, per-model and per-tool breakdowns). Period totals of tokens and estimated cost are shown in the summary (F11)
 - Team sharing, public access
 - Operating on sessions (resume, etc.)
 - Syncing across machines, distribution
@@ -52,14 +52,15 @@ Build a personal web app that lets you look back, on a calendar, on what you wer
 |---|---|---|
 | F1 | Ingest | Read jsonl incrementally and store it in SQLite. Data stays in the DB even after the original logs are deleted. The first run ingests everything |
 | F2 | Exclusion | Exclude automatic-run turns, headless sessions with no human prompt, and specified projects |
-| F3 | Calendar | Week and day views. The same period can also be shown as a per-day list. Work blocks (sections) are colored by project, and each block shows the headline of that section's AI summary (or the first line of the first prompt if none has been generated yet) |
-| F4 | Detail drawer | Clicking a block opens it from the right. From top to bottom: the selected section's summary, the session flow (headlines of all sections), the outcomes of that time (commits and PRs), the conversation (collapsed at first; when opened, shown chat-style from the selected time, with tool calls collapsed), and numbers (usage and activity; collapsed, with only the key points on one line). `j` / `k` move to the previous/next work block in time order |
-| F5 | AI summaries | **Per section (calendar block)**: finished sections are summarized automatically in the background and stored in the DB. The format is "headline, goal, what was done, result". Summaries can also be generated or regenerated manually. The output language is set on the server (`--summary-lang <en\|ja>`, default English) |
+| F3 | Calendar | Week and day views. The same period can also be shown as a per-block table (the summary's table tab, F11). Work blocks (sections) are colored by project, and each block shows the headline of that section's AI summary (or the first line of the first prompt if none has been generated yet) |
+| F4 | Detail drawer | Clicking a block opens it from the right. From top to bottom: the selected section's summary, the session flow (headlines of all sections), the outcomes of that time (commits and PRs), the conversation (collapsed at first; when opened, shown chat-style from the selected time, with tool calls collapsed), and numbers (usage and activity; open by default, and collapsible to the key points on one line). The pinned heading shows the key figures on the time line: duration, Claude's time, tokens, cost, commits and PRs, snags. `j` / `k` move to the previous/next work block in time order |
+| F5 | AI summaries | **Per section (calendar block)**: finished sections are summarized automatically in the background and stored in the DB. The format is "headline, goal, what was done, result". Summaries can also be generated or regenerated manually. The output language follows the UI language (`--summary-lang <en\|ja>` on the server fixes it instead) |
 | F6 | Auto start | Started from Claude Code's SessionStart hook. Does nothing if already running. Fixed port |
 | F7 | Live updates | Reflect in-progress sessions in real time |
 | F8 | Search | Search all periods by summary, prompts and replies, PR and commit titles, and branch. Typing also narrows the shown period; a result jumps to its day and opens it (added 2026-10-05) |
 | F9 | Report | Copy the shown period's work (after filters) as Markdown, grouped by day and project with PR links, for a stand-up note or a weekly report (added 2026-10-05) |
 | F10 | Resume | Copy `cd <dir> && claude --resume <id>` from the drawer. Kairos itself never runs it (added 2026-10-05) |
+| F11 | Summary | A layout next to the calendar, for the shown week or day (after filters), with two tabs. **Overview**: working time (with Claude's time), PRs, commits, tokens and estimated cost, each with the change from the previous period; working time by day (week) or through the day (day) and by project; and the blocks grouped by project, opening in the drawer. **Table**: one row per block with sortable numbers (duration, Claude's time, tokens, cost, outcomes and more; columns can be chosen), formerly the list layout. Computed in the UI from `/api/calendar`. Each project can also get a recap written by the LLM on request, explaining what was done in the period (added 2026-10-05) |
 
 ### 3.2 Deferred
 
@@ -74,7 +75,7 @@ Build a personal web app that lets you look back, on a calendar, on what you wer
 | Startup speed | Show the screen within 1 second by rendering from the DB. Ingest proceeds in the background |
 | Log format changes | Give the parser a version; bumping it allows rebuilding the DB |
 | Privacy | The only thing sent externally is the excerpt passed to `claude -p` for summaries. Never write to `~/.claude` |
-| UI | Keep the screen to "calendar + drawer". The toolbar is limited to view switching, date navigation (previous/next, today, date picker), search (keyword), copying the period as a report and filters (projects, with outcomes, hide quick questions); theme, language and the keyboard shortcut list are tucked into the "⋯" menu. English UI by default with Japanese available; light and dark themes (follows the OS by default) |
+| UI | Keep the screen to "calendar or summary + drawer". The summary is a layout of its own rather than a panel above the calendar, so the week grid keeps its height. The toolbar is limited to view switching, date navigation (previous/next, today, date picker), search (keyword), copying the period as a report and filters (projects, with outcomes, hide quick questions); theme, language and the keyboard shortcut list are tucked into the "⋯" menu. English UI by default with Japanese available; light and dark themes (follows the OS by default) |
 | Operation | Used on one personal Mac |
 
 ## 5. Tech stack
@@ -105,6 +106,7 @@ messages      (session_id + id=uuid, agent_id, file_id, seq, ts, kind, text, too
 artifacts     (session_id + kind=commit|pr + ref, title, ts, file_id, is_copy)
 segments      (session_id, start, end)        -- can be recomputed from messages
 summaries     (session_id, headline, body, model, covered_until, created_at)
+recaps        (project_id, period_from, period_to, body, model, input_hash, created_at)
 ingest_state  (path, session_id, agent_id, offset, size, ino, parser_version, state)
 ```
 

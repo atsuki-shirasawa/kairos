@@ -1,5 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { AUTO_SUMMARY_DAYS, isSummarizable, SECTION_IDLE_MS } from "../../shared/sections.ts";
+import { storedSummaryLang } from "../settings.ts";
 import { buildDigest, type DigestMessage } from "./digest.ts";
 import {
   buildPrompt,
@@ -8,11 +9,21 @@ import {
   parseSummary,
   type SummaryLang,
 } from "./prompt.ts";
+import {
+  buildRecapPrompt,
+  loadRecapInput,
+  parseRecap,
+  type RecapTarget,
+  recapHash,
+  recapKey,
+} from "./recap.ts";
 
 export const DEFAULT_MODEL = "haiku";
 const POLL_MS = 60_000;
 const MAX_ATTEMPTS = 3;
 const RETRY_BASE_MS = 60_000;
+/** More than a week of projects; past it, a request is refused rather than queued behind the rest. */
+export const MAX_RECAP_QUEUE = 20;
 
 export type Runner = (prompt: string) => Promise<string>;
 
@@ -44,6 +55,10 @@ export class Summarizer {
   private readonly queue: Target[] = [];
   private readonly failures = new Map<string, Failure>();
   private current: string | null = null;
+  /** Recaps are only ever requested, so they need no retry schedule: a failure waits for the next request. */
+  private readonly recaps: RecapTarget[] = [];
+  private readonly recapErrors = new Map<string, string>();
+  private currentRecap: string | null = null;
   private running = false;
   private wake: (() => void) | null = null;
 
@@ -54,9 +69,13 @@ export class Summarizer {
       model?: string;
       now?: () => number;
       onUpdated?: (target: Pick<Target, "sessionId" | "start">) => void;
+      onRecapUpdated?: (target: RecapTarget) => void;
       /** When false, nothing is summarized automatically; only requested sections are. */
       auto?: boolean;
-      /** Language the summaries are written in. */
+      /**
+       * Language the summaries are written in, when fixed with `--summary-lang`. Without it, the
+       * language chosen in the UI (stored in the DB) is used, falling back to English.
+       */
       lang?: SummaryLang;
     } = {},
   ) {}
@@ -65,8 +84,14 @@ export class Summarizer {
     return this.opts.model ?? DEFAULT_MODEL;
   }
 
+  /** Read on every run, so a language switched in the UI applies to the next summary. */
   get lang(): SummaryLang {
-    return this.opts.lang ?? DEFAULT_SUMMARY_LANG;
+    return this.opts.lang ?? storedSummaryLang(this.db) ?? DEFAULT_SUMMARY_LANG;
+  }
+
+  /** The language was fixed with `--summary-lang`, so the UI's choice doesn't apply. */
+  get langFixed(): boolean {
+    return this.opts.lang !== undefined;
   }
 
   private now(): number {
@@ -88,6 +113,28 @@ export class Summarizer {
     this.failures.delete(key(target));
     if (!this.isPending(sessionId, start)) this.queue.unshift(target);
     this.poke();
+  }
+
+  isRecapPending(t: RecapTarget): boolean {
+    const k = recapKey(t);
+    return this.currentRecap === k || this.recaps.some((r) => recapKey(r) === k);
+  }
+
+  recapErrorOf(t: RecapTarget): string | null {
+    return this.recapErrors.get(recapKey(t)) ?? null;
+  }
+
+  /**
+   * Writes (or rewrites) a project's recap for the period, after any requested section summaries.
+   * Returns false when the queue is full.
+   */
+  requestRecap(t: RecapTarget): boolean {
+    if (this.isRecapPending(t)) return true;
+    if (this.recaps.length >= MAX_RECAP_QUEUE) return false;
+    this.recapErrors.delete(recapKey(t));
+    this.recaps.push(t);
+    this.poke();
+    return true;
   }
 
   /** Called when ingest updated sessions; there may be new sections to summarize. */
@@ -145,6 +192,13 @@ export class Summarizer {
 
   private async loop(): Promise<void> {
     while (this.running) {
+      // A requested section summary goes first: someone is waiting on it in the drawer, and a recap
+      // written after it can use it. Recaps go before automatic summaries for the same reason
+      const requested = this.queue.length === 0 ? this.recaps.shift() : undefined;
+      if (requested) {
+        await this.recap(requested);
+        continue;
+      }
       const target = this.next();
       if (!target) {
         await new Promise<void>((resolve) => {
@@ -212,6 +266,35 @@ export class Summarizer {
     } finally {
       this.current = null;
       this.opts.onUpdated?.(target);
+    }
+  }
+
+  /** Writes and saves one recap. A failure is kept to show in the summary view until the next request. */
+  async recap(t: RecapTarget): Promise<boolean> {
+    const k = recapKey(t);
+    this.currentRecap = k;
+    try {
+      const input = loadRecapInput(this.db, t);
+      if (!input) throw new Error("No work to recap in this period");
+      const body = parseRecap(await this.run(buildRecapPrompt(input, this.lang)));
+      if (!body) throw new Error("The recap came back empty");
+      this.db
+        .query(
+          `INSERT INTO recaps (project_id, period_from, period_to, body, model, input_hash, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(project_id, period_from, period_to) DO UPDATE SET body = excluded.body,
+             model = excluded.model, input_hash = excluded.input_hash, created_at = excluded.created_at`,
+        )
+        .run(t.projectId, t.from, t.to, body, this.model, recapHash(input), this.now());
+      this.recapErrors.delete(k);
+      return true;
+    } catch (e) {
+      this.recapErrors.set(k, e instanceof Error ? e.message : String(e));
+      console.error(`kairos: recap failed for ${k}:`, e);
+      return false;
+    } finally {
+      this.currentRecap = null;
+      this.opts.onRecapUpdated?.(t);
     }
   }
 

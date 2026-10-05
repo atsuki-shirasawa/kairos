@@ -15,6 +15,8 @@ export function useLiveUpdates(): { done: number; total: number } | null {
           return;
         }
         void client.invalidateQueries({ queryKey: ["calendar"] });
+        // Recaps are listed under "calendar", so the line above already refetches them
+        if (event.type === "recap.updated") return;
         if (event.type === "summary.updated") {
           void client.invalidateQueries({ queryKey: ["session", event.sessionId] });
           return;

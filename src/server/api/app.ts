@@ -6,12 +6,17 @@ import type {
   CalendarResponse,
   HealthResponse,
   ProjectUpdate,
+  RecapRequest,
+  RecapsResponse,
   SearchResponse,
   ServerEvent,
+  Settings,
   SpansResponse,
 } from "../../shared/api.ts";
 import type { EventHub } from "../events.ts";
 import { Queries } from "../queries.ts";
+import { storedSummaryLang, storeSummaryLang } from "../settings.ts";
+import { DEFAULT_SUMMARY_LANG, isSummaryLang } from "../summarize/prompt.ts";
 import type { Summarizer } from "../summarize/summarizer.ts";
 import { guardHost, guardWrite } from "./security.ts";
 
@@ -77,6 +82,25 @@ export function createApp({ db, events, summarizer, now }: AppDeps): Hono {
     return project ? c.json(project) : c.json({ error: "project not found" }, 404);
   });
 
+  const settings = (): Settings => ({
+    summaryLang: summarizer?.lang ?? storedSummaryLang(db) ?? DEFAULT_SUMMARY_LANG,
+    summaryLangFixed: summarizer?.langFixed ?? false,
+  });
+
+  app.get("/api/settings", (c) => c.json<Settings>(settings()));
+
+  // The UI sends its language here, so summaries follow it. Existing summaries are kept
+  app.patch("/api/settings", async (c) => {
+    const body = await c.req.json<unknown>().catch(() => null);
+    const lang =
+      typeof body === "object" && body !== null
+        ? (body as Record<string, unknown>).summaryLang
+        : undefined;
+    if (!isSummaryLang(lang)) return c.json({ error: "invalid request" }, 400);
+    storeSummaryLang(db, lang);
+    return c.json<Settings>(settings());
+  });
+
   app.get("/api/sessions/:id", (c) => {
     const session = q.session(c.req.param("id"));
     return session ? c.json(session) : c.json({ error: "session not found" }, 404);
@@ -90,6 +114,23 @@ export function createApp({ db, events, summarizer, now }: AppDeps): Hono {
     if (!section) return c.json({ error: "section not found" }, 404);
     if (!summarizer) return c.json({ error: "Summaries are disabled" }, 503);
     summarizer.request(id, start);
+    return c.json({ queued: true }, 202);
+  });
+
+  app.get("/api/recaps", (c) => {
+    const range = parseRange(c.req.query("from"), c.req.query("to"));
+    if ("error" in range) return c.json(range, 400);
+    return c.json<RecapsResponse>({ recaps: q.recaps(range.from, range.to) });
+  });
+
+  // Writes (or rewrites) a project's recap of a period. The result is announced via SSE recap.updated.
+  app.post("/api/recaps", async (c) => {
+    const target = parseRecapRequest(await c.req.json<unknown>().catch(() => null));
+    if (!target) return c.json({ error: "invalid request" }, 400);
+    if (!q.hasRecapWork(target)) return c.json({ error: "no work to recap" }, 404);
+    if (!summarizer) return c.json({ error: "Summaries are disabled" }, 503);
+    if (!summarizer.requestRecap(target))
+      return c.json({ error: "Too many recaps waiting; try again shortly" }, 429);
     return c.json({ queued: true }, 202);
   });
 
@@ -158,6 +199,15 @@ function parseProjectUpdate(body: unknown): ProjectUpdate | null {
     update.hidden = b.hidden;
   }
   return Object.keys(update).length ? update : null;
+}
+
+function parseRecapRequest(body: unknown): RecapRequest | null {
+  if (typeof body !== "object" || body === null) return null;
+  const { projectId, from, to } = body as Record<string, unknown>;
+  if (!Number.isInteger(projectId)) return null;
+  const range = parseRange(String(from), String(to));
+  if ("error" in range || !Number.isSafeInteger(from) || !Number.isSafeInteger(to)) return null;
+  return { projectId: projectId as number, from: range.from, to: range.to };
 }
 
 /** Validates the range (ms). Overly long ranges are refused, since they amount to returning everything. */

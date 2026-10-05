@@ -6,7 +6,7 @@ import { dirname } from "node:path";
  * Migrations. Index + 1 is the schema version (`PRAGMA user_version`).
  * Never rewrite existing entries; append changes at the end.
  */
-const MIGRATIONS: string[] = [
+export const MIGRATIONS: string[] = [
   `
   CREATE TABLE projects (
     id      INTEGER PRIMARY KEY,
@@ -170,6 +170,21 @@ const MIGRATIONS: string[] = [
     PRIMARY KEY (session_id, id)
   );
   CREATE INDEX turns_time ON turns(session_id, ts);
+  `,
+  // 6: LLM-written recap of what was done on a project during a shown period (a week or a day).
+  // Made only on request from the summary view, from the period's section summaries (not raw logs).
+  // input_hash fingerprints that input, so a recap whose sections changed since can show as stale
+  `
+  CREATE TABLE recaps (
+    project_id   INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    period_from  INTEGER NOT NULL,
+    period_to    INTEGER NOT NULL,
+    body         TEXT NOT NULL,
+    model        TEXT NOT NULL,
+    input_hash   TEXT NOT NULL,
+    created_at   INTEGER NOT NULL,
+    PRIMARY KEY (project_id, period_from, period_to)
+  );
   `,
 ];
 

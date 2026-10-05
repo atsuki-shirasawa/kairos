@@ -24,7 +24,7 @@ options:
   --db <path>           DB file (default: ${DEFAULT_DB_PATH})
   --port <n>            port to listen on (default: ${PORT})
   --summary-model <m>   model used for summaries (default: haiku)
-  --summary-lang <l>    language of summaries: en or ja (default: en)
+  --summary-lang <l>    language of summaries: en or ja (default: the UI's language)
   --no-auto-summary     do not summarize automatically (only when requested from the drawer)`;
 
 const { positionals, values } = parseArgs({

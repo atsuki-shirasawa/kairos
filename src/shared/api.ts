@@ -255,8 +255,51 @@ export interface MessagesResponse {
   nextCursor: string | null;
 }
 
+/**
+ * What was done on one project during a shown period (a week or a day), written by the LLM from
+ * the period's section summaries. Only written on request.
+ */
+export interface Recap {
+  projectId: number;
+  from: number;
+  to: number;
+  /** Markdown; null until one is written. */
+  body: string | null;
+  model: string | null;
+  createdAt: number | null;
+  /** The project's work in the period changed after the recap was written. */
+  stale: boolean;
+  pending: boolean;
+  /** Why the latest attempt failed. */
+  error: string | null;
+}
+
+/** Recaps for every project with work starting in the period, written or not. */
+export interface RecapsResponse {
+  recaps: Recap[];
+}
+
+export interface RecapRequest {
+  projectId: number;
+  from: number;
+  to: number;
+}
+
+/** Server settings the UI can change. */
+export interface Settings {
+  /** Language new summaries and recaps are written in. Follows the UI language. */
+  summaryLang: "en" | "ja";
+  /** Fixed with `kairos serve --summary-lang`; the UI's language doesn't change it. */
+  summaryLangFixed: boolean;
+}
+
+export interface SettingsUpdate {
+  summaryLang: "en" | "ja";
+}
+
 /** Events delivered on `/api/events` (Server-Sent Events). */
 export type ServerEvent =
   | { type: "sessions.updated"; ids: string[] }
   | { type: "summary.updated"; sessionId: string; start: number }
+  | { type: "recap.updated"; projectId: number; from: number; to: number }
   | { type: "ingest.progress"; done: number; total: number };

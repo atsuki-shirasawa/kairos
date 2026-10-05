@@ -3,13 +3,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarGrid } from "@/components/CalendarGrid.tsx";
 import { SessionDrawer } from "@/components/SessionDrawer.tsx";
 import { SessionList } from "@/components/SessionList.tsx";
+import { SummaryTabs, SummaryView } from "@/components/SummaryView.tsx";
 import { Toolbar } from "@/components/Toolbar.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { useCalendar, useSearch } from "@/hooks/queries.ts";
+import { useCalendar, useSearch, useSummaryLangSync } from "@/hooks/queries.ts";
 import { useLiveUpdates } from "@/hooks/useLiveUpdates.ts";
 import { useNow } from "@/hooks/useNow.ts";
 import { useTheme } from "@/hooks/useTheme.ts";
 import { useUrlState } from "@/hooks/useUrlState.ts";
+import { useLocale } from "@/i18n/index.ts";
 import { appMessages } from "@/i18n/messages/app.tsx";
 import { dateLabel, rangeOf, shift, startOfDay } from "@/lib/dates.ts";
 import {
@@ -28,12 +30,19 @@ export function App() {
   const [theme, setTheme] = useTheme();
   const [state, update] = useUrlState();
   const now = useNow();
+  useSummaryLangSync(useLocale());
   const progress = useLiveUpdates();
   const { from, to, days } = useMemo(
     () => rangeOf(state.view, state.anchor),
     [state.view, state.anchor],
   );
   const calendar = useCalendar(from, to);
+  // The summary compares with the period before, so fetch it only there
+  const before = useMemo(
+    () => rangeOf(state.view, shift(state.view, state.anchor, -1)),
+    [state.view, state.anchor],
+  );
+  const previous = useCalendar(before.from, before.to, state.layout === "summary");
 
   const projects = calendar.data?.projects ?? [];
   const projectMap = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
@@ -56,6 +65,18 @@ export function App() {
     [state.filter, projectMap, hitKeys],
   );
   const focused = useMemo(() => narrowSessions(visible, matches), [visible, matches]);
+  // keepPreviousData would hand over an older period while the new one loads; compare only when current
+  const previousData =
+    previous.data && previous.data.from === before.from && !previous.isPlaceholderData
+      ? previous.data
+      : null;
+  const previousSessions = useMemo(() => {
+    if (!previousData) return null;
+    // Projects only seen last period still need their hidden flag
+    const all = new Map(projectMap);
+    for (const p of previousData.projects) if (!all.has(p.id)) all.set(p.id, p);
+    return { days: before.days, sessions: hideSessions(previousData.sessions, all, state.filter) };
+  }, [previousData, projectMap, before.days, state.filter]);
   const setFilter = useCallback((filter: Filter) => update({ filter }), [update]);
 
   // Step to the previous/next block in time order (j / k and the drawer's ↑ ↓). Doesn't push
@@ -74,7 +95,7 @@ export function App() {
   // On close, return focus to the block (row) that was open, so keyboard navigation can continue
   const closeDrawer = useCallback(() => {
     const el = document.querySelector<HTMLElement>(
-      "main button[data-selected], main tr[data-selected] button",
+      "main button[data-selected], main tr[data-selected] button, main li[data-selected] button",
     );
     update({ session: null, at: null });
     el?.focus({ preventScroll: true });
@@ -83,7 +104,7 @@ export function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // ← → previous/next period, t today, w / d week/day, c / l calendar/list, j / k next/previous
+  // ← → previous/next period, t today, w / d week/day, c / s calendar/summary, l the summary's table, j / k next/previous
   // block, / search, Esc close details, ? the "⋯" menu. The list shown to users is SHORTCUTS in
   // Toolbar.tsx. Inside the date picker (data-date-picker) arrow keys move between days, so skip them here
   useEffect(() => {
@@ -103,6 +124,7 @@ export function App() {
       else if (e.key === "d") update({ view: "day" });
       else if (e.key === "c") update({ layout: "calendar" });
       else if (e.key === "l") update({ layout: "list" });
+      else if (e.key === "s") update({ layout: "summary" });
       else if (e.key === "j") goTo(next ?? null);
       else if (e.key === "k") goTo(prev ?? null);
       // On some keyboard layouts Shift+/ still arrives as "/", so accept both
@@ -180,8 +202,22 @@ export function App() {
       />
       <div className="flex min-h-0 flex-1">
         <main className="relative flex min-w-0 flex-1 flex-col">
+          {state.layout !== "calendar" && (
+            <SummaryTabs
+              table={state.layout === "list"}
+              onTable={(table) => update({ layout: table ? "list" : "summary" })}
+            />
+          )}
           {state.layout === "list" ? (
             <SessionList {...body} sort={state.sort} onSort={(sort) => update({ sort })} />
+          ) : state.layout === "summary" ? (
+            <SummaryView
+              {...body}
+              view={state.view}
+              from={from}
+              to={to}
+              previous={previousSessions}
+            />
           ) : (
             <CalendarGrid {...body} />
           )}

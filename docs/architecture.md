@@ -123,8 +123,18 @@ sequenceDiagram
 - For short sections (under 10 minutes and at most one prompt), only a headline is generated automatically. The body is stored in `summaries` as an empty string and returned by the API as no summary (`body: null`)
 - The body of short sections and sections older than 7 days can be pushed to the priority queue with the button in the drawer (`POST /api/sessions/:id/sections/:start/summary`)
 - Sections without a headline (older than 7 days, in progress, not yet generated) show `segments.fallback_title`, computed at ingest (the first prompt, or failing that the first line of Claude's last reply)
-- The summary language is set with `--summary-lang <en|ja>` (default `en`). Changing it doesn't touch existing summaries; they can be regenerated from the drawer
+- The summary language follows the UI language: the UI sends it with `PATCH /api/settings` and the server keeps it in `kv` (`summary_lang`), so it survives restarts from the SessionStart hook. Starting with `--summary-lang <en|ja>` fixes it and the UI's choice is ignored. Without either, English. Changing it doesn't touch existing summaries or recaps; they can be regenerated
 - `claude` runs in a dedicated working directory with `--no-session-persistence`, `--tools ""`, `--strict-mcp-config` and `--setting-sources project` to eliminate side effects
+
+### 4.1 Recaps
+
+A recap explains what was done on one project during a shown period (the summary view's week or day) in a few sentences and bullets, for a weekly report or for looking back.
+
+- Written only on request (the summary view's "Explain this work" button, `POST /api/recaps`), never automatically: a week has as many recaps as projects
+- The input is the period's section headlines and summary bodies (sections starting in the period, from sessions with prompts), plus the PR and commit titles made during them, up to 40k characters (bodies are dropped first). Raw conversation is not read again
+- Stored in `recaps` (key: project + period start and end) with a hash of the input. When the input changes (more work, a new section summary), the API marks the recap `stale`, and it can be rewritten
+- Shares the Summarizer's queue, so only one `claude` runs at a time: requested section summaries first, then recaps, then automatic section summaries. A failure is shown in the view until the next request (no automatic retry)
+- Recaps cover the whole project in the period; the view's filters don't change them
 
 ## 5. API
 
@@ -136,10 +146,14 @@ sequenceDiagram
 | GET | `/api/spans?from&to` | Only the start, end and project of work blocks overlapping the period. Used for the "days with records" dots in the date picker; assigning to days is done in the UI's local time |
 | GET | `/api/sessions/:id` | Session details (per-section summaries, artifacts, subagents) |
 | GET | `/api/sessions/:id/messages?cursor&limit` | Paginated conversation |
+| GET | `/api/settings` | Summary language and whether `--summary-lang` fixes it |
+| PATCH | `/api/settings` | `{ summaryLang }`: the UI's language, used for new summaries and recaps |
+| GET | `/api/recaps?from&to` | Recaps of every project with work starting in the period, written or not (body, stale, pending, error) |
+| POST | `/api/recaps` | `{ projectId, from, to }`: push writing or rewriting a recap onto the queue (202; 404 without work in the period; 429 when 20 are already waiting) |
 | POST | `/api/sessions/:id/sections/:start/summary` | Push generating or regenerating a section's summary onto the priority queue (202) |
 | GET | `/api/projects` | List of projects (color, hidden flag) |
 | PATCH | `/api/projects/:id` | Change color or hidden |
-| GET | `/api/events` | SSE (`sessions.updated` / `summary.updated` / `ingest.progress`) |
+| GET | `/api/events` | SSE (`sessions.updated` / `summary.updated` / `recap.updated` / `ingest.progress`) |
 
 Write routes (POST / PATCH) require `Content-Type: application/json` and the same Origin. Every request's Host header must be `127.0.0.1` or `localhost`.
 
@@ -167,6 +181,7 @@ Request and response types live in `src/shared` and are shared by the server and
 - In the day view, tall blocks also show the worktree name, PR numbers and the summary body
 - The search field filters the shown period and, while focused, lists matching work from every period; picking one jumps there
 - The drawer is synced with the URL (`?session=`) and stays open across reloads
+- The layout toggle switches between calendar and summary (`?layout=`, `c` / `s`). The summary has an overview tab and a table tab (`?layout=list`, `l`; the per-block table that used to be the list layout, keeping its own scroll and sticky header). The summary is computed in the browser from the same `/api/calendar` response (`src/web/src/lib/summary.ts`), plus the previous period's response for the change under each number, so it needs no API of its own
 
 ## 7. Directory layout
 

@@ -7,6 +7,7 @@ import type {
   MessagesResponse,
   Project,
   ProjectUpdate,
+  Recap,
   SearchField,
   SearchHit,
   Section,
@@ -18,6 +19,7 @@ import type {
 import { ARTIFACT_GRACE_MS } from "../shared/constants.ts";
 import { isSummarizable } from "../shared/sections.ts";
 import { costOf } from "./pricing.ts";
+import { loadRecapInput, type RecapTarget, recapHash } from "./summarize/recap.ts";
 
 /** Within this long after the last activity, a session counts as in progress. */
 export const ACTIVE_WINDOW_MS = 5 * 60_000;
@@ -53,7 +55,16 @@ const toProject = (r: ProjectRow): Project => ({ ...r, hidden: r.hidden === 1 })
 export interface SummaryState {
   isPending(sessionId: string, start: number): boolean;
   errorOf(sessionId: string, start: number): string | null;
+  isRecapPending(target: RecapTarget): boolean;
+  recapErrorOf(target: RecapTarget): string | null;
 }
+
+const NO_SUMMARIES: SummaryState = {
+  isPending: () => false,
+  errorOf: () => null,
+  isRecapPending: () => false,
+  recapErrorOf: () => null,
+};
 
 interface SessionRow {
   id: string;
@@ -159,7 +170,7 @@ export class Queries {
     private readonly db: Database,
     private readonly now: () => number = Date.now,
     /** Summary progress (answered by the Summarizer). */
-    private readonly summaries: SummaryState = { isPending: () => false, errorOf: () => null },
+    private readonly summaries: SummaryState = NO_SUMMARIES,
   ) {}
 
   /**
@@ -213,6 +224,49 @@ export class Queries {
          ORDER BY g.start, g.end`,
       )
       .all(from, to);
+  }
+
+  /**
+   * Recaps for projects with work starting in [from, to), including ones not written yet. Each is
+   * compared with the work as it is now, so one written before more work came in shows as stale.
+   */
+  recaps(from: number, to: number): Recap[] {
+    const ids = this.db
+      .query<{ id: number }, [number, number]>(
+        `SELECT DISTINCT s.project_id AS id FROM segments g JOIN sessions s ON s.id = g.session_id
+         WHERE s.prompt_count > 0 AND s.project_id IS NOT NULL AND g.start >= ? AND g.start < ?
+         ORDER BY s.project_id`,
+      )
+      .all(from, to);
+    const stored = this.db.query<
+      { body: string; model: string; input_hash: string; created_at: number },
+      [number, number, number]
+    >(
+      `SELECT body, model, input_hash, created_at FROM recaps
+       WHERE project_id = ? AND period_from = ? AND period_to = ?`,
+    );
+    return ids.flatMap(({ id }) => {
+      const target = { projectId: id, from, to };
+      const input = loadRecapInput(this.db, target);
+      if (!input) return [];
+      const row = stored.get(id, from, to);
+      return [
+        {
+          ...target,
+          body: row?.body ?? null,
+          model: row?.model ?? null,
+          createdAt: row?.created_at ?? null,
+          stale: row ? row.input_hash !== recapHash(input) : false,
+          pending: this.summaries.isRecapPending(target),
+          error: this.summaries.recapErrorOf(target),
+        },
+      ];
+    });
+  }
+
+  /** Whether the project has work starting in [from, to) to recap. */
+  hasRecapWork(target: RecapTarget): boolean {
+    return loadRecapInput(this.db, target) !== null;
   }
 
   /** Sessions with user prompts whose work blocks overlap [from, to). */

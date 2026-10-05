@@ -44,11 +44,11 @@ Add the following to `hooks.SessionStart` in `~/.claude/settings.json`.
 | `kairos stop` / `kairos restart` | Stop / stop and start again (after updating Kairos) |
 | `kairos ingest` | Ingest logs manually (to build the DB without running the server) |
 
-Options: `--summary-model <model>` (default: haiku), `--summary-lang <en|ja>` (language of the summaries; default: en), `--no-auto-summary` (don't summarize automatically; only when requested with the button in the UI), `--port <n>` (default: 4319), `--claude-dir <path>` (Claude Code config directory; default: `~/.claude`), `--db <path>` (DB file; default: under the data directory)
+Options: `--summary-model <model>` (default: haiku), `--summary-lang <en|ja>` (language of the summaries; by default they follow the language chosen in the UI, English until one is chosen), `--no-auto-summary` (don't summarize automatically; only when requested with the button in the UI), `--port <n>` (default: 4319), `--claude-dir <path>` (Claude Code config directory; default: `~/.claude`), `--db <path>` (DB file; default: under the data directory)
 
-Changing `--summary-lang` doesn't rewrite existing summaries. They stay as they are, and you can regenerate any of them from the drawer.
+Changing the language (in the UI or with `--summary-lang`) doesn't rewrite existing summaries. They stay as they are, and you can regenerate any of them from the drawer.
 
-Keyboard shortcuts: `←` `→` previous/next period, `t` today, `w` week view, `d` day view, `c` calendar, `l` list, `j` `k` next/previous work block, `/` search (the shown period, plus every period in the list under the field; `↓` to pick), `Esc` close details, `?` menu with theme, language and shortcuts
+Keyboard shortcuts: `←` `→` previous/next period, `t` today, `w` week view, `d` day view, `c` calendar, `s` summary (totals, time by day and project, what was done, and recaps), `l` the summary as a table (one row per block with sortable numbers), `j` `k` next/previous work block, `/` search (the shown period, plus every period in the list under the field; `↓` to pick), `Esc` close details, `?` menu with theme, language and shortcuts
 
 ### Updating
 

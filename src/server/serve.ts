@@ -44,6 +44,7 @@ export async function serve(opts: ServeOptions = {}): Promise<void> {
       ...(opts.summaryLang ? { lang: opts.summaryLang } : {}),
       onUpdated: (t) =>
         events.publish({ type: "summary.updated", sessionId: t.sessionId, start: t.start }),
+      onRecapUpdated: (t) => events.publish({ type: "recap.updated", ...t }),
     },
   );
   const app = createApp({ db, events, summarizer });

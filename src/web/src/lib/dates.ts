@@ -6,7 +6,8 @@ export const HOUR = 60 * MINUTE;
 export const DAY = 24 * HOUR;
 
 export type View = "week" | "day";
-export type Layout = "calendar" | "list";
+/** `list` is the summary's table tab (kept under its old name so existing URLs still open it). */
+export type Layout = "calendar" | "list" | "summary";
 
 export function startOfDay(t: number): number {
   const d = new Date(t);

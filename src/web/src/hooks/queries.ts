@@ -1,4 +1,4 @@
-import type { ProjectUpdate } from "@shared/api.ts";
+import type { ProjectUpdate, RecapRequest } from "@shared/api.ts";
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -7,6 +7,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import type { Locale } from "@/i18n/index.ts";
 import { api } from "@/lib/api.ts";
 
 /** Waits this long after the last keystroke before searching every period. */
@@ -22,12 +23,16 @@ export const keys = {
   messages: (id: string, agent: string | null) => ["messages", id, agent] as const,
   // Nested under "calendar" so new sessions and summaries refresh the results too
   search: (q: string) => ["calendar", "search", q] as const,
+  settings: ["settings"] as const,
+  // Nested under "calendar" so new work marks recaps stale, and recap.updated refreshes them
+  recaps: (from: number, to: number) => ["calendar", "recaps", from, to] as const,
 };
 
-export function useCalendar(from: number, to: number) {
+export function useCalendar(from: number, to: number, enabled = true) {
   return useQuery({
     queryKey: keys.calendar(from, to),
     queryFn: () => api.calendar(from, to),
+    enabled,
     placeholderData: keepPreviousData, // Keep the previous week on screen while the next one loads
   });
 }
@@ -59,6 +64,41 @@ export function useSearch(q: string) {
   // Results for an earlier query (while typing or debouncing) must not filter the calendar
   const current = debounced === query && !result.isPlaceholderData;
   return { ...result, current };
+}
+
+/** Recaps of the period's projects. Fetched only for the summary view. */
+export function useRecaps(from: number, to: number, enabled: boolean) {
+  return useQuery({
+    queryKey: keys.recaps(from, to),
+    queryFn: () => api.recaps(from, to),
+    enabled,
+  });
+}
+
+export function useRequestRecap() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (target: RecapRequest) => api.requestRecap(target),
+    // Refetch so the recap shows as being written right away
+    onSuccess: (_, t) => client.invalidateQueries({ queryKey: keys.recaps(t.from, t.to) }),
+  });
+}
+
+/**
+ * Keeps the server's summary language in step with the UI language, so summaries and recaps are
+ * written in the language on screen. Skipped when the server fixes it with `--summary-lang`.
+ */
+export function useSummaryLangSync(locale: Locale) {
+  const client = useQueryClient();
+  const { data } = useQuery({ queryKey: keys.settings, queryFn: api.settings });
+  useEffect(() => {
+    if (!data || data.summaryLangFixed || data.summaryLang === locale) return;
+    api
+      .updateSettings({ summaryLang: locale })
+      .then((s) => client.setQueryData(keys.settings, s))
+      // Summaries stay in the old language until the next load; nothing on screen depends on it
+      .catch(() => {});
+  }, [data, locale, client]);
 }
 
 export function useSession(id: string | null) {

@@ -6,7 +6,7 @@ import {
   ChevronRight,
   ClipboardList,
   Ellipsis,
-  List,
+  LayoutDashboard,
   Monitor,
   Moon,
   Sun,
@@ -58,8 +58,8 @@ interface Props {
 }
 
 /** Segmented toggle look: only the selected item rises off the track (iOS / macOS style). */
-const SEGMENTED = "rounded-lg bg-muted p-0.5";
-const SEGMENT =
+export const SEGMENTED = "rounded-lg bg-muted p-0.5";
+export const SEGMENT =
   "h-7 rounded-md px-3 text-muted-foreground hover:bg-transparent hover:text-foreground data-[state=on]:bg-card data-[state=on]:text-foreground data-[state=on]:shadow-sm";
 
 function themes(): [Theme, string, typeof Sun][] {
@@ -81,7 +81,8 @@ function shortcuts(): [string[], string][] {
     [["←", "→"], m.shortcutPeriod],
     [["t"], m.shortcutToday],
     [["w", "d"], m.shortcutView],
-    [["c", "l"], m.shortcutLayout],
+    [["c", "s"], m.shortcutLayout],
+    [["l"], m.shortcutTable],
     [["j", "k"], m.shortcutStep],
     [["/"], m.shortcutSearch],
     [["Esc"], m.shortcutClose],
@@ -196,7 +197,8 @@ export function Toolbar({
           size="sm"
           spacing={0.5}
           className={SEGMENTED}
-          value={layout}
+          // The table is a tab of the summary, so it lights the summary button
+          value={layout === "list" ? "summary" : layout}
           onValueChange={(v) => v && onLayout(v as Layout)}
           aria-label={m.layoutToggle}
         >
@@ -209,12 +211,12 @@ export function Toolbar({
             <CalendarDays />
           </ToggleGroupItem>
           <ToggleGroupItem
-            value="list"
+            value="summary"
             className={SEGMENT}
-            aria-label={m.list}
-            title={`${m.list} (l)`}
+            aria-label={m.summary}
+            title={`${m.summary} (s)`}
           >
-            <List />
+            <LayoutDashboard />
           </ToggleGroupItem>
         </ToggleGroup>
         <span className="mx-1 h-5 w-px bg-border" aria-hidden />

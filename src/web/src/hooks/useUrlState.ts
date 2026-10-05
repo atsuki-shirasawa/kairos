@@ -13,7 +13,7 @@ export const DEFAULT_SORT: ListSort = { key: "start", desc: false };
 /** View state. Synced with the URL (?view=&layout=&date=&session=&sort=&q=&outcome=&brief=), so it survives reloads and the back button. */
 export interface UrlState {
   view: View;
-  /** Whether the period is drawn as a calendar or listed. */
+  /** Whether the period is drawn as a calendar, listed, or summed up. */
   layout: Layout;
   /** The shown day (midnight). Week view shows the week containing it. */
   anchor: number;
@@ -34,9 +34,10 @@ function readSort(v: string | null): ListSort {
 function read(): UrlState {
   const q = new URLSearchParams(location.search);
   const view = q.get("view") === "day" ? "day" : "week";
+  const layout = q.get("layout");
   return {
     view,
-    layout: q.get("layout") === "list" ? "list" : "calendar",
+    layout: layout === "list" || layout === "summary" ? layout : "calendar",
     anchor: fromISODate(q.get("date")) ?? startOfDay(Date.now()),
     session: q.get("session"),
     at: Number(q.get("at")) || null,

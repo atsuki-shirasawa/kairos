@@ -73,6 +73,7 @@ P3 (UI) and P4 (summaries) can proceed in parallel after P2.
 | ✅ P3-7 | Conversation view: chat style, Markdown rendering (sanitized), collapsed tool calls, infinite scroll | Scrolling doesn't freeze even in long conversations | M |
 | ✅ P3-8 | Project filter (show/hide, change color) | A hidden project stays hidden after reload | S |
 | ✅ P3-9 | Live updates via SSE (blocks grow, summaries slot in) | Working with the screen open makes blocks grow | S |
+| ✅ P3-11 | Summary layout: period totals with the change from the previous period, by day / through the day, by project, and what was done (F11); the list layout moved in as its table tab | The week's numbers match the list view's totals with the same filter | M |
 | ✅ P3-10 | English UI with a Japanese option (`src/web/src/i18n`; "⋯" menu, saved per browser) | All UI copy comes from the en/ja dictionaries and English is the default | M |
 
 ## P4 Summaries (→ M3)
@@ -88,7 +89,8 @@ On 2026-10-05, the unit of summaries changed from sessions to sections (calendar
 | ✅ P4-5 | Detect stale summaries (`covered_until < end`) and show it in the UI | After a section continues, a note that work continued after the summary appears | S |
 | ✅ P4-6 | Reflect section headlines in calendar blocks and the drawer (session flow) | Once a summary is attached, the block shows the headline | S |
 | P4-7 | Tune the prompt (check headline and body quality on about 10 real examples) | The headline alone tells you what the work was | S |
-| ✅ P4-8 | Summary language setting (`--summary-lang <en\|ja>`, default `en`) | New summaries are written in the configured language; existing ones are kept | S |
+| ✅ P4-8 | Summary language setting (follows the UI language; `--summary-lang <en\|ja>` fixes it) | New summaries are written in the configured language; existing ones are kept | S |
+| ✅ P4-9 | Recaps: per-project explanation of a period's work, written by `claude -p` from section summaries on request (`recaps` table, `/api/recaps`, stale detection) | A week's recap names its PRs and shows as stale once more work comes in | M |
 
 ## P5 Auto start (→ M4)
 
