@@ -166,6 +166,10 @@ Direction **"Indigo hours"**, chosen on 2026-10-05 from three compared proposals
 A personal tool for looking back at what you did and when. The screen is "calendar or summary +
 drawer" and nothing more, so the work itself is the loudest thing on it.
 
+- **Chronos is the frame, kairos is the mark.** The grid, rules and block heights are clock time
+  (chronos), and stay quiet. What the app is named for, the moments that mattered (kairos), is
+  drawn on top: each commit and PR is a node on its block's edge at the minute it was made. This
+  is the one place the design spends its boldness
 - **Keep the frame quiet so the work blocks carry the color.** Toolbar, time column and rules are
   neutral; the time column has plain, muted hour labels (it once shifted through the colors of the
   day, and was dropped because it competed with the blocks)
@@ -179,7 +183,8 @@ Tokens map to CSS variables in `src/web/src/index.css` (shadcn/ui names): `surfa
 `ink` → `--foreground`, `muted-ink` → `--muted-foreground`, `line` → `--border`. The dark theme
 swaps every value for its `-dark` token under `.dark`.
 
-- **Primary (indigo `#2e4c8c` / `#8da8e8`):** selection, the current-time line, focus rings, PR icons
+- **Primary (indigo `#2e4c8c` / `#8da8e8`):** selection (including the selected block's outline),
+  the current-time line, focus rings and links. Not for headings or surfaces
 - **Background / Surface:** the screen is slightly grey; the calendar body and the drawer sit on
   white (navy in dark) surfaces
 - **Warn (`#8a6420`):** text of numbers that need attention (snags). Plain yellow ocher lacks
@@ -252,11 +257,19 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
 ## Components
 
 - **Work block:** heading (summary headline, or the first prompt before summarizing), then the time
-  range in `numeral` when there is room. Unsummarized blocks use the dim fill and muted text.
-  Commit/PR icons sit bottom-right; a pulsing project-colored dot marks work in progress.
-  Selected: selected fill plus a 2px `ink` outline. Filtered-out blocks fade to 30% opacity and
-  come back on hover or focus
-- **Drawer:** the selected section's summary first, then session flow, outcomes, conversation
+  range in `numeral` when there is room; the heading gives up lines to the time range rather than
+  overlapping it. Unsummarized blocks use the dim fill and muted text. A pulsing project-colored
+  dot marks work in progress. Selected: selected fill plus a 2px `primary` outline. Filtered-out
+  blocks fade to 30% opacity and come back on hover or focus
+- **Moments (commit and PR nodes):** read like a git graph: the block's colored edge is the branch,
+  and each commit is a 7px `ink` ring (filled with `surface`) hanging just inside it at the height
+  of the minute it was made; a PR is the same node filled with `ink`. Nodes stay a radius inside the
+  block, which clips at its border. The day view adds a lane on the right of each block
+  (`min(38%, 24rem)`, a faint rule on its left) labeling each node with its time, short SHA or PR
+  number and title; labels push apart to avoid overlapping and end in "+n more" when they run out
+  of room. The block's text keeps a 72ch measure beside the lane
+- **Drawer:** the selected section's summary first (on a neutral `muted` surface with a faint
+  `ink` rule; its heading in `ink` rather than muted), then session flow, outcomes, conversation
   (collapsed at first) and numbers
 - **Mark:** `src/web/public/favicon.svg` — a circle with a dawn → evening → night gradient cut by a
   diagonal blade (Kairos stands on a razor's edge: cutting out a single moment). The background

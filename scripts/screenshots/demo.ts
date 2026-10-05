@@ -626,6 +626,7 @@ function writeSection(b: LogBuilder, s: DemoSection, project: ProjectKey): void 
   const end = start + s.minutes;
   const turn = s.minutes / s.prompts.length;
   const files = s.files ?? [];
+  const commits = commitTimes(s, start);
   s.prompts.forEach((prompt, i) => {
     const from = start + i * turn;
     const to = from + turn;
@@ -648,24 +649,46 @@ function writeSection(b: LogBuilder, s: DemoSection, project: ProjectKey): void 
       } else {
         b.bash(t, "bun test", "42 pass\n0 fail");
       }
+      while (commits[0] !== undefined && commits[0].at <= t) {
+        const next = commits.shift();
+        if (next) writeCommit(b, next.message, t + 0.2);
+      }
     }
-    if (i === s.prompts.length - 1) writeOutcomes(b, s, project, end);
+    if (i === s.prompts.length - 1) {
+      for (const [k, c] of commits.entries()) writeCommit(b, c.message, end - 3 + k * 0.3);
+      writePr(b, s, project, end);
+    }
     b.text(to, "Done.");
     b.turnEnd(to, Math.round(turn * 60_000 * 0.6));
   });
 }
 
-/** Commits and the PR just before the section ends. */
-function writeOutcomes(b: LogBuilder, s: DemoSection, project: ProjectKey, end: number): void {
-  (s.commits ?? []).forEach((message, i) => {
-    commitSeq += 1;
-    const hash = (0x1a2b3c0 + commitSeq * 7919).toString(16).slice(0, 7);
-    b.bash(
-      end - 3 + i * 0.3,
-      `git commit -m "${message}"`,
-      `[${b.gitBranch} ${hash}] ${message}\n 3 files changed, 64 insertions(+), 12 deletions(-)`,
-    );
-  });
+/**
+ * When each commit of a section lands: spread through the work, the last one shortly before the
+ * end. Real logs commit all along a block, not only at its end, and the calendar marks each one
+ * where it happened.
+ */
+function commitTimes(s: DemoSection, start: number): { message: string; at: number }[] {
+  const messages = s.commits ?? [];
+  return messages.map((message, i) => ({
+    message,
+    at: start + (s.minutes * (i + 1)) / (messages.length + 0.4) - 2,
+  }));
+}
+
+/** One `git commit` with its output, as Claude Code logs it. */
+function writeCommit(b: LogBuilder, message: string, at: number): void {
+  commitSeq += 1;
+  const hash = (0x1a2b3c0 + commitSeq * 7919).toString(16).slice(0, 7);
+  b.bash(
+    at,
+    `git commit -m "${message}"`,
+    `[${b.gitBranch} ${hash}] ${message}\n 3 files changed, 64 insertions(+), 12 deletions(-)`,
+  );
+}
+
+/** The section's PR, just before it ends. */
+function writePr(b: LogBuilder, s: DemoSection, project: ProjectKey, end: number): void {
   if (s.pr) {
     b.ghPrCreate(end - 1.5, `gh pr create --title "${s.pr.title}" --body "…"`, {
       number: s.pr.number,
