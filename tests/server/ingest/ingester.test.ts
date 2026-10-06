@@ -247,6 +247,19 @@ describe("README scenarios", () => {
     ]);
   });
 
+  test("14. iterations: usage sums every step, including compaction left out of the top-level fields", () => {
+    const rows = db
+      .query<Record<string, unknown>, [string]>(
+        `SELECT input, output, cache_read, cache_write_5m, cache_write_1h FROM usage
+         WHERE session_id = ? ORDER BY ts`,
+      )
+      .all(SID.iterations);
+    expect(rows).toEqual([
+      { input: 3, output: 1_200, cache_read: 50_000, cache_write_5m: 0, cache_write_1h: 2_000 },
+      { input: 150_004, output: 3_400, cache_read: 0, cache_write_5m: 0, cache_write_1h: 20_000 },
+    ]);
+  });
+
   test("8. continued session: copied responses from the previous session do not count as tokens", () => {
     const own = (id: string) =>
       count(

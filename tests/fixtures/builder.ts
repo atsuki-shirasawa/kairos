@@ -4,8 +4,40 @@
 
 export type Rec = Record<string, unknown>;
 
+/** Token amounts of one response, before they are spread into the wire format. */
+export interface TokenUsage {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cache5m: number;
+  cache1h: number;
+}
+
 export const VERSION = "2.1.289";
 const BASE = Date.UTC(2026, 8, 28, 0, 0, 0); // 2026-09-28T00:00:00Z（JST 09:00）
+
+/**
+ * One `usage.iterations` entry. Only the fields given are written, since a compaction step may carry
+ * just input and output.
+ */
+function iterationUsage(it: { type: string } & Partial<TokenUsage>): Rec {
+  const cache = it.cache5m !== undefined || it.cache1h !== undefined;
+  return {
+    input_tokens: it.input ?? 0,
+    output_tokens: it.output ?? 0,
+    ...(it.cacheRead !== undefined ? { cache_read_input_tokens: it.cacheRead } : {}),
+    ...(cache
+      ? {
+          cache_creation_input_tokens: (it.cache5m ?? 0) + (it.cache1h ?? 0),
+          cache_creation: {
+            ephemeral_5m_input_tokens: it.cache5m ?? 0,
+            ephemeral_1h_input_tokens: it.cache1h ?? 0,
+          },
+        }
+      : {}),
+    type: it.type,
+  };
+}
 
 /** ISO string `minute` minutes after the base time. */
 export function at(minute: number): string {
@@ -211,7 +243,7 @@ export class LogBuilder {
   response(
     minute: number,
     blocks: Rec[],
-    usage: { input: number; output: number; cacheRead: number; cache5m: number; cache1h: number },
+    usage: TokenUsage,
     opts: { model?: string; speed?: string; effort?: string } = {},
   ): Rec[] {
     this.msg += 1;
@@ -247,6 +279,25 @@ export class LogBuilder {
         effort: opts.effort ?? "high",
       });
     });
+  }
+
+  /**
+   * A response whose usage also carries `iterations`, one entry per sampling step, identical in every record.
+   * The top-level fields cover only the `message` steps: a server-side `compaction` step is left out of them,
+   * and some real records zero them entirely.
+   */
+  iteratedResponse(
+    minute: number,
+    blocks: Rec[],
+    usage: TokenUsage,
+    iterations: ({ type: "message" | "compaction" } & Partial<TokenUsage>)[],
+  ): Rec[] {
+    const records = this.response(minute, blocks, usage);
+    for (const r of records) {
+      const message = r.message as Rec;
+      message.usage = { ...(message.usage as Rec), iterations: iterations.map(iterationUsage) };
+    }
+    return records;
   }
 
   /** Synthetic reply Claude Code writes in place of an API error (model `<synthetic>`, all usage 0). */

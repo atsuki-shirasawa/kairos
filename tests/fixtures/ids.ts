@@ -14,4 +14,5 @@ export const SID = {
   prTitles: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
   usage: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
   fragments: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+  iterations: "ffffffff-ffff-4fff-8fff-ffffffffffff",
 } as const;

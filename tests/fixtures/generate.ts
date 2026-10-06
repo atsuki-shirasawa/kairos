@@ -391,6 +391,35 @@ function fragments(): void {
   write(APP, b);
 }
 
+// ---------------------------------------------------------------- 14. usage iterations
+function iterations(): void {
+  const b = new LogBuilder(SID.iterations, APP);
+  header(b);
+  b.prompt(880, "長い調査の続きをお願い");
+  // Top-level fields are all zero; the amounts are only in the single message step
+  b.iteratedResponse(
+    880.5,
+    [
+      { type: "thinking", thinking: "", signature: "sig" },
+      { type: "text", text: "前回の結果から続けます。" },
+    ],
+    { input: 0, output: 0, cacheRead: 0, cache5m: 0, cache1h: 0 },
+    [{ type: "message", input: 3, output: 1_200, cacheRead: 50_000, cache5m: 0, cache1h: 2_000 }],
+  );
+  // Server-side compaction ran first: billed as its own step, left out of the top-level fields
+  b.iteratedResponse(
+    882,
+    [{ type: "text", text: "要約してから続けました。" }],
+    { input: 4, output: 400, cacheRead: 0, cache5m: 0, cache1h: 20_000 },
+    [
+      { type: "compaction", input: 150_000, output: 3_000 },
+      { type: "message", input: 4, output: 400, cacheRead: 0, cache5m: 0, cache1h: 20_000 },
+    ],
+  );
+  b.turnEnd(882);
+  write(APP, b);
+}
+
 if (import.meta.main) {
   rmSync(ROOT, { recursive: true, force: true });
   for (const scenario of [
@@ -407,6 +436,7 @@ if (import.meta.main) {
     prTitles,
     usage,
     fragments,
+    iterations,
   ]) {
     scenario();
   }

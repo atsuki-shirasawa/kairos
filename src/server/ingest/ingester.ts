@@ -35,9 +35,10 @@ import {
   type Statements,
   type StateRow,
 } from "./statements.ts";
+import { usageCounts } from "./usage.ts";
 
 /** Bump when the interpretation rules change. Files whose source logs still exist are then re-read. */
-export const PARSER_VERSION = 5;
+export const PARSER_VERSION = 6;
 /**
  * Bump when the calculation of derived data that can be recomputed from the DB (aggregates, work blocks,
  * project assignment from the startup cwd) changes. All sessions are recomputed, even those whose logs are gone.
@@ -536,13 +537,7 @@ export class Ingester {
     const messageId = str(msg.id);
     const model = str(msg.model);
     if (!u || !messageId || !model) return;
-    const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
-    const breakdown = rec(u.cache_creation);
-    const write1h = n(breakdown?.ephemeral_1h_input_tokens);
-    // Without a breakdown, assume the default 5-minute cache write
-    const write5m = breakdown
-      ? n(breakdown.ephemeral_5m_input_tokens)
-      : n(u.cache_creation_input_tokens);
+    const c = usageCounts(u);
     this.q.upsertUsage.run(
       ctx.sessionId,
       messageId,
@@ -552,11 +547,11 @@ export class Ingester {
       model,
       str(u.speed) ?? null,
       effort,
-      n(u.input_tokens),
-      n(u.output_tokens),
-      n(u.cache_read_input_tokens),
-      write5m,
-      write1h,
+      c.input,
+      c.output,
+      c.cacheRead,
+      c.cacheWrite5m,
+      c.cacheWrite1h,
     );
   }
 
