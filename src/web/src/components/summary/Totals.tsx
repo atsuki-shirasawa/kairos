@@ -103,7 +103,7 @@ export function Totals({
     // Columns step 2 → 3 → 5 with the width instead of auto-fitting: auto-fit left cost alone on a
     // second row in a half-screen window, while 3 + 2 keeps time and results above what they cost
     <div className="@container">
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-0.5 @[26rem]:grid-cols-3 @[44rem]:grid-cols-5">
+      <dl className="grid @[26rem]:grid-cols-3 @[44rem]:grid-cols-5 grid-cols-2 gap-x-6 gap-y-0.5">
         {figures.map((f) => (
           <FigureItem key={f.label} figure={f} />
         ))}
