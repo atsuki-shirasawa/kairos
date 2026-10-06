@@ -205,7 +205,6 @@ A work block's fill is the project color mixed into `block-base` in `oklch`:
 |---|---|---|
 | Normal (`--mix-block`) | 20% | 32% |
 | Hover (`--mix-block-hover`) | 32% | 44% |
-| Selected (`--mix-block-selected`) | 42% | 50% |
 | Not yet summarized (`--mix-block-dim`) | 9% | 14% |
 
 - `block-base` is achromatic; in CSS it is written with hue `none` (`oklch(1 0 none)`), which the token format can't express, so the mix keeps each project's hue. Mixing into the
@@ -220,8 +219,15 @@ A work block's fill is the project color mixed into `block-base` in `oklch`:
   the `font-num` utility. Condensed figures fit narrow day columns and don't jitter as they change
 - **Syne SemiBold** only for the "Kairos" wordmark in the header (Latin subset). A face used nowhere
   else, so the name reads as a name rather than a label
-- The UI is dense: most text is 12–14px; metadata and hour labels are 11px; the drawer title (17px)
-  and the section summary (15px, relaxed leading) are the only large text, because that is where you read
+- **Four sizes:** 11px (metadata, hour labels, figures), 12px (block headings, labels), 14px
+  (body, controls) and 17px (titles: the period heading, day numbers, the drawer title). The only
+  exceptions are the section summary (15px, relaxed leading, because that is where you read), the
+  summary's totals (their three tiers), the wordmark, and count badges too small for 11px
+- **Two tones:** `ink` and `muted-ink`. Don't step between them with `text-foreground/80` and the
+  like; if something needs to stand out from muted text, set it in `ink`. `muted-ink` at 60% is
+  kept for what is absent (days outside the month, "—" in empty cells). Tooltips invert the theme,
+  so there the second tone is 70% opacity. Opacity for states (loading, disabled, faded blocks) is
+  not a text tone and is separate
 
 ## Layout
 
@@ -242,7 +248,10 @@ A work block's fill is the project color mixed into `block-base` in `oklch`:
 - Concurrent blocks sit side by side; stacked blocks indent 8px so the colored edge below stays visible
 - **Day column headers** put the weekday above the date number: beside it, "5 月" reads as May in Japanese
 - **Drawer** opens from the right with 20px padding; below `lg` it overlays the screen with a backdrop
-- **Toolbar** never overflows: below `md` (a half-screen window) the wordmark and dividers go,
+- **Toolbar** groups its controls by spacing, not frames or divider rules: period navigation and
+  search are frameless until hovered or used, and the week/day and calendar/summary toggles share
+  one segmented track with a faint rule between them
+- **Toolbar** never overflows: below `md` (a half-screen window) the wordmark and the spacing go,
   search shrinks to its icon until focused, and its results span the screen. No control is dropped
 - **Toolbar** holds only view switching, date navigation, search, report copy and filters. Theme,
   language and the shortcut list live in the "⋯" menu
@@ -266,10 +275,13 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
 
 ## Components
 
-- **Work block:** heading (summary headline, or the first prompt before summarizing), then the time
-  range in `numeral` when there is room; the heading gives up lines to the time range rather than
+- **Work block:** heading (summary headline, or the first prompt before summarizing). The time
+  range in `numeral` follows when there is room, but in the week view only on the selected block:
+  the grid already places the block in time, and the tooltip and drawer give the exact range, so
+  the space goes to the heading instead. The heading gives up lines to the time range rather than
   overlapping it. Unsummarized blocks use the dim fill and muted text. A pulsing project-colored
-  dot marks work in progress. Selected: selected fill plus a 2px `primary` outline. Filtered-out
+  dot marks work in progress. Selected: a 2px `primary` outline over the normal fill (a deeper
+  fill as well said the same thing twice). Filtered-out
   blocks fade to 30% opacity and come back on hover or focus
 - **Moments (commit and PR nodes):** read like a git graph: the block's colored edge is the branch,
   and each commit is a 7px `ink` ring (filled with `surface`) hanging just inside it at the height
@@ -287,12 +299,18 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   headers, the drawer's figures, Session flow rows, Outcomes, list cells, the summary's totals)
   it uses the same ring and filled node (`components/MomentNode.tsx`), not icons. The drawer's
   Outcomes list is in time order with the nodes on a thin rule (`ink` at 20%), like the block's edge
-- **Summary totals:** three tiers. Working time leads (28px); outcomes (commits, PRs, with their
+- **Summary totals:** set apart by the column gap and their value sizes, with no rules between them. Three tiers. Working time leads (28px); outcomes (commits, PRs, with their
   nodes) follow in `ink` (20px); spend (tokens, cost) is smaller (16px) and `muted-ink`, as
   context rather than achievement
-- **Drawer:** the selected section's summary first (on a neutral `muted` surface with a faint
-  `ink` rule; its heading in `ink` rather than muted), then session flow, outcomes, conversation
-  (collapsed at first) and numbers
+- **Drawer header:** the headline in its project-colored frame, then when it happened (date and
+  range in `ink`, length in `muted-ink`, no chip) and the key figures on a second line
+- **Drawer:** the selected section's summary first (its heading in `ink` rather than muted, the
+  model that wrote it beside the Regenerate button), then session flow, outcomes, conversation
+  (collapsed at first) and numbers. Blocks are separated by spacing alone: no rule after the
+  heading and no surface behind the summary, whose larger type already makes it the place to read
+- **One frame per thing.** Where a color rule, a surface and a divider would all mark the same
+  boundary, keep one. The summary's project recaps sit under the project's colored rule with no
+  `muted` box of their own
 - **Mark:** `src/web/public/favicon.svg` — a circle with a dawn → evening → night gradient cut by a
   diagonal blade (Kairos stands on a razor's edge: cutting out a single moment). The background
   shows through the gap, so it reads on light and dark tabs; the gap stays open at 16px. Used for
