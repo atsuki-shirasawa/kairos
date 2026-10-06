@@ -91,6 +91,7 @@ describe("work block activity", () => {
   const none = {
     commits: 0,
     prs: 0,
+    merges: 0,
     filesEdited: 0,
     toolCalls: 0,
     subagents: 0,
@@ -115,6 +116,12 @@ describe("work block activity", () => {
       },
       { ...none, prs: 1, toolCalls: 2, interrupts: 1, claudeMs: 30_000, effort: "high" },
     ]);
+  });
+
+  test("15. merges: counts merged PRs, which stay out of the drawer's PR list", async () => {
+    const [a] = await activities(SID.merges);
+    expect(a).toMatchObject({ merges: 3, prs: 0 });
+    expect((await json<SessionDetail>(`/api/sessions/${SID.merges}`)).prs).toEqual([]);
   });
 
   test("6. subagents: counts launches and the subagents' tool calls", async () => {
@@ -237,6 +244,16 @@ describe("GET /api/calendar", () => {
     expect(loop?.segments.map((g) => g.headline)).toEqual(["/loop 30m", "ループ止めて"]);
     expect(res.sessions.find((s) => s.id === SID.basic)?.title).toBe("ログイン機能");
     expect(res.sessions.find((s) => s.id === SID.worktree)?.label).toBe("fix-header");
+  });
+
+  test("returns what the filter narrows by: branch, automatic runs, continuation", async () => {
+    const res = await json<CalendarResponse>(`/api/calendar?from=${DAY_FROM}&to=${DAY_TO}`);
+    const of = (id: string) => res.sessions.find((s) => s.id === id);
+    expect(of(SID.basic)).toMatchObject({ branch: "feature/login", continued: false });
+    expect(of(SID.loop)?.scheduledRuns).toBe(4);
+    // Both ends of a continuation count
+    expect(of(SID.continuedFrom)?.continued).toBe(true);
+    expect(of(SID.continuedTo)?.continued).toBe(true);
   });
 
   test("also returns work blocks that only partly overlap the range", async () => {

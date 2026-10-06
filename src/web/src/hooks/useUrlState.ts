@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { fromISODate, type Layout, startOfDay, toISODate, type View } from "@/lib/dates.ts";
-import { type Filter, NO_FILTER } from "@/lib/filter.ts";
+import { type Filter, readFilter, writeFilter } from "@/lib/filter.ts";
 
 /** List sort. `start` is time order (grouped by day); the others are column keys. */
 export interface ListSort {
@@ -11,7 +11,7 @@ export interface ListSort {
 /** Time order; left out of the URL. */
 export const DEFAULT_SORT: ListSort = { key: "start", desc: false };
 
-/** View state. Synced with the URL (?view=&layout=&date=&session=&sort=&q=&outcome=&brief=), so it survives reloads and the back button. */
+/** View state. Synced with the URL (?view=&layout=&date=&session=&sort=&q=&outcome=&state=&len=&branch=&brief=), so it survives reloads and the back button. */
 export interface UrlState {
   view: View;
   /** Whether the period is drawn as a calendar, listed, or summed up. */
@@ -43,11 +43,7 @@ function read(): UrlState {
     session: q.get("session"),
     at: Number(q.get("at")) || null,
     sort: readSort(q.get("sort")),
-    filter: {
-      q: q.get("q") ?? NO_FILTER.q,
-      outcome: q.get("outcome") === "1",
-      hideBrief: q.get("brief") === "hide",
-    },
+    filter: readFilter(q),
   };
 }
 
@@ -59,9 +55,7 @@ function write(s: UrlState, push: boolean): void {
   if (s.session) q.set("session", s.session);
   if (s.session && s.at) q.set("at", String(s.at));
   if (s.sort.key !== "start") q.set("sort", `${s.sort.desc ? "-" : ""}${s.sort.key}`);
-  if (s.filter.q) q.set("q", s.filter.q);
-  if (s.filter.outcome) q.set("outcome", "1");
-  if (s.filter.hideBrief) q.set("brief", "hide");
+  writeFilter(s.filter, q);
   const url = `${location.pathname}${q.size ? `?${q}` : ""}`;
   if (url === `${location.pathname}${location.search}`) return;
   if (push) history.pushState(null, "", url);

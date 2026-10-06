@@ -15,4 +15,5 @@ export const SID = {
   usage: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
   fragments: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
   iterations: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+  merges: "abababab-abab-4bab-8bab-abababababab",
 } as const;

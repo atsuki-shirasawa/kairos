@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { CalendarGrid } from "@/components/CalendarGrid.tsx";
+import { FilterChips } from "@/components/filter/FilterChips.tsx";
 import { SessionDrawer } from "@/components/SessionDrawer.tsx";
 import { SessionList } from "@/components/SessionList.tsx";
 import { SummaryTabs, SummaryView } from "@/components/SummaryView.tsx";
@@ -21,7 +22,7 @@ import { useUrlState } from "@/hooks/useUrlState.ts";
 import { useLocale } from "@/i18n/index.ts";
 import { appMessages } from "@/i18n/messages/app.tsx";
 import { dateLabel, rangeOf, shift, startOfDay } from "@/lib/dates.ts";
-import { type Filter, hiddenReason, isFocused } from "@/lib/filter.ts";
+import { type Filter, hiddenReason, isFocused, withoutConditions } from "@/lib/filter.ts";
 import { buildReport } from "@/lib/report.ts";
 
 /**
@@ -142,6 +143,7 @@ export function App() {
         menuOpen={menuOpen}
         onMenuOpen={setMenuOpen}
       />
+      <FilterChips filter={state.filter} onFilter={setFilter} />
       <div className="flex min-h-0 flex-1">
         <main className="relative flex min-w-0 flex-1 flex-col">
           {state.layout === "list" ? (
@@ -177,7 +179,7 @@ export function App() {
           {visible.length > 0 && focused.length === 0 && isFocused(state.filter) && (
             <NoMatchNotice
               period={period}
-              onClear={() => setFilter({ ...state.filter, q: "", outcome: false })}
+              onClear={() => setFilter({ ...withoutConditions(state.filter), q: "" })}
             />
           )}
         </main>

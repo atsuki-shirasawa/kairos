@@ -47,6 +47,8 @@ export interface Usage {
 export interface Activity {
   commits: number;
   prs: number;
+  /** PRs merged with `gh pr merge` (counted from the call, so PRs from any repository). */
+  merges: number;
   /** Number of files changed with Edit / Write etc. (each file counted once). */
   filesEdited: number;
   toolCalls: number;
@@ -92,10 +94,16 @@ export interface CalendarSession {
   projectId: number | null;
   /** Secondary label such as the worktree name. */
   label: string | null;
+  /** Git branch the session started on; null outside a repository or on a detached HEAD. */
+  branch: string | null;
   title: string;
   startedAt: number;
   endedAt: number;
   promptCount: number;
+  /** Turns started by `/loop` or a scheduled task. */
+  scheduledRuns: number;
+  /** Continued from an earlier session, or continued into a later one. */
+  continued: boolean;
   /** Shortly after the last activity (likely still in progress). */
   active: boolean;
   segments: CalendarSegment[];

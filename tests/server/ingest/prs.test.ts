@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { prTitleOf } from "../../../src/server/ingest/prs.ts";
+import { prMergeOf, prTitleOf } from "../../../src/server/ingest/prs.ts";
 
 describe("prTitleOf", () => {
   test("extracts the value of --title, --title= and -t", () => {
@@ -32,5 +32,33 @@ describe("prTitleOf", () => {
     expect(prTitleOf('gh pr create --title "`cat t`"')).toBeNull();
     expect(prTitleOf('gh pr create --title "$TITLE"')).toBeNull();
     expect(prTitleOf("gh pr create --fill")).toBeNull();
+  });
+});
+
+describe("prMergeOf", () => {
+  test("reads the PR number, skipping options and their values", () => {
+    expect(prMergeOf("gh pr merge 46 --squash")).toEqual({ number: 46 });
+    expect(prMergeOf("gh pr merge --squash --match-head-commit abc123 47")).toEqual({ number: 47 });
+    expect(prMergeOf("gh pr merge -R me/app https://github.com/me/app/pull/48")).toEqual({
+      number: 48,
+    });
+  });
+
+  test("finds the merge after other commands and env assignments", () => {
+    expect(prMergeOf("gh pr view 49 --json state && gh pr merge 49 --squash")).toEqual({
+      number: 49,
+    });
+    expect(prMergeOf("ACK=1 gh pr merge 50 --squash 2>&1 | tail -3")).toEqual({ number: 50 });
+  });
+
+  test("a merge without a number (the current branch's PR, or a branch name) has none", () => {
+    expect(prMergeOf("gh pr merge --squash --delete-branch")).toEqual({ number: null });
+    expect(prMergeOf("gh pr merge feature/login --squash")).toEqual({ number: null });
+  });
+
+  test("mentions inside other commands' arguments are not merges", () => {
+    expect(prMergeOf('grep -n "gh pr merge" docs/release.md')).toBeUndefined();
+    expect(prMergeOf(`echo '"Bash(gh pr merge *)"' >> settings.json`)).toBeUndefined();
+    expect(prMergeOf("gh pr create --title merge")).toBeUndefined();
   });
 });

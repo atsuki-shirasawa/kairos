@@ -18,7 +18,7 @@ import {
 export interface FilteredSessions {
   /** Sessions not hidden (hidden projects, quick questions when hidden). */
   visible: CalendarSession[];
-  /** Whether a block passes the keyword and outcome conditions. */
+  /** Whether a block passes the keyword and the filter menu's conditions. */
   matches: SegmentMatch;
   /** `visible` narrowed to the matching blocks. */
   focused: CalendarSession[];

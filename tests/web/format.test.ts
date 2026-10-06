@@ -79,6 +79,7 @@ describe("activity totals and snags", () => {
   const a = {
     commits: 1,
     prs: 0,
+    merges: 0,
     filesEdited: 2,
     toolCalls: 5,
     subagents: 0,

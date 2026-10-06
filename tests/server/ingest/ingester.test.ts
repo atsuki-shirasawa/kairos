@@ -313,6 +313,20 @@ describe("README scenarios", () => {
     ).toBe(1);
   });
 
+  test("15. merges: successful gh pr merge calls and gitOperation merges count once each", () => {
+    const merges = db
+      .query<{ ref: string; ts: number }, [string]>(
+        "SELECT ref, ts FROM artifacts WHERE session_id = ? AND kind = 'merge' ORDER BY ts",
+      )
+      .all(SID.merges);
+    expect(merges).toEqual([
+      { ref: "#46", ts: min(501) },
+      { ref: "#48", ts: min(503) },
+      { ref: "#49", ts: min(504.5) },
+    ]);
+    expect(segments(SID.merges)).toEqual([[min(500), min(505)]]);
+  });
+
   test("10. another project, next day", () => {
     const s = session(SID.blog);
     expect(s.project).toBe("/Users/me/dev/blog");

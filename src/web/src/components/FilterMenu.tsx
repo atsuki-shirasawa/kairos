@@ -8,8 +8,9 @@ import { useUpdateProject } from "@/hooks/queries.ts";
 import { useLocale } from "@/i18n/index.ts";
 import { filterMessages } from "@/i18n/messages/filter.ts";
 import { PALETTE, projectColor } from "@/lib/colors.ts";
-import { BRIEF_PROMPTS, type Filter } from "@/lib/filter.ts";
+import { conditionCount, type Filter } from "@/lib/filter.ts";
 import { cn } from "@/lib/utils.ts";
+import { Conditions } from "./filter/Conditions.tsx";
 
 /** Above this many projects, show a field to filter them by name. */
 const SEARCH_FROM = 8;
@@ -19,8 +20,8 @@ const INPUT =
 
 /**
  * Filtering. Keywords belong to the search field in the header. The top part holds temporary
- * conditions (kept in the URL); the bottom part holds project visibility and colors (saved in the DB).
- * Projects used in the shown period are listed first.
+ * conditions (kept in the URL, and listed as chips under the toolbar while applied); the bottom part
+ * holds project visibility and colors (saved in the DB). Projects used in the shown period are listed first.
  */
 export function FilterMenu({
   projects,
@@ -49,7 +50,11 @@ export function FilterMenu({
   }, [projects, sessions, locale]);
   const hidden = projects.filter((p) => p.hidden).length;
   // Keywords are already visible in the header search field, so they aren't counted here
-  const conditions = [filter.outcome, filter.hideBrief].filter(Boolean).length;
+  const conditions = conditionCount(filter) + (filter.hideBrief ? 1 : 0);
+  const unhidden = useMemo(() => {
+    const hiddenIds = new Set(projects.filter((p) => p.hidden).map((p) => p.id));
+    return sessions.filter((s) => s.projectId === null || !hiddenIds.has(s.projectId));
+  }, [projects, sessions]);
   const q = query.trim().toLowerCase();
   const shown = q
     ? rows.filter(({ project: p }) =>
@@ -89,44 +94,11 @@ export function FilterMenu({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 p-0">
-        <div className="flex flex-col gap-2 border-b p-3">
-          <div className="flex h-6 items-center justify-between">
-            <span className="font-medium text-muted-foreground text-xs">{m.conditions}</span>
-            {(filter.outcome || filter.hideBrief) && (
-              <Button
-                variant="ghost"
-                size="xs"
-                onClick={() => onFilter({ ...filter, outcome: false, hideBrief: false })}
-              >
-                {m.clear}
-              </Button>
-            )}
-          </div>
-          <label htmlFor="filter-outcome" className="flex items-center gap-2.5 text-sm">
-            <Checkbox
-              id="filter-outcome"
-              checked={filter.outcome}
-              onCheckedChange={(v) => onFilter({ ...filter, outcome: v === true })}
-            />
-            {m.outcomeOnly}
-          </label>
-          <div className="flex items-start gap-2.5 text-sm">
-            <Checkbox
-              id="filter-brief"
-              className="mt-0.5"
-              checked={filter.hideBrief}
-              onCheckedChange={(v) => onFilter({ ...filter, hideBrief: v === true })}
-              aria-describedby="filter-brief-note"
-            />
-            <div className="flex flex-col">
-              <label htmlFor="filter-brief">{m.hideBrief}</label>
-              <span id="filter-brief-note" className="text-muted-foreground text-xs">
-                {m.hideBriefNote(BRIEF_PROMPTS)}
-              </span>
-            </div>
-          </div>
-        </div>
+      <PopoverContent
+        align="end"
+        className="flex max-h-[calc(100vh-5rem)] w-96 flex-col overflow-y-auto p-0"
+      >
+        <Conditions sessions={unhidden} filter={filter} onFilter={onFilter} />
         <div className="flex h-10 items-center gap-2 border-b px-3">
           <span className="font-medium text-muted-foreground text-xs">{m.projects}</span>
           {projects.length > SEARCH_FROM && (
@@ -145,7 +117,7 @@ export function FilterMenu({
             </Button>
           )}
         </div>
-        <ul className="max-h-[60vh] overflow-y-auto py-1">
+        <ul className="py-1">
           {shown.length === 0 && (
             <li className="px-4 py-2 text-muted-foreground text-sm">{m.notFound}</li>
           )}

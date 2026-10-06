@@ -1,6 +1,7 @@
+import type { BlockState, Outcome } from "@/lib/filter.ts";
 import { defineMessages } from "../index.ts";
 
-/** The filter menu: temporary conditions and project visibility/colors. */
+/** The filter menu and the row of active conditions under the toolbar. */
 export const filterMessages = defineMessages({
   en: {
     conditionCount: (n: number) => (n === 1 ? "1 condition" : `${n} conditions`),
@@ -10,7 +11,26 @@ export const filterMessages = defineMessages({
     buttonWith: (badge: string) => `Filter (${badge})`,
     conditions: "Conditions",
     clear: "Clear",
-    outcomeOnly: "Only blocks with a commit or PR",
+    outcomes: "Made",
+    outcomesNote: "Any of them",
+    outcome: { commit: "Commit", pr: "PR opened", merge: "PR merged" } satisfies Record<
+      Outcome,
+      string
+    >,
+    states: "State",
+    statesNote: "All of them",
+    state: {
+      active: "In progress",
+      loop: "Has /loop runs",
+      continued: "Continued session",
+      subagent: "Used subagents",
+      snag: "Hit errors or interrupts",
+    } satisfies Record<BlockState, string>,
+    length: "Length",
+    anyLength: "Any",
+    minLength: (min: number) => (min < 60 ? `${min}m+` : `${min / 60}h+`),
+    branch: "Branch",
+    anyBranch: "Any branch",
     hideBrief: "Hide quick questions",
     hideBriefNote: (n: number) =>
       `Sessions with ${n} or fewer prompts that didn't change any files`,
@@ -22,18 +42,42 @@ export const filterMessages = defineMessages({
     changeColorOf: (name: string) => `Change the color of ${name}`,
     changeColor: "Change color",
     colorOf: (name: string) => `Color of ${name}`,
+    blockCount: (n: number) => (n === 1 ? "1 block in this period" : `${n} blocks in this period`),
+    chipsLabel: "Active conditions",
+    outcomeChip: (names: string[]) => names.join(" or "),
+    lengthChip: (min: number) => (min < 60 ? `${min} min or longer` : `${min / 60} h or longer`),
+    branchChip: (name: string) => `Branch: ${name}`,
+    briefChip: "Quick questions hidden",
+    remove: (name: string) => `Remove "${name}"`,
+    clearAll: "Clear all",
   },
   ja: {
-    conditionCount: (n: number) => `${n} 条件`,
-    hiddenCount: (n: number) => `${n} 件非表示`,
+    conditionCount: (n: number) => `条件 ${n} 件`,
+    hiddenCount: (n: number) => `非表示 ${n} 件`,
     separator: "・",
     button: "絞り込み",
     buttonWith: (badge: string) => `絞り込み（${badge}）`,
     conditions: "条件",
     clear: "解除",
-    outcomeOnly: "コミットか PR のある作業だけ",
+    outcomes: "成果",
+    outcomesNote: "どれか 1 つでも",
+    outcome: { commit: "コミット", pr: "PR の作成", merge: "PR のマージ" },
+    states: "状態",
+    statesNote: "すべてを満たす",
+    state: {
+      active: "進行中",
+      loop: "/loop で実行した",
+      continued: "セッションをまたいで続いている",
+      subagent: "サブエージェントを使った",
+      snag: "エラーや中断があった",
+    },
+    length: "長さ",
+    anyLength: "指定なし",
+    minLength: (min: number) => (min < 60 ? `${min} 分以上` : `${min / 60} 時間以上`),
+    branch: "ブランチ",
+    anyBranch: "すべてのブランチ",
     hideBrief: "ちょっとした質問を隠す",
-    hideBriefNote: (n: number) => `発言 ${n} 件以下で、ファイルを書き換えていないセッション`,
+    hideBriefNote: (n: number) => `発言が ${n} 件以下で、ファイルを変更していないセッション`,
     projects: "プロジェクト",
     projectSearch: "名前で絞り込む",
     projectSearchLabel: "プロジェクトを名前で絞り込む",
@@ -42,5 +86,14 @@ export const filterMessages = defineMessages({
     changeColorOf: (name: string) => `${name} の色を変える`,
     changeColor: "色を変える",
     colorOf: (name: string) => `${name} の色`,
+    blockCount: (n: number) => `この期間の作業 ${n} 件`,
+    chipsLabel: "絞り込みの条件",
+    outcomeChip: (names: string[]) =>
+      names.length > 1 ? `${names.join("・")}のいずれか` : names.join(""),
+    lengthChip: (min: number) => (min < 60 ? `${min} 分以上` : `${min / 60} 時間以上`),
+    branchChip: (name: string) => `ブランチ「${name}」`,
+    briefChip: "ちょっとした質問は非表示",
+    remove: (name: string) => `「${name}」を外す`,
+    clearAll: "すべて解除",
   },
 });

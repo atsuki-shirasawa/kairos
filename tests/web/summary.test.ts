@@ -41,6 +41,9 @@ function session(id: string, projectId: number | null, ...segments: Seg[]): Cale
     id,
     projectId,
     label: null,
+    branch: null,
+    scheduledRuns: 0,
+    continued: false,
     title: id,
     startedAt: segments[0]?.start ?? 0,
     endedAt: segments.at(-1)?.end ?? 0,
@@ -59,6 +62,7 @@ function session(id: string, projectId: number | null, ...segments: Seg[]): Cale
       activity: {
         commits: g.commits ?? 0,
         prs: g.prs?.length ?? 0,
+        merges: 0,
         filesEdited: 0,
         toolCalls: 0,
         subagents: 0,

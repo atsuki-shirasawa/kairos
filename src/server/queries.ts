@@ -158,8 +158,10 @@ function toUsage(rows: UsageRow[]): Usage | null {
   return u.tokens > 0 ? u : null;
 }
 
+/** The part of `Activity` counted from artifacts. */
+type ArtifactCounts = Pick<Activity, "commits" | "prs" | "merges">;
 /** The part of `Activity` counted from messages. */
-type MessageCounts = Omit<Activity, "commits" | "prs" | "claudeMs" | "effort">;
+type MessageCounts = Omit<Activity, keyof ArtifactCounts | "claudeMs" | "effort">;
 
 /** Tools that modify files. The tool_use text (input summary) is the file path. */
 const EDIT_TOOLS = "'Edit', 'Write', 'MultiEdit', 'NotebookEdit'";
@@ -327,10 +329,13 @@ export class Queries {
         id: r.id,
         projectId: r.project_id,
         label: r.label,
+        branch: r.branch === "HEAD" ? null : r.branch,
         title: fallback,
         startedAt: r.started_at ?? 0,
         endedAt: r.ended_at ?? 0,
         promptCount: r.prompt_count,
+        scheduledRuns: r.scheduled_runs,
+        continued: r.continued_in !== null || this.predecessorOf(r.id) !== null,
         active: isActive(r.ended_at, now),
         segments: segQuery.all(r.id, from, to).map((g) => ({
           start: g.start,
@@ -387,7 +392,8 @@ export class Queries {
   private artifacts(sessionId: string): Artifact[] {
     return this.db
       .query<Artifact, [string]>(
-        "SELECT kind, ref, title, ts FROM artifacts WHERE session_id = ? AND is_copy = 0 ORDER BY ts",
+        `SELECT kind, ref, title, ts FROM artifacts
+         WHERE session_id = ? AND kind IN ('pr', 'commit') AND is_copy = 0 ORDER BY ts`,
       )
       .all(sessionId);
   }
@@ -479,6 +485,7 @@ export class Queries {
     return {
       commits: artifacts?.commits ?? 0,
       prs: artifacts?.prs ?? 0,
+      merges: artifacts?.merges ?? 0,
       filesEdited: m?.filesEdited ?? 0,
       toolCalls: m?.toolCalls ?? 0,
       subagents: m?.subagents ?? 0,
@@ -508,15 +515,12 @@ export class Queries {
       .get(sessionId, from, to);
   }
 
-  /** Commits and PRs within a work block, allowing for ones recorded just after it ends. */
-  private artifactCounts(
-    sessionId: string,
-    from: number,
-    to: number,
-  ): { commits: number; prs: number } | null {
+  /** Commits, PRs and merges within a work block, allowing for ones recorded just after it ends. */
+  private artifactCounts(sessionId: string, from: number, to: number): ArtifactCounts | null {
     return this.db
-      .query<{ commits: number; prs: number }, [string, number, number]>(
-        `SELECT COALESCE(SUM(kind = 'commit'), 0) AS commits, COALESCE(SUM(kind = 'pr'), 0) AS prs
+      .query<ArtifactCounts, [string, number, number]>(
+        `SELECT COALESCE(SUM(kind = 'commit'), 0) AS commits, COALESCE(SUM(kind = 'pr'), 0) AS prs,
+                COALESCE(SUM(kind = 'merge'), 0) AS merges
          FROM artifacts WHERE session_id = ? AND is_copy = 0 AND ts BETWEEN ? AND ?`,
       )
       .get(sessionId, from, to + ARTIFACT_GRACE_MS);
@@ -652,7 +656,7 @@ const SEARCH_SOURCES = `
       SELECT g.session_id, g.start, a.kind, COALESCE(a.title, '') || char(10) || a.ref
         FROM artifacts a JOIN segments g ON g.session_id = a.session_id
          AND a.ts BETWEEN g.start AND g.end + ${ARTIFACT_GRACE_MS}
-       WHERE a.is_copy = 0
+       WHERE a.kind IN ('pr', 'commit') AND a.is_copy = 0
       UNION ALL
       SELECT g.session_id, g.start, CASE m.kind WHEN 'prompt' THEN 'prompt' ELSE 'reply' END, m.text
         FROM messages m JOIN segments g ON g.session_id = m.session_id AND m.ts BETWEEN g.start AND g.end

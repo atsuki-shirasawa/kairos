@@ -55,7 +55,7 @@ There is only one process, `kairos serve`, which handles ingest, summaries, the 
 | Segmenter | Builds work blocks from the activity times of human-initiated turns (split at 15 minutes), dropping blocks with neither a request nor a tool call. Recomputed on every session update | `src/server/ingest/segments.ts` |
 | Summarizer | Queues sessions that need summaries and runs `claude -p` one at a time | `src/server/summarize` |
 | API | REST for the calendar, details, conversations, summaries and project settings, plus SSE for update notifications | Hono |
-| Web UI | Week and day calendar, detail drawer, filters (projects, keywords, etc.). English by default, Japanese selectable (`src/web/src/i18n`) | React + Tailwind + shadcn/ui |
+| Web UI | Week and day calendar, detail drawer, filters (keyword, outcomes, states, length, branch, projects). English by default, Japanese selectable (`src/web/src/i18n`) | React + Tailwind + shadcn/ui |
 
 Everything is TypeScript on Bun: Hono for the API, SQLite through `bun:sqlite`, React + Vite with Tailwind CSS and shadcn/ui for the UI, file watching + Server-Sent Events for live updates, and the `claude` CLI as a subprocess for summaries. The calendar is drawn with CSS Grid rather than a library, so its look can be tuned freely. API types in `src/shared` are shared by the server and the UI.
 
@@ -97,9 +97,10 @@ sequenceDiagram
 | Tool output | Truncated to the first 4KB |
 | Thinking and images | Not stored |
 | Commit | A successful Bash call containing `git commit` |
+| PR merge | A successful Bash call running `gh pr merge` (or a result whose `gitOperation.pr.action` is `merged`), stored as a `merge` artifact keyed by PR number. Counted in a work block's activity; not listed with PRs |
 | PR | A `pr-link` record. The title comes from `--title` of `gh pr create` and is linked by the URL in the result's `gitOperation.pr` |
 | Token usage | Store the assistant record's `message.usage` in `usage`, one row per `message.id` (with the maximum `output_tokens`). With `usage.iterations`, store the sum of its steps, which includes server-side compaction. Subagent usage goes into the parent session. Returned per work block as the sum within its time range |
-| Activity | Counted from messages and artifacts within the work block's time range: outcomes (commits and PRs, up to 5 minutes after the end), files edited (distinct targets of Edit / Write, etc.), tool calls, subagents, stumbles (tool errors, interrupts, API errors), conversation compactions |
+| Activity | Counted from messages and artifacts within the work block's time range: outcomes (commits, PRs and merges, up to 5 minutes after the end), files edited (distinct targets of Edit / Write, etc.), tool calls, subagents, stumbles (tool errors, interrupts, API errors), conversation compactions |
 | Claude's working time and effort | Store `durationMs` of `system/turn_duration` in `turns`, and the response's `effort` in `usage.effort`. Copies in continued sessions are excluded by uuid |
 | Cost | An estimate converted with the API price list (`src/server/pricing.ts`). It won't match what you actually pay when using a subscription |
 

@@ -88,7 +88,7 @@ describe("recap input", () => {
   test("lists the project's sections in the period with their PRs and commits", () => {
     const input = loadRecapInput(db, { projectId: APP, from: FROM, to: TO });
     expect(input?.projectName).toBe("app");
-    expect(input?.sections.length).toBe(17);
+    expect(input?.sections.length).toBe(18);
     expect(input?.sections.map((s) => s.start)).toEqual(
       [...(input?.sections.map((s) => s.start) ?? [])].sort((a, b) => a - b),
     );

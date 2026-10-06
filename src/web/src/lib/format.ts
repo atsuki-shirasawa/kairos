@@ -84,6 +84,7 @@ export function sumActivity(list: (Activity | null)[]): Activity | null {
   return {
     commits: used.reduce((n, a) => n + a.commits, 0),
     prs: used.reduce((n, a) => n + a.prs, 0),
+    merges: used.reduce((n, a) => n + a.merges, 0),
     filesEdited: used.reduce((n, a) => n + a.filesEdited, 0),
     toolCalls: used.reduce((n, a) => n + a.toolCalls, 0),
     subagents: used.reduce((n, a) => n + a.subagents, 0),

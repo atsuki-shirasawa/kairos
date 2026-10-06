@@ -19,6 +19,7 @@ function session(id: string, ...spans: [number, number][]): CalendarSession {
     activity: {
       commits: 0,
       prs: 0,
+      merges: 0,
       filesEdited: 0,
       toolCalls: 0,
       subagents: 0,
@@ -34,6 +35,9 @@ function session(id: string, ...spans: [number, number][]): CalendarSession {
     id,
     projectId: 1,
     label: null,
+    branch: null,
+    scheduledRuns: 0,
+    continued: false,
     title: id,
     startedAt: segments[0]?.start ?? 0,
     endedAt: segments.at(-1)?.end ?? 0,

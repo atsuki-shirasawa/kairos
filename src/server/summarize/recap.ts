@@ -98,7 +98,8 @@ function collectArtifacts(
     [string, number, number]
   >(
     `SELECT kind, ref, title FROM artifacts
-     WHERE session_id = ? AND is_copy = 0 AND ts BETWEEN ? AND ? ORDER BY ts`,
+     WHERE session_id = ? AND kind IN ('pr', 'commit') AND is_copy = 0 AND ts BETWEEN ? AND ?
+     ORDER BY ts`,
   );
   const prs = new Map<string, string | null>();
   const commits: string[] = [];

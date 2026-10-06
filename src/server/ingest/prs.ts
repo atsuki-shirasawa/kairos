@@ -88,3 +88,44 @@ function shellWords(input: string): Word[] {
 export function prUrlIn(output: string): string | null {
   return /https:\/\/[^\s/]+\/[^\s/]+\/[^\s/]+\/pull\/\d+/.exec(output)?.[0] ?? null;
 }
+
+/**
+ * `gh pr merge` where a command starts (the start of the call, or after `&&`, `||`, `;`, `|` or a
+ * newline, past any `VAR=value` prefixes). Mentions inside other commands' arguments, such as
+ * `grep "gh pr merge"` or a settings file listing `Bash(gh pr merge *)`, are not merges.
+ */
+const GH_PR_MERGE_RE = /(?:^|[\n;&|])[ \t]*(?:\w+=\S*[ \t]+)*gh[ \t]+pr[ \t]+merge\b([^\n;&|]*)/;
+
+/**
+ * A `gh pr merge` call: the PR number, or null when it merges the current branch's PR (or names it
+ * by branch). undefined when the command doesn't merge. Newer logs also report the merge in
+ * `toolUseResult.gitOperation.pr` (number only, no URL), but most real merges don't have it.
+ */
+export function prMergeOf(command: string): { number: number | null } | undefined {
+  const m = GH_PR_MERGE_RE.exec(command);
+  if (!m) return undefined;
+  const words = shellWords(m[1] ?? "");
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i]?.text ?? "";
+    if (MERGE_VALUE_FLAGS.has(w)) i++;
+    if (w.startsWith("-")) continue;
+    const n = /^(?:https:\/\/\S+\/pull\/)?(\d+)$/.exec(w)?.[1];
+    return { number: n ? Number(n) : null };
+  }
+  return { number: null };
+}
+
+/** `gh pr merge` options that take the next word as their value (so it isn't the PR). */
+const MERGE_VALUE_FLAGS = new Set([
+  "-b",
+  "--body",
+  "-F",
+  "--body-file",
+  "-t",
+  "--subject",
+  "-A",
+  "--author-email",
+  "-R",
+  "--repo",
+  "--match-head-commit",
+]);

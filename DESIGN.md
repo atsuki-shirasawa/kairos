@@ -255,6 +255,13 @@ A work block's fill is the project color mixed into `block-base` in `oklch`:
   search shrinks to its icon until focused, and its results span the screen. No control is dropped
 - **Toolbar** holds only view switching, date navigation, search, report copy and filters. Theme,
   language and the shortcut list live in the "⋯" menu
+- **Filters** are edited in the toolbar's popover (384px wide, scrolling within the window) and,
+  while any applies, listed as chips in a row under the toolbar, so what narrows the view stays in
+  sight with the popover closed. Chosen over a sidebar: filters are occasional, "just for now"
+  conditions, and a left panel beside the drawer would squeeze the week to ~92px a day at 1440px.
+  The popover groups conditions by what they ask — Made (any of them), State (all of them), Length
+  (a segmented toggle), Branch (a dropdown of the period's branches) — then quick questions, then
+  projects. Each option shows how many of the period's blocks it alone would keep, in `numeral`
 
 ## Elevation & Depth
 
@@ -311,6 +318,10 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
 - **One frame per thing.** Where a color rule, a surface and a divider would all mark the same
   boundary, keep one. The summary's project recaps sit under the project's colored rule with no
   `muted` box of their own
+- **Filter chips:** 24px pills on `surface` with a `line` border and 12px text, each with a 20px
+  × button (`muted-ink`, `accent` on hover); outcomes share one chip ("Commit or PR merged")
+  because they combine as "any of", states get one each. "Clear all" follows when there are two
+  or more. Neutral, not indigo: they are a reminder of the state, not a selection
 - **Mark:** `src/web/public/favicon.svg` — a circle with a dawn → evening → night gradient cut by a
   diagonal blade (Kairos stands on a razor's edge: cutting out a single moment). The background
   shows through the gap, so it reads on light and dark tabs; the gap stays open at 16px. Used for

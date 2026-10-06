@@ -11,7 +11,7 @@ import {
   resolveProject,
   worktreeName,
 } from "./project.ts";
-import { GH_PR_CREATE_RE, prTitleOf, prUrlIn } from "./prs.ts";
+import { GH_PR_CREATE_RE, prMergeOf, prTitleOf, prUrlIn } from "./prs.ts";
 import { type Line, type ReadResult, readNewLines } from "./reader.ts";
 import {
   clip,
@@ -38,7 +38,7 @@ import {
 import { usageCounts } from "./usage.ts";
 
 /** Bump when the interpretation rules change. Files whose source logs still exist are then re-read. */
-export const PARSER_VERSION = 6;
+export const PARSER_VERSION = 7;
 /**
  * Bump when the calculation of derived data that can be recomputed from the DB (aggregates, work blocks,
  * project assignment from the startup cwd) changes. All sessions are recomputed, even those whose logs are gone.
@@ -79,6 +79,11 @@ interface FileState {
   pendingCommits: Record<string, string>;
   /** gh pr create calls awaiting their result: tool_use id → title. */
   pendingPrs: Record<string, string>;
+  /**
+   * gh pr merge calls awaiting their result: tool_use id → PR number (null when not named).
+   * Optional because states saved before merges were tracked don't have it.
+   */
+  pendingMerges?: Record<string, number | null>;
 }
 
 interface Ctx {
@@ -234,7 +239,12 @@ export class Ingester {
     saved: StateRow | null,
     read: ReadResult,
   ): { fileId: number; state: FileState } {
-    const fresh: FileState = { autoTurn: false, pendingCommits: {}, pendingPrs: {} };
+    const fresh: FileState = {
+      autoTurn: false,
+      pendingCommits: {},
+      pendingPrs: {},
+      pendingMerges: {},
+    };
     if (!saved) {
       const row = this.q.insertState.get(path, sessionId, agentId, PARSER_VERSION) as {
         id: number;
@@ -446,6 +456,7 @@ export class Ingester {
       if (!toolUseId) return;
       this.attachPrTitle(ctx, toolUseId, result, output, isError || interrupted, ts);
       this.attachCommit(ctx, toolUseId, output, isError || interrupted, ts);
+      this.attachMerge(ctx, toolUseId, result, isError || interrupted, ts);
     });
   }
 
@@ -488,6 +499,28 @@ export class Ingester {
     this.q.insertArtifact.run(ctx.sessionId, "commit", ref, commit.subject, ts, ctx.fileId);
   }
 
+  /**
+   * Stores the PR merge a pending gh pr merge made. gitOperation, when present, names the PR even
+   * if the command didn't. A merge whose PR is unknown is kept under its call, so it still counts.
+   */
+  private attachMerge(
+    ctx: Ctx,
+    toolUseId: string,
+    result: Rec | undefined,
+    failed: boolean,
+    ts: number | null,
+  ): void {
+    const pending = ctx.state.pendingMerges ?? {};
+    const pr = rec(rec(result?.gitOperation)?.pr);
+    const reported = pr?.action === "merged" && typeof pr.number === "number" ? pr.number : null;
+    if (!(toolUseId in pending) && reported === null) return;
+    const number = reported ?? pending[toolUseId] ?? null;
+    delete pending[toolUseId];
+    if (failed) return;
+    const ref = number !== null ? `#${number}` : `call:${toolUseId}`;
+    this.q.insertArtifact.run(ctx.sessionId, "merge", ref, null, ts, ctx.fileId);
+  }
+
   /** Stores an assistant response: its usage, text blocks and tool calls (or an API error). */
   private handleAssistant(ctx: Ctx, r: Rec, ts: number | null, seq: number): void {
     const msg = rec(r.message) ?? {};
@@ -510,7 +543,7 @@ export class Ingester {
     });
   }
 
-  /** Stores a tool_use block and remembers a git commit or gh pr create until its result arrives. */
+  /** Stores a tool_use block and remembers a git commit, gh pr create or gh pr merge until its result arrives. */
   private handleToolUse(ctx: Ctx, block: Rec, id: string, seq: number, ts: number | null): void {
     const name = str(block.name) ?? "";
     const input = rec(block.input) ?? {};
@@ -526,6 +559,11 @@ export class Ingester {
     }
     const prTitle = name === "Bash" && GH_PR_CREATE_RE.test(command) && prTitleOf(command);
     if (toolUseId && prTitle) ctx.state.pendingPrs[toolUseId] = prTitle.slice(0, LIMIT.short);
+    const merge = name === "Bash" ? prMergeOf(command) : undefined;
+    if (toolUseId && merge) {
+      ctx.state.pendingMerges ??= {};
+      ctx.state.pendingMerges[toolUseId] = merge.number;
+    }
   }
 
   /**

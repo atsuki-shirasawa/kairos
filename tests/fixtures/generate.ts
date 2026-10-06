@@ -420,6 +420,41 @@ function iterations(): void {
   write(APP, b);
 }
 
+// ---------------------------------------------------------------- 15. PR merges
+function merges(): void {
+  const b = new LogBuilder(SID.merges, APP);
+  header(b);
+  b.prompt(500, "レビュー済みの PR をまとめてマージして");
+  // Quiet success: gh pr merge prints nothing
+  b.bash(501, "gh pr merge 46 --squash", "");
+  // Failed merge → not counted
+  b.bash(
+    502,
+    "gh pr merge 47 --squash",
+    "X Pull request me/app#47 is not mergeable: the base branch policy prohibits the merge.",
+    true,
+  );
+  // Newer versions report the merge in gitOperation (number only, no URL)
+  const id = b.toolUse(503, "Bash", { command: "gh pr merge 48 --squash --delete-branch" });
+  b.toolResult(503, id, "", {
+    result: {
+      stdout: "",
+      stderr: "",
+      interrupted: false,
+      isImage: false,
+      noOutputExpected: false,
+      gitOperation: { pr: { action: "merged", number: 48 } },
+    },
+  });
+  // Only mentions the command → not counted
+  b.bash(504, 'grep -n "gh pr merge" docs/release.md', "12:  gh pr merge <number> --squash");
+  // Merge after a check in the same call
+  b.bash(504.5, "gh pr view 49 --json state && gh pr merge 49 --squash", '{"state":"OPEN"}');
+  b.text(505, "#46、#48、#49 をマージしました。#47 はブランチ保護でマージできませんでした。");
+  b.turnEnd(505);
+  write(APP, b);
+}
+
 if (import.meta.main) {
   rmSync(ROOT, { recursive: true, force: true });
   for (const scenario of [
@@ -437,6 +472,7 @@ if (import.meta.main) {
     usage,
     fragments,
     iterations,
+    merges,
   ]) {
     scenario();
   }

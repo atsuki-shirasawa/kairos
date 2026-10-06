@@ -20,6 +20,7 @@ function session(active: boolean): CalendarSession {
     activity: {
       commits: 0,
       prs: 0,
+      merges: 0,
       filesEdited: 0,
       toolCalls: 0,
       subagents: 0,
@@ -35,6 +36,9 @@ function session(active: boolean): CalendarSession {
     id: "s",
     projectId: 1,
     label: null,
+    branch: null,
+    scheduledRuns: 0,
+    continued: false,
     title: "s",
     startedAt: DAY0 + 9 * H,
     endedAt: DAY0 + 12 * H,
