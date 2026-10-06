@@ -3,9 +3,11 @@
 // real UI without any real logs. Runs its own server on a spare port with a throwaway data dir, so
 // the everyday `kairos` and its DB are untouched.
 // Run: bun run build && bun run screenshots
+// To check the dark theme without touching the docs: bun run screenshots --scheme dark --out <dir>
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { parseArgs } from "node:util";
 import { openDb } from "../../src/server/db/index.ts";
 import { Ingester } from "../../src/server/ingest/ingester.ts";
 import { HeadlessChrome } from "./cdp.ts";
@@ -19,7 +21,14 @@ import {
 } from "./demo.ts";
 
 const ROOT = join(import.meta.dir, "..", "..");
-const OUT = join(ROOT, "docs", "images");
+const { values: args } = parseArgs({
+  options: { scheme: { type: "string", default: "light" }, out: { type: "string" } },
+});
+if (args.scheme !== "light" && args.scheme !== "dark") {
+  console.error("--scheme must be light or dark");
+  process.exit(1);
+}
+const OUT = args.out ? resolve(args.out) : join(ROOT, "docs", "images");
 const PORT = 4329;
 const VIEWPORT = { width: 1440, height: 900, deviceScaleFactor: 2, mobile: false };
 
@@ -84,9 +93,10 @@ async function captureAll(drawerAt: number): Promise<void> {
     await chrome.send("Emulation.setTimezoneOverride", { timezoneId: DEMO_TZ });
     await chrome.send("Emulation.setLocaleOverride", { locale: "en-US" });
     await chrome.send("Emulation.setEmulatedMedia", {
-      features: [{ name: "prefers-color-scheme", value: "light" }],
+      features: [{ name: "prefers-color-scheme", value: args.scheme }],
     });
     const base = `http://127.0.0.1:${PORT}/`;
+    mkdirSync(OUT, { recursive: true });
     const shots: [string, string][] = [
       ["week", `?date=${DEMO_WEEK}&session=${DRAWER_SESSION}&at=${drawerAt}`],
       ["day", `?view=day&date=${DEMO_DAY}`],
