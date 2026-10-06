@@ -7,6 +7,7 @@ import {
   focusDayIndex,
   isLastSegment,
   type Moment,
+  momentMarks,
   momentRows,
   NO_EDGES,
   sameEdges,
@@ -239,5 +240,34 @@ describe("momentRows", () => {
       { kind: "moment", moment: at(10)[0] as Moment, top: 2 },
       { kind: "more", count: 3, top: 18 },
     ]);
+  });
+});
+
+describe("momentMarks", () => {
+  const at = (...ys: number[]): Moment[] =>
+    ys.map((y, i) => ({ artifact: { kind: "commit", ref: String(i), title: null, ts: 0 }, y }));
+
+  test("draws moments far enough apart as separate nodes", () => {
+    expect(momentMarks(at(20, 40), 100)).toEqual([
+      { top: 16.5, height: 7, count: 1, pr: false },
+      { top: 36.5, height: 7, count: 1, pr: false },
+    ]);
+  });
+
+  test("merges a run of close moments into one pill spanning them", () => {
+    const [mark] = momentMarks(at(20, 26, 32), 100);
+    expect(mark).toEqual({ top: 16.5, height: 19, count: 3, pr: false });
+  });
+
+  test("a burst at one minute still grows with its count, and a PR fills it", () => {
+    const moments = at(50, 50, 50, 50);
+    const pr = moments[1];
+    if (pr) pr.artifact = { ...pr.artifact, kind: "pr" };
+    expect(momentMarks(moments, 100)).toEqual([{ top: 42, height: 16, count: 4, pr: true }]);
+  });
+
+  test("keeps a pill inside the block", () => {
+    const [mark] = momentMarks(at(94, 94, 94, 94, 94), 98);
+    expect(mark && mark.top + mark.height).toBe(98);
   });
 });

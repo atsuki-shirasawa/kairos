@@ -13,6 +13,7 @@ import {
   isLastSegment,
   type Moment,
   type MomentRow,
+  momentMarks,
   momentRows,
 } from "@/lib/calendarGrid.ts";
 import { projectColor } from "@/lib/colors.ts";
@@ -132,7 +133,7 @@ export function Block({
         <BlockHeading label={label} bold={!dim || selected} short={geo.short} lines={lines} />
         {meta && <BlockMeta block={block} range={range} detailed={detailed} />}
         {body && <BlockBody body={body} />}
-        <MomentTicks moments={moments} />
+        <MomentTicks moments={moments} filledPx={geo.filledPx} />
         {lane && <MomentLane rows={momentRows(moments, LANE_ROW_PX, geo.visible)} />}
         {working && <WorkingDot />}
       </div>
@@ -299,17 +300,17 @@ function BlockBody({ body }: { body: string }) {
 /**
  * Nodes on the block's colored edge at the moment each commit or PR was made: where a stretch of
  * work turned into something. Read like a git graph, the edge is the branch and each commit a
- * node on it; a PR, the bigger milestone, is a filled node. They hang just inside the edge: the
- * block clips its content at the border, so a node centered on it would be cut in half.
+ * node on it; a PR, the bigger milestone, is a filled node. Moments made in quick succession
+ * share one longer pill (`momentMarks`). They hang just inside the edge: the block clips its
+ * content at the border, so a node centered on it would be cut in half.
  */
-function MomentTicks({ moments }: { moments: Moment[] }) {
-  return moments.map(({ artifact, y }, i) => (
+function MomentTicks({ moments, filledPx }: { moments: Moment[]; filledPx: number }) {
+  return momentMarks(moments, filledPx).map((mark) => (
     <MomentNode
-      // biome-ignore lint/suspicious/noArrayIndexKey: a ref can repeat (a commit amended in place)
-      key={`${artifact.kind}-${artifact.ref}-${i}`}
-      pr={artifact.kind === "pr"}
-      className="absolute left-0 -translate-y-1/2"
-      style={{ top: y }}
+      key={mark.top}
+      pr={mark.pr}
+      className="absolute left-0"
+      style={{ top: mark.top, height: mark.height }}
     />
   ));
 }

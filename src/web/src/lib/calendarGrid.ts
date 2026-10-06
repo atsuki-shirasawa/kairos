@@ -183,6 +183,50 @@ export function blockMoments(block: PlacedBlock, hourPx: number, filledPx: numbe
   return moments.sort((a, b) => a.y - b.y || (a.artifact.kind === "pr" ? -1 : 1));
 }
 
+/** Moments closer than this (px) would crowd as nodes (a 7px node plus a 3px gap), so they are drawn as one mark. */
+const MERGE_GAP_PX = 10;
+/** Diameter of a node, and how much longer a mark grows per extra moment it holds. */
+const NODE_PX = 7;
+const BEAD_PX = 3;
+
+/** One mark on a block's edge: a single node, or a pill for moments made in quick succession. */
+export interface MomentMark {
+  /** Top of the mark, from the block's top, in px. */
+  top: number;
+  height: number;
+  /** Moments it stands for. */
+  count: number;
+  /** Holds a PR, so it is drawn filled. */
+  pr: boolean;
+}
+
+/**
+ * Groups moments (sorted by `y`) into the marks drawn on a block's edge. Nodes for commits a
+ * minute apart would sit on top of each other and read as one, so a run of moments each within
+ * `MERGE_GAP_PX` of the next becomes one pill spanning them. It grows by `BEAD_PX` per extra
+ * moment, so a burst of several reads as more than a pair even when they are minutes apart.
+ */
+export function momentMarks(moments: Moment[], filledPx: number): MomentMark[] {
+  const runs: Moment[][] = [];
+  for (const m of moments) {
+    const run = runs.at(-1);
+    const last = run?.at(-1);
+    if (run && last && m.y - last.y < MERGE_GAP_PX) run.push(m);
+    else runs.push([m]);
+  }
+  return runs.map((run) => {
+    const first = run[0]?.y ?? 0;
+    const last = run.at(-1)?.y ?? first;
+    const height = Math.max(last - first, (run.length - 1) * BEAD_PX) + NODE_PX;
+    // Centered on the run, then kept inside the block, which clips at its edges
+    const top = Math.min(
+      Math.max((first + last) / 2 - height / 2, 0),
+      Math.max(0, filledPx - height),
+    );
+    return { top, height, count: run.length, pr: run.some((m) => m.artifact.kind === "pr") };
+  });
+}
+
 /** Where one label of a block's moments goes, or the "+n" row standing in for those that don't fit. */
 export type MomentRow =
   | { kind: "moment"; moment: Moment; top: number }
