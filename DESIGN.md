@@ -190,6 +190,9 @@ swaps every value for its `-dark` token under `.dark`.
 - **Warn (`#8a6420`):** text of numbers that need attention (snags). Plain yellow ocher lacks
   contrast on white, so it is darkened
 - **Destructive:** error messages only
+- **Input (`#d7dce4` / `#2e3c5a`):** text fields and select borders, where the placeholder and
+  the box's own fill also mark the control. An unchecked checkbox has only its outline, so it uses
+  `muted-ink` at 80% instead, which keeps it at 3:1 against popovers and surfaces in both themes
 
 ### Project colors
 
