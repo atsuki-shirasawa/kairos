@@ -19,7 +19,9 @@ export const searchMessages = defineMessages({
     failed: (message: string) => `Search failed: ${message}`,
     tooShort: (n: number) => `Type at least ${n} characters to search all periods`,
     keys: "↓ to pick · Enter to open",
-    fileHint: "Type file:path to find the work that edited a file (e.g. file:src/api)",
+    fileHint: "Turn on the file button (or type file:path) to find the work that edited a file",
+    fileToggle: "Search edited files",
+    filePlaceholder: "Search by file path",
     /** Where the match was found. */
     field: {
       headline: "Headline",
@@ -36,7 +38,7 @@ export const searchMessages = defineMessages({
   ja: {
     placeholder: "作業を探す",
     label: (u: Unit) =>
-      `すべての作業を要約・発言・PR・コミット・ブランチで探す。file:パス で編集したファイルからも探せる。${u === "week" ? "この週" : "この日"}の表示も絞り込む`,
+      `すべての作業を要約・発言・PR・コミット・ブランチで探す。file:<パス> で編集したファイルからも探せる。${u === "week" ? "この週" : "この日"}の表示も絞り込む`,
     clear: "検索を消す",
     clearTitle: "検索を消す（Esc）",
     allPeriods: "すべての期間",
@@ -46,7 +48,10 @@ export const searchMessages = defineMessages({
     failed: (message: string) => `検索できませんでした: ${message}`,
     tooShort: (n: number) => `すべての期間から探すには ${n} 文字以上入力してください`,
     keys: "↓ で選ぶ・Enter で開く",
-    fileHint: "file:パス で、そのファイルを編集した作業を探せます（例: file:src/api）",
+    fileHint:
+      "ファイルのボタンをオンにする（または file:<パス> と書く）と、そのファイルを編集した作業を探せます",
+    fileToggle: "編集したファイルで探す",
+    filePlaceholder: "ファイルのパスで探す",
     field: {
       headline: "見出し",
       summary: "要約",

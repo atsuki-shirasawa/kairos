@@ -14,7 +14,9 @@ import {
   NO_FILTER,
   narrowSessions,
   readFilter,
+  searchQuery,
   segmentMatcher,
+  withoutConditions,
   withProjects,
   writeFilter,
 } from "../../src/web/src/lib/filter.ts";
@@ -244,6 +246,27 @@ describe("conditions", () => {
   });
 });
 
+describe("file button", () => {
+  test("searches every word as a file: term, leaving ones already written that way", () => {
+    const f = { ...NO_FILTER, q: "src/api  File:queries.ts", qFiles: true };
+    expect(searchQuery(f)).toBe("file:src/api File:queries.ts");
+    expect(searchQuery({ ...f, qFiles: false })).toBe(f.q);
+  });
+
+  test("blocks match only through the server's hits, not the calendar's own text", () => {
+    const s = session("a", { segments: [{ headline: "Touch src/api" }] });
+    const f = { ...NO_FILTER, q: "src/api", qFiles: true };
+    const g = s.segments[0];
+    if (!g) throw new Error("no segment");
+    expect(segmentMatcher(f, projects)(s, g)).toBe(false);
+    expect(segmentMatcher(f, projects, new Set([hitKey(s.id, g.start)]))(s, g)).toBe(true);
+  });
+
+  test("clearing the conditions keeps it, like the keyword", () => {
+    expect(withoutConditions({ ...NO_FILTER, qFiles: true, minMinutes: 30 }).qFiles).toBe(true);
+  });
+});
+
 describe("URL parameters", () => {
   const read = (search: string) => readFilter(new URLSearchParams(search));
   const write = (f: Filter) => {
@@ -255,6 +278,7 @@ describe("URL parameters", () => {
   test("round-trips every condition, in a fixed order", () => {
     const f: Filter = {
       q: "login",
+      qFiles: true,
       outcomes: ["merge", "commit"],
       states: ["snag", "active"],
       minMinutes: 60,
@@ -263,7 +287,7 @@ describe("URL parameters", () => {
     };
     const search = write(f);
     expect(search).toBe(
-      "q=login&outcome=commit%2Cmerge&state=active%2Csnag&len=60&branch=feature%2Flogin&brief=hide",
+      "q=login&in=files&outcome=commit%2Cmerge&state=active%2Csnag&len=60&branch=feature%2Flogin&brief=hide",
     );
     expect(read(search)).toEqual({
       ...f,

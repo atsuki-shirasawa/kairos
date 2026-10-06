@@ -11,7 +11,7 @@ export interface ListSort {
 /** Time order; left out of the URL. */
 export const DEFAULT_SORT: ListSort = { key: "start", desc: false };
 
-/** View state. Synced with the URL (?view=&layout=&date=&session=&sort=&q=&outcome=&state=&len=&branch=&brief=), so it survives reloads and the back button. */
+/** View state. Synced with the URL (?view=&layout=&date=&session=&sort=&q=&in=&outcome=&state=&len=&branch=&brief=), so it survives reloads and the back button. */
 export interface UrlState {
   view: View;
   /** Whether the period is drawn as a calendar, listed, or summed up. */

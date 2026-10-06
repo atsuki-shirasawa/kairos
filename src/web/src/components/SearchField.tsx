@@ -1,5 +1,5 @@
 import type { Project, SearchHit } from "@shared/api.ts";
-import { Search, X } from "lucide-react";
+import { FileCode, Search, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { MIN_SEARCH_CHARS } from "@/hooks/queries.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
@@ -24,6 +24,8 @@ export interface SearchState {
 export function SearchField({
   inputRef,
   value,
+  files,
+  onFiles,
   period,
   onChange,
   search,
@@ -32,6 +34,9 @@ export function SearchField({
 }: {
   inputRef: React.RefObject<HTMLInputElement | null>;
   value: string;
+  /** The file button: the words are searched in edited file paths only. */
+  files: boolean;
+  onFiles: (files: boolean) => void;
   period: "week" | "day";
   onChange: (q: string) => void;
   search: SearchState;
@@ -44,6 +49,8 @@ export function SearchField({
   const query = value.trim();
   const marks = highlightTerms(query);
   const open = focused && query !== "";
+  // In a narrow window the field is just its icon until used; the button would stick out
+  const showFiles = focused || value !== "" || files;
   // Hidden projects stay hidden here too
   const hits = search.hits.filter(
     (h) => h.projectId === null || !projects.get(h.projectId)?.hidden,
@@ -59,7 +66,8 @@ export function SearchField({
 
   return (
     <search
-      className="relative flex items-center"
+      // focus-within, not :focus, sizes the field, so pressing the file button doesn't shrink it
+      className="group relative flex items-center"
       onFocus={() => setFocused(true)}
       onBlur={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget)) setFocused(false);
@@ -82,16 +90,41 @@ export function SearchField({
           else return;
           e.preventDefault();
         }}
-        placeholder={m.placeholder}
+        placeholder={files ? m.filePlaceholder : m.placeholder}
         aria-label={m.label(period)}
         className={cn(
           // Frameless until used, like the toolbar's other controls; the icon and "/" say what it is
-          "peer h-7 w-36 rounded-md border border-transparent pr-7 pl-7 text-sm outline-none transition-[width] duration-150 placeholder:text-muted-foreground hover:bg-accent focus:w-64 focus:border-input focus:bg-card focus-visible:border-ring motion-reduce:transition-none",
+          "h-7 w-36 rounded-md border border-transparent pr-7 pl-7 text-sm outline-none transition-[width] duration-150 placeholder:text-muted-foreground hover:bg-accent focus-visible:border-ring group-focus-within:w-64 group-focus-within:border-input group-focus-within:bg-card motion-reduce:transition-none",
           // In a narrow window only the icon shows until focused, then it opens to a usable width
-          "max-md:w-7 max-md:pr-0 max-md:focus:w-32 max-md:focus:pr-7 max-md:placeholder:text-transparent",
+          "max-md:w-7 max-md:pr-0 max-md:group-focus-within:w-32 max-md:group-focus-within:pr-7 max-md:placeholder:text-transparent",
           value && "w-64 border-primary/50 bg-card max-md:w-32 max-md:pr-7",
+          showFiles && (value ? "pr-13 max-md:pr-13" : "pr-7"),
         )}
       />
+      {showFiles && (
+        <button
+          type="button"
+          className={cn(
+            "absolute flex size-5 items-center justify-center rounded focus-visible:outline-2 focus-visible:outline-ring",
+            value ? "right-7" : "right-1",
+            files
+              ? "bg-primary/15 text-primary"
+              : "text-muted-foreground hover:bg-accent hover:text-foreground",
+            !focused && !value && "max-md:hidden",
+          )}
+          // Keep the caret in the field, so typing goes on and the results stay open
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            onFiles(!files);
+            inputRef.current?.focus();
+          }}
+          aria-pressed={files}
+          aria-label={m.fileToggle}
+          title={m.fileToggle}
+        >
+          <FileCode className="size-3.5" />
+        </button>
+      )}
       {value ? (
         <button
           type="button"
@@ -106,18 +139,20 @@ export function SearchField({
           <X className="size-3.5" />
         </button>
       ) : (
-        <kbd
-          className="pointer-events-none absolute right-1.5 rounded border bg-muted px-1 font-num text-[11px] text-muted-foreground leading-4 peer-focus:hidden max-md:hidden"
-          aria-hidden
-        >
-          /
-        </kbd>
+        !showFiles && (
+          <kbd
+            className="pointer-events-none absolute right-1.5 rounded border bg-muted px-1 font-num text-[11px] text-muted-foreground leading-4 max-md:hidden"
+            aria-hidden
+          >
+            /
+          </kbd>
+        )
       )}
 
       {open && (
         // Anchored under the field; in a narrow window the field sits mid-bar, so the results span
         // the screen instead of running off its left edge
-        <div className="absolute top-9 right-0 z-40 flex max-h-[min(70vh,36rem)] w-[30rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md max-md:fixed max-md:inset-x-2 max-md:top-14 max-md:w-auto max-md:max-w-none">
+        <div className="absolute top-10 right-0 z-40 flex max-h-[min(70vh,36rem)] w-[30rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md max-md:fixed max-md:inset-x-2 max-md:top-14 max-md:w-auto max-md:max-w-none">
           <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b px-3 text-xs">
             <span className="font-medium text-muted-foreground">
               {m.allPeriods}
@@ -132,14 +167,14 @@ export function SearchField({
           {[...query].length < MIN_SEARCH_CHARS ? (
             <Note>
               {m.tooShort(MIN_SEARCH_CHARS)}
-              <FileHint />
+              {!files && <FileHint />}
             </Note>
           ) : search.error ? (
             <Note className="text-destructive">{m.failed(search.error)}</Note>
           ) : hits.length === 0 ? (
             <Note>
               {search.loading ? m.searching : m.noHits}
-              {!search.loading && <FileHint />}
+              {!search.loading && !files && <FileHint />}
             </Note>
           ) : (
             <ul
@@ -182,7 +217,7 @@ function highlightTerms(query: string): string[] {
   return query.split(/\s+/).map((t) => t.replace(/^file:/i, ""));
 }
 
-/** How to search by edited file, which nothing else on screen would tell. */
+/** Points at the file button (and the `file:` syntax it stands for) while the button is off. */
 function FileHint() {
   return <span className="mt-1 block text-xs">{searchMessages().fileHint}</span>;
 }

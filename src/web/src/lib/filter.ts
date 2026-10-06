@@ -23,6 +23,8 @@ export const MIN_LENGTHS = [30, 60, 120] as const;
 export interface Filter {
   /** Substring match on headline, title, worktree name and project name. Every space-separated word must match. */
   q: string;
+  /** The keyword names edited files: every word is searched as `file:<word>` (the button in the search field). */
+  qFiles: boolean;
   /** Only blocks with any of these outcomes. Empty means no condition. */
   outcomes: Outcome[];
   /** Only blocks in every one of these states. */
@@ -38,6 +40,7 @@ export interface Filter {
 /** No conditions: everything not in a hidden project shows. */
 export const NO_FILTER: Filter = {
   q: "",
+  qFiles: false,
   outcomes: [],
   states: [],
   minMinutes: 0,
@@ -65,8 +68,25 @@ export const isFocused = (f: Filter) => f.q.trim() !== "" || conditionCount(f) >
 export const withoutConditions = (f: Filter): Filter => ({
   ...NO_FILTER,
   q: f.q,
+  qFiles: f.qFiles,
   hideBrief: f.hideBrief,
 });
+
+/** Prefix the server reads as "match edited file paths only". */
+const FILE_PREFIX = "file:";
+
+/**
+ * The keyword as the search API takes it. With the file button on, each word becomes a `file:`
+ * term, so typing a path needs no prefix; words already written as `file:…` stay as they are.
+ */
+export function searchQuery(f: Filter): string {
+  if (!f.qFiles) return f.q;
+  return f.q
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => (w.toLowerCase().startsWith(FILE_PREFIX) ? w : `${FILE_PREFIX}${w}`))
+    .join(" ");
+}
 
 /** Whether a block made any of the outcomes. */
 export function hasOutcome(segment: CalendarSegment, outcomes: readonly Outcome[]): boolean {
@@ -119,6 +139,7 @@ export function readFilter(q: URLSearchParams): Filter {
   const minMinutes = Number(q.get("len"));
   return {
     q: q.get("q") ?? "",
+    qFiles: q.get("in") === "files",
     outcomes: outcome === "1" ? ["commit", "pr"] : list("outcome", OUTCOMES),
     states: list("state", STATES),
     minMinutes: (MIN_LENGTHS as readonly number[]).includes(minMinutes) ? minMinutes : 0,
@@ -130,6 +151,7 @@ export function readFilter(q: URLSearchParams): Filter {
 /** Writes the filter's set conditions into URL parameters (unset ones are left out). */
 export function writeFilter(f: Filter, q: URLSearchParams): void {
   if (f.q) q.set("q", f.q);
+  if (f.qFiles) q.set("in", "files");
   if (f.outcomes.length) q.set("outcome", OUTCOMES.filter((o) => f.outcomes.includes(o)).join(","));
   if (f.states.length) q.set("state", STATES.filter((s) => f.states.includes(s)).join(","));
   if (f.minMinutes) q.set("len", String(f.minMinutes));
@@ -202,7 +224,8 @@ export function segmentMatcher(
   projects: Map<number, Project>,
   hits: ReadonlySet<string> = new Set(),
 ): SegmentMatch {
-  const terms = filter.q.toLowerCase().split(/\s+/).filter(Boolean);
+  // `file:` terms never appear in the calendar's own text, so only the server's hits match them
+  const terms = searchQuery(filter).toLowerCase().split(/\s+/).filter(Boolean);
   return (session, segment) => {
     if (!meetsConditions(filter, session, segment)) return false;
     if (terms.length === 0) return true;

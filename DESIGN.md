@@ -318,6 +318,12 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
 - **One frame per thing.** Where a color rule, a surface and a divider would all mark the same
   boundary, keep one. The summary's project recaps sit under the project's colored rule with no
   `muted` box of their own
+- **File button in the search field:** a 20px toggle at the field's right end (left of the clear
+  ×), shown once the field is in use or the button is on. On, it takes the `primary` tint
+  (`primary` at 15% behind an indigo icon) and the words search edited file paths only, as if each
+  were written `file:<word>`. It sits inside the field, like an editor's match-case toggle, rather
+  than adding a control to the toolbar. Pressing it keeps the caret in the field; the field sizes
+  by `focus-within` so it doesn't shrink while the button has focus
 - **Filter chips:** 24px pills on `surface` with a `line` border and 12px text, each with a 20px
   × button (`muted-ink`, `accent` on hover); outcomes share one chip ("Commit or PR merged")
   because they combine as "any of", states get one each. "Clear all" follows when there are two

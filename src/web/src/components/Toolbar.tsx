@@ -91,6 +91,8 @@ export function Toolbar({
         <SearchField
           inputRef={searchRef}
           value={filter.q}
+          files={filter.qFiles}
+          onFiles={(qFiles) => onFilter({ ...filter, qFiles })}
           period={view}
           onChange={(q) => onFilter({ ...filter, q })}
           search={search}

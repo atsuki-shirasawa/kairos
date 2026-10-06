@@ -10,6 +10,7 @@ import {
   hitKey,
   narrowSessions,
   type SegmentMatch,
+  searchQuery,
   segmentMatcher,
   withProjects,
 } from "@/lib/filter.ts";
@@ -39,7 +40,7 @@ export function useFilteredSessions(
     () => hideSessions(sessions ?? [], projects, filter),
     [sessions, projects, filter],
   );
-  const search = useSearch(filter.q);
+  const search = useSearch(searchQuery(filter));
   const hitKeys = useMemo(
     () =>
       new Set(
