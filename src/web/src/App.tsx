@@ -70,6 +70,9 @@ export function App() {
   const closeDrawer = useCloseDrawer(update);
 
   const [menuOpen, setMenuOpen] = useState(false);
+  // The results panel drops over the top of the period, where the no-match notice sits; it already
+  // says what matched, so the notice waits until the panel closes rather than peeking out under it
+  const [searchPanel, setSearchPanel] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   useKeyboardShortcuts({
     state,
@@ -138,6 +141,7 @@ export function App() {
             { push: true },
           )
         }
+        onSearchPanel={setSearchPanel}
         theme={theme}
         onTheme={setTheme}
         menuOpen={menuOpen}
@@ -176,12 +180,15 @@ export function App() {
               onJump={(t) => update({ anchor: startOfDay(t) })}
             />
           )}
-          {visible.length > 0 && focused.length === 0 && isFocused(state.filter) && (
-            <NoMatchNotice
-              period={period}
-              onClear={() => setFilter({ ...withoutConditions(state.filter), q: "" })}
-            />
-          )}
+          {visible.length > 0 &&
+            focused.length === 0 &&
+            isFocused(state.filter) &&
+            !searchPanel && (
+              <NoMatchNotice
+                period={period}
+                onClear={() => setFilter({ ...withoutConditions(state.filter), q: "" })}
+              />
+            )}
         </main>
         {state.session && (
           <SessionDrawer

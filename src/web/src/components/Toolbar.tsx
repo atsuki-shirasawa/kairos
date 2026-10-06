@@ -35,6 +35,8 @@ interface Props {
   search: SearchState;
   projectMap: Map<number, Project>;
   onOpenHit: (hit: SearchHit) => void;
+  /** Whether the search results panel is open (it covers the top of the period body). */
+  onSearchPanel: (open: boolean) => void;
   /** The shown work as Markdown (empty when there is none). Built only when copying. */
   report: () => string;
   hasWork: boolean;
@@ -68,6 +70,7 @@ export function Toolbar({
   search,
   projectMap,
   onOpenHit,
+  onSearchPanel,
   report,
   hasWork,
   theme,
@@ -98,6 +101,7 @@ export function Toolbar({
           search={search}
           projects={projectMap}
           onOpen={onOpenHit}
+          onPanel={onSearchPanel}
         />
         <ViewTrack>
           <ViewToggle view={view} onView={onView} />
