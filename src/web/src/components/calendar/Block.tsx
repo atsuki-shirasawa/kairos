@@ -43,6 +43,13 @@ const LANE_ROW_PX = 18;
  * the whole screen; the right side holds the moments instead, and the text keeps a readable measure.
  */
 const LANE_WIDTH = "min(38%, 24rem)";
+/**
+ * Room the heading, time range and body leave for the lane, matching `LANE_WIDTH` plus a gap.
+ * Both this and the lane switch on the block's own width (a container query): side-by-side or
+ * stacked blocks on a busy day are too narrow for it, and fall back to the tooltip.
+ * Spelled out so Tailwind can pick up the class names.
+ */
+const LANE_ROOM = "@min-[36rem]:pr-[calc(min(38%,24rem)+0.75rem)]";
 
 /** How a block reads, apart from its position. */
 interface BlockState {
@@ -98,20 +105,15 @@ export function Block({
         ? headingLines(geo.visible - META_ROW_PX)
         : geo.lines;
   const moments = blockMoments(block, hourPx, geo.filledPx);
-  const lane = detailed && moments.length > 0;
+  // Two rows at least: a lane with room for only "+n more" says nothing the tooltip doesn't
+  const lane = detailed && moments.length > 0 && geo.visible >= 2 * LANE_ROW_PX;
   const momentsId = useId();
 
   return (
     <Tooltip>
       {/* The button fills the block and sits on top, so the block can hold Markdown (lists etc.),
           which is not allowed inside a button. The visible content below is never interactive */}
-      <div
-        className={blockClassName(state)}
-        style={{
-          ...blockStyle(block, geo, project, selected),
-          paddingRight: lane ? `calc(${LANE_WIDTH} + 1.25rem)` : undefined,
-        }}
-      >
+      <div className={blockClassName(state)} style={blockStyle(block, geo, project, selected)}>
         <TooltipTrigger asChild>
           <button
             type="button"
@@ -130,11 +132,19 @@ export function Block({
         </TooltipTrigger>
         <MomentsDescription id={momentsId} moments={moments} />
         {geo.stretched && <UnfilledEdge filledPx={geo.filledPx} />}
-        <BlockHeading label={label} bold={!dim || selected} short={geo.short} lines={lines} />
-        {meta && <BlockMeta block={block} range={range} detailed={detailed} />}
-        {body && <BlockBody body={body} />}
+        <BlockHeading
+          label={label}
+          bold={!dim || selected}
+          short={geo.short}
+          lines={lines}
+          room={lane}
+        />
+        {meta && <BlockMeta block={block} range={range} detailed={detailed} room={lane} />}
+        {body && <BlockBody body={body} room={lane} />}
         <MomentTicks moments={moments} filledPx={geo.filledPx} />
-        {lane && <MomentLane rows={momentRows(moments, LANE_ROW_PX, geo.visible)} />}
+        {lane && (
+          <MomentLane rows={momentRows(moments, LANE_ROW_PX, geo.visible)} heightPx={geo.visible} />
+        )}
         {working && <WorkingDot />}
       </div>
       <BlockTooltip
@@ -243,11 +253,14 @@ function BlockHeading({
   bold,
   short,
   lines,
+  room,
 }: {
   label: string;
   bold: boolean;
   short: boolean;
   lines: number;
+  /** Leave room on the right for the day view's lane. */
+  room: boolean;
 }) {
   return (
     <span
@@ -258,6 +271,7 @@ function BlockHeading({
         bold ? "font-medium" : "font-normal",
         short ? "leading-4" : "leading-snug",
         LINE_CLAMP[lines],
+        room && LANE_ROOM,
       )}
     >
       {label}
@@ -270,14 +284,22 @@ function BlockMeta({
   block,
   range,
   detailed,
+  room,
 }: {
   block: PlacedBlock;
   range: string;
   detailed: boolean;
+  /** Leave room on the right for the day view's lane. */
+  room: boolean;
 }) {
   const { session } = block;
   return (
-    <span className="flex min-w-0 shrink-0 items-center gap-1.5 font-num text-[11px] text-muted-foreground">
+    <span
+      className={cn(
+        "flex min-w-0 shrink-0 items-center gap-1.5 font-num text-[11px] text-muted-foreground",
+        room && LANE_ROOM,
+      )}
+    >
       <span className="shrink-0">{range}</span>
       {/* Several sessions of one project share a color, so the worktree tells them apart */}
       {detailed && session.label && <span className="truncate">{session.label}</span>}
@@ -286,10 +308,15 @@ function BlockMeta({
 }
 
 /** The summary body, faded out at the bottom where the block cuts it off. */
-function BlockBody({ body }: { body: string }) {
+function BlockBody({ body, room }: { body: string; room: boolean }) {
   return (
     // The fade spans about two lines, so a cut-off line reads as "continues" rather than as a glitch
-    <div className="min-h-0 max-w-[72ch] flex-1 overflow-hidden text-foreground/85 [mask-image:linear-gradient(to_bottom,black_calc(100%-2.75rem),transparent)]">
+    <div
+      className={cn(
+        "min-h-0 max-w-[72ch] flex-1 overflow-hidden text-foreground/85 [mask-image:linear-gradient(to_bottom,black_calc(100%-2.75rem),transparent)]",
+        room && LANE_ROOM,
+      )}
+    >
       <Markdown plain className="mt-1 space-y-1 text-xs leading-relaxed [&_li+li]:mt-0.5">
         {body}
       </Markdown>
@@ -319,11 +346,12 @@ function MomentTicks({ moments, filledPx }: { moments: Moment[]; filledPx: numbe
  * The day view's lane on the right of a block, labeling each commit and PR at the height it was
  * made. The drawer lists the same outcomes, so this is visual only.
  */
-function MomentLane({ rows }: { rows: MomentRow[] }) {
+function MomentLane({ rows, heightPx }: { rows: MomentRow[]; heightPx: number }) {
   return (
+    // Only as tall as the part no block is stacked over, so it never shows through between them
     <div
-      className="pointer-events-none absolute top-0 right-2 bottom-0 border-foreground/10 border-l"
-      style={{ width: LANE_WIDTH }}
+      className="pointer-events-none absolute top-0 right-2 @max-[36rem]:hidden border-foreground/10 border-l"
+      style={{ width: LANE_WIDTH, height: heightPx }}
       aria-hidden
     >
       {rows.map((row) => (

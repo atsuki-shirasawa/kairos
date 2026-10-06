@@ -61,7 +61,7 @@ function SectionOutcomes({ items }: { items: Artifact[] }) {
 function ArtifactList({ items }: { items: Artifact[] }) {
   return (
     // The ::before is the line the nodes hang on, from the first node to the last
-    <ul className="relative space-y-2 text-sm leading-snug before:absolute before:top-2 before:bottom-2 before:left-[3px] before:w-px before:bg-border">
+    <ul className="relative space-y-2 text-sm leading-snug before:absolute before:top-2 before:bottom-2 before:left-[3px] before:w-px before:bg-foreground/20">
       {items.map((a) => (
         <li key={`${a.kind}-${a.ref}`} className="relative flex items-baseline gap-2.5">
           {/* On the first line's middle, so it stays put when a long title wraps */}
