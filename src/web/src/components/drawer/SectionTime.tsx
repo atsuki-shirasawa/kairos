@@ -34,9 +34,8 @@ function SectionWhen({ section, active }: { section: Section; active: boolean })
   const t = drawerMessages();
   return (
     <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-      <span className="rounded-md bg-muted px-1.5 py-0.5 text-foreground">
-        {rangeLabel(section)}
-      </span>
+      {/* Set apart by ink alone: the heading already sits in a colored frame, so no chip */}
+      <span className="text-foreground">{rangeLabel(section)}</span>
       <span className="whitespace-nowrap">{durationLabel(section.end - section.start)}</span>
       {active && (
         <span className="inline-flex items-center gap-1 whitespace-nowrap text-primary">
@@ -74,7 +73,7 @@ function KeyFigures({ usage: u, activity: a }: { usage: Usage | null; activity: 
       )}
       {a.commits + a.prs > 0 && <OutcomeTally commits={a.commits} prs={a.prs} />}
       {trouble > 0 && (
-        <Hint text={troubleDetail(a)} className="whitespace-nowrap text-foreground/80">
+        <Hint text={troubleDetail(a)} className="whitespace-nowrap text-foreground">
           {t.troubleCount(trouble)}
         </Hint>
       )}

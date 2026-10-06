@@ -72,10 +72,9 @@
   /* Text color for numbers that need attention (troubles etc.). Darkened ochre for contrast on white */
   --warn: #8a6420;
 
-  /* How much project color is mixed into a block's fill: normal, hover, selected, not yet summarized */
+  /* How much project color is mixed into a block's fill: normal, hover, not yet summarized */
   --mix-block: 20%;
   --mix-block-hover: 32%;
-  --mix-block-selected: 42%;
   --mix-block-dim: 9%;
   /* What project colors are mixed into: an achromatic surface. Its hue is `none`, so mixing in
      oklch keeps the project's own hue instead of drifting toward the background's */
@@ -119,7 +118,6 @@
   /* At 20% on navy the colors turn muddy grey and projects become indistinguishable, so dark mode mixes more */
   --mix-block: 32%;
   --mix-block-hover: 44%;
-  --mix-block-selected: 50%;
   --mix-block-dim: 14%;
   /* Neutral at the lightness of --card. Mixing warm pigments into the navy card itself turned
      ochre and red oxide the same muddy brown */

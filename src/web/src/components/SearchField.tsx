@@ -84,10 +84,11 @@ export function SearchField({
         placeholder={m.placeholder}
         aria-label={m.label(period)}
         className={cn(
-          "peer h-7 w-36 rounded-md border bg-card pr-7 pl-7 text-sm outline-none transition-[width] duration-150 placeholder:text-muted-foreground focus:w-64 focus-visible:border-ring motion-reduce:transition-none",
+          // Frameless until used, like the toolbar's other controls; the icon and "/" say what it is
+          "peer h-7 w-36 rounded-md border border-transparent pr-7 pl-7 text-sm outline-none transition-[width] duration-150 placeholder:text-muted-foreground hover:bg-accent focus:w-64 focus:border-input focus:bg-card focus-visible:border-ring motion-reduce:transition-none",
           // In a narrow window only the icon shows until focused, then it opens to a usable width
           "max-md:w-7 max-md:pr-0 max-md:focus:w-32 max-md:focus:pr-7 max-md:placeholder:text-transparent",
-          value && "w-64 border-primary/50 max-md:w-32 max-md:pr-7",
+          value && "w-64 border-primary/50 bg-card max-md:w-32 max-md:pr-7",
         )}
       />
       {value ? (
@@ -105,7 +106,7 @@ export function SearchField({
         </button>
       ) : (
         <kbd
-          className="pointer-events-none absolute right-1.5 rounded border bg-muted px-1 font-num text-[10px] text-muted-foreground leading-4 peer-focus:hidden max-md:hidden"
+          className="pointer-events-none absolute right-1.5 rounded border bg-muted px-1 font-num text-[11px] text-muted-foreground leading-4 peer-focus:hidden max-md:hidden"
           aria-hidden
         >
           /

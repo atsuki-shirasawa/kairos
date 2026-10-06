@@ -23,13 +23,14 @@ export function RecapBlock({
   if (!r.body) return <WriteRecap onRecap={onRecap} error={error} />;
   const m = summaryMessages();
   return (
-    <div className="mb-3 flex flex-col gap-1.5 rounded-md bg-muted/50 px-3 py-2.5">
+    // No surface: the project's colored rule already frames it
+    <div className="mb-3 flex flex-col gap-1.5">
       <Markdown issueBaseUrl={baseUrl}>{r.body}</Markdown>
       <div className="flex flex-wrap items-center gap-x-3 text-muted-foreground text-xs">
         <Hint text={m.recapNote} focusable>
           <Sparkles className="size-3.5" role="img" aria-label={m.recapAbout} />
         </Hint>
-        {r.stale && <span className="text-foreground/80">{m.recapStale}</span>}
+        {r.stale && <span className="text-foreground">{m.recapStale}</span>}
         <Button variant="ghost" size="xs" className="-ml-1.5" onClick={onRecap}>
           <RefreshCw />
           {m.recapRewrite}

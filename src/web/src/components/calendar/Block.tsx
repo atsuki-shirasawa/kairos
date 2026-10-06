@@ -95,7 +95,9 @@ export function Block({
   const { commits, prs } = segment.activity;
   const projectName = project?.name ?? formatMessages().unknownProject;
   const state: BlockState = { ...block, selected, faded, dim, short: geo.short };
-  const meta = geo.height >= META_MIN_PX && geo.visible >= META_MIN_PX;
+  // In the week view the block's position on the grid already tells the time, so the range line
+  // only repeats it; it stays for the selected block, and the tooltip always has it
+  const meta = (detailed || selected) && geo.height >= META_MIN_PX && geo.visible >= META_MIN_PX;
   // The heading only gets the lines left after the time range, or the two would overlap
   const lines = geo.short
     ? 1
@@ -192,8 +194,8 @@ function blockClassName({
       ? "text-muted-foreground [--fill:color-mix(in_oklch,var(--c)_var(--mix-block-dim),var(--block-base))]"
       : "text-foreground [--fill:color-mix(in_oklch,var(--c)_var(--mix-block),var(--block-base))]",
     "has-[>button:hover]:[--fill:color-mix(in_oklch,var(--c)_var(--mix-block-hover),var(--block-base))]",
-    selected &&
-      "text-foreground [--fill:color-mix(in_oklch,var(--c)_var(--mix-block-selected),var(--block-base))]",
+    // The outline alone marks the selection; a deeper fill on top said the same thing twice
+    selected && "text-foreground",
     "has-[>button:focus-visible]:outline-2 has-[>button:focus-visible]:outline-ring has-[>button:focus-visible]:outline-offset-1",
     // Indigo is the app's one mark for "selected", here as everywhere else
     selected && "outline-2 outline-primary outline-offset-1",
@@ -313,7 +315,7 @@ function BlockBody({ body, room }: { body: string; room: boolean }) {
     // The fade spans about two lines, so a cut-off line reads as "continues" rather than as a glitch
     <div
       className={cn(
-        "min-h-0 max-w-[72ch] flex-1 overflow-hidden text-foreground/85 [mask-image:linear-gradient(to_bottom,black_calc(100%-2.75rem),transparent)]",
+        "min-h-0 max-w-[72ch] flex-1 overflow-hidden text-foreground [mask-image:linear-gradient(to_bottom,black_calc(100%-2.75rem),transparent)]",
         room && LANE_ROOM,
       )}
     >
@@ -381,7 +383,7 @@ function MomentLabel({ moment: { artifact } }: { moment: Moment }) {
       <span className="shrink-0">{artifact.ts !== null ? hhmm(artifact.ts) : ""}</span>
       {ref && <span className={cn("shrink-0", pr && "font-medium text-foreground")}>{ref}</span>}
       {artifact.title && (
-        <span className="truncate font-sans text-foreground/85">{artifact.title}</span>
+        <span className="truncate font-sans text-foreground">{artifact.title}</span>
       )}
     </>
   );
@@ -451,18 +453,18 @@ export function BlockTooltip({
   return (
     <TooltipContent side="right" className="max-w-72 flex-col items-start gap-0.5">
       <p className="font-medium">{label}</p>
-      <p className="opacity-80">
+      <p className="opacity-70">
         {projectName}
         {session.label ? f.sessionLabel(session.label) : ""}
       </p>
-      <p className="font-num opacity-80">{m.rangeDuration(range, durationLabel(durationMs))}</p>
+      <p className="font-num opacity-70">{m.rangeDuration(range, durationLabel(durationMs))}</p>
       {moments.length > 0 ? (
         <TooltipMoments moments={moments} />
       ) : (
-        (commits > 0 || prs > 0) && <p className="opacity-80">{f.commitsPrs(commits, prs)}</p>
+        (commits > 0 || prs > 0) && <p className="opacity-70">{f.commitsPrs(commits, prs)}</p>
       )}
-      {faded && <p className="opacity-60">{m.notMatching}</p>}
-      {dim && <p className="opacity-60">{m.notSummarized}</p>}
+      {faded && <p className="opacity-70">{m.notMatching}</p>}
+      {dim && <p className="opacity-70">{m.notSummarized}</p>}
     </TooltipContent>
   );
 }
@@ -479,11 +481,11 @@ function TooltipMoments({ moments }: { moments: Moment[] }) {
     <ul className="mt-1 w-full space-y-0.5 font-num [--card:var(--popover-foreground)] [--foreground:var(--background)]">
       {shown.map((moment, i) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: a ref can repeat (a commit amended in place)
-        <li key={i} className="flex min-w-0 items-center gap-1.5 opacity-90">
+        <li key={i} className="flex min-w-0 items-center gap-1.5">
           <MomentLabel moment={moment} />
         </li>
       ))}
-      {more > 0 && <li className="opacity-60">{calendarMessages().moreMoments(more)}</li>}
+      {more > 0 && <li className="opacity-70">{calendarMessages().moreMoments(more)}</li>}
     </ul>
   );
 }

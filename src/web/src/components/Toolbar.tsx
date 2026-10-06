@@ -9,7 +9,7 @@ import { AppMenu } from "./toolbar/AppMenu.tsx";
 import { Brand, type ImportProgress } from "./toolbar/Brand.tsx";
 import { CopyReportButton } from "./toolbar/CopyReportButton.tsx";
 import { PeriodNav } from "./toolbar/PeriodNav.tsx";
-import { LayoutToggle, ViewToggle } from "./toolbar/ViewToggles.tsx";
+import { LayoutToggle, TrackDivider, ViewToggle, ViewTrack } from "./toolbar/ViewToggles.tsx";
 
 // SummaryView styles its own toggles with the toolbar's segmented look
 export { SEGMENT, SEGMENTED } from "./toolbar/segmented.ts";
@@ -76,11 +76,12 @@ export function Toolbar({
   onMenuOpen,
 }: Props) {
   return (
-    // Below md (a half-screen window) the bar tightens instead of overflowing: the wordmark and
-    // dividers go and search shrinks to its icon, but every control stays
+    // Below md (a half-screen window) the bar tightens instead of overflowing: the wordmark goes
+    // and search shrinks to its icon, but every control stays. Groups are set apart by spacing,
+    // not rules
     <header className="flex h-16 shrink-0 items-center gap-3 border-b bg-background px-5 max-md:gap-2 max-md:px-3">
       <Brand progress={progress} />
-      <span className="h-5 w-px shrink-0 bg-border max-md:hidden" aria-hidden />
+      <span className="w-3 shrink-0 max-md:hidden" aria-hidden />
       <PeriodNav view={view} onMove={onMove} onToday={onToday} />
       <h1 className="flex min-w-0">
         <DatePicker view={view} anchor={anchor} now={now} projects={projects} onJump={onJump} />
@@ -96,9 +97,12 @@ export function Toolbar({
           projects={projectMap}
           onOpen={onOpenHit}
         />
-        <ViewToggle view={view} onView={onView} />
-        <LayoutToggle layout={layout} onLayout={onLayout} />
-        <span className="mx-1 h-5 w-px bg-border max-md:hidden" aria-hidden />
+        <ViewTrack>
+          <ViewToggle view={view} onView={onView} />
+          <TrackDivider />
+          <LayoutToggle layout={layout} onLayout={onLayout} />
+        </ViewTrack>
+        <span className="w-2 shrink-0 max-md:hidden" aria-hidden />
         <CopyReportButton view={view} report={report} hasWork={hasWork} />
         <FilterMenu projects={projects} sessions={sessions} filter={filter} onFilter={onFilter} />
         <AppMenu open={menuOpen} onOpenChange={onMenuOpen} theme={theme} onTheme={onTheme} />

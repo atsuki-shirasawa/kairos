@@ -4,8 +4,8 @@ import { toolbarMessages } from "@/i18n/messages/toolbar.ts";
 import type { View } from "@/lib/dates.ts";
 
 /**
- * Previous / today / next as one joined group. It sits left of the heading, the usual
- * calendar-app layout.
+ * Previous / today / next, kept together by spacing rather than a shared frame. It sits left of
+ * the heading, the usual calendar-app layout.
  */
 export function PeriodNav({
   view,
@@ -18,11 +18,10 @@ export function PeriodNav({
 }) {
   const m = toolbarMessages();
   return (
-    <div className="flex shrink-0 items-center rounded-md border bg-card">
+    <div className="flex shrink-0 items-center gap-0.5">
       <Button
         variant="ghost"
         size="icon-sm"
-        className="rounded-r-none"
         onClick={() => onMove(-1)}
         aria-label={m.prev(view)}
         title={`${m.prev(view)} (←)`}
@@ -32,7 +31,7 @@ export function PeriodNav({
       <Button
         variant="ghost"
         size="sm"
-        className="rounded-none border-x px-3"
+        className="px-2.5"
         onClick={onToday}
         title={`${m.today} (t)`}
       >
@@ -41,7 +40,6 @@ export function PeriodNav({
       <Button
         variant="ghost"
         size="icon-sm"
-        className="rounded-l-none"
         onClick={() => onMove(1)}
         aria-label={m.next(view)}
         title={`${m.next(view)} (→)`}

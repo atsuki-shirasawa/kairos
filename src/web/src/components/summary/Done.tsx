@@ -147,7 +147,7 @@ function DoneItem({
       data-selected={selected || undefined}
     >
       <span className="flex w-28 shrink-0 gap-1.5 font-num text-muted-foreground text-xs tabular-nums">
-        <span className="w-7 shrink-0 text-foreground/80">{showDay && weekday(start)}</span>
+        <span className="w-7 shrink-0 text-foreground">{showDay && weekday(start)}</span>
         {hhmm(start)}–{hhmm(b.segment.end)}
       </span>
       <button

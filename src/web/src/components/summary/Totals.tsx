@@ -98,8 +98,9 @@ export function Totals({
   ];
   return (
     // Each figure spans three rows of the shared grid (subgrid), so labels, values and the lines
-    // under them align across figures even though the lead value is set larger
-    <dl className="grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-y-0.5">
+    // under them align across figures even though the lead value is set larger. Figures are set
+    // apart by the column gap and their value sizes, not rules
+    <dl className="grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-x-6 gap-y-0.5">
       {figures.map((f) => (
         <FigureItem key={f.label} figure={f} />
       ))}
@@ -117,7 +118,7 @@ const VALUE_CLASS: Record<Tier, string> = {
 /** A figure as label, value and the line under it, weighted by its tier. */
 function FigureItem({ figure: f }: { figure: Figure }) {
   return (
-    <div className="row-span-3 mb-3 grid min-w-0 grid-rows-subgrid items-end border-l pr-2 pl-4">
+    <div className="row-span-3 mb-3 grid min-w-0 grid-rows-subgrid items-end">
       <dt className="flex items-center gap-1.5 text-muted-foreground text-xs">
         {f.node && <MomentNode pr={f.node === "pr"} />}
         {f.hint ? <Hint text={f.hint}>{f.label}</Hint> : f.label}

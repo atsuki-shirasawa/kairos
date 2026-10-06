@@ -135,7 +135,7 @@ function DayHeading({ day, today, figures }: { day: number; today: boolean; figu
           {/* Circle today's number in indigo (the familiar calendar-app mark) */}
           <span
             className={cn(
-              "font-num font-semibold text-lg leading-7",
+              "font-num font-semibold text-[17px] leading-7",
               today
                 ? "-ml-1 inline-flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground"
                 : "text-foreground",
@@ -156,7 +156,7 @@ function DayStats({ figures }: { figures: DayFigures }) {
   const f = formatMessages();
   return (
     <span className="@min-[9rem]:flex hidden min-w-0 items-center gap-2 overflow-hidden font-num text-[11px] text-muted-foreground leading-4">
-      <span className="text-foreground/80">{durationLabel(busy)}</span>
+      <span className="text-foreground">{durationLabel(busy)}</span>
       {/* Nodes keep narrow columns short; with room, the words say what the numbers count */}
       {commits > 0 && (
         <span className="inline-flex @min-[20rem]:hidden items-center gap-1">
@@ -187,18 +187,18 @@ function DayTooltip({ day, figures }: { day: number; figures: DayFigures }) {
   return (
     <TooltipContent side="bottom" className="flex-col items-start gap-0.5 font-num">
       <p className="font-medium">{dateLabel(day)}</p>
-      <p className="opacity-80">
+      <p className="opacity-70">
         {m.blocksWork(f.blocks(figures.counted), durationLabel(busy))}
         {activity?.claudeMs ? m.claudeTotal(durationLabel(activity.claudeMs)) : ""}
       </p>
-      {usage && <p className="opacity-80">{usageText(usage)}</p>}
+      {usage && <p className="opacity-70">{usageText(usage)}</p>}
       {(commits > 0 || prs > 0 || trouble > 0) && (
-        <p className="opacity-80">
+        <p className="opacity-70">
           {f.commitsPrs(commits, prs)}
           {trouble > 0 && `${f.separator}${f.trouble(trouble)}`}
         </p>
       )}
-      <p className="opacity-60">{m.clickForDay}</p>
+      <p className="opacity-70">{m.clickForDay}</p>
     </TooltipContent>
   );
 }

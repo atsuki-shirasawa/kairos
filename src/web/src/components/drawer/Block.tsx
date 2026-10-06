@@ -16,8 +16,8 @@ export function Block({
 }) {
   return (
     <section>
-      {/* A rule extends right of the heading, marking block boundaries with a line rather than a surface */}
-      <div className="mb-3 flex min-h-7 items-center gap-3">
+      {/* No rule or surface: the drawer's spacing alone separates blocks, so the content isn't boxed in twice */}
+      <div className="mb-2 flex min-h-7 items-center gap-3">
         <h3
           className={cn(
             "shrink-0 font-semibold text-xs tracking-wide",
@@ -26,8 +26,7 @@ export function Block({
         >
           {title}
         </h3>
-        <span className="h-px flex-1 bg-border" />
-        {action}
+        {action && <div className="ml-auto flex items-center gap-2">{action}</div>}
       </div>
       {children}
     </section>

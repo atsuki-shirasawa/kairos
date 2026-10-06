@@ -102,7 +102,7 @@ export function DatePicker({
           )}
           title={range.week ? m.isoWeekTitle(range.week.slice(1)) : undefined}
         >
-          <span className="truncate font-num font-semibold text-lg tracking-tight">
+          <span className="truncate font-num font-semibold text-[17px] tracking-tight">
             {range.title}
           </span>
           {range.sub && <span className="text-muted-foreground text-sm">{range.sub}</span>}
@@ -154,7 +154,7 @@ export function DatePicker({
         >
           <thead>
             <tr>
-              <th className="w-7 font-normal text-[10px] text-muted-foreground" title={m.isoWeek}>
+              <th className="w-7 font-normal text-[11px] text-muted-foreground" title={m.isoWeek}>
                 <span className="sr-only">{m.weekNumber}</span>W
               </th>
               {weekdays().map((d) => (
@@ -167,7 +167,7 @@ export function DatePicker({
           <tbody>
             {weeks.map((week) => (
               <tr key={week[0]}>
-                <td className="text-center font-num text-[10px] text-muted-foreground">
+                <td className="text-center font-num text-[11px] text-muted-foreground">
                   {isoWeek(week[0] ?? month)}
                 </td>
                 {week.map((day, i) => {

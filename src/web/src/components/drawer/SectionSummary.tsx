@@ -34,7 +34,17 @@ export function SectionSummary({
     <Block
       title={t.sectionSummary}
       emphasis
-      action={section.body ? button(t.regenerate, RefreshCw) : null}
+      action={
+        section.body ? (
+          <>
+            {/* Beside the button that would rewrite it, rather than on a line of its own */}
+            {section.model && (
+              <span className="text-muted-foreground text-xs">{t.madeWith(section.model)}</span>
+            )}
+            {button(t.regenerate, RefreshCw)}
+          </>
+        ) : null
+      }
     >
       {section.body ? (
         <SummaryBody section={section} body={section.body} repo={s.project?.repo} />
@@ -73,7 +83,7 @@ function SummarizeButton({
   );
 }
 
-/** The summary text, then whether it is stale and which model wrote it. */
+/** The summary text, then whether it is stale. */
 function SummaryBody({
   section,
   body,
@@ -86,20 +96,14 @@ function SummaryBody({
   const t = drawerMessages();
   return (
     <>
-      {/* The most-read part of the drawer, so only this gets a surface. Kept neutral: indigo means
-          "selected", and the title above already carries the project color */}
-      <div className="rounded-r-lg border-foreground/15 border-l-[3px] bg-muted/60 py-3 pr-4 pl-4">
-        <Markdown
-          issueBaseUrl={issueBaseUrl(repo)}
-          className="text-[15px] leading-7 [&_li+li]:mt-1 [&_li>ol]:mt-1 [&_li>ul]:mt-1 [&_strong]:font-semibold"
-        >
-          {body}
-        </Markdown>
-      </div>
-      <p className="mt-2 text-muted-foreground text-xs">
-        {section.stale && t.staleSummary}
-        {section.model && t.madeWith(section.model)}
-      </p>
+      {/* The most-read part of the drawer stands out by its larger type alone, not a surface */}
+      <Markdown
+        issueBaseUrl={issueBaseUrl(repo)}
+        className="text-[15px] leading-7 [&_li+li]:mt-1 [&_li>ol]:mt-1 [&_li>ul]:mt-1 [&_strong]:font-semibold"
+      >
+        {body}
+      </Markdown>
+      {section.stale && <p className="mt-2 text-muted-foreground text-xs">{t.staleSummary}</p>}
     </>
   );
 }

@@ -83,7 +83,7 @@ export const drawerMessages = defineMessages({
     summarizing: "Summarizing…",
     sectionSummary: "Summary",
     regenerate: "Regenerate",
-    staleSummary: "Work continued after this summary. ",
+    staleSummary: "Work continued after this summary.",
     madeWith: (model: string) => `Made with ${model}`,
     summarizingNote: "Summarizing (takes about 20 seconds).",
     noSummaryYet: "No summary yet. One is made automatically 30 minutes after work stops.",
