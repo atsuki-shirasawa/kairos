@@ -267,7 +267,16 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   block, which clips at its border. The day view adds a lane on the right of each block
   (`min(38%, 24rem)`, a faint rule on its left) labeling each node with its time, short SHA or PR
   number and title; labels push apart to avoid overlapping and end in "+n more" when they run out
-  of room. The block's text keeps a 72ch measure beside the lane
+  of room. The block's text keeps a 72ch measure beside the lane. The block's tooltip lists the
+  same (up to six), which is where the week view shows their titles; screen readers get them
+  (up to eight) through the button's description, since the nodes are drawn for the eye only
+- **The node is the app's word for commit and PR.** Wherever a count or list of them appears (day
+  headers, the drawer's figures, Session flow rows, Outcomes, list cells, the summary's totals)
+  it uses the same ring and filled node (`components/MomentNode.tsx`), not icons. The drawer's
+  Outcomes list is in time order with the nodes on a thin `line` rule, like the block's edge
+- **Summary totals:** three tiers. Working time leads (28px); outcomes (commits, PRs, with their
+  nodes) follow in `ink` (20px); spend (tokens, cost) is smaller (16px) and `muted-ink`, as
+  context rather than achievement
 - **Drawer:** the selected section's summary first (on a neutral `muted` surface with a faint
   `ink` rule; its heading in `ink` rather than muted), then session flow, outcomes, conversation
   (collapsed at first) and numbers
