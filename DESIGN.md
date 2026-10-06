@@ -234,6 +234,8 @@ A work block's fill is the project color mixed into `block-base` in `oklch`:
 - Concurrent blocks sit side by side; stacked blocks indent 8px so the colored edge below stays visible
 - **Day column headers** put the weekday above the date number: beside it, "5 月" reads as May in Japanese
 - **Drawer** opens from the right with 20px padding; below `lg` it overlays the screen with a backdrop
+- **Toolbar** never overflows: below `md` (a half-screen window) the wordmark and dividers go,
+  search shrinks to its icon until focused, and its results span the screen. No control is dropped
 - **Toolbar** holds only view switching, date navigation, search, report copy and filters. Theme,
   language and the shortcut list live in the "⋯" menu
 
@@ -264,8 +266,11 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
 - **Moments (commit and PR nodes):** read like a git graph: the block's colored edge is the branch,
   and each commit is a 7px `ink` ring (filled with `surface`) hanging just inside it at the height
   of the minute it was made; a PR is the same node filled with `ink`. Nodes stay a radius inside the
-  block, which clips at its border. The day view adds a lane on the right of each block
-  (`min(38%, 24rem)`, a faint rule on its left) labeling each node with its time, short SHA or PR
+  block, which clips at its border. Moments less than 10px apart (a 7px node plus a 3px gap) merge
+  into one pill spanning them, 3px longer per extra moment and filled when it holds a PR, so a burst
+  of commits never reads as a single node. The day view adds a lane on the right of each block
+  (`min(38%, 24rem)`, a faint rule on its left; only on blocks at least 36rem wide with room for
+  two labels, so side-by-side and stacked blocks on a busy day fall back to the tooltip) labeling each node with its time, short SHA or PR
   number and title; labels push apart to avoid overlapping and end in "+n more" when they run out
   of room. The block's text keeps a 72ch measure beside the lane. The block's tooltip lists the
   same (up to six), which is where the week view shows their titles; screen readers get them
@@ -273,7 +278,7 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
 - **The node is the app's word for commit and PR.** Wherever a count or list of them appears (day
   headers, the drawer's figures, Session flow rows, Outcomes, list cells, the summary's totals)
   it uses the same ring and filled node (`components/MomentNode.tsx`), not icons. The drawer's
-  Outcomes list is in time order with the nodes on a thin `line` rule, like the block's edge
+  Outcomes list is in time order with the nodes on a thin rule (`ink` at 20%), like the block's edge
 - **Summary totals:** three tiers. Working time leads (28px); outcomes (commits, PRs, with their
   nodes) follow in `ink` (20px); spend (tokens, cost) is smaller (16px) and `muted-ink`, as
   context rather than achievement
