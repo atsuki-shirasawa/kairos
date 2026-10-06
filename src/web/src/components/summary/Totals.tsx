@@ -99,12 +99,16 @@ export function Totals({
   return (
     // Each figure spans three rows of the shared grid (subgrid), so labels, values and the lines
     // under them align across figures even though the lead value is set larger. Figures are set
-    // apart by the column gap and their value sizes, not rules
-    <dl className="grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-x-6 gap-y-0.5">
-      {figures.map((f) => (
-        <FigureItem key={f.label} figure={f} />
-      ))}
-    </dl>
+    // apart by the column gap and their value sizes, not rules.
+    // Columns step 2 → 3 → 5 with the width instead of auto-fitting: auto-fit left cost alone on a
+    // second row in a half-screen window, while 3 + 2 keeps time and results above what they cost
+    <div className="@container">
+      <dl className="grid @[26rem]:grid-cols-3 @[44rem]:grid-cols-5 grid-cols-2 gap-x-6 gap-y-0.5">
+        {figures.map((f) => (
+          <FigureItem key={f.label} figure={f} />
+        ))}
+      </dl>
+    </div>
   );
 }
 
