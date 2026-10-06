@@ -99,7 +99,7 @@ describe("flowWindow", () => {
 });
 
 describe("splitOutcomes", () => {
-  test("puts PRs first and keeps outcomes within the grace period in the section", () => {
+  test("keeps outcomes within the grace period in the section, in time order", () => {
     const s = section(DAY0, DAY0 + H);
     const late = artifact(DAY0 + H + ARTIFACT_GRACE_MS);
     const tooLate = artifact(DAY0 + H + ARTIFACT_GRACE_MS + 1);
@@ -108,6 +108,14 @@ describe("splitOutcomes", () => {
     const { here, rest } = splitOutcomes([pr], [late, tooLate, undated], s);
     expect(here).toEqual([pr, late]);
     expect(rest).toEqual([tooLate, undated]);
+  });
+
+  test("orders by time across PRs and commits, PRs first on a tie", () => {
+    const s = section(DAY0, DAY0 + H);
+    const early = artifact(DAY0 + 10);
+    const pr = artifact(DAY0 + 20, "pr");
+    const tie = artifact(DAY0 + 20);
+    expect(splitOutcomes([pr], [tie, early], s).here).toEqual([early, pr, tie]);
   });
 });
 

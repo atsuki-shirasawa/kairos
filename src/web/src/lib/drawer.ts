@@ -50,13 +50,18 @@ export function inSection(a: Artifact, section: Section): boolean {
   return a.ts !== null && a.ts >= section.start && a.ts <= section.end + ARTIFACT_GRACE_MS;
 }
 
-/** The session's PRs then commits, split into those from the section and the rest. */
+/**
+ * The session's PRs and commits in the order they were made (undated ones last), split into those
+ * from the section and the rest. Time order, because the drawer draws them as nodes on one line.
+ */
 export function splitOutcomes(
   prs: Artifact[],
   commits: Artifact[],
   section: Section,
 ): { here: Artifact[]; rest: Artifact[] } {
-  const all = [...prs, ...commits];
+  const at = (a: Artifact) => a.ts ?? Number.POSITIVE_INFINITY;
+  // PRs first among equal times (the stable sort keeps them ahead of commits)
+  const all = [...prs, ...commits].sort((a, b) => (at(a) === at(b) ? 0 : at(a) - at(b)));
   return {
     here: all.filter((a) => inSection(a, section)),
     rest: all.filter((a) => !inSection(a, section)),
@@ -92,6 +97,18 @@ export function prLinkParts(a: Artifact): { num: string | undefined; repo: strin
     // PRs whose title could not be captured (e.g. created with `--fill`) are stored as "#number repository"
     repo: /^#\d+\s+(.+)$/.exec(a.title ?? "")?.[1],
   };
+}
+
+/**
+ * How a commit or PR is referred to in a short line: "#123" for a PR, the short SHA for a commit,
+ * or null when neither is known.
+ */
+export function artifactRef(a: Artifact): string | null {
+  if (a.kind === "pr") {
+    const { num } = prLinkParts(a);
+    return num ? `#${num}` : null;
+  }
+  return shortSha(a);
 }
 
 /** The short SHA of a commit, or null for commits known only by their subject. */

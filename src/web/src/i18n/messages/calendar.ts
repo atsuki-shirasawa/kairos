@@ -20,6 +20,10 @@ export const calendarMessages = defineMessages({
     notSummarized: "Not summarized yet, so the first prompt is shown as the heading",
     /** Last row of a block's commits and PRs in the day view, for those that don't fit. */
     moreMoments: (n: number) => `+${n} more`,
+    /** A commit or PR for screen readers; `ref` is "#123" or a short SHA when known. */
+    momentAria: (pr: boolean, time: string, ref: string | null, title: string | null) =>
+      `${pr ? "PR" : "Commit"}${ref ? ` ${ref}` : ""} at ${time}${title ? `: ${title}` : ""}`,
+    momentSeparator: "; ",
   },
   ja: {
     openDay: (date: string) => `${date}を日表示で開く`,
@@ -37,5 +41,8 @@ export const calendarMessages = defineMessages({
     notMatching: "絞り込みの条件に合いません",
     notSummarized: "要約前のため、最初の発言を見出しにしています",
     moreMoments: (n: number) => `ほか ${n} 件`,
+    momentAria: (pr: boolean, time: string, ref: string | null, title: string | null) =>
+      `${time} ${pr ? "PR" : "コミット"}${ref ? ` ${ref}` : ""}${title ? `「${title}」` : ""}`,
+    momentSeparator: "、",
   },
 });

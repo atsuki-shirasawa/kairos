@@ -1,7 +1,6 @@
 import type { Activity, Section, SessionDetail, Usage } from "@shared/api.ts";
-import { GitCommitHorizontal, GitPullRequest } from "lucide-react";
+import { OutcomeTally } from "@/components/MomentNode.tsx";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
-import { formatMessages } from "@/i18n/messages/format.ts";
 import { dateLabel, durationLabel, hhmm, isSameDay, relativeDay } from "@/lib/dates.ts";
 import { costLabel, tokensLabel, troubleCount, troubleDetail } from "@/lib/format.ts";
 import { Hint } from "../Hint.tsx";
@@ -73,35 +72,12 @@ function KeyFigures({ usage: u, activity: a }: { usage: Usage | null; activity: 
           {costLabel(u.costUsd)}
         </Hint>
       )}
-      {a.commits + a.prs > 0 && <OutcomeCounts commits={a.commits} prs={a.prs} />}
+      {a.commits + a.prs > 0 && <OutcomeTally commits={a.commits} prs={a.prs} />}
       {trouble > 0 && (
         <Hint text={troubleDetail(a)} className="whitespace-nowrap text-foreground/80">
           {t.troubleCount(trouble)}
         </Hint>
       )}
     </p>
-  );
-}
-
-/** Commit and PR counts as icons rather than words, keeping the line short as on the calendar's day headers. */
-function OutcomeCounts({ commits, prs }: { commits: number; prs: number }) {
-  return (
-    <Hint
-      text={formatMessages().commitsPrs(commits, prs)}
-      className="inline-flex items-center gap-1.5"
-    >
-      {commits > 0 && (
-        <span className="inline-flex items-center gap-0.5">
-          <GitCommitHorizontal className="size-3" />
-          {commits}
-        </span>
-      )}
-      {prs > 0 && (
-        <span className="inline-flex items-center gap-0.5 text-primary">
-          <GitPullRequest className="size-3" />
-          {prs}
-        </span>
-      )}
-    </Hint>
   );
 }

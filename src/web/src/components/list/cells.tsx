@@ -1,7 +1,6 @@
 // The number cells of the table. Each renders the same way in a block row and in a total row.
 import type { Activity, Usage } from "@shared/api.ts";
-import { GitCommitHorizontal, GitPullRequest } from "lucide-react";
-import { formatMessages } from "@/i18n/messages/format.ts";
+import { OutcomeTally } from "@/components/MomentNode.tsx";
 import { listMessages } from "@/i18n/messages/list.tsx";
 import {
   cacheRate,
@@ -47,28 +46,10 @@ export function CacheCell({ usage: u }: { usage: Usage | null }) {
   return rate === null ? dash : `${Math.round(rate * 100)}%`;
 }
 
-/** Commits and PRs as icons with counts; empty when there were none. */
+/** Commits and PRs as nodes with counts; empty when there were none. */
 export function OutcomesCell({ activity: a }: { activity: Activity | null }) {
   if (!a || (a.commits === 0 && a.prs === 0)) return null;
-  return (
-    <Hint
-      className="inline-flex items-center justify-end gap-2"
-      text={formatMessages().commitsPrs(a.commits, a.prs)}
-    >
-      {a.commits > 0 && (
-        <span className="inline-flex items-center gap-0.5">
-          <GitCommitHorizontal className="size-3.5 text-muted-foreground" />
-          {a.commits}
-        </span>
-      )}
-      {a.prs > 0 && (
-        <span className="inline-flex items-center gap-0.5 text-primary">
-          <GitPullRequest className="size-3.5" />
-          {a.prs}
-        </span>
-      )}
-    </Hint>
-  );
+  return <OutcomeTally commits={a.commits} prs={a.prs} className="justify-end" />;
 }
 
 /** Files edited, with tool calls and subagents on hover. */

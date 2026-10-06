@@ -1,7 +1,9 @@
 import type { Section, SessionDetail } from "@shared/api.ts";
 import { useState } from "react";
+import { MomentNode } from "@/components/MomentNode.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
+import { formatMessages } from "@/i18n/messages/format.ts";
 import { hhmm } from "@/lib/dates.ts";
 import { flowWindow, spansDays } from "@/lib/drawer.ts";
 import { cn } from "@/lib/utils.ts";
@@ -9,6 +11,8 @@ import { Block } from "./Block.tsx";
 
 /** With more periods than this, show only those around the selected one and collapse the rest. */
 const FLOW_LIMIT = 6;
+/** Nodes a flow row draws for its commits and PRs before summing the rest as "+n". */
+const NODE_LIMIT = 5;
 
 /** Whether the session has anything for the flow block: several periods, a recap, or a continuation. */
 export function hasFlow(s: SessionDetail): boolean {
@@ -121,7 +125,30 @@ function FlowItem({
       >
         {x.headline}
       </span>
+      <FlowMoments commits={x.activity.commits} prs={x.activity.prs} />
     </button>
+  );
+}
+
+/**
+ * A period's commits and PRs as nodes at the end of its row, so the periods that produced
+ * something stand out in the flow as they do on the calendar. PRs first, being the milestones.
+ */
+function FlowMoments({ commits, prs }: { commits: number; prs: number }) {
+  const total = commits + prs;
+  if (total === 0) return null;
+  const nodes = Array.from({ length: Math.min(total, NODE_LIMIT) }, (_, i) => i < prs);
+  return (
+    <span
+      className="flex shrink-0 items-center gap-0.5 self-center font-num text-[11px] text-muted-foreground"
+      title={formatMessages().commitsPrs(commits, prs)}
+    >
+      {nodes.map((pr, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: identical nodes, only their count matters
+        <MomentNode key={i} pr={pr} />
+      ))}
+      {total > NODE_LIMIT && <span className="ml-0.5">+{total - NODE_LIMIT}</span>}
+    </span>
   );
 }
 

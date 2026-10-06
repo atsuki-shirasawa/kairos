@@ -1,5 +1,7 @@
 import type { CalendarSession, Project } from "@shared/api.ts";
+import { useId } from "react";
 import { Markdown } from "@/components/Markdown.tsx";
+import { MomentNode } from "@/components/MomentNode.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip.tsx";
 import { calendarMessages } from "@/i18n/messages/calendar.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
@@ -15,6 +17,7 @@ import {
 } from "@/lib/calendarGrid.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { dateLabel, durationLabel, hhmm } from "@/lib/dates.ts";
+import { artifactRef } from "@/lib/drawer.ts";
 import type { PlacedBlock } from "@/lib/layout.ts";
 import { cn } from "@/lib/utils.ts";
 import { INDENT_PX, LINE_CLAMP } from "./constants.ts";
@@ -25,6 +28,13 @@ const META_MIN_PX = 52;
 const META_ROW_PX = 18;
 /** In the day view, blocks with this much visible height also show the summary body. */
 const BODY_MIN_PX = 96;
+/** Commits and PRs the tooltip lists before summing the rest as "+n more". */
+const TOOLTIP_MOMENTS = 6;
+/**
+ * Commits and PRs read out to screen readers before summing the rest. A busy morning can hold a
+ * dozen or more, and hearing every subject on each block would bury the block's own label.
+ */
+const SPOKEN_MOMENTS = 8;
 /** Height of one label in the day view's lane of commits and PRs. */
 const LANE_ROW_PX = 18;
 /**
@@ -88,6 +98,7 @@ export function Block({
         : geo.lines;
   const moments = blockMoments(block, hourPx, geo.filledPx);
   const lane = detailed && moments.length > 0;
+  const momentsId = useId();
 
   return (
     <Tooltip>
@@ -112,9 +123,11 @@ export function Block({
               dateLabel(block.dayStart),
               range,
             )}
+            aria-describedby={moments.length > 0 ? momentsId : undefined}
             className="absolute inset-0 z-[1] outline-none"
           />
         </TooltipTrigger>
+        <MomentsDescription id={momentsId} moments={moments} />
         {geo.stretched && <UnfilledEdge filledPx={geo.filledPx} />}
         <BlockHeading label={label} bold={!dim || selected} short={geo.short} lines={lines} />
         {meta && <BlockMeta block={block} range={range} detailed={detailed} />}
@@ -131,6 +144,7 @@ export function Block({
         durationMs={block.end - block.start}
         commits={commits}
         prs={prs}
+        moments={moments}
         faded={faded}
         dim={dim}
       />
@@ -300,30 +314,6 @@ function MomentTicks({ moments }: { moments: Moment[] }) {
   ));
 }
 
-/** One commit (ring) or PR (filled) node; the lane repeats it as the label's bullet. */
-function MomentNode({
-  pr,
-  className,
-  style,
-}: {
-  pr: boolean;
-  className?: string;
-  style?: React.CSSProperties;
-}) {
-  return (
-    <span
-      className={cn(
-        "pointer-events-none shrink-0 rounded-full border-[1.5px] border-foreground/80",
-        pr ? "bg-foreground/80" : "bg-card",
-        "size-[7px]",
-        className,
-      )}
-      style={style}
-      aria-hidden
-    />
-  );
-}
-
 /**
  * The day view's lane on the right of a block, labeling each commit and PR at the height it was
  * made. The drawer lists the same outcomes, so this is visual only.
@@ -352,19 +342,41 @@ function MomentLane({ rows }: { rows: MomentRow[] }) {
   );
 }
 
-/** One commit or PR in the lane: its time, short SHA or PR number, and title. */
+/** One commit or PR in the lane or the tooltip: its node, time, short SHA or PR number, and title. */
 function MomentLabel({ moment: { artifact } }: { moment: Moment }) {
   const pr = artifact.kind === "pr";
-  const ref = pr ? `#${/\/pull\/(\d+)/.exec(artifact.ref)?.[1] ?? "?"}` : artifact.ref.slice(0, 7);
+  const ref = artifactRef(artifact);
   return (
     <>
       <MomentNode pr={pr} />
       <span className="shrink-0">{artifact.ts !== null ? hhmm(artifact.ts) : ""}</span>
-      <span className={cn("shrink-0", pr && "font-medium text-foreground")}>{ref}</span>
+      {ref && <span className={cn("shrink-0", pr && "font-medium text-foreground")}>{ref}</span>}
       {artifact.title && (
         <span className="truncate font-sans text-foreground/85">{artifact.title}</span>
       )}
     </>
+  );
+}
+
+/**
+ * The block's commits and PRs as text for screen readers, which the nodes and lane (drawn for the
+ * eye only) would otherwise leave out. The block's button points at it with aria-describedby.
+ */
+function MomentsDescription({ id, moments }: { id: string; moments: Moment[] }) {
+  if (moments.length === 0) return null;
+  const m = calendarMessages();
+  const more = moments.length - SPOKEN_MOMENTS;
+  const text = moments
+    .slice(0, SPOKEN_MOMENTS)
+    .map(({ artifact: a }) =>
+      m.momentAria(a.kind === "pr", a.ts !== null ? hhmm(a.ts) : "", artifactRef(a), a.title),
+    )
+    .concat(more > 0 ? [m.moreMoments(more)] : [])
+    .join(m.momentSeparator);
+  return (
+    <span id={id} className="sr-only">
+      {text}
+    </span>
   );
 }
 
@@ -387,6 +399,7 @@ function BlockTooltip({
   durationMs,
   commits,
   prs,
+  moments,
   faded,
   dim,
 }: {
@@ -397,6 +410,7 @@ function BlockTooltip({
   durationMs: number;
   commits: number;
   prs: number;
+  moments: Moment[];
   faded: boolean;
   dim: boolean;
 }) {
@@ -410,9 +424,34 @@ function BlockTooltip({
         {session.label ? f.sessionLabel(session.label) : ""}
       </p>
       <p className="font-num opacity-80">{m.rangeDuration(range, durationLabel(durationMs))}</p>
-      {(commits > 0 || prs > 0) && <p className="opacity-80">{f.commitsPrs(commits, prs)}</p>}
+      {moments.length > 0 ? (
+        <TooltipMoments moments={moments} />
+      ) : (
+        (commits > 0 || prs > 0) && <p className="opacity-80">{f.commitsPrs(commits, prs)}</p>
+      )}
       {faded && <p className="opacity-60">{m.notMatching}</p>}
       {dim && <p className="opacity-60">{m.notSummarized}</p>}
     </TooltipContent>
+  );
+}
+
+/**
+ * The block's commits and PRs in the tooltip, one per line. In the week view this is the only
+ * place their titles show without opening the drawer.
+ */
+function TooltipMoments({ moments }: { moments: Moment[] }) {
+  const shown = moments.slice(0, TOOLTIP_MOMENTS);
+  const more = moments.length - shown.length;
+  return (
+    // The tooltip inverts the theme, so the nodes take its colors instead of the page's
+    <ul className="mt-1 w-full space-y-0.5 font-num [--card:var(--popover-foreground)] [--foreground:var(--background)]">
+      {shown.map((moment, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: a ref can repeat (a commit amended in place)
+        <li key={i} className="flex min-w-0 items-center gap-1.5 opacity-90">
+          <MomentLabel moment={moment} />
+        </li>
+      ))}
+      {more > 0 && <li className="opacity-60">{calendarMessages().moreMoments(more)}</li>}
+    </ul>
   );
 }

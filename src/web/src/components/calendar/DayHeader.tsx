@@ -1,5 +1,5 @@
 import type { Activity, Usage } from "@shared/api.ts";
-import { GitCommitHorizontal, GitPullRequest } from "lucide-react";
+import { MomentNode } from "@/components/MomentNode.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip.tsx";
 import { calendarMessages } from "@/i18n/messages/calendar.ts";
 import { dateMessages } from "@/i18n/messages/dates.ts";
@@ -157,16 +157,16 @@ function DayStats({ figures }: { figures: DayFigures }) {
   return (
     <span className="@min-[9rem]:flex hidden min-w-0 items-center gap-2 overflow-hidden font-num text-[11px] text-muted-foreground leading-4">
       <span className="text-foreground/80">{durationLabel(busy)}</span>
-      {/* Icons keep narrow columns short; with room, the words say what the numbers count */}
+      {/* Nodes keep narrow columns short; with room, the words say what the numbers count */}
       {commits > 0 && (
-        <span className="inline-flex @min-[20rem]:hidden items-center gap-0.5">
-          <GitCommitHorizontal className="size-3" />
+        <span className="inline-flex @min-[20rem]:hidden items-center gap-1">
+          <MomentNode pr={false} />
           {commits}
         </span>
       )}
       {prs > 0 && (
-        <span className="inline-flex @min-[20rem]:hidden items-center gap-0.5 text-primary">
-          <GitPullRequest className="size-3" />
+        <span className="inline-flex @min-[20rem]:hidden items-center gap-1">
+          <MomentNode pr />
           {prs}
         </span>
       )}

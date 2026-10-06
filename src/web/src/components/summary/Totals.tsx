@@ -8,11 +8,21 @@ import { type Comparable, comparable, signed } from "@/lib/periodChange.ts";
 import type { PeriodSummary } from "@/lib/summary.ts";
 import { cn } from "@/lib/utils.ts";
 import { Hint } from "../Hint.tsx";
+import { MomentNode } from "../MomentNode.tsx";
 import { costText } from "./shared.tsx";
+
+/**
+ * How much weight a figure gets: the time worked leads, what came of it (commits and PRs) follows,
+ * and what it cost (tokens, money) is set quietest, as context rather than achievement.
+ */
+type Tier = "lead" | "outcome" | "spend";
 
 /** One figure of the totals row. */
 interface Figure {
   label: string;
+  tier: Tier;
+  /** Commits and PRs carry the node the calendar marks them with. */
+  node?: "commit" | "pr";
   value: string;
   /** Under the value: the change from the period before, and any detail. */
   sub: React.ReactNode;
@@ -45,6 +55,7 @@ export function Totals({
   const figures: Figure[] = [
     {
       label: m.working,
+      tier: "lead",
       value: durationLabel(s.busyMs),
       sub: (
         <>
@@ -57,15 +68,29 @@ export function Totals({
         </>
       ),
     },
-    { label: m.prs, value: numberLabel(s.prs.length), sub: change("prs", numberLabel) },
-    { label: m.commits, value: numberLabel(s.commits), sub: change("commits", numberLabel) },
+    {
+      label: m.commits,
+      tier: "outcome",
+      node: "commit",
+      value: numberLabel(s.commits),
+      sub: change("commits", numberLabel),
+    },
+    {
+      label: m.prs,
+      tier: "outcome",
+      node: "pr",
+      value: numberLabel(s.prs.length),
+      sub: change("prs", numberLabel),
+    },
     {
       label: m.tokens,
+      tier: "spend",
       value: s.usage ? tokensLabel(s.usage.tokens) : formatMessages().none,
       sub: change("tokens", tokensLabel),
     },
     {
       label: m.cost,
+      tier: "spend",
       value: costText(s.usage),
       hint: s.usage?.unpriced ? l.costNoteUnpriced : l.costNote,
       sub: change("cents", (n) => costLabel(n / 100)),
@@ -75,29 +100,29 @@ export function Totals({
     // Each figure spans three rows of the shared grid (subgrid), so labels, values and the lines
     // under them align across figures even though the lead value is set larger
     <dl className="grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-y-0.5">
-      {/* Working time leads; the rest is what came of it, so it is set a size smaller */}
-      {figures.map((f, i) => (
-        <FigureItem key={f.label} figure={f} lead={i === 0} />
+      {figures.map((f) => (
+        <FigureItem key={f.label} figure={f} />
       ))}
     </dl>
   );
 }
 
-/** A figure as label, value and the line under it. The `lead` figure is set larger. */
-function FigureItem({ figure: f, lead }: { figure: Figure; lead: boolean }) {
+/** Value type by tier: lead largest, outcomes in ink, spend smaller and muted. */
+const VALUE_CLASS: Record<Tier, string> = {
+  lead: "text-[1.75rem] leading-9 text-foreground",
+  outcome: "text-xl leading-7 text-foreground",
+  spend: "text-base leading-7 text-muted-foreground",
+};
+
+/** A figure as label, value and the line under it, weighted by its tier. */
+function FigureItem({ figure: f }: { figure: Figure }) {
   return (
     <div className="row-span-3 mb-3 grid min-w-0 grid-rows-subgrid items-end border-l pr-2 pl-4">
-      <dt className="text-muted-foreground text-xs">
+      <dt className="flex items-center gap-1.5 text-muted-foreground text-xs">
+        {f.node && <MomentNode pr={f.node === "pr"} />}
         {f.hint ? <Hint text={f.hint}>{f.label}</Hint> : f.label}
       </dt>
-      <dd
-        className={cn(
-          "font-num font-semibold text-foreground tabular-nums",
-          lead ? "text-[1.75rem] leading-9" : "text-xl leading-7",
-        )}
-      >
-        {f.value}
-      </dd>
+      <dd className={cn("font-num font-semibold tabular-nums", VALUE_CLASS[f.tier])}>{f.value}</dd>
       <dd className="flex min-h-4 flex-col self-start font-num text-[11px] text-muted-foreground leading-4">
         {f.sub}
       </dd>

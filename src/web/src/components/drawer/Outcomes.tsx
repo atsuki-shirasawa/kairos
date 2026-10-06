@@ -1,6 +1,8 @@
 import type { Artifact, Section, SessionDetail } from "@shared/api.ts";
-import { ExternalLink, GitCommitHorizontal, GitPullRequest } from "lucide-react";
+import { ExternalLink } from "lucide-react";
+import { MomentNode } from "@/components/MomentNode.tsx";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
+import { hhmm } from "@/lib/dates.ts";
 import { prLinkParts, shortSha, splitOutcomes } from "@/lib/drawer.ts";
 import { Block } from "./Block.tsx";
 
@@ -52,23 +54,24 @@ function SectionOutcomes({ items }: { items: Artifact[] }) {
   );
 }
 
-/** PRs as links and commits as short SHA plus subject, one per line. */
+/**
+ * PRs as links and commits as short SHA plus subject, one per line in time order. Each hangs on a
+ * thin line as a node with its time, the way the calendar marks them on a block's edge.
+ */
 function ArtifactList({ items }: { items: Artifact[] }) {
   return (
-    <ul className="space-y-2 text-sm leading-snug">
-      {items.map((a) =>
-        a.kind === "pr" ? (
-          <li key={a.ref} className="flex items-baseline gap-2">
-            <GitPullRequest className="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
-            <PrLink artifact={a} />
-          </li>
-        ) : (
-          <li key={a.ref} className="flex items-baseline gap-2">
-            <GitCommitHorizontal className="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
-            <CommitLine artifact={a} />
-          </li>
-        ),
-      )}
+    // The ::before is the line the nodes hang on, from the first node to the last
+    <ul className="relative space-y-2 text-sm leading-snug before:absolute before:top-2 before:bottom-2 before:left-[3px] before:w-px before:bg-border">
+      {items.map((a) => (
+        <li key={`${a.kind}-${a.ref}`} className="relative flex items-baseline gap-2.5">
+          {/* On the first line's middle, so it stays put when a long title wraps */}
+          <MomentNode pr={a.kind === "pr"} className="mt-1.5 self-start" />
+          <span className="w-9 shrink-0 font-num text-muted-foreground text-xs">
+            {a.ts !== null ? hhmm(a.ts) : ""}
+          </span>
+          {a.kind === "pr" ? <PrLink artifact={a} /> : <CommitLine artifact={a} />}
+        </li>
+      ))}
     </ul>
   );
 }
