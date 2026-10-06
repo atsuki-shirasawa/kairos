@@ -228,6 +228,14 @@ A work block's fill is the project color mixed into `block-base` in `oklch`:
 - Spacing follows Tailwind's 4px scale; most gaps are 2–8px
 - **Calendar:** CSS Grid with a 56px hour column. An hour is never shorter than 48px, or headings
   of short blocks become unreadable. On open, the hour height is chosen so 8:00–20:00 fits the screen
+- **Short work is a mark, not a card.** Work under ten minutes (`MARK_MAX_MS`) is a short bar in
+  its project color (3px tall, 10px wide) in a 14px strip on the left of the day column, at the
+  time it happened; marks closer than 6px are pushed just below each other. They take no column, so
+  quick questions no longer push longer work into narrow side-by-side lanes (on real logs, blocks
+  sitting three or more abreast went from 88 of 257 to 7). Hovering shows the card's tooltip,
+  clicking opens the drawer, and selection gets the `primary` outline. Judged by the real length
+  (a block crossing midnight is whole); the work in progress stays a card. The strip appears only
+  on days that have marks
 - **A block's height is its real length.** Blocks shorter than the minimum height (room for one
   heading) fill only their real length at full strength; the rest is a label area with a faint fill
   (40% of the block fill) and a faint left edge, so the card keeps its shape instead of looking cut off
