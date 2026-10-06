@@ -85,7 +85,9 @@ export function SearchField({
         aria-label={m.label(period)}
         className={cn(
           "peer h-7 w-36 rounded-md border bg-card pr-7 pl-7 text-sm outline-none transition-[width] duration-150 placeholder:text-muted-foreground focus:w-64 focus-visible:border-ring motion-reduce:transition-none",
-          value && "w-64 border-primary/50",
+          // In a narrow window only the icon shows until focused, then it opens to a usable width
+          "max-md:w-7 max-md:pr-0 max-md:focus:w-32 max-md:focus:pr-7 max-md:placeholder:text-transparent",
+          value && "w-64 border-primary/50 max-md:w-32 max-md:pr-7",
         )}
       />
       {value ? (
@@ -103,7 +105,7 @@ export function SearchField({
         </button>
       ) : (
         <kbd
-          className="pointer-events-none absolute right-1.5 rounded border bg-muted px-1 font-num text-[10px] text-muted-foreground leading-4 peer-focus:hidden"
+          className="pointer-events-none absolute right-1.5 rounded border bg-muted px-1 font-num text-[10px] text-muted-foreground leading-4 peer-focus:hidden max-md:hidden"
           aria-hidden
         >
           /
@@ -111,7 +113,9 @@ export function SearchField({
       )}
 
       {open && (
-        <div className="absolute top-9 right-0 z-40 flex max-h-[min(70vh,36rem)] w-[30rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md">
+        // Anchored under the field; in a narrow window the field sits mid-bar, so the results span
+        // the screen instead of running off its left edge
+        <div className="absolute top-9 right-0 z-40 flex max-h-[min(70vh,36rem)] w-[30rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md max-md:fixed max-md:inset-x-2 max-md:top-14 max-md:w-auto max-md:max-w-none">
           <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b px-3 text-xs">
             <span className="font-medium text-muted-foreground">
               {m.allPeriods}

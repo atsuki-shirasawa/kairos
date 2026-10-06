@@ -76,15 +76,17 @@ export function Toolbar({
   onMenuOpen,
 }: Props) {
   return (
-    <header className="flex h-16 shrink-0 items-center gap-3 border-b bg-background px-5">
+    // Below md (a half-screen window) the bar tightens instead of overflowing: the wordmark and
+    // dividers go and search shrinks to its icon, but every control stays
+    <header className="flex h-16 shrink-0 items-center gap-3 border-b bg-background px-5 max-md:gap-2 max-md:px-3">
       <Brand progress={progress} />
-      <span className="h-5 w-px shrink-0 bg-border" aria-hidden />
+      <span className="h-5 w-px shrink-0 bg-border max-md:hidden" aria-hidden />
       <PeriodNav view={view} onMove={onMove} onToday={onToday} />
       <h1 className="flex min-w-0">
         <DatePicker view={view} anchor={anchor} now={now} projects={projects} onJump={onJump} />
       </h1>
 
-      <div className="ml-auto flex shrink-0 items-center gap-2">
+      <div className="ml-auto flex shrink-0 items-center gap-2 max-md:gap-1">
         <SearchField
           inputRef={searchRef}
           value={filter.q}
@@ -96,7 +98,7 @@ export function Toolbar({
         />
         <ViewToggle view={view} onView={onView} />
         <LayoutToggle layout={layout} onLayout={onLayout} />
-        <span className="mx-1 h-5 w-px bg-border" aria-hidden />
+        <span className="mx-1 h-5 w-px bg-border max-md:hidden" aria-hidden />
         <CopyReportButton view={view} report={report} hasWork={hasWork} />
         <FilterMenu projects={projects} sessions={sessions} filter={filter} onFilter={onFilter} />
         <AppMenu open={menuOpen} onOpenChange={onMenuOpen} theme={theme} onTheme={onTheme} />

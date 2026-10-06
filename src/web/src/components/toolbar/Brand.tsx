@@ -8,8 +8,9 @@ export function Brand({ progress }: { progress: ImportProgress }) {
   return (
     <span className="flex shrink-0 items-center gap-2.5 pr-1">
       <Logo progress={progress} />
-      {/* The one place Syne appears: a wide geometric face, so the name reads apart from the Plex UI */}
-      <span className="font-mark font-semibold text-[21px] text-foreground leading-none tracking-[-0.01em]">
+      {/* The one place Syne appears: a wide geometric face, so the name reads apart from the Plex UI.
+          In a narrow window the mark alone stands for it, leaving the room to the controls */}
+      <span className="font-mark font-semibold text-[21px] text-foreground leading-none tracking-[-0.01em] max-md:hidden">
         Kairos
       </span>
     </span>
