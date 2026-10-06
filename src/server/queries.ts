@@ -41,7 +41,10 @@ const SEARCH_FIELDS: SearchField[] = [
   "branch",
   "prompt",
   "reply",
+  "file",
 ];
+/** A term written as `file:<path>` matches only the paths of files edited in a block. */
+const FILE_PREFIX = "file:";
 const SNIPPET_CHARS = 120;
 
 interface ProjectRow {
@@ -462,6 +465,7 @@ export class Queries {
    * Work blocks matching every space-separated term, across all periods, newest first.
    * Looks at what a person would remember a piece of work by: the summary, the session title and
    * branch, PR and commit titles, and the prompts and replies of the main conversation.
+   * `file:<path>` terms match the paths of files edited in the block instead (and only them).
    * Each term may match a different place; the hit reports the most telling place the first term matched.
    * A plain LIKE scan: on a year of real logs this takes tens of milliseconds, so no FTS index is needed.
    */
@@ -469,9 +473,9 @@ export class Queries {
     const terms = searchTerms(query);
     if (terms.length === 0) return { hits: [], more: false };
     const rows = this.db
-      .query<SearchRow, string[]>(searchSql(terms.length, limit))
-      .all(...terms.map(likePattern));
-    const first = terms[0] ?? "";
+      .query<SearchRow, string[]>(searchSql(terms, limit))
+      .all(...terms.map((t) => likePattern(t.text)));
+    const first = terms[0]?.text ?? "";
     return {
       hits: rows.slice(0, limit).map((r) => toSearchHit(r, first)),
       more: rows.length > limit,
@@ -662,6 +666,16 @@ const SEARCH_SOURCES = `
         FROM messages m JOIN segments g ON g.session_id = m.session_id AND m.ts BETWEEN g.start AND g.end
        WHERE m.kind IN ('prompt', 'assistant') AND m.agent_id IS NULL AND m.is_copy = 0`;
 
+/**
+ * Paths of files edited in each section, subagents included, as `filesEdited` counts them.
+ * Joined only for `file:` terms: plain terms never look at it, and it is another messages scan.
+ */
+const FILE_SOURCE = `
+      UNION ALL
+      SELECT g.session_id, g.start, 'file', m.text
+        FROM messages m JOIN segments g ON g.session_id = m.session_id AND m.ts BETWEEN g.start AND g.end
+       WHERE m.kind = 'tool_use' AND m.tool_name IN (${EDIT_TOOLS}) AND m.text != '' AND m.is_copy = 0`;
+
 /** CASE arms ordering fields by `SEARCH_FIELDS`, so the most telling match comes first. */
 const SEARCH_FIELD_RANK = SEARCH_FIELDS.map((f, i) => `WHEN '${f}' THEN ${i}`).join(" ");
 
@@ -682,9 +696,24 @@ interface SearchRow {
   text: string;
 }
 
-/** The query's lowercased, space-separated terms, up to `SEARCH_MAX_TERMS`. */
-function searchTerms(query: string): string[] {
-  return query.toLowerCase().split(/\s+/).filter(Boolean).slice(0, SEARCH_MAX_TERMS);
+/** One search term: the lowercased text to find, and whether it was a `file:` term. */
+interface SearchTerm {
+  text: string;
+  file: boolean;
+}
+
+/** The query's space-separated terms, up to `SEARCH_MAX_TERMS`. A bare `file:` is dropped. */
+function searchTerms(query: string): SearchTerm[] {
+  return query
+    .toLowerCase()
+    .split(/\s+/)
+    .map((t) =>
+      t.startsWith(FILE_PREFIX)
+        ? { text: t.slice(FILE_PREFIX.length), file: true }
+        : { text: t, file: false },
+    )
+    .filter((t) => t.text !== "")
+    .slice(0, SEARCH_MAX_TERMS);
 }
 
 /** A LIKE pattern matching `term` anywhere, with LIKE's wildcards and escape character escaped. */
@@ -693,15 +722,16 @@ function likePattern(term: string): string {
 }
 
 /**
- * Search SQL for `termCount` terms bound as ?1..?n (from `likePattern`). Only the term count and
- * the internal `limit` shape the SQL; the terms themselves are always bound parameters.
+ * Search SQL for `terms` bound as ?1..?n (from `likePattern`). Only the number of terms, which of
+ * them are `file:` terms and the internal `limit` shape the SQL; the text is always a bound parameter.
  */
-function searchSql(termCount: number, limit: number): string {
-  const conds = Array.from(
-    { length: termCount },
-    (_, i) => `MAX(lower(src.text) LIKE ?${i + 1} ESCAPE '\\')`,
-  ).join(" AND ");
-  return `WITH src AS (${SEARCH_SOURCES}),
+function searchSql(terms: SearchTerm[], limit: number): string {
+  const cond = (t: SearchTerm, i: number) =>
+    `(src.field ${t.file ? "=" : "!="} 'file' AND lower(src.text) LIKE ?${i + 1} ESCAPE '\\')`;
+  const conds = terms.map((t, i) => `MAX(${cond(t, i)})`).join(" AND ");
+  const first = terms[0] ? cond(terms[0], 0) : "0";
+  const sources = SEARCH_SOURCES + (terms.some((t) => t.file) ? FILE_SOURCE : "");
+  return `WITH src AS (${sources}),
          matched AS (
            SELECT src.sid, src.start FROM src
            JOIN sessions s ON s.id = src.sid AND s.prompt_count > 0
@@ -712,7 +742,7 @@ function searchSql(termCount: number, limit: number): string {
                   ROW_NUMBER() OVER (PARTITION BY src.sid, src.start
                                      ORDER BY CASE src.field ${SEARCH_FIELD_RANK} END) AS n
            FROM src JOIN matched USING (sid, start)
-           WHERE lower(src.text) LIKE ?1 ESCAPE '\\'
+           WHERE ${first}
          )
          SELECT b.sid, b.start, g.end, s.project_id, s.label, sm.headline, g.fallback_title,
                 s.custom_title, s.agent_name, s.ai_title, s.first_prompt, b.field, b.text

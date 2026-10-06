@@ -42,6 +42,7 @@ export function SearchField({
   const [focused, setFocused] = useState(false);
   const listRef = useRef<HTMLUListElement>(null);
   const query = value.trim();
+  const marks = highlightTerms(query);
   const open = focused && query !== "";
   // Hidden projects stay hidden here too
   const hits = search.hits.filter(
@@ -129,11 +130,17 @@ export function SearchField({
             {hits.length > 0 && <span className="text-muted-foreground">{m.keys}</span>}
           </div>
           {[...query].length < MIN_SEARCH_CHARS ? (
-            <Note>{m.tooShort(MIN_SEARCH_CHARS)}</Note>
+            <Note>
+              {m.tooShort(MIN_SEARCH_CHARS)}
+              <FileHint />
+            </Note>
           ) : search.error ? (
             <Note className="text-destructive">{m.failed(search.error)}</Note>
           ) : hits.length === 0 ? (
-            <Note>{search.loading ? m.searching : m.noHits}</Note>
+            <Note>
+              {search.loading ? m.searching : m.noHits}
+              {!search.loading && <FileHint />}
+            </Note>
           ) : (
             <ul
               ref={listRef}
@@ -144,7 +151,7 @@ export function SearchField({
                 <li key={`${hit.sessionId}:${hit.start}`} className="px-1">
                   <HitRow
                     hit={hit}
-                    terms={query.split(/\s+/)}
+                    terms={marks}
                     project={hit.projectId !== null ? projects.get(hit.projectId) : undefined}
                     onPick={() => pick(hit)}
                     onKeyDown={(e) => {
@@ -168,6 +175,16 @@ export function SearchField({
       )}
     </search>
   );
+}
+
+/** The words to mark in results: the query's terms, with a `file:` prefix taken off its path. */
+function highlightTerms(query: string): string[] {
+  return query.split(/\s+/).map((t) => t.replace(/^file:/i, ""));
+}
+
+/** How to search by edited file, which nothing else on screen would tell. */
+function FileHint() {
+  return <span className="mt-1 block text-xs">{searchMessages().fileHint}</span>;
 }
 
 function Note({ children, className }: { children: React.ReactNode; className?: string }) {

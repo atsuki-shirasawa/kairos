@@ -8,7 +8,7 @@ export const searchMessages = defineMessages({
   en: {
     placeholder: "Search work",
     label: (u: Unit) =>
-      `Search all work by summary, prompt, PR, commit or branch. Filters ${u === "week" ? "this week" : "this day"} too`,
+      `Search all work by summary, prompt, PR, commit or branch, or by edited file with file:path. Filters ${u === "week" ? "this week" : "this day"} too`,
     clear: "Clear search",
     clearTitle: "Clear search (Esc)",
     allPeriods: "All periods",
@@ -19,6 +19,7 @@ export const searchMessages = defineMessages({
     failed: (message: string) => `Search failed: ${message}`,
     tooShort: (n: number) => `Type at least ${n} characters to search all periods`,
     keys: "↓ to pick · Enter to open",
+    fileHint: "Type file:path to find the work that edited a file (e.g. file:src/api)",
     /** Where the match was found. */
     field: {
       headline: "Headline",
@@ -29,12 +30,13 @@ export const searchMessages = defineMessages({
       commit: "Commit",
       prompt: "Your prompt",
       reply: "Claude's reply",
+      file: "Edited file",
     } satisfies Record<SearchField, string>,
   },
   ja: {
     placeholder: "作業を探す",
     label: (u: Unit) =>
-      `すべての作業を要約・発言・PR・コミット・ブランチで探す。${u === "week" ? "この週" : "この日"}の表示も絞り込む`,
+      `すべての作業を要約・発言・PR・コミット・ブランチで探す。file:パス で編集したファイルからも探せる。${u === "week" ? "この週" : "この日"}の表示も絞り込む`,
     clear: "検索を消す",
     clearTitle: "検索を消す（Esc）",
     allPeriods: "すべての期間",
@@ -44,6 +46,7 @@ export const searchMessages = defineMessages({
     failed: (message: string) => `検索できませんでした: ${message}`,
     tooShort: (n: number) => `すべての期間から探すには ${n} 文字以上入力してください`,
     keys: "↓ で選ぶ・Enter で開く",
+    fileHint: "file:パス で、そのファイルを編集した作業を探せます（例: file:src/api）",
     field: {
       headline: "見出し",
       summary: "要約",
@@ -53,6 +56,7 @@ export const searchMessages = defineMessages({
       commit: "コミット",
       prompt: "あなたの発言",
       reply: "Claude の返答",
+      file: "編集したファイル",
     },
   },
 });

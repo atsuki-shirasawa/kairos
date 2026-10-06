@@ -153,7 +153,7 @@ A recap explains what was done on one project during a shown period (the summary
 |---|---|---|
 | GET | `/api/health` | Liveness check (used by the Launcher) |
 | GET | `/api/calendar?from&to` | Sessions in the period and their sections (start, end, headline, summary body, PRs, prompt count, token usage, activity) |
-| GET | `/api/search?q` | Sections matching every space-separated term across all periods, newest first (up to 50). Looks at headlines, summary bodies, session titles and branches, PR and commit titles, and the main conversation's prompts and replies. A plain `LIKE` scan (tens of ms on real data); queries under 2 characters return nothing |
+| GET | `/api/search?q` | Sections matching every space-separated term across all periods, newest first (up to 50). Looks at headlines, summary bodies, session titles and branches, PR and commit titles, and the main conversation's prompts and replies. A `file:<path>` term matches only the paths of files edited in the section with Edit / Write (subagents included), and plain terms never match them. A plain `LIKE` scan (tens of ms on real data, about 100 ms with `file:`); queries under 2 characters return nothing |
 | GET | `/api/spans?from&to` | Only the start, end and project of work blocks overlapping the period. Used for the "days with records" dots in the date picker; assigning to days is done in the UI's local time |
 | GET | `/api/sessions/:id` | Session details (per-section summaries, artifacts, subagents) |
 | GET | `/api/sessions/:id/messages?cursor&limit` | Paginated conversation |

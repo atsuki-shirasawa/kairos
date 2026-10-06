@@ -6,7 +6,7 @@ A personal web app that turns your Claude Code session history into a calendar, 
 
 - Ingests the logs (`~/.claude/projects/**/*.jsonl`) read-only and stores them in SQLite. Even after Claude Code deletes its logs (30 days by default), Kairos keeps them
 - Automatically summarizes each work block (section) with `claude -p` (haiku)
-- Searches every period by summaries, prompts and replies, PR and commit titles, and branches
+- Searches every period by summaries, prompts and replies, PR and commit titles, and branches; `file:<path>` finds the work that edited a file
 - A summary view with working time, PRs, commits, tokens and estimated cost against the previous period, and per-project recaps written on request
 - Copies the shown period as a Markdown report (by day and project, with PR links) for a stand-up or a weekly report, and copies `claude --resume` for any session
 - Starts in the background whenever you launch Claude Code

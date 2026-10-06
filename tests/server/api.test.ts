@@ -173,6 +173,20 @@ describe("GET /api/search", () => {
     expect((await search("%_")).hits).toEqual([]);
   });
 
+  test("file: matches only the paths of files edited in the block", async () => {
+    const res = await search("file:src/LoginForm");
+    expect(res.hits).toMatchObject([{ sessionId: SID.basic, start: min(0), field: "file" }]);
+    expect(res.hits[0]?.snippet).toContain("LoginForm.tsx");
+    // A plain term doesn't look at file paths, and file: doesn't look anywhere else
+    expect((await search("loginform.tsx")).hits).toEqual([]);
+    expect((await search("file:validate")).hits).toEqual([]);
+    // It combines with plain terms like any other
+    expect((await search("ログイン FILE:loginform")).hits.map((h) => h.field)).toEqual([
+      "headline",
+    ]);
+    expect(await search("file:")).toEqual({ hits: [], more: false });
+  });
+
   test("leaves out sessions without user prompts", async () => {
     // The headless session's only reply is "ok"
     const res = await search("ok");

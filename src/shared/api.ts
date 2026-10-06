@@ -145,7 +145,8 @@ export type SearchField =
   | "pr"
   | "commit"
   | "prompt"
-  | "reply";
+  | "reply"
+  | "file";
 
 /** One work block (section) matching a search, across every period. */
 export interface SearchHit {
