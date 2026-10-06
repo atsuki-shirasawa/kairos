@@ -262,3 +262,20 @@ export function momentRows(moments: Moment[], rowPx: number, heightPx: number): 
   }
   return rows;
 }
+
+/** Least distance between two marks of short work, so each stays visible and clickable. */
+const MARK_GAP_PX = 6;
+
+/**
+ * Y positions of the marks of short work in a column, given their times as y (sorted). Quick
+ * questions often come minutes apart; each is pushed just below the one above so none hides
+ * another, at the cost of a few pixels of time.
+ */
+export function markTops(ys: number[]): number[] {
+  const tops: number[] = [];
+  for (const y of ys) {
+    const prev = tops.at(-1);
+    tops.push(prev === undefined ? y : Math.max(y, prev + MARK_GAP_PX));
+  }
+  return tops;
+}

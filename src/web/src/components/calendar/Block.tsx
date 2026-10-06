@@ -164,7 +164,7 @@ export function Block({
 }
 
 /** "10:00–11:30", or a single time when the block starts and ends in the same minute. */
-function timeRange(block: PlacedBlock): string {
+export function timeRange(block: PlacedBlock): string {
   const from = hhmm(block.dayStart + block.start);
   const to = hhmm(block.dayStart + block.end);
   return from === to ? from : `${from}–${to}`;
@@ -419,8 +419,11 @@ function WorkingDot() {
   );
 }
 
-/** The block's tooltip: heading, project, time and results, and why it looks faded or dim. */
-function BlockTooltip({
+/**
+ * The block's tooltip: heading, project, time and results, and why it looks faded or dim. Marks
+ * (short work drawn on the column's edge) share it, since for them it is the only text shown.
+ */
+export function BlockTooltip({
   label,
   projectName,
   session,

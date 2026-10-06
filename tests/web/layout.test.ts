@@ -18,6 +18,7 @@ import {
   blocksOfDay,
   busyMs,
   columnTracks,
+  isMark,
   layoutDay,
   recordedDays,
 } from "../../src/web/src/lib/layout.ts";
@@ -104,7 +105,7 @@ describe("layoutDay", () => {
     const blocks = layoutDay(
       [
         session("long", [at(9), at(12)]),
-        session("x", [at(10), at(10.1)]),
+        session("x", [at(10), at(10.25)]),
         session("y", [at(10.1), at(10.5)]),
       ],
       DAY0,
@@ -117,19 +118,34 @@ describe("layoutDay", () => {
   });
 
   test("short blocks count as overlapping for their minimum drawn height", () => {
+    // Ten minutes is a card, drawn 25 minutes tall, so b starting 12 minutes later sits beside it
     const blocks = layoutDay(
-      [session("a", [at(9), at(9)]), session("b", [at(9.1), at(9.2)])],
+      [session("a", [at(9), at(9 + 10 / 60)]), session("b", [at(9.2), at(9.4)])],
       DAY0,
     );
-    expect(placement(blocks)).toEqual({ "a@9.00": [0, 2, 1, 0], "b@9.10": [1, 2, 1, 0] });
+    expect(placement(blocks)).toEqual({ "a@9.00": [0, 2, 1, 0], "b@9.20": [1, 2, 1, 0] });
+  });
+
+  test("work under ten minutes becomes a mark and takes no column", () => {
+    const blocks = layoutDay(
+      [session("long", [at(9), at(12)]), session("quick", [at(10), at(10.1)])],
+      DAY0,
+    );
+    expect(placement(blocks)).toEqual({ "long@9.00": [0, 1, 1, 0], "quick@10.00": [0, 1, 1, 0] });
+    expect(Object.fromEntries(blocks.map((b) => [b.session.id, b.mark]))).toEqual({
+      long: false,
+      quick: true,
+    });
+    // A mark never covers the card it sits beside
+    expect(blocks.find((b) => b.session.id === "long")?.coveredFrom).toBeNull();
   });
 
   test("picks the column with the fewest blocks underneath and widens into free columns on the right", () => {
     const blocks = layoutDay(
       [
         session("a", [at(9), at(12)]),
-        session("b", [at(9.05), at(9.2)]),
-        session("c", [at(9.1), at(9.3)]),
+        session("b", [at(9.05), at(9.3)]),
+        session("c", [at(9.1), at(9.35)]),
         session("d", [at(10), at(10.5)]),
       ],
       DAY0,
@@ -342,5 +358,31 @@ describe("columnTracks", () => {
     expect(columnTracks([2, 4, 2, 1, 1, 1, 1], 900, -1)).toEqual(
       columnTracks([2, 4, 2, 1, 1, 1, 1], 3000, -1),
     );
+  });
+});
+
+describe("isMark", () => {
+  const DAY = 86_400_000;
+  const block = (s: CalendarSession, i = 0) => ({
+    session: s,
+    segment: s.segments[i] ?? s.segments[0]!,
+  });
+
+  test("short work is a mark; ten minutes or more is a card", () => {
+    expect(isMark(block(session("q", [at(9), at(9.15)])))).toBe(true);
+    expect(isMark(block(session("w", [at(9), at(9 + 10 / 60)])))).toBe(false);
+  });
+
+  test("judges a block crossing midnight by its whole length", () => {
+    const s = session("late", [at(23.9), at(24.5)]);
+    expect(isMark(block(s))).toBe(false);
+    expect(layoutDay([s], DAY0 + DAY)[0]?.mark).toBe(false);
+  });
+
+  test("the work in progress stays a card while it is still short", () => {
+    const s = { ...session("now", [at(8), at(9)], [at(10), at(10.05)]), active: true };
+    expect(isMark(block(s, 1))).toBe(false);
+    // Its earlier short block, if any, would still be a mark; here the first is an hour long
+    expect(isMark(block(s, 0))).toBe(false);
   });
 });

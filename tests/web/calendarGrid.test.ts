@@ -7,6 +7,7 @@ import {
   focusDayIndex,
   isLastSegment,
   type Moment,
+  markTops,
   momentMarks,
   momentRows,
   NO_EDGES,
@@ -269,5 +270,11 @@ describe("momentMarks", () => {
   test("keeps a pill inside the block", () => {
     const [mark] = momentMarks(at(94, 94, 94, 94, 94), 98);
     expect(mark && mark.top + mark.height).toBe(98);
+  });
+});
+
+describe("markTops", () => {
+  test("keeps marks at their time, pushing close ones just below the one above", () => {
+    expect(markTops([10, 40, 42, 43, 80])).toEqual([10, 40, 46, 52, 80]);
   });
 });

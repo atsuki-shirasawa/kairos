@@ -11,6 +11,14 @@ import { DAY, MINUTE } from "./dates.ts";
  */
 export const MIN_BLOCK_MS = 25 * MINUTE;
 
+/**
+ * Work shorter than this is drawn as a mark on the column's edge rather than as a card. A quick
+ * question drawn at the minimum card length took 25 minutes of room, and on busy days those were
+ * what pushed parallel work into narrow side-by-side columns (on real logs, 88 of 257 blocks sat
+ * three or more abreast; with short work as marks, 7).
+ */
+export const MARK_MAX_MS = 10 * MINUTE;
+
 /** A work block positioned in a day column of the calendar. */
 export interface PlacedBlock {
   session: CalendarSession;
@@ -33,10 +41,15 @@ export interface PlacedBlock {
   depth: number;
   /** When another block starts covering this one (since midnight). The heading must fit above it. */
   coveredFrom: number | null;
+  /** Short work, drawn as a mark on the column's edge and left out of the column layout. */
+  mark: boolean;
 }
 
 /** A work block clipped to a day, before layout. The list view uses it as is. */
-export type DayBlock = Omit<PlacedBlock, "col" | "cols" | "span" | "depth" | "coveredFrom">;
+export type DayBlock = Omit<
+  PlacedBlock,
+  "col" | "cols" | "span" | "depth" | "coveredFrom" | "mark"
+>;
 
 const visualEnd = (b: { start: number; end: number }) => Math.max(b.end, b.start + MIN_BLOCK_MS);
 
@@ -79,7 +92,21 @@ export function recordedDays(
   return new Set(days.filter((d) => visible.some((s) => s.end >= d && s.start < d + DAY)));
 }
 
-/** Places the blocks shown on the day at `dayStart`, taking overlaps into account. */
+/**
+ * Whether a block is drawn as a mark: shorter than `MARK_MAX_MS` in its real length (a block
+ * crossing midnight is judged whole, not by its part of the day), and not the work still in
+ * progress, which would otherwise turn from a mark into a card as it grows.
+ */
+export function isMark({ session, segment }: Pick<DayBlock, "session" | "segment">): boolean {
+  if (segment.end - segment.start >= MARK_MAX_MS) return false;
+  const last = Math.max(...session.segments.map((g) => g.end));
+  return !(session.active && segment.end >= last);
+}
+
+/**
+ * Places the blocks shown on the day at `dayStart`, taking overlaps into account. Marks (short
+ * work) come back too, so day totals and navigation still count them, but take no column.
+ */
 export function layoutDay(
   sessions: CalendarSession[],
   dayStart: number,
@@ -108,6 +135,10 @@ export function layoutDay(
   };
 
   for (const item of items) {
+    if (isMark(item)) {
+      placed.push({ ...item, col: 0, cols: 1, span: 1, depth: 0, coveredFrom: null, mark: true });
+      continue;
+    }
     if (item.start >= clusterEnd) closeCluster();
     // A block can stack in a column if it starts at least one heading line after the column's last block.
     // Of those columns, pick the one with the fewest blocks still underneath (a free column gives full width)
@@ -124,7 +155,7 @@ export function layoutDay(
     }
     const column = columns[col] ?? [];
     for (const o of column) if (visualEnd(o) > item.start) o.coveredFrom ??= item.start;
-    column.push({ ...item, col, cols: 1, span: 1, depth, coveredFrom: null });
+    column.push({ ...item, col, cols: 1, span: 1, depth, coveredFrom: null, mark: false });
     clusterEnd = Math.max(clusterEnd, visualEnd(item));
   }
   closeCluster();
