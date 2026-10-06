@@ -1,6 +1,6 @@
 import type { Project, SearchHit } from "@shared/api.ts";
 import { FileCode, Search, X } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MIN_SEARCH_CHARS } from "@/hooks/queries.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { searchMessages } from "@/i18n/messages/search.ts";
@@ -31,6 +31,7 @@ export function SearchField({
   search,
   projects,
   onOpen,
+  onPanel,
 }: {
   inputRef: React.RefObject<HTMLInputElement | null>;
   value: string;
@@ -42,6 +43,8 @@ export function SearchField({
   search: SearchState;
   projects: Map<number, Project>;
   onOpen: (hit: SearchHit) => void;
+  /** Reports whether the results panel is open, so App can keep its own notices out from under it. */
+  onPanel: (open: boolean) => void;
 }) {
   const m = searchMessages();
   const [focused, setFocused] = useState(false);
@@ -49,6 +52,7 @@ export function SearchField({
   const query = value.trim();
   const marks = highlightTerms(query);
   const open = focused && query !== "";
+  useEffect(() => onPanel(open), [open, onPanel]);
   // In a narrow window the field is just its icon until used; the button would stick out
   const showFiles = focused || value !== "" || files;
   // Hidden projects stay hidden here too
@@ -128,7 +132,7 @@ export function SearchField({
       {value ? (
         <button
           type="button"
-          className="absolute right-1 flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="absolute right-1 flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
           onClick={() => {
             onChange("");
             inputRef.current?.focus();
