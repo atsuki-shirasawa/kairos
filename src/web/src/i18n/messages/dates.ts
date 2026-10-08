@@ -22,9 +22,11 @@ export const dateMessages = defineMessages({
     weekdaysLong: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
     month: (month: number) => MONTHS_EN[month] ?? "",
     monthShort: (month: number) => (MONTHS_EN[month] ?? "").slice(0, 3),
-    /** Range of months in the week heading: "Sep – Oct". */
-    monthRange: (a: number, b: number) =>
-      `${(MONTHS_EN[a] ?? "").slice(0, 3)} – ${(MONTHS_EN[b] ?? "").slice(0, 3)}`,
+    /** Week heading: "Oct 4 – 10" / "Sep 27 – Oct 3". The month repeats only when it changes. */
+    weekRange: (fromMonth: number, fromDay: number, toMonth: number, toDay: number) =>
+      `${(MONTHS_EN[fromMonth] ?? "").slice(0, 3)} ${fromDay} – ${
+        toMonth === fromMonth ? "" : `${(MONTHS_EN[toMonth] ?? "").slice(0, 3)} `
+      }${toDay}`,
     /** Day heading: "Oct 5". */
     monthDay: (month: number, day: number) => `${(MONTHS_EN[month] ?? "").slice(0, 3)} ${day}`,
     /** Short date: "Mon, Oct 5" / "Mon, Oct 5, 2025". */
@@ -41,7 +43,8 @@ export const dateMessages = defineMessages({
     weekdaysLong: ["日曜日", "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日"],
     month: (month: number) => `${month + 1}月`,
     monthShort: (month: number) => `${month + 1}月`,
-    monthRange: (a: number, b: number) => `${a + 1}月 – ${b + 1}月`,
+    weekRange: (fromMonth: number, fromDay: number, toMonth: number, toDay: number) =>
+      `${fromMonth + 1}月${fromDay}日 – ${toMonth === fromMonth ? "" : `${toMonth + 1}月`}${toDay}日`,
     monthDay: (month: number, day: number) => `${month + 1}月${day}日`,
     dateLabel: (weekday: string, month: number, day: number, year: number | null) =>
       `${year === null ? "" : `${year}/`}${month + 1}/${day} ${weekday}`,

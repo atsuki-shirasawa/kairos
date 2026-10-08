@@ -77,10 +77,11 @@ export function isoWeek(t: number): number {
 }
 
 /**
- * Heading for the period. Day numbers already appear on the calendar columns, so the month leads.
+ * Heading for the period. A week names its first and last day: the summary view has no day columns
+ * to say which week it is, and the heading reads the same in both layouts.
  * The year is omitted for the current year (as in `dateLabel`). The week number is not part of the
  * title; the date picker and tooltip show it.
- * Week: { title: "Sep – Oct", year: null, week: "W40" }, day: { title: "Oct 5", sub: "Monday", year: null }
+ * Week: { title: "Sep 28 – Oct 4", year: null, week: "W40" }, day: { title: "Oct 5", sub: "Monday", year: null }
  */
 export function rangeTitle(
   view: View,
@@ -105,11 +106,12 @@ export function rangeTitle(
       year,
       week: null,
     };
-  const months =
-    b.getMonth() === a.getMonth()
-      ? m.month(a.getMonth())
-      : m.monthRange(a.getMonth(), b.getMonth());
-  return { title: months, sub: null, year, week: `W${isoWeek(from)}` };
+  return {
+    title: m.weekRange(a.getMonth(), a.getDate(), b.getMonth(), b.getDate()),
+    sub: null,
+    year,
+    week: `W${isoWeek(from)}`,
+  };
 }
 
 /** Midnight on the first of the month. */

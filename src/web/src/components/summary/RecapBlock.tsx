@@ -7,7 +7,7 @@ import { failureHint } from "../drawer/failureHint.ts";
 import { Hint } from "../Hint.tsx";
 import { Markdown } from "../Markdown.tsx";
 
-/** The LLM's explanation of the project's work in the period, or a button to write one. */
+/** The LLM's summary of the project's work in the period, or a button to make one. */
 export function RecapBlock({
   recap: r,
   baseUrl,

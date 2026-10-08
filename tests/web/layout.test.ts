@@ -213,14 +213,14 @@ describe("dates", () => {
     expect(rangeOf("week", sunday).days).toHaveLength(7);
   });
 
-  test("the period heading leads with the month and adds the year when it isn't the current one", () => {
+  test("the period heading names the period and adds the year when it isn't the current one", () => {
     expect(rangeTitle("week", DAY0, DAY0)).toEqual({
-      title: "October",
+      title: "Oct 5 – 11",
       sub: null,
       year: null,
       week: "W41",
     });
-    expect(rangeTitle("week", new Date(2026, 8, 30).getTime(), DAY0).title).toBe("Sep – Oct");
+    expect(rangeTitle("week", new Date(2026, 8, 30).getTime(), DAY0).title).toBe("Sep 28 – Oct 4");
     expect(rangeTitle("week", DAY0, new Date(2027, 0, 1).getTime()).year).toBe("2026");
     expect(rangeTitle("week", new Date(2026, 11, 30).getTime(), DAY0).year).toBe("2026 – 2027");
     expect(rangeTitle("day", DAY0, DAY0)).toEqual({
@@ -274,8 +274,10 @@ describe("dates", () => {
 
     test("headings, dates, and durations use Japanese notation", () => {
       setLocale("ja");
-      expect(rangeTitle("week", DAY0, DAY0).title).toBe("10月");
-      expect(rangeTitle("week", new Date(2026, 8, 30).getTime(), DAY0).title).toBe("9月 – 10月");
+      expect(rangeTitle("week", DAY0, DAY0).title).toBe("10月5日 – 11日");
+      expect(rangeTitle("week", new Date(2026, 8, 30).getTime(), DAY0).title).toBe(
+        "9月28日 – 10月4日",
+      );
       expect(rangeTitle("day", DAY0, DAY0)).toMatchObject({ title: "10月5日", sub: "月曜日" });
       expect(dateLabel(DAY0, DAY0)).toBe("10/5 月");
       expect(dateLabel(new Date(2025, 9, 5).getTime(), DAY0)).toBe("2025/10/5 日");

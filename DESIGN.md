@@ -298,11 +298,13 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   of the minute it was made; a PR is the same node filled with `ink`. Nodes stay a radius inside the
   block, which clips at its border. Moments less than 10px apart (a 7px node plus a 3px gap) merge
   into one pill spanning them, 3px longer per extra moment and filled when it holds a PR, so a burst
-  of commits never reads as a single node. The day view adds a lane on the right of each block
+  of commits never reads as a single node. The day view adds a lane beside each block's text
   (`min(38%, 24rem)`, a faint rule on its left; only on blocks at least 36rem wide with room for
   two labels, so side-by-side and stacked blocks on a busy day fall back to the tooltip) labeling each node with its time, short SHA or PR
   number and title; labels push apart to avoid overlapping and end in "+n more" when they run out
-  of room. The block's text keeps a 72ch measure beside the lane. The block's tooltip lists the
+  of room. The block's text keeps a 32rem measure and the lane starts right after it, so on a wide
+  screen the summary and its commits stay together instead of sitting at opposite edges (a
+  narrower block puts the lane at its right edge). The block's tooltip lists the
   same (up to six), which is where the week view shows their titles; screen readers get them
   (up to eight) through the button's description, since the nodes are drawn for the eye only
 - **The node is the app's word for commit and PR.** Wherever a count or list of them appears (day
