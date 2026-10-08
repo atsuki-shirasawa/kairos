@@ -28,7 +28,7 @@ function shortcuts(): [string[], string][] {
   return [
     [["←", "→"], m.shortcutPeriod],
     [["t"], m.shortcutToday],
-    [["w", "d"], m.shortcutView],
+    [["m", "w", "d"], m.shortcutView],
     [["c", "s"], m.shortcutLayout],
     [["l"], m.shortcutTable],
     [["j", "k"], m.shortcutStep],
@@ -57,7 +57,7 @@ export function AppMenu({
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label={m.menu} title={m.menuTitle}>
+        <Button variant="ghost" size="icon" aria-label={m.menu} title={m.menuTitle}>
           <Ellipsis />
         </Button>
       </PopoverTrigger>

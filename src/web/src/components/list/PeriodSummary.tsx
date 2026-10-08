@@ -1,5 +1,5 @@
 import { listMessages } from "@/i18n/messages/list.tsx";
-import { durationLabel } from "@/lib/dates.ts";
+import { durationLabel, type View } from "@/lib/dates.ts";
 import { costLabel, tokensLabel } from "@/lib/format.ts";
 import type { DayBlock } from "@/lib/layout.ts";
 import { busyByDay } from "@/lib/summary.ts";
@@ -12,11 +12,11 @@ import { Hint } from "../Hint.tsx";
  */
 export function PeriodSummary({
   blocks,
-  days,
+  view,
   showUsage,
 }: {
   blocks: DayBlock[];
-  days: number;
+  view: View;
   showUsage: boolean;
 }) {
   const { usage, activity } = totalsOf(blocks);
@@ -25,7 +25,7 @@ export function PeriodSummary({
     <p className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 pt-3 pb-2 text-muted-foreground text-xs">
       <span>
         {m.period(
-          days === 1,
+          view,
           blocks.length,
           <Strong>{blocks.length}</Strong>,
           <Strong>{durationLabel(busyByDay(blocks))}</Strong>,

@@ -5,11 +5,9 @@ import { Button } from "@/components/ui/button.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.tsx";
 import { useSpans } from "@/hooks/queries.ts";
 import { datePickerMessages } from "@/i18n/messages/datePicker.ts";
-import { dateMessages } from "@/i18n/messages/dates.ts";
 import {
   addDays,
   addMonths,
-  isoWeek,
   isSameDay,
   monthWeeks,
   rangeOf,
@@ -17,22 +15,18 @@ import {
   startOfDay,
   startOfMonth,
   type View,
+  weekdayHeaders,
+  weekNumber,
 } from "@/lib/dates.ts";
 import { recordedDays } from "@/lib/layout.ts";
 import { cn } from "@/lib/utils.ts";
-
-/** Column headers, Monday first (weeks start on Monday throughout the app). */
-function weekdays(): string[] {
-  const names = dateMessages().weekdays;
-  return [...names.slice(1), ...names.slice(0, 1)];
-}
 
 /** Days moved by the arrow keys. PageUp / PageDown move by a month. */
 const STEPS: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
 
 /**
  * A date picker that doubles as the period heading. Clicking opens a month calendar and jumps to
- * the chosen day (week/day view is kept). Reaching a distant day in one step beats paging with ← →.
+ * the chosen day (the month, week or day view is kept). Reaching a distant day in one step beats paging with ← →.
  * Days with sessions get a dot so empty days aren't opened by mistake.
  */
 export function DatePicker({
@@ -157,7 +151,7 @@ export function DatePicker({
               <th className="w-7 font-normal text-[11px] text-muted-foreground" title={m.isoWeek}>
                 <span className="sr-only">{m.weekNumber}</span>W
               </th>
-              {weekdays().map((d) => (
+              {weekdayHeaders().map((d) => (
                 <th key={d} className="size-8 font-normal text-muted-foreground text-xs">
                   {d}
                 </th>
@@ -168,7 +162,7 @@ export function DatePicker({
             {weeks.map((week) => (
               <tr key={week[0]}>
                 <td className="text-center font-num text-[11px] text-muted-foreground">
-                  {isoWeek(week[0] ?? month)}
+                  {weekNumber(week[0] ?? month)}
                 </td>
                 {week.map((day, i) => {
                   const inRange = day >= from && day < to;

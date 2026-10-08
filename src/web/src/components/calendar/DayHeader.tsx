@@ -12,7 +12,7 @@ import { counted, totalsOf } from "@/lib/totals.ts";
 import { cn } from "@/lib/utils.ts";
 
 /** The numbers a day header shows, summed over the day's blocks. */
-interface DayFigures {
+export interface DayFigures {
   /** Blocks on the day; 0 means nothing to show. */
   shown: number;
   /** Blocks counted on this day (a block spanning midnight counts on its first day only). */
@@ -25,8 +25,8 @@ interface DayFigures {
   trouble: number;
 }
 
-/** Sums the day's blocks into the figures its header shows. */
-function dayFigures(blocks: PlacedBlock[]): DayFigures {
+/** Sums the day's blocks into the figures its header (or month cell) shows. */
+export function dayFigures(blocks: PlacedBlock[]): DayFigures {
   const { usage, activity } = totalsOf(blocks);
   return {
     shown: blocks.length,
@@ -179,8 +179,8 @@ function DayStats({ figures }: { figures: DayFigures }) {
   );
 }
 
-/** Every figure of the day, on hovering its header. */
-function DayTooltip({ day, figures }: { day: number; figures: DayFigures }) {
+/** Every figure of the day, on hovering its header (or its date in the month view). */
+export function DayTooltip({ day, figures }: { day: number; figures: DayFigures }) {
   const { busy, activity, usage, commits, prs, trouble } = figures;
   const m = calendarMessages();
   const f = formatMessages();

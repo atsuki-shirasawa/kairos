@@ -16,7 +16,7 @@ export interface UrlState {
   view: View;
   /** Whether the period is drawn as a calendar, listed, or summed up. */
   layout: Layout;
-  /** The shown day (midnight). Week view shows the week containing it. */
+  /** The shown day (midnight). Week and month views show the week or month containing it. */
   anchor: number;
   session: string | null;
   /** Start of the selected section. null means the whole session. */
@@ -34,7 +34,8 @@ function readSort(v: string | null): ListSort {
 
 function read(): UrlState {
   const q = new URLSearchParams(location.search);
-  const view = q.get("view") === "day" ? "day" : "week";
+  const v = q.get("view");
+  const view = v === "month" || v === "day" ? v : "week";
   const layout = q.get("layout");
   return {
     view,

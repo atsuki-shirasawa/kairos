@@ -41,6 +41,21 @@ export function useGridSize(ref: RefObject<HTMLDivElement | null>): GridSize {
   return size;
 }
 
+/** The element's height in px, re-measured as it resizes (0 before the first measure). */
+export function useElementHeight(ref: RefObject<HTMLElement | null>): number {
+  const [height, setHeight] = useState(0);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => setHeight(el.clientHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref]);
+  return height;
+}
+
 /** What `useGridScroll` reacts to. */
 interface GridScrollDeps {
   /** First shown day; a change means the period changed. */

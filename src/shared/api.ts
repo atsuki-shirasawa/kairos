@@ -5,6 +5,11 @@ export interface HealthResponse {
   ok: true;
   name: "kairos";
   version: string;
+  /**
+   * Whether the server summarizes recent sections on its own. `kairos summarize` leaves those to
+   * it, so the two don't run `claude -p` for the same section at once.
+   */
+  autoSummary: boolean;
 }
 
 /** A project: one repository (worktrees included) or directory sessions ran in. */

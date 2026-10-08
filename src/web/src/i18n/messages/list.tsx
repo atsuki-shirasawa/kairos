@@ -1,5 +1,12 @@
 import type { ReactNode } from "react";
+import type { View } from "@/lib/dates.ts";
 import { defineMessages } from "../index.ts";
+import { THIS_EN, THIS_JA } from "../period.ts";
+
+/** "this week" → "This week", for the start of a line. */
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 const COST_NOTE_EN = "Estimated from API list prices (not what a subscription actually costs)";
 const COST_NOTE_JA = "API の料金表で換算した目安（サブスクリプションでの支払いとは一致しない）";
@@ -57,10 +64,9 @@ export const listMessages = defineMessages({
       `${toolCalls} tool calls · ${subagents} subagents`,
     claudeTotalNote: "Includes parallel sessions, so it can exceed the working time",
     /** The period summary above the table. Arguments are already-styled numbers. */
-    period: (single: boolean, count: number, blocks: ReactNode, busy: ReactNode) => (
+    period: (view: View, count: number, blocks: ReactNode, busy: ReactNode) => (
       <>
-        {single ? "This day" : "This week"}: {blocks} {count === 1 ? "block" : "blocks"} · {busy} of
-        work
+        {capitalize(THIS_EN[view])}: {blocks} {count === 1 ? "block" : "blocks"} · {busy} of work
       </>
     ),
     claudeTotal: (ms: ReactNode) => <> (Claude {ms} total)</>,
@@ -109,9 +115,9 @@ export const listMessages = defineMessages({
     filesDetail: (toolCalls: number, subagents: number) =>
       `ツール呼び出し ${toolCalls} 回・サブエージェント ${subagents}`,
     claudeTotalNote: "並行して進めたセッションの分も足すので、作業時間より長くなることがある",
-    period: (single: boolean, _count: number, blocks: ReactNode, busy: ReactNode) => (
+    period: (view: View, _count: number, blocks: ReactNode, busy: ReactNode) => (
       <>
-        {single ? "この日" : "この週"}: {blocks} 件・作業 {busy}
+        {THIS_JA[view]}: {blocks} 件・作業 {busy}
       </>
     ),
     claudeTotal: (ms: ReactNode) => <>（Claude 延べ {ms}）</>,

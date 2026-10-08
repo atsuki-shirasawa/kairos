@@ -78,7 +78,7 @@ export function FilterMenu({
         {/* Icon only; active conditions show as color and a count. The breakdown is in the tooltip */}
         <Button
           variant="ghost"
-          size="icon-sm"
+          size="icon"
           className={cn("relative", active > 0 && "text-primary")}
           aria-label={badge ? m.buttonWith(badge) : m.button}
           title={badge ? m.buttonWith(badge) : m.button}

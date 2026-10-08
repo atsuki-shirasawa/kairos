@@ -249,11 +249,26 @@ A work block's fill is the project color mixed into `block-base` in `oklch`:
   heading) fill only their real length at full strength; the rest is a label area with a faint fill
   (40% of the block fill) and a faint left edge, so the card keeps its shape instead of looking cut off
 - Concurrent blocks sit side by side; stacked blocks indent 8px so the colored edge below stays visible
+- **Weeks start on Sunday**, as on a wall calendar, in the week view, the month view and the date
+  picker. Week numbers stay ISO, taken from the week's Monday (the six days Monday–Saturday share one)
+- **Month view** is a Sunday-first grid of the month's weeks (padded with the adjacent months'
+  days, drawn empty with their dates at 60% `muted-ink`). Time of day doesn't fit there, so each
+  block is a 20px line in time order: the block's 3px project edge and fill (dim when
+  unsummarized), its heading on one line, and a node at the end when it made commits (filled for a
+  PR). The date line holds the date (circled in indigo on today; opens the day), up to six marks
+  for short work, and the day's working time. Rows share the height (never below room for two
+  lines and "+n more"); what doesn't fit, including marks past six, becomes "+n more", which opens
+  the day. Tooltips, selection and filter fading are the week view's
 - **Day column headers** put the weekday above the date number: beside it, "5 月" reads as May in Japanese
 - **Drawer** opens from the right with 20px padding; below `lg` it overlays the screen with a backdrop
 - **Toolbar** groups its controls by spacing, not frames or divider rules: period navigation and
-  search are frameless until hovered or used, and the week/day and calendar/summary toggles share
-  one segmented track with a faint rule between them
+  search are frameless until hovered or used. The period (month / week / day) and the layout
+  (calendar / summary) are two separate controls, as in Google Calendar: the period is an outlined
+  dropdown (three segments would widen the bar), the layout a segmented toggle on its own track.
+  On one shared track they read as a single switch
+- **Toolbar** controls are 32px tall (icons stay 16px), so they sit in the 64px bar without
+  floating; the layout toggle's track is 32px with 28px segments inside. Elsewhere (popovers, the
+  summary's tabs) controls stay 28px
 - **Toolbar** never overflows: below `md` (a half-screen window) the wordmark and the spacing go,
   search shrinks to its icon until focused, and its results span the screen. No control is dropped
 - **Toolbar** holds only view switching, date navigation, search, report copy and filters. Theme,

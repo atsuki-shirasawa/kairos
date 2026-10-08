@@ -9,7 +9,7 @@ import { EventHub } from "./events.ts";
 import { Ingester } from "./ingest/ingester.ts";
 import { watchProjects } from "./ingest/watcher.ts";
 import { DATA_DIR, DEFAULT_CLAUDE_DIR, DEFAULT_DB_PATH } from "./paths.ts";
-import { runClaude } from "./summarize/claude.ts";
+import { type Effort, runClaude } from "./summarize/claude.ts";
 import type { SummaryLang } from "./summarize/prompt.ts";
 import { DEFAULT_MODEL, Summarizer } from "./summarize/summarizer.ts";
 
@@ -22,6 +22,8 @@ export interface ServeOptions {
   dbPath?: string;
   /** Model used for summaries (passed to claude --model). */
   summaryModel?: string;
+  /** Effort for summaries and recaps (passed to claude --effort; default: low). */
+  summaryEffort?: Effort;
   /** Language summaries are written in (default: English). */
   summaryLang?: SummaryLang;
   /** When false, summaries are not made automatically (only when requested from the drawer). */
@@ -38,7 +40,12 @@ export async function serve(opts: ServeOptions = {}): Promise<void> {
   const model = opts.summaryModel ?? DEFAULT_MODEL;
   const summarizer = new Summarizer(
     db,
-    (prompt) => runClaude(prompt, { model, cwd: join(DATA_DIR, "summarizer") }),
+    (prompt) =>
+      runClaude(prompt, {
+        model,
+        cwd: join(DATA_DIR, "summarizer"),
+        ...(opts.summaryEffort ? { effort: opts.summaryEffort } : {}),
+      }),
     {
       model,
       auto: opts.autoSummary ?? true,

@@ -10,6 +10,8 @@ import {
   markTops,
   momentMarks,
   momentRows,
+  monthCellFit,
+  monthRowHeights,
   NO_EDGES,
   sameEdges,
 } from "../../src/web/src/lib/calendarGrid.ts";
@@ -280,5 +282,42 @@ describe("momentMarks", () => {
 describe("markTops", () => {
   test("keeps marks at their time, pushing close ones just below the one above", () => {
     expect(markTops([10, 40, 42, 43, 80])).toEqual([10, 40, 46, 52, 80]);
+  });
+});
+
+describe("monthCellFit", () => {
+  test("lists every block when they fit", () => {
+    expect(monthCellFit(3, 3)).toEqual({ shown: 3, more: 0 });
+    expect(monthCellFit(0, 2)).toEqual({ shown: 0, more: 0 });
+  });
+
+  test("gives the last line to +n more when they don't, counting what it stands for", () => {
+    expect(monthCellFit(5, 3)).toEqual({ shown: 2, more: 3 });
+    expect(monthCellFit(2, 1)).toEqual({ shown: 0, more: 2 });
+    expect(monthCellFit(2, 0)).toEqual({ shown: 0, more: 2 });
+  });
+});
+
+describe("monthRowHeights", () => {
+  const sizes = { heightPx: 600, minBusyPx: 94, emptyPx: 36 };
+
+  test("shrinks weeks without work and gives their room to the weeks with work", () => {
+    expect(monthRowHeights([false, true, false, true, false], sizes)).toEqual([
+      36, 246, 36, 246, 36,
+    ]);
+  });
+
+  test("splits the height evenly when no week has work", () => {
+    expect(monthRowHeights([false, false, false, false, false], sizes)).toEqual([
+      120, 120, 120, 120, 120,
+    ]);
+  });
+
+  test("keeps weeks with work at their minimum once the month runs out of room", () => {
+    const rows = monthRowHeights([true, true, true, true, true, false], {
+      ...sizes,
+      heightPx: 300,
+    });
+    expect(rows).toEqual([94, 94, 94, 94, 94, 36]);
   });
 });

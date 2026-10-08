@@ -1,18 +1,20 @@
+import type { View } from "@/lib/dates.ts";
 import { defineMessages } from "../index.ts";
+import { THIS_EN, THIS_JA, UNIT_EN, UNIT_JA } from "../period.ts";
 
-type Unit = "week" | "day";
+type Unit = View;
 
 /** The header: navigation, view toggles, search, the "⋯" menu and the import progress. */
 export const toolbarMessages = defineMessages({
   en: {
-    prev: (u: Unit) => (u === "week" ? "Previous week" : "Previous day"),
-    next: (u: Unit) => (u === "week" ? "Next week" : "Next day"),
+    prev: (u: Unit) => `Previous ${UNIT_EN[u]}`,
+    next: (u: Unit) => `Next ${UNIT_EN[u]}`,
     today: "Today",
     viewToggle: "View",
+    month: "Month",
     week: "Week",
     day: "Day",
-    weekTitle: "Week view (w)",
-    dayTitle: "Day view (d)",
+    viewTitle: "Month, week or day (m / w / d)",
     layoutToggle: "Calendar or summary",
     calendar: "Calendar",
     summary: "Summary",
@@ -26,7 +28,7 @@ export const toolbarMessages = defineMessages({
     shortcuts: "Keyboard shortcuts",
     shortcutPeriod: "Previous / next period",
     shortcutToday: "Today",
-    shortcutView: "Week / day view",
+    shortcutView: "Month / week / day view",
     shortcutLayout: "Calendar / summary",
     shortcutTable: "Summary as a table",
     shortcutStep: "Open next / previous block",
@@ -35,19 +37,19 @@ export const toolbarMessages = defineMessages({
     shortcutMenu: "This menu",
     importing: (percent: number) => `Importing ${percent}%`,
     copyReport: (u: Unit) =>
-      `Copy ${u === "week" ? "this week's" : "this day's"} work as Markdown (for a stand-up note or report)`,
+      `Copy ${THIS_EN[u]}'s work as Markdown (for a stand-up note or report)`,
     copiedReport: "Copied as Markdown",
-    nothingToReport: (u: Unit) => `No work ${u === "week" ? "this week" : "this day"} to copy`,
+    nothingToReport: (u: Unit) => `No work ${THIS_EN[u]} to copy`,
   },
   ja: {
-    prev: (u: Unit) => `前の${u === "week" ? "週" : "日"}`,
-    next: (u: Unit) => `次の${u === "week" ? "週" : "日"}`,
+    prev: (u: Unit) => `前の${UNIT_JA[u]}`,
+    next: (u: Unit) => `次の${UNIT_JA[u]}`,
     today: "今日",
     viewToggle: "表示の切り替え",
+    month: "月",
     week: "週",
     day: "日",
-    weekTitle: "週の表示（w）",
-    dayTitle: "日の表示（d）",
+    viewTitle: "月・週・日の表示（m / w / d）",
     layoutToggle: "カレンダーとまとめの切り替え",
     calendar: "カレンダー",
     summary: "まとめ",
@@ -61,7 +63,7 @@ export const toolbarMessages = defineMessages({
     shortcuts: "キーボード操作",
     shortcutPeriod: "前・次の期間",
     shortcutToday: "今日",
-    shortcutView: "週・日の表示",
+    shortcutView: "月・週・日の表示",
     shortcutLayout: "カレンダー・まとめ",
     shortcutTable: "まとめを表で見る",
     shortcutStep: "次・前の作業を開く",
@@ -70,9 +72,8 @@ export const toolbarMessages = defineMessages({
     shortcutMenu: "このメニュー",
     importing: (percent: number) => `取り込み中 ${percent}%`,
     copyReport: (u: Unit) =>
-      `${u === "week" ? "この週" : "この日"}の作業を Markdown でコピー（日報・朝会・週報などに）`,
+      `${THIS_JA[u]}の作業を Markdown でコピー（日報・朝会・週報・月報などに）`,
     copiedReport: "Markdown でコピーしました",
-    nothingToReport: (u: Unit) =>
-      `${u === "week" ? "この週" : "この日"}はコピーする作業がありません`,
+    nothingToReport: (u: Unit) => `${THIS_JA[u]}はコピーする作業がありません`,
   },
 });

@@ -1,4 +1,4 @@
-import { Check, ClipboardList } from "lucide-react";
+import { Check, ClipboardCopy } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { useCopy } from "@/hooks/useCopy.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
@@ -25,14 +25,14 @@ export function CopyReportButton({
     // A disabled button gets no tooltip, so it stays enabled and does nothing without work
     <Button
       variant="ghost"
-      size="icon-sm"
+      size="icon"
       onClick={() => hasWork && copy(report())}
       aria-disabled={!hasWork}
       className={cn(!hasWork && "opacity-50")}
       aria-label={label}
       title={label}
     >
-      {state === "copied" ? <Check className="text-primary" /> : <ClipboardList />}
+      {state === "copied" ? <Check className="text-primary" /> : <ClipboardCopy />}
       <span className="sr-only" aria-live="polite">
         {state === "idle" ? "" : label}
       </span>

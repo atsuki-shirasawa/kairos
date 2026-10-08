@@ -73,7 +73,12 @@ describe("security", () => {
 });
 
 test("GET /api/health", async () => {
-  expect(await json<HealthResponse>("/api/health")).toMatchObject({ ok: true, name: "kairos" });
+  // No summarizer here, so nothing is summarized automatically and `kairos summarize` takes it all
+  expect(await json<HealthResponse>("/api/health")).toMatchObject({
+    ok: true,
+    name: "kairos",
+    autoSummary: false,
+  });
 });
 
 test("GET /api/sessions/:id returns usage per section and for the whole session", async () => {

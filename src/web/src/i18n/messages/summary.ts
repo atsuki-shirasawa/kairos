@@ -1,22 +1,22 @@
+import type { View } from "@/lib/dates.ts";
 import { defineMessages } from "../index.ts";
+import { THIS_JA, UNIT_EN } from "../period.ts";
 
-type Unit = "week" | "day";
+type Unit = View;
 
-const before = (u: Unit, soFar: boolean) =>
-  u === "week"
-    ? soFar
-      ? "this point last week"
-      : "last week"
-    : soFar
-      ? "this time the day before"
-      : "the day before";
+const BEFORE_EN: Record<Unit, [whole: string, soFar: string]> = {
+  month: ["last month", "this point last month"],
+  week: ["last week", "this point last week"],
+  day: ["the day before", "this time the day before"],
+};
+const before = (u: Unit, soFar: boolean) => BEFORE_EN[u][soFar ? 1 : 0];
 const beforeJa = (u: Unit, soFar: boolean) =>
-  `${u === "week" ? "先週" : "前日"}${soFar ? "の同じ時点" : ""}`;
+  `${{ month: "先月", week: "先週", day: "前日" }[u]}${soFar ? "の同じ時点" : ""}`;
 
 /** The summary view: period totals, where the time went, and what was done. */
 export const summaryMessages = defineMessages({
   en: {
-    region: (u: Unit) => (u === "week" ? "This week's summary" : "This day's summary"),
+    region: (u: Unit) => `This ${UNIT_EN[u]}'s summary`,
     tabs: "How to show the summary",
     overview: "Overview",
     table: "Table",
@@ -35,6 +35,8 @@ export const summaryMessages = defineMessages({
     unchanged: (u: Unit, soFar: boolean) => `Same as ${before(u, soFar)}`,
     byDay: "By day",
     dayTick: (weekday: string, date: number) => `${weekday} ${date}`,
+    /** A month's day bar on hover, since its bar is too narrow to print the duration. */
+    dayBarTitle: (date: string, duration: string) => `${date} · ${duration}`,
     outcomes: "Commits · PRs",
     throughDay: "Through the day",
     byProject: "By project",
@@ -56,7 +58,7 @@ export const summaryMessages = defineMessages({
     noTime: "—",
   },
   ja: {
-    region: (u: Unit) => `${u === "week" ? "この週" : "この日"}のまとめ`,
+    region: (u: Unit) => `${THIS_JA[u]}のまとめ`,
     tabs: "まとめの表示方法",
     overview: "概要",
     table: "表",
@@ -71,6 +73,7 @@ export const summaryMessages = defineMessages({
     unchanged: (u: Unit, soFar: boolean) => `${beforeJa(u, soFar)}と同じ`,
     byDay: "日ごと",
     dayTick: (weekday: string, date: number) => `${date}（${weekday}）`,
+    dayBarTitle: (date: string, duration: string) => `${date}・${duration}`,
     outcomes: "コミット・PR",
     throughDay: "1日の流れ",
     byProject: "プロジェクトごと",

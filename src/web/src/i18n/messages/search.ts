@@ -1,14 +1,16 @@
 import type { SearchField } from "@shared/api.ts";
+import type { View } from "@/lib/dates.ts";
 import { defineMessages } from "../index.ts";
+import { THIS_EN, THIS_JA } from "../period.ts";
 
-type Unit = "week" | "day";
+type Unit = View;
 
 /** The search field in the header and its results across every period. */
 export const searchMessages = defineMessages({
   en: {
     placeholder: "Search work",
     label: (u: Unit) =>
-      `Search all work by summary, prompt, PR, commit or branch, or by edited file with file:path. Filters ${u === "week" ? "this week" : "this day"} too`,
+      `Search all work by summary, prompt, PR, commit or branch, or by edited file with file:path. Filters ${THIS_EN[u]} too`,
     clear: "Clear search",
     clearTitle: "Clear search (Esc)",
     allPeriods: "All periods",
@@ -38,7 +40,7 @@ export const searchMessages = defineMessages({
   ja: {
     placeholder: "作業を探す",
     label: (u: Unit) =>
-      `すべての作業を要約・発言・PR・コミット・ブランチで探す。file:<パス> で編集したファイルからも探せる。${u === "week" ? "この週" : "この日"}の表示も絞り込む`,
+      `すべての作業を要約・発言・PR・コミット・ブランチで探す。file:<パス> で編集したファイルからも探せる。${THIS_JA[u]}の表示も絞り込む`,
     clear: "検索を消す",
     clearTitle: "検索を消す（Esc）",
     allPeriods: "すべての期間",

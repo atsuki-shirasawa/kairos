@@ -133,9 +133,10 @@ sequenceDiagram
 - Concurrency is 1. On failure the reason is recorded and it retries up to 3 times after 1, 2 and 4 minutes
 - For short sections (under 10 minutes and at most one prompt), only a headline is generated automatically. The body is stored in `summaries` as an empty string and returned by the API as no summary (`body: null`)
 - The body of short sections and sections older than 7 days can be pushed to the priority queue with the button in the drawer (`POST /api/sessions/:id/sections/:start/summary`)
+- `kairos summarize` backfills the rest from the CLI: it opens the DB directly and summarizes, one at a time, every finished section the automatic loop would pick if it had no 7-day limit (`findTargets` is shared by both). It strips the `CLAUDE*` variables before running `claude`, like the daemon does, since it may run inside a Claude Code session. A running server isn't notified, so the browser needs a reload. It stops after 3 failures in a row (e.g. `claude` not logged in)
 - Sections without a headline (older than 7 days, in progress, not yet generated) show `segments.fallback_title`, computed at ingest (the first prompt, or failing that the first line of Claude's last reply)
 - The summary language follows the UI language: the UI sends it with `PATCH /api/settings` and the server keeps it in `kv` (`summary_lang`), so it survives restarts from the SessionStart hook. Starting with `--summary-lang <en|ja>` fixes it and the UI's choice is ignored. Without either, English. Changing it doesn't touch existing summaries or recaps; they can be regenerated
-- `claude` runs in a dedicated working directory with `--no-session-persistence`, `--tools ""`, `--strict-mcp-config` and `--setting-sources project` to eliminate side effects
+- `claude` runs with `--effort low` (`--summary-effort` changes it), in a dedicated working directory with `--no-session-persistence`, `--tools ""`, `--strict-mcp-config` and `--setting-sources project` to eliminate side effects
 
 ### 4.1 Recaps
 
@@ -202,7 +203,7 @@ kairos/
 ├── DESIGN.md           # visual design for agents (DESIGN.md format)
 ├── scripts/            # check-jsdoc.ts; screenshots/ (fictional demo week and the capture)
 ├── src/
-│   ├── cli/            # the kairos command (ensure / open / status / stop / restart / serve / ingest); daemon.ts
+│   ├── cli/            # the kairos command (ensure / open / status / stop / restart / serve / ingest / summarize / help); daemon.ts, help.ts
 │   ├── server/
 │   │   ├── db/         # schema and migrations
 │   │   ├── ingest/     # watcher → reader → classify / records → ingester → segments; project, commits, prs

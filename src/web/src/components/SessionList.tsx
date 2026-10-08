@@ -1,7 +1,7 @@
 import type { CalendarSession, Project } from "@shared/api.ts";
 import { useMemo } from "react";
 import { DEFAULT_SORT, type ListSort } from "@/hooks/useUrlState.ts";
-import { isSameDay } from "@/lib/dates.ts";
+import { isSameDay, type View } from "@/lib/dates.ts";
 import type { SegmentMatch } from "@/lib/filter.ts";
 import type { DayBlock } from "@/lib/layout.ts";
 import { type DayGroup, dayGroups, nextSort, sortBlocks, visibleSort } from "@/lib/listTable.ts";
@@ -14,6 +14,8 @@ import { useColumns } from "./list/useColumns.ts";
 import { useListScroll } from "./list/useListScroll.ts";
 
 interface Props {
+  /** The shown period's unit, for the summary line ("This month: …"). */
+  view: View;
   days: number[];
   sessions: CalendarSession[];
   projects: Map<number, Project>;
@@ -37,6 +39,7 @@ interface Props {
  * sorted by another column, the whole period is one table (to find which work was heaviest).
  */
 export function SessionList({
+  view,
   days,
   sessions,
   projects,
@@ -75,7 +78,7 @@ export function SessionList({
         <div className="shrink-0 pt-2">{tabs}</div>
         <PeriodSummary
           blocks={all}
-          days={days.length}
+          view={view}
           showUsage={keys.includes("tokens") || keys.includes("cost")}
         />
         <div className="ml-auto shrink-0">

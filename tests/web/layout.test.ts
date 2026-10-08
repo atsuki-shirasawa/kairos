@@ -11,8 +11,10 @@ import {
   rangeOf,
   rangeTitle,
   relativeDay,
+  shift,
   startOfMonth,
   startOfWeek,
+  weekNumber,
 } from "../../src/web/src/lib/dates.ts";
 import {
   blocksOfDay,
@@ -206,23 +208,54 @@ describe("recordedDays", () => {
 });
 
 describe("dates", () => {
-  test("weeks start on Monday", () => {
-    const sunday = new Date(2026, 9, 11, 15).getTime();
-    expect(startOfWeek(sunday)).toBe(DAY0);
-    expect(rangeOf("week", sunday)).toMatchObject({ from: DAY0, to: addDays(DAY0, 7) });
-    expect(rangeOf("week", sunday).days).toHaveLength(7);
+  test("weeks start on Sunday", () => {
+    const sunday = addDays(DAY0, -1);
+    const saturday = new Date(2026, 9, 10, 15).getTime();
+    expect(startOfWeek(saturday)).toBe(sunday);
+    expect(startOfWeek(sunday)).toBe(sunday);
+    expect(rangeOf("week", saturday)).toMatchObject({ from: sunday, to: addDays(sunday, 7) });
+    expect(rangeOf("week", saturday).days).toHaveLength(7);
+  });
+
+  test("a Sunday-first week is numbered by its Monday's ISO week", () => {
+    // 2027-01-03 (Sun) starts the week of 2027-01-04, ISO week 1; the Sunday alone is in week 53
+    expect(weekNumber(new Date(2027, 0, 3).getTime())).toBe(1);
+    expect(weekNumber(addDays(DAY0, -1))).toBe(41);
+  });
+
+  test("a month runs from the 1st to the 1st of the next, a day per date", () => {
+    const { from, to, days } = rangeOf("month", new Date(2026, 1, 14, 9).getTime());
+    expect(from).toBe(new Date(2026, 1, 1).getTime());
+    expect(to).toBe(new Date(2026, 2, 1).getTime());
+    expect(days).toHaveLength(28);
+    expect(days.at(-1)).toBe(new Date(2026, 1, 28).getTime());
+  });
+
+  test("stepping a month keeps the day of the month, clamped at its end", () => {
+    expect(shift("month", new Date(2026, 0, 31).getTime(), 1)).toBe(
+      new Date(2026, 1, 28).getTime(),
+    );
+    expect(shift("month", DAY0, -1)).toBe(new Date(2026, 8, 5).getTime());
+    expect(shift("week", DAY0, 1)).toBe(addDays(DAY0, 7));
   });
 
   test("the period heading names the period and adds the year when it isn't the current one", () => {
     expect(rangeTitle("week", DAY0, DAY0)).toEqual({
-      title: "Oct 5 – 11",
+      title: "Oct 4 – 10",
       sub: null,
       year: null,
       week: "W41",
     });
-    expect(rangeTitle("week", new Date(2026, 8, 30).getTime(), DAY0).title).toBe("Sep 28 – Oct 4");
+    expect(rangeTitle("week", new Date(2026, 8, 30).getTime(), DAY0).title).toBe("Sep 27 – Oct 3");
     expect(rangeTitle("week", DAY0, new Date(2027, 0, 1).getTime()).year).toBe("2026");
     expect(rangeTitle("week", new Date(2026, 11, 30).getTime(), DAY0).year).toBe("2026 – 2027");
+    expect(rangeTitle("month", addDays(DAY0, 20), DAY0)).toEqual({
+      title: "October",
+      sub: null,
+      year: null,
+      week: null,
+    });
+    expect(rangeTitle("month", DAY0, new Date(2027, 0, 1).getTime()).year).toBe("2026");
     expect(rangeTitle("day", DAY0, DAY0)).toEqual({
       title: "Oct 5",
       sub: "Monday",
@@ -237,15 +270,17 @@ describe("dates", () => {
     expect(startOfMonth(DAY0 + 15 * 3_600_000)).toBe(new Date(2026, 9, 1).getTime());
   });
 
-  test("the month grid starts on Monday and pads weeks with days of adjacent months", () => {
+  test("the month grid starts on Sunday and pads weeks with days of adjacent months", () => {
     const weeks = monthWeeks(DAY0);
-    // October 2026 starts on a Thursday and ends on a Saturday: 5 weeks from 9/28 (Mon) to 11/1 (Sun)
+    // October 2026 starts on a Thursday and ends on a Saturday: 5 weeks from 9/27 (Sun) to 10/31 (Sat)
     expect(weeks).toHaveLength(5);
-    expect(weeks[0]?.[0]).toBe(new Date(2026, 8, 28).getTime());
-    expect(weeks.at(-1)?.at(-1)).toBe(new Date(2026, 10, 1).getTime());
+    expect(weeks[0]?.[0]).toBe(new Date(2026, 8, 27).getTime());
+    expect(weeks.at(-1)?.at(-1)).toBe(new Date(2026, 9, 31).getTime());
     expect(weeks.every((w) => w.length === 7)).toBe(true);
-    // February 2026 starts on a Sunday: a week holding only 2/1 comes first, 5 weeks from 1/26 to 3/1
-    expect(monthWeeks(new Date(2026, 1, 10).getTime())).toHaveLength(5);
+    // February 2026 starts on a Sunday and has 28 days: exactly 4 weeks, no padding
+    expect(monthWeeks(new Date(2026, 1, 10).getTime())).toHaveLength(4);
+    // August 2026 starts on a Saturday: 6 weeks from 7/26 to 9/5
+    expect(monthWeeks(new Date(2026, 7, 10).getTime())).toHaveLength(6);
   });
 
   test("ISO week numbers handle weeks across the year boundary", () => {
@@ -274,11 +309,12 @@ describe("dates", () => {
 
     test("headings, dates, and durations use Japanese notation", () => {
       setLocale("ja");
-      expect(rangeTitle("week", DAY0, DAY0).title).toBe("10月5日 – 11日");
+      expect(rangeTitle("week", DAY0, DAY0).title).toBe("10月4日 – 10日");
       expect(rangeTitle("week", new Date(2026, 8, 30).getTime(), DAY0).title).toBe(
-        "9月28日 – 10月4日",
+        "9月27日 – 10月3日",
       );
       expect(rangeTitle("day", DAY0, DAY0)).toMatchObject({ title: "10月5日", sub: "月曜日" });
+      expect(rangeTitle("month", DAY0, DAY0).title).toBe("10月");
       expect(dateLabel(DAY0, DAY0)).toBe("10/5 月");
       expect(dateLabel(new Date(2025, 9, 5).getTime(), DAY0)).toBe("2025/10/5 日");
       expect(relativeDay(DAY0, DAY0)).toBe("今日");

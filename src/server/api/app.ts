@@ -48,7 +48,14 @@ export function createApp({ db, events, summarizer, now }: AppDeps): Hono {
   app.use("*", guardHost);
   app.on(["POST", "PUT", "PATCH", "DELETE"], "/api/*", guardWrite);
 
-  app.get("/api/health", (c) => c.json<HealthResponse>({ ok: true, name: "kairos", version }));
+  app.get("/api/health", (c) =>
+    c.json<HealthResponse>({
+      ok: true,
+      name: "kairos",
+      version,
+      autoSummary: summarizer?.auto ?? false,
+    }),
+  );
 
   app.get("/api/calendar", (c) => {
     const range = parseRange(c.req.query("from"), c.req.query("to"));

@@ -5,7 +5,7 @@ import { MIN_SEARCH_CHARS } from "@/hooks/queries.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { searchMessages } from "@/i18n/messages/search.ts";
 import { projectColor } from "@/lib/colors.ts";
-import { dateLabel, hhmm } from "@/lib/dates.ts";
+import { dateLabel, hhmm, type View } from "@/lib/dates.ts";
 import { cn } from "@/lib/utils.ts";
 
 /** Cross-period search results as the search panel shows them (owned by App's search query). */
@@ -38,7 +38,7 @@ export function SearchField({
   /** The file button: the words are searched in edited file paths only. */
   files: boolean;
   onFiles: (files: boolean) => void;
-  period: "week" | "day";
+  period: View;
   onChange: (q: string) => void;
   search: SearchState;
   projects: Map<number, Project>;
@@ -77,7 +77,7 @@ export function SearchField({
         if (!e.currentTarget.contains(e.relatedTarget)) setFocused(false);
       }}
     >
-      <Search className="pointer-events-none absolute left-2 size-3.5 text-muted-foreground" />
+      <Search className="pointer-events-none absolute left-2 size-4 text-muted-foreground" />
       <input
         ref={inputRef}
         type="text"
@@ -98,7 +98,7 @@ export function SearchField({
         aria-label={m.label(period)}
         className={cn(
           // Frameless until used, like the toolbar's other controls; the icon and "/" say what it is
-          "h-7 w-36 rounded-md border border-transparent pr-7 pl-7 text-sm outline-none transition-[width] duration-150 placeholder:text-muted-foreground hover:bg-accent focus-visible:border-ring group-focus-within:w-64 group-focus-within:border-input group-focus-within:bg-card motion-reduce:transition-none",
+          "h-8 w-36 rounded-md border border-transparent pr-7 pl-7 text-sm outline-none transition-[width] duration-150 placeholder:text-muted-foreground hover:bg-accent focus-visible:border-ring group-focus-within:w-64 group-focus-within:border-input group-focus-within:bg-card motion-reduce:transition-none",
           // In a narrow window only the icon shows until focused, then it opens to a usable width
           "max-md:w-7 max-md:pr-0 max-md:group-focus-within:w-32 max-md:group-focus-within:pr-7 max-md:placeholder:text-transparent",
           value && "w-64 border-primary/50 bg-card max-md:w-32 max-md:pr-7",

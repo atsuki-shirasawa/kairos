@@ -7,6 +7,12 @@ export interface DigestMessage {
   tool_name: string | null;
 }
 
+/**
+ * Message kinds the digest reads; any other kind adds nothing to it. Finding targets checks for
+ * these too, so a section the digest would come out empty for is never picked.
+ */
+export const DIGEST_KINDS = ["prompt", "command", "assistant", "tool_use", "compact"] as const;
+
 /** Default cap on the digest length in characters; past it, the middle is dropped. */
 export const DIGEST_LIMIT = 60_000;
 const PROMPT_CHARS = 2_000;

@@ -12,8 +12,11 @@ import { at, LogBuilder } from "../../tests/fixtures/builder.ts";
 export const DEMO_TZ = "Asia/Tokyo";
 const OFFSET = "+09:00";
 
-/** Monday of the demo week, `YYYY-MM-DD`. */
-export const DEMO_WEEK = "2026-09-28";
+/**
+ * Sunday of the demo week, `YYYY-MM-DD`. Weeks start on Sunday in the app, and recaps are keyed by
+ * that period, so the seeded ones must start here to be found.
+ */
+export const DEMO_WEEK = "2026-09-27";
 /** The day for the day-view screenshot: a long block there shows its summary body. */
 export const DEMO_DAY = "2026-09-30";
 

@@ -101,6 +101,7 @@ async function captureAll(drawerAt: number): Promise<void> {
       ["week", `?date=${DEMO_WEEK}&session=${DRAWER_SESSION}&at=${drawerAt}`],
       ["day", `?view=day&date=${DEMO_DAY}`],
       ["summary", `?layout=summary&date=${DEMO_WEEK}`],
+      ["month", `?view=month&date=${DEMO_WEEK}`],
     ];
     for (const [name, query] of shots) {
       await chrome.open(base + query);

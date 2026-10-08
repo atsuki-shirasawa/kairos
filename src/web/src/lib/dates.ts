@@ -9,7 +9,7 @@ export const HOUR = 60 * MINUTE;
 export const DAY = 24 * HOUR;
 
 /** Length of the shown period. */
-export type View = "week" | "day";
+export type View = "month" | "week" | "day";
 /** `list` is the summary's table tab (kept under its old name so existing URLs still open it). */
 export type Layout = "calendar" | "list" | "summary";
 
@@ -27,29 +27,52 @@ export function addDays(t: number, n: number): number {
   return d.getTime();
 }
 
-/** Start of the week (Monday, midnight). */
+/** Start of the week (Sunday, midnight), as on a wall calendar. */
 export function startOfWeek(t: number): number {
   const d = new Date(startOfDay(t));
-  const offset = (d.getDay() + 6) % 7;
-  return addDays(d.getTime(), -offset);
+  return addDays(d.getTime(), -d.getDay());
 }
 
 /** The displayed period [from, to) and the midnight of each day in it. */
 export function rangeOf(view: View, anchor: number): { from: number; to: number; days: number[] } {
-  const from = view === "week" ? startOfWeek(anchor) : startOfDay(anchor);
-  const n = view === "week" ? 7 : 1;
-  const days = Array.from({ length: n }, (_, i) => addDays(from, i));
-  return { from, to: addDays(from, n), days };
+  const from =
+    view === "month"
+      ? startOfMonth(anchor)
+      : view === "week"
+        ? startOfWeek(anchor)
+        : startOfDay(anchor);
+  const to = view === "month" ? addMonths(from, 1) : addDays(from, view === "week" ? 7 : 1);
+  const days: number[] = [];
+  for (let d = from; d < to; d = addDays(d, 1)) days.push(d);
+  return { from, to, days };
 }
 
-/** The anchor moved one period (week or day) back or forward. */
+/**
+ * The anchor moved one period back or forward. A month keeps the day of the month where it can
+ * (clamped at the month's end), so stepping through months and switching to the week view lands
+ * near where you were.
+ */
 export function shift(view: View, anchor: number, dir: -1 | 1): number {
+  if (view === "month") return addMonths(anchor, dir);
   return addDays(anchor, (view === "week" ? 7 : 1) * dir);
 }
 
 /** Short weekday name in the UI language ("Mon"). */
 export function weekday(t: number): string {
   return dateMessages().weekdays[new Date(t).getDay()] ?? "";
+}
+
+/** Short weekday names in week order, for column headers (weeks start on Sunday throughout the app). */
+export function weekdayHeaders(): string[] {
+  return dateMessages().weekdays;
+}
+
+/**
+ * ISO week number of a Sunday-first week, taken from its Monday: the six days Monday–Saturday
+ * share an ISO week, so the number names most of the shown week (the Sunday belongs to the one before).
+ */
+export function weekNumber(weekStart: number): number {
+  return isoWeek(addDays(weekStart, 1));
 }
 
 /** Whether both times fall on the same local day. */
@@ -81,7 +104,8 @@ export function isoWeek(t: number): number {
  * to say which week it is, and the heading reads the same in both layouts.
  * The year is omitted for the current year (as in `dateLabel`). The week number is not part of the
  * title; the date picker and tooltip show it.
- * Week: { title: "Sep 28 – Oct 4", year: null, week: "W40" }, day: { title: "Oct 5", sub: "Monday", year: null }
+ * Week: { title: "Sep 27 – Oct 3", year: null, week: "W40" }, day: { title: "Oct 5", sub: "Monday", year: null },
+ * month: { title: "October", year: null }
  */
 export function rangeTitle(
   view: View,
@@ -99,6 +123,7 @@ export function rangeTitle(
         ? String(a.getFullYear())
         : `${a.getFullYear()} – ${b.getFullYear()}`;
   const m = dateMessages();
+  if (view === "month") return { title: m.month(a.getMonth()), sub: null, year, week: null };
   if (view === "day")
     return {
       title: m.monthDay(a.getMonth(), a.getDate()),
@@ -110,7 +135,7 @@ export function rangeTitle(
     title: m.weekRange(a.getMonth(), a.getDate(), b.getMonth(), b.getDate()),
     sub: null,
     year,
-    week: `W${isoWeek(from)}`,
+    week: `W${weekNumber(from)}`,
   };
 }
 
@@ -132,7 +157,7 @@ export function addMonths(t: number, n: number): number {
 }
 
 /**
- * One month for the date picker, as Monday-first weeks padded with days of the adjacent months.
+ * One month for the date picker and month view, as Sunday-first weeks padded with days of the adjacent months.
  * It has 4–6 rows depending on the month (the popover height shifts a bit, but that beats empty rows).
  */
 export function monthWeeks(month: number): number[][] {

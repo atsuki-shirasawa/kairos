@@ -15,8 +15,9 @@ export interface ShortcutTargets extends BlockStepping {
 }
 
 /**
- * Key presses left to their target: with a modifier (browser and OS shortcuts), while typing, and
- * inside the date picker, where the arrow keys move between days.
+ * Key presses left to their target: with a modifier (browser and OS shortcuts), while typing,
+ * inside the date picker, where the arrow keys move between days, and in an open dropdown, which
+ * picks items by typing and closes on Esc.
  */
 function leftToTarget(e: KeyboardEvent): boolean {
   const target = e.target as HTMLElement | null;
@@ -24,7 +25,9 @@ function leftToTarget(e: KeyboardEvent): boolean {
     e.metaKey ||
     e.ctrlKey ||
     e.altKey ||
-    !!target?.closest("input, textarea, [contenteditable], [data-date-picker]")
+    !!target?.closest(
+      "input, textarea, [contenteditable], [data-date-picker], [data-slot=select-content]",
+    )
   );
 }
 
@@ -48,6 +51,9 @@ function run(shortcut: Shortcut, t: ShortcutTargets): boolean {
       break;
     case "today":
       update({ anchor: startOfDay(Date.now()) });
+      break;
+    case "month":
+      update({ view: "month" });
       break;
     case "week":
       update({ view: "week" });

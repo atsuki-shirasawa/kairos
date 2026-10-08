@@ -24,6 +24,9 @@ export const calendarMessages = defineMessages({
     momentAria: (pr: boolean, time: string, ref: string | null, title: string | null) =>
       `${pr ? "PR" : "Commit"}${ref ? ` ${ref}` : ""} at ${time}${title ? `: ${title}` : ""}`,
     momentSeparator: "; ",
+    /** Last line of a month cell, for the day's work that doesn't fit; opens the day. */
+    moreWork: (n: number) => `+${n} more`,
+    moreWorkAria: (n: number, date: string) => `${n} more on ${date}, open in day view`,
   },
   ja: {
     openDay: (date: string) => `${date}を日表示で開く`,
@@ -44,5 +47,7 @@ export const calendarMessages = defineMessages({
     momentAria: (pr: boolean, time: string, ref: string | null, title: string | null) =>
       `${time} ${pr ? "PR" : "コミット"}${ref ? ` ${ref}` : ""}${title ? `「${title}」` : ""}`,
     momentSeparator: "、",
+    moreWork: (n: number) => `ほか ${n} 件`,
+    moreWorkAria: (n: number, date: string) => `${date}のほか ${n} 件を日表示で開く`,
   },
 });

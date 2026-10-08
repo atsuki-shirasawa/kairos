@@ -2,7 +2,7 @@
 // due for an automatic summary, and saving summaries and recaps.
 import type { Database } from "bun:sqlite";
 import { AUTO_SUMMARY_DAYS, isSummarizable, SECTION_IDLE_MS } from "../../shared/sections.ts";
-import { buildDigest, type DigestMessage } from "./digest.ts";
+import { buildDigest, DIGEST_KINDS, type DigestMessage } from "./digest.ts";
 import type { ParsedSummary, PromptInput } from "./prompt.ts";
 import { type RecapInput, type RecapTarget, recapHash } from "./recap.ts";
 
@@ -40,30 +40,98 @@ const PREVIOUS_HEADLINES = 8;
  * Short sections get `title` mode.
  */
 export function findAutoTargets(db: Database, now: number): Target[] {
+  return findTargets(db, now, {
+    endedAfter: now - AUTO_SUMMARY_DAYS * 24 * 60 * 60_000,
+    limit: AUTO_BATCH,
+  }).map(({ project: _, ...t }) => t);
+}
+
+/** Which unsummarized sections `findTargets` returns. Omitted bounds don't narrow the search. */
+export interface TargetFilter {
+  /** Only sections that started at or after this time (ms). */
+  startFrom?: number;
+  /** Only sections that started before this time (ms). */
+  startBefore?: number;
+  /** Only sections that ended at or after this time (ms). */
+  endedAfter?: number;
+  /** Only sections that ended before this time (ms). */
+  endedBefore?: number;
+  /** At most this many sections. */
+  limit?: number;
+}
+
+/** A section to summarize, with its project's name for showing progress. */
+export interface NamedTarget extends Target {
+  project: string | null;
+}
+
+/**
+ * Finished sections whose summary is missing or older than the section, newest first, under the
+ * same rules as automatic runs (short sections get `title` mode). Sections with no conversation to
+ * summarize are left out. Shared by the automatic loop and
+ * `kairos summarize`, so both agree on what still needs a summary.
+ */
+export function findTargets(db: Database, now: number, filter: TargetFilter = {}): NamedTarget[] {
   return db
     .query<
-      { session_id: string; start: number; end: number; prompt_count: number },
-      [number, number, number]
+      {
+        session_id: string;
+        start: number;
+        end: number;
+        prompt_count: number;
+        project: string | null;
+      },
+      [number, number, number, number, number, number]
     >(
-      `SELECT g.session_id, g.start, g.end, g.prompt_count
+      `SELECT g.session_id, g.start, g.end, g.prompt_count, p.name AS project
        FROM segments g
        JOIN sessions s ON s.id = g.session_id
+       LEFT JOIN projects p ON p.id = s.project_id
        LEFT JOIN summaries sm ON sm.session_id = g.session_id AND sm.start = g.start
        WHERE s.prompt_count > 0
-         AND g.end >= ?1
-         AND (g.end <= ?2 OR EXISTS (SELECT 1 FROM segments later WHERE later.session_id = g.session_id AND later.start > g.start))
+         AND g.end >= ?1 AND g.end < ?6
+         AND g.start >= ?2 AND g.start < ?3
+         AND (g.end <= ?4 OR EXISTS (SELECT 1 FROM segments later WHERE later.session_id = g.session_id AND later.start > g.start))
          AND (sm.session_id IS NULL OR sm.covered_until < g.end)
+         -- Same messages as loadMessages / DIGEST_KINDS: a section with none (e.g. only scheduled
+         -- runs) has nothing to summarize, and nothing is saved for it, so it would come back forever
+         AND EXISTS (
+           SELECT 1 FROM messages m
+           WHERE m.session_id = g.session_id AND m.ts BETWEEN g.start AND g.end
+             AND m.agent_id IS NULL AND m.is_copy = 0 AND m.is_scheduled = 0
+             AND m.kind IN (${DIGEST_KINDS.map((k) => `'${k}'`).join(", ")})
+         )
        ORDER BY g.end DESC
-       LIMIT ?3`,
+       LIMIT ?5`,
     )
-    .all(now - AUTO_SUMMARY_DAYS * 24 * 60 * 60_000, now - SECTION_IDLE_MS, AUTO_BATCH)
+    .all(
+      filter.endedAfter ?? 0,
+      filter.startFrom ?? 0,
+      filter.startBefore ?? Number.MAX_SAFE_INTEGER,
+      now - SECTION_IDLE_MS,
+      // SQLite reads a negative LIMIT as no limit
+      filter.limit ?? -1,
+      filter.endedBefore ?? Number.MAX_SAFE_INTEGER,
+    )
     .map((r) => ({
       sessionId: r.session_id,
       start: r.start,
       mode: isSummarizable({ start: r.start, end: r.end, promptCount: r.prompt_count })
         ? "summary"
         : "title",
+      project: r.project,
     }));
+}
+
+/** The section's headline, or null when it has no summary yet. */
+export function loadHeadline(db: Database, target: SectionRef): string | null {
+  return (
+    db
+      .query<{ headline: string }, [string, number]>(
+        "SELECT headline FROM summaries WHERE session_id = ? AND start = ?",
+      )
+      .get(target.sessionId, target.start)?.headline ?? null
+  );
 }
 
 /** The section's prompt input, or null when the section is gone or has no conversation in it. */
