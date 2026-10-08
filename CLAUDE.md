@@ -22,11 +22,13 @@ To deploy to the locally running server, use `/ship-local` (check → build → 
 - `src/cli/` — the `kairos` command (`ensure` / `open` / `serve` / `ingest` / `summarize`, etc.; help text in `help.ts`). `daemon.ts` handles background start and the PID file
 - `src/server/ingest/` — incremental read (`reader`) → classify (`classify`) → store (`ingester`) → work blocks (`segments`). `watcher` re-ingests changed files while the server runs
 - `src/server/db/` — schema and `MIGRATIONS`
+- `src/server/` (top level) — `queries.ts` (read queries behind the API), `settings.ts` (settings in the DB's kv table), `events.ts` (SSE broadcast), `pricing.ts` (token → USD, a usage gauge rather than the real bill), `serve.ts` (server startup)
 - `src/server/summarize/` — per-section summaries. Runs `claude -p` with side-effect-free settings. The output language follows the UI language (stored on the server via `PATCH /api/settings`); `--summary-lang <en|ja>` fixes it instead. Existing summaries are kept and can be regenerated from the drawer
 - `src/server/api/` — Hono. `security.ts` holds Host validation, CSP and write protection
 - `src/shared/` — API types and constants shared by the server and the UI
 - `src/web/` — React 19 + Tailwind v4 + shadcn/ui (`@/` is `src/web/src`)
 - `src/web/src/i18n/` — UI language (English by default, Japanese selectable from the "⋯" menu, saved per browser). Messages live in `messages/*.ts` via `defineMessages`
+- `tests/` mirrors `src/` (`cli/`, `server/`, `web/`). `tests/web` covers pure `lib/` logic without a DOM and imports by relative path (the `@/` alias is not used in tests); call `setLocale` when a test checks copy
 
 ## Data
 
