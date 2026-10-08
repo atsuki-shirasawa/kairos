@@ -9,7 +9,7 @@ import { AppMenu } from "./toolbar/AppMenu.tsx";
 import { Brand, type ImportProgress } from "./toolbar/Brand.tsx";
 import { CopyReportButton } from "./toolbar/CopyReportButton.tsx";
 import { PeriodNav } from "./toolbar/PeriodNav.tsx";
-import { LayoutToggle, TrackDivider, ViewToggle, ViewTrack } from "./toolbar/ViewToggles.tsx";
+import { LayoutToggle, ViewToggle } from "./toolbar/ViewToggles.tsx";
 
 // SummaryView styles its own toggles with the toolbar's segmented look
 export { SEGMENT, SEGMENTED } from "./toolbar/segmented.ts";
@@ -103,11 +103,8 @@ export function Toolbar({
           onOpen={onOpenHit}
           onPanel={onSearchPanel}
         />
-        <ViewTrack>
-          <ViewToggle view={view} onView={onView} />
-          <TrackDivider />
-          <LayoutToggle layout={layout} onLayout={onLayout} />
-        </ViewTrack>
+        <ViewToggle view={view} onView={onView} />
+        <LayoutToggle layout={layout} onLayout={onLayout} />
         <span className="w-2 shrink-0 max-md:hidden" aria-hidden />
         <CopyReportButton view={view} report={report} hasWork={hasWork} />
         <FilterMenu projects={projects} sessions={sessions} filter={filter} onFilter={onFilter} />

@@ -7,6 +7,7 @@ export type Shortcut =
   | "prevPeriod"
   | "nextPeriod"
   | "today"
+  | "month"
   | "week"
   | "day"
   | "calendar"
@@ -23,6 +24,7 @@ const KEYS = new Map<string, Shortcut>([
   ["ArrowLeft", "prevPeriod"],
   ["ArrowRight", "nextPeriod"],
   ["t", "today"],
+  ["m", "month"],
   ["w", "week"],
   ["d", "day"],
   ["c", "calendar"],

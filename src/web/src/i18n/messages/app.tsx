@@ -1,10 +1,12 @@
 import type { ReactNode } from "react";
+import type { View } from "@/lib/dates.ts";
 import { defineMessages } from "../index.ts";
+import { THIS_EN, THIS_JA } from "../period.ts";
 
-type Period = "week" | "day";
+type Period = View;
 
-const periodEn = (p: Period) => (p === "week" ? "this week" : "this day");
-const periodJa = (p: Period) => (p === "week" ? "この週" : "この日");
+const periodEn = (p: Period) => THIS_EN[p];
+const periodJa = (p: Period) => THIS_JA[p];
 
 /** Notices over the calendar/list (connection errors, empty periods, filters with no match). */
 export const appMessages = defineMessages({

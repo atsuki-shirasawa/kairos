@@ -113,8 +113,8 @@ function ProjectDone({
         {p.blocks.map((b, i) => (
           <DoneItem
             key={`${b.session.id}:${b.segment.start}`}
-            // In the week, name the day only where it changes, so the column reads as a timeline
-            showDay={view === "week" && startsNewDay(p.blocks, i)}
+            // Over several days, name the day only where it changes, so the column reads as a timeline
+            showDay={view !== "day" && startsNewDay(p.blocks, i)}
             block={b}
             selected={isSelected(b, selectedId, selectedAt)}
             onSelect={onSelect}

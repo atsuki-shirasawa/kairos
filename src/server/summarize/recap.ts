@@ -1,4 +1,4 @@
-// Recaps: what was done on one project during a shown period (a week or a day), in a few sentences.
+// Recaps: what was done on one project during a shown period (a month, a week or a day), in a few sentences.
 // Written from the period's section summaries rather than the raw conversation, so the input stays
 // small and a recap reads like the summaries it is built on.
 import type { Database } from "bun:sqlite";

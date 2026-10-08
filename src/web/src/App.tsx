@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { CalendarGrid } from "@/components/CalendarGrid.tsx";
 import { FilterChips } from "@/components/filter/FilterChips.tsx";
+import { MonthGrid } from "@/components/MonthGrid.tsx";
 import { SessionDrawer } from "@/components/SessionDrawer.tsx";
 import { SessionList } from "@/components/SessionList.tsx";
 import { SummaryTabs, SummaryView } from "@/components/SummaryView.tsx";
@@ -21,7 +22,7 @@ import { useTheme } from "@/hooks/useTheme.ts";
 import { useUrlState } from "@/hooks/useUrlState.ts";
 import { useLocale } from "@/i18n/index.ts";
 import { appMessages } from "@/i18n/messages/app.tsx";
-import { dateLabel, rangeOf, shift, startOfDay } from "@/lib/dates.ts";
+import { dateLabel, rangeOf, shift, startOfDay, type View } from "@/lib/dates.ts";
 import { type Filter, hiddenReason, isFocused, withoutConditions } from "@/lib/filter.ts";
 import { buildReport } from "@/lib/report.ts";
 
@@ -166,6 +167,8 @@ export function App() {
               previous={previousSessions}
               tabs={summaryTabs}
             />
+          ) : state.view === "month" ? (
+            <MonthGrid {...body} />
           ) : (
             <CalendarGrid {...body} />
           )}
@@ -214,7 +217,7 @@ function EmptyNotice({
   next,
   onJump,
 }: {
-  period: "week" | "day";
+  period: View;
   progress: { done: number; total: number } | null;
   /** There are sessions, but all are hidden. What hid them. */
   hiddenBy: "project" | "brief" | null;
@@ -256,7 +259,7 @@ function EmptyNotice({
 }
 
 /** The filter left nothing of a period that has work: say so and offer to clear it. */
-function NoMatchNotice({ period, onClear }: { period: "week" | "day"; onClear: () => void }) {
+function NoMatchNotice({ period, onClear }: { period: View; onClear: () => void }) {
   const m = appMessages();
   return (
     <Notice>

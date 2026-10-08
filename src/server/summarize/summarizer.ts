@@ -32,6 +32,9 @@ const POLL_MS = 60_000;
 /** More than a week of projects; past it, a request is refused rather than queued behind the rest. */
 export const MAX_RECAP_QUEUE = 20;
 
+/** Failure message for a section with no conversation in it; retrying can't help. */
+export const NO_CONVERSATION = "No conversation to summarize";
+
 /** Answers a prompt with the LLM. Production uses `runClaude`; tests pass a stub. */
 export type Runner = (prompt: string) => Promise<string>;
 
@@ -68,6 +71,8 @@ export class Summarizer {
        * language chosen in the UI (stored in the DB) is used, falling back to English.
        */
       lang?: SummaryLang;
+      /** Don't log failures to stderr; `kairos summarize` shows them in its own progress lines. */
+      quiet?: boolean;
     } = {},
   ) {}
 
@@ -79,6 +84,11 @@ export class Summarizer {
   /** Read on every run, so a language switched in the UI applies to the next summary. */
   get lang(): SummaryLang {
     return this.opts.lang ?? storedSummaryLang(this.db) ?? DEFAULT_SUMMARY_LANG;
+  }
+
+  /** Whether it summarizes recent sections on its own (off with `--no-auto-summary`). */
+  get auto(): boolean {
+    return this.opts.auto !== false;
   }
 
   /** The language was fixed with `--summary-lang`, so the UI's choice doesn't apply. */
@@ -196,7 +206,7 @@ export class Summarizer {
       const input = loadSectionInput(this.db, target);
       if (!input) {
         // No conversation (e.g. only scheduled runs). Retrying gives the same result, so skip it for good
-        this.failures.giveUp(k, "No conversation to summarize");
+        this.failures.giveUp(k, NO_CONVERSATION);
         return false;
       }
       const build = target.mode === "title" ? buildTitlePrompt : buildPrompt;
@@ -214,7 +224,8 @@ export class Summarizer {
       return true;
     } catch (e) {
       const attempts = this.failures.record(k, e, this.now());
-      console.error(`kairos: summary failed for ${k} (attempt ${attempts}):`, e);
+      if (!this.opts.quiet)
+        console.error(`kairos: summary failed for ${k} (attempt ${attempts}):`, e);
       return false;
     } finally {
       this.current = null;

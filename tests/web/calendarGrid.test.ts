@@ -10,6 +10,7 @@ import {
   markTops,
   momentMarks,
   momentRows,
+  monthCellFit,
   NO_EDGES,
   sameEdges,
 } from "../../src/web/src/lib/calendarGrid.ts";
@@ -280,5 +281,18 @@ describe("momentMarks", () => {
 describe("markTops", () => {
   test("keeps marks at their time, pushing close ones just below the one above", () => {
     expect(markTops([10, 40, 42, 43, 80])).toEqual([10, 40, 46, 52, 80]);
+  });
+});
+
+describe("monthCellFit", () => {
+  test("lists every block when they fit", () => {
+    expect(monthCellFit(3, 3)).toEqual({ shown: 3, more: 0 });
+    expect(monthCellFit(0, 2)).toEqual({ shown: 0, more: 0 });
+  });
+
+  test("gives the last line to +n more when they don't, counting what it stands for", () => {
+    expect(monthCellFit(5, 3)).toEqual({ shown: 2, more: 3 });
+    expect(monthCellFit(2, 1)).toEqual({ shown: 0, more: 2 });
+    expect(monthCellFit(2, 0)).toEqual({ shown: 0, more: 2 });
   });
 });

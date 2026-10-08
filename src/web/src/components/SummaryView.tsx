@@ -76,7 +76,7 @@ export function SummaryView({
       >
         <div className="-mb-2">{tabs}</div>
         <Totals view={view} soFar={soFar} summary={summary} before={before} />
-        {view === "week" ? (
+        {view !== "day" ? (
           <ByDay summary={summary} projects={projects} now={now} onOpenDay={onOpenDay} />
         ) : (
           <ThroughDay

@@ -101,12 +101,23 @@ export async function ensure(
 }
 
 /**
- * Drops the environment variables inherited from the hook that are tied to a Claude Code session.
- * The server calls `claude -p` for summaries, which must not be mistaken for part of the parent session.
+ * `CLAUDE*` variables that choose the account, config directory, provider or credentials rather
+ * than belong to a session. `claude -p` needs them to log in the same way the user's own does.
+ * `*_FILE_DESCRIPTOR` variables stay out: the descriptor belongs to the host that opened it, and
+ * the child never inherits it.
  */
-function serverEnv(): NodeJS.ProcessEnv {
+const CLAUDE_SETTINGS =
+  /^CLAUDE_CONFIG_DIR$|^CLAUDE_CODE_USE_|^CLAUDE_CODE_OAUTH_TOKEN$|^CLAUDE_CODE_SKIP_\w+_AUTH$|^CLAUDE_CODE_CLIENT_|^CLAUDE_CODE_API_KEY_HELPER_TTL_MS$/;
+
+/**
+ * Drops the environment variables inherited from the hook that are tied to a Claude Code session.
+ * The server (and `kairos summarize`) calls `claude -p` for summaries, which must not be mistaken
+ * for part of the parent session. Settings in `CLAUDE_SETTINGS` are kept.
+ */
+export function serverEnv(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
-  for (const [k, v] of Object.entries(process.env)) if (!k.startsWith("CLAUDE")) env[k] = v;
+  for (const [k, v] of Object.entries(source))
+    if (!k.startsWith("CLAUDE") || CLAUDE_SETTINGS.test(k)) env[k] = v;
   return env;
 }
 

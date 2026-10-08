@@ -7,6 +7,12 @@ import type { DaySummary, PeriodSummary } from "@/lib/summary.ts";
 import { cn } from "@/lib/utils.ts";
 import { Heading, projectName, projectOf } from "./shared.tsx";
 
+/**
+ * Above this many days (a month) the bars are too narrow for their durations and weekday ticks:
+ * those move to the bar's tooltip, and the ticks keep only the date.
+ */
+const COMPACT_DAYS = 7;
+
 /** One stacked bar per day. Parallel sessions are split by share, so a bar is the day's union. */
 export function ByDay({
   summary,
@@ -21,24 +27,29 @@ export function ByDay({
 }) {
   const m = summaryMessages();
   const height = scaleToMax(summary.days.map((d) => d.busyMs));
+  const compact = summary.days.length > COMPACT_DAYS;
+  const columns = {
+    gridTemplateColumns: `repeat(${summary.days.length}, minmax(0, 1fr))`,
+  };
   return (
     <div>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4">
         <Heading>{m.byDay}</Heading>
         <Legend summary={summary} projects={projects} />
       </div>
-      <div className="grid grid-cols-7 gap-2 border-b">
+      <div className={cn("grid border-b", compact ? "gap-1" : "gap-2")} style={columns}>
         {summary.days.map((d) => (
           <DayBar
             key={d.day}
             day={d}
             height={height(d.busyMs)}
+            compact={compact}
             projects={projects}
             onOpen={() => onOpenDay(d.day)}
           />
         ))}
       </div>
-      <div className="mt-1.5 grid grid-cols-7 gap-2">
+      <div className={cn("mt-1.5 grid", compact ? "gap-1" : "gap-2")} style={columns}>
         {summary.days.map((d) => (
           <span
             key={d.day}
@@ -47,7 +58,9 @@ export function ByDay({
               isSameDay(d.day, now) ? "text-primary" : "text-muted-foreground",
             )}
           >
-            {m.dayTick(weekday(d.day), new Date(d.day).getDate())}
+            {compact
+              ? new Date(d.day).getDate()
+              : m.dayTick(weekday(d.day), new Date(d.day).getDate())}
           </span>
         ))}
       </div>
@@ -77,25 +90,32 @@ function Legend({ summary, projects }: { summary: PeriodSummary; projects: Map<n
 function DayBar({
   day: d,
   height,
+  compact,
   projects,
   onOpen,
 }: {
   day: DaySummary;
   height: number;
+  /** Too narrow for the duration above the bar; the tooltip carries it instead. */
+  compact: boolean;
   projects: Map<number, Project>;
   onOpen: () => void;
 }) {
   const share = scaleToSum(d.projects.map((p) => p.busyMs));
+  const duration = d.busyMs > 0 ? durationLabel(d.busyMs) : summaryMessages().noTime;
   return (
     <button
       type="button"
       onClick={onOpen}
-      title={dateLabel(d.day)}
-      className="group flex h-40 min-w-0 flex-col items-stretch justify-end gap-1 rounded-t-sm px-1 focus-visible:outline-2 focus-visible:outline-ring"
+      title={compact ? summaryMessages().dayBarTitle(dateLabel(d.day), duration) : dateLabel(d.day)}
+      className={cn(
+        "group flex h-40 min-w-0 flex-col items-stretch justify-end gap-1 rounded-t-sm focus-visible:outline-2 focus-visible:outline-ring",
+        compact ? "px-0" : "px-1",
+      )}
     >
-      <span className="font-num text-[11px] text-muted-foreground tabular-nums">
-        {d.busyMs > 0 ? durationLabel(d.busyMs) : summaryMessages().noTime}
-      </span>
+      {!compact && (
+        <span className="font-num text-[11px] text-muted-foreground tabular-nums">{duration}</span>
+      )}
       <span
         className="flex w-full flex-col-reverse overflow-hidden rounded-t-sm opacity-90 group-hover:opacity-100"
         style={{ height: `${height}%` }}

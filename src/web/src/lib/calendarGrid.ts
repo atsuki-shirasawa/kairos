@@ -279,3 +279,13 @@ export function markTops(ys: number[]): number[] {
   }
   return tops;
 }
+
+/**
+ * How many of a month cell's blocks it lists when `slots` lines fit. When they don't all fit, the
+ * last line goes to "+n more" (which opens the day), so `more` counts what it stands for.
+ */
+export function monthCellFit(total: number, slots: number): { shown: number; more: number } {
+  if (total <= slots) return { shown: total, more: 0 };
+  const shown = Math.max(0, slots - 1);
+  return { shown, more: total - shown };
+}

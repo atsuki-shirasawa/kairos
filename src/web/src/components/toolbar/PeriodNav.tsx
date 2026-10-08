@@ -21,7 +21,7 @@ export function PeriodNav({
     <div className="flex shrink-0 items-center gap-0.5">
       <Button
         variant="ghost"
-        size="icon-sm"
+        size="icon"
         onClick={() => onMove(-1)}
         aria-label={m.prev(view)}
         title={`${m.prev(view)} (←)`}
@@ -30,7 +30,7 @@ export function PeriodNav({
       </Button>
       <Button
         variant="ghost"
-        size="sm"
+        size="default"
         className="px-2.5"
         onClick={onToday}
         title={`${m.today} (t)`}
@@ -39,7 +39,7 @@ export function PeriodNav({
       </Button>
       <Button
         variant="ghost"
-        size="icon-sm"
+        size="icon"
         onClick={() => onMove(1)}
         aria-label={m.next(view)}
         title={`${m.next(view)} (→)`}

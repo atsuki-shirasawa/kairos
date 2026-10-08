@@ -1,42 +1,55 @@
-import { CalendarDays, LayoutDashboard } from "lucide-react";
-import type { ReactNode } from "react";
+import { CalendarDays, ChartColumn } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import { toolbarMessages } from "@/i18n/messages/toolbar.ts";
 import type { Layout, View } from "@/lib/dates.ts";
 import { SEGMENT, SEGMENTED } from "./segmented.ts";
 
+/** The periods in the dropdown, largest first, with their labels and shortcut keys. */
+function views(): [View, string, string][] {
+  const m = toolbarMessages();
+  return [
+    ["month", m.month, "m"],
+    ["week", m.week, "w"],
+    ["day", m.day, "d"],
+  ];
+}
+
 /**
- * The period and layout toggles on one shared track, so the toolbar shows one switch instead of
- * two separate pills. They stay two groups, each with its own label, for screen readers.
+ * Switches the period between a month, a week and a day. A dropdown rather than three segments,
+ * so the toolbar stays narrow; the keys (m / w / d) switch without opening it. It stands on its
+ * own, outlined, apart from the layout toggle: sharing a track made the two read as one switch.
  */
-export function ViewTrack({ children }: { children: ReactNode }) {
-  return <div className={`flex shrink-0 items-center gap-0.5 ${SEGMENTED}`}>{children}</div>;
-}
-
-/** A faint rule between the groups on a `ViewTrack`. */
-export function TrackDivider() {
-  return <span className="mx-0.5 h-4 w-px shrink-0 bg-foreground/10" aria-hidden />;
-}
-
-/** Switches the period between a week and a day. */
 export function ViewToggle({ view, onView }: { view: View; onView: (view: View) => void }) {
   const m = toolbarMessages();
   return (
-    <ToggleGroup
-      type="single"
-      size="sm"
-      spacing={0.5}
-      value={view}
-      onValueChange={(v) => v && onView(v as View)}
-      aria-label={m.viewToggle}
-    >
-      <ToggleGroupItem value="week" className={SEGMENT} title={m.weekTitle}>
-        {m.week}
-      </ToggleGroupItem>
-      <ToggleGroupItem value="day" className={SEGMENT} title={m.dayTitle}>
-        {m.day}
-      </ToggleGroupItem>
-    </ToggleGroup>
+    <Select value={view} onValueChange={(v) => onView(v as View)}>
+      <SelectTrigger
+        size="default"
+        aria-label={m.viewToggle}
+        title={m.viewTitle}
+        className="shrink-0 gap-1 rounded-md bg-card px-2.5 hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring focus-visible:ring-0 dark:bg-card dark:hover:bg-accent"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent position="popper" align="start" className="min-w-32">
+        {views().map(([value, label, key]) => (
+          <SelectItem
+            key={value}
+            value={value}
+            hint={<kbd className="ml-auto font-num text-[11px] text-muted-foreground">{key}</kbd>}
+          >
+            {label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -58,6 +71,7 @@ export function LayoutToggle({
       value={layout === "list" ? "summary" : layout}
       onValueChange={(v) => v && onLayout(v as Layout)}
       aria-label={m.layoutToggle}
+      className={`shrink-0 ${SEGMENTED}`}
     >
       <ToggleGroupItem
         value="calendar"
@@ -73,7 +87,7 @@ export function LayoutToggle({
         aria-label={m.summary}
         title={`${m.summary} (s)`}
       >
-        <LayoutDashboard />
+        <ChartColumn />
       </ToggleGroupItem>
     </ToggleGroup>
   );
