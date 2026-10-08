@@ -11,6 +11,7 @@ import {
   momentMarks,
   momentRows,
   monthCellFit,
+  monthRowHeights,
   NO_EDGES,
   sameEdges,
 } from "../../src/web/src/lib/calendarGrid.ts";
@@ -294,5 +295,29 @@ describe("monthCellFit", () => {
     expect(monthCellFit(5, 3)).toEqual({ shown: 2, more: 3 });
     expect(monthCellFit(2, 1)).toEqual({ shown: 0, more: 2 });
     expect(monthCellFit(2, 0)).toEqual({ shown: 0, more: 2 });
+  });
+});
+
+describe("monthRowHeights", () => {
+  const sizes = { heightPx: 600, minBusyPx: 94, emptyPx: 36 };
+
+  test("shrinks weeks without work and gives their room to the weeks with work", () => {
+    expect(monthRowHeights([false, true, false, true, false], sizes)).toEqual([
+      36, 246, 36, 246, 36,
+    ]);
+  });
+
+  test("splits the height evenly when no week has work", () => {
+    expect(monthRowHeights([false, false, false, false, false], sizes)).toEqual([
+      120, 120, 120, 120, 120,
+    ]);
+  });
+
+  test("keeps weeks with work at their minimum once the month runs out of room", () => {
+    const rows = monthRowHeights([true, true, true, true, true, false], {
+      ...sizes,
+      heightPx: 300,
+    });
+    expect(rows).toEqual([94, 94, 94, 94, 94, 36]);
   });
 });

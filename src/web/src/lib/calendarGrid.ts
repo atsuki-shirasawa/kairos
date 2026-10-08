@@ -289,3 +289,26 @@ export function monthCellFit(total: number, slots: number): { shown: number; mor
   const shown = Math.max(0, slots - 1);
   return { shown, more: total - shown };
 }
+
+/** What `monthRowHeights` needs to share a month's height between its weeks. */
+export interface MonthRowSizes {
+  /** Height the month has to fill, in px. */
+  heightPx: number;
+  /** A week with work never gets less than this; below it the month scrolls. */
+  minBusyPx: number;
+  /** Height of a week without work: enough for its day numbers. */
+  emptyPx: number;
+}
+
+/**
+ * Heights of a month's week rows. Weeks without work shrink to their day numbers and the weeks with
+ * work share the rest, so work concentrated in a few weeks isn't truncated to make room for empty
+ * ones. With no work at all, the weeks split the height evenly as a plain calendar does.
+ */
+export function monthRowHeights(busy: boolean[], sizes: MonthRowSizes): number[] {
+  const { heightPx, minBusyPx, emptyPx } = sizes;
+  const busyCount = busy.filter(Boolean).length;
+  if (busyCount === 0) return busy.map(() => Math.max(emptyPx, heightPx / busy.length));
+  const busyPx = Math.max(minBusyPx, (heightPx - (busy.length - busyCount) * emptyPx) / busyCount);
+  return busy.map((b) => (b ? busyPx : emptyPx));
+}
