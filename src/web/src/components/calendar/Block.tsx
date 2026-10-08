@@ -40,16 +40,22 @@ const SPOKEN_MOMENTS = 8;
 const LANE_ROW_PX = 18;
 /**
  * Width of that lane. The day view is wide enough that a block's text would otherwise run across
- * the whole screen; the right side holds the moments instead, and the text keeps a readable measure.
+ * the whole screen; the lane holds the moments instead, and the text keeps a readable measure.
  */
 const LANE_WIDTH = "min(38%, 24rem)";
 /**
- * Room the heading, time range and body leave for the lane, matching `LANE_WIDTH` plus a gap.
- * Both this and the lane switch on the block's own width (a container query): side-by-side or
- * stacked blocks on a busy day are too narrow for it, and fall back to the tooltip.
- * Spelled out so Tailwind can pick up the class names.
+ * Where the lane starts: right after the text's measure (`LANE_ROOM`), so on a wide screen the
+ * summary and its commits read as one block instead of sitting at opposite edges of the window.
+ * On a narrower block it falls back to the right edge.
  */
-const LANE_ROOM = "@min-[36rem]:pr-[calc(min(38%,24rem)+0.75rem)]";
+const LANE_LEFT = "min(calc(0.625rem + 32rem + 1.5rem), calc(100% - min(38%, 24rem) - 0.5rem))";
+/**
+ * Width the heading, time range and body keep beside the lane: a readable measure, or less when
+ * the lane (`LANE_WIDTH` plus a gap) needs the room. Both this and the lane switch on the block's
+ * own width (a container query): side-by-side or stacked blocks on a busy day are too narrow for
+ * it, and fall back to the tooltip. Spelled out so Tailwind can pick up the class names.
+ */
+const LANE_ROOM = "@min-[36rem]:max-w-[min(32rem,calc(100%-min(38%,24rem)-0.75rem))]";
 
 /** How a block reads, apart from its position. */
 interface BlockState {
@@ -345,15 +351,15 @@ function MomentTicks({ moments, filledPx }: { moments: Moment[]; filledPx: numbe
 }
 
 /**
- * The day view's lane on the right of a block, labeling each commit and PR at the height it was
+ * The day view's lane beside a block's text, labeling each commit and PR at the height it was
  * made. The drawer lists the same outcomes, so this is visual only.
  */
 function MomentLane({ rows, heightPx }: { rows: MomentRow[]; heightPx: number }) {
   return (
     // Only as tall as the part no block is stacked over, so it never shows through between them
     <div
-      className="pointer-events-none absolute top-0 right-2 @max-[36rem]:hidden border-foreground/10 border-l"
-      style={{ width: LANE_WIDTH, height: heightPx }}
+      className="pointer-events-none absolute top-0 @max-[36rem]:hidden border-foreground/10 border-l"
+      style={{ left: LANE_LEFT, width: LANE_WIDTH, height: heightPx }}
       aria-hidden
     >
       {rows.map((row) => (

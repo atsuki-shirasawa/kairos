@@ -141,7 +141,7 @@ sequenceDiagram
 
 A recap explains what was done on one project during a shown period (the summary view's week or day) in a few sentences and bullets, for a weekly report or for looking back.
 
-- Written only on request (the summary view's "Explain this work" button, `POST /api/recaps`), never automatically: a week has as many recaps as projects
+- Written only on request (the summary view's "Summarize this work" button, `POST /api/recaps`), never automatically: a week has as many recaps as projects
 - The input is the period's section headlines and summary bodies (sections starting in the period, from sessions with prompts), plus the PR and commit titles made during them, up to 40k characters (bodies are dropped first). Raw conversation is not read again
 - Stored in `recaps` (key: project + period start and end) with a hash of the input. When the input changes (more work, a new section summary), the API marks the recap `stale`, and it can be rewritten
 - Shares the Summarizer's queue, so only one `claude` runs at a time: requested section summaries first, then recaps, then automatic section summaries. A failure is shown in the view until the next request (no automatic retry)
