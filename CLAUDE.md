@@ -31,13 +31,13 @@ To deploy to the locally running server, use `/ship-local` (check → build → 
 ## Data
 
 - DB and PID file: `~/Library/Application Support/kairos/` (`kairos.db`, `kairos.pid`); server log: `~/Library/Logs/kairos/server.log`. Inspect the DB with `sqlite3 -readonly`
-- `KAIROS_DATA_DIR` moves all of these. Always set it when starting an extra server (previews, experiments); otherwise it overwrites the real PID file and `kairos stop` / `restart` lose track of the running daemon
+- `KAIROS_DATA_DIR` moves all of these. Always set it when starting an extra server (previews, experiments); otherwise it overwrites the real PID file and `kairos stop` / `restart` lose track of the running daemon. A hook (`.claude/hooks/guard-bash.sh`) blocks starting a server without it while the daemon runs, and any `sqlite3` on the real DB without `-readonly`
 
 ## Rules
 
 - **Original logs are read-only.** Never write under `~/.claude/projects` (a hook blocks edits to `*.jsonl`)
-- Area-specific rules live in `.claude/rules/` and load when you touch those files: `ingest.md` (fixtures, `PARSER_VERSION` / `DERIVED_VERSION`), `db.md` (`MIGRATIONS` is append-only), `api.md` (`guardHost` / `guardWrite`, `claude -p` flags), `web.md` (i18n, Markdown rendering)
-- A Stop hook (`.claude/hooks/rules-check.sh`) runs `bun run check` when code is uncommitted, flags a missing version bump or a rewritten migration, and asks for `security-reviewer` / `i18n-reviewer` when their areas change (once per distinct diff)
+- Area-specific rules live in `.claude/rules/` and load when you touch those files: `ingest.md` (fixtures, `PARSER_VERSION` / `DERIVED_VERSION`), `db.md` (`MIGRATIONS` is append-only), `api.md` (`guardHost` / `guardWrite`, `claude -p` flags), `web.md` (i18n, Markdown rendering). Skills for recurring changes: `/add-migration`, `/add-fixture-scenario`, `/add-api-route`, `/add-model-price`
+- A Stop hook (`.claude/hooks/rules-check.sh`) runs `bun run check` when code is uncommitted, flags a missing version bump or a rewritten migration, and asks for `security-reviewer` / `i18n-reviewer` / `design-reviewer` when their areas change (once per distinct diff)
 - **Don't loosen API security** (Host validation, write protection, `127.0.0.1` only, no raw HTML or images from conversation Markdown). When you change any of it, check with the `security-reviewer` agent
 
 ## Writing

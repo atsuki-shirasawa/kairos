@@ -16,7 +16,7 @@ The server returns conversation logs from every project, so assume another site 
 - Listen on `127.0.0.1` only
 - Don't loosen the CSP in `security.ts`
 - Request and response types live in `src/shared/` and are shared with the UI; update both sides together
-- Update the API table in `ARCHITECTURE.md` §5 when routes change
+- Update the API table in `ARCHITECTURE.md` §5 when routes change. `/add-api-route` walks through all of these
 
 ## Summaries (`src/server/summarize/`)
 

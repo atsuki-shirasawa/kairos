@@ -63,6 +63,9 @@ remind_once security-reviewer \
 remind_once i18n-reviewer \
   "UI components or message dictionaries changed. Run the i18n-reviewer agent." \
   'src/web/src/*.tsx' src/web/src/i18n
+remind_once design-reviewer \
+  "Components, styles or DESIGN.md changed. Run the design-reviewer agent." \
+  src/web/src/components src/web/src/index.css DESIGN.md
 
 # CLAUDE.md asks for `bun run check` at the end of every change. It takes a few seconds, so run it
 # whenever code is uncommitted rather than trusting that it was run.
