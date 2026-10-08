@@ -1,6 +1,5 @@
 import type { View } from "@/lib/dates.ts";
 import { defineMessages } from "../index.ts";
-
 import { THIS_EN, THIS_JA, UNIT_EN, UNIT_JA } from "../period.ts";
 
 type Unit = View;

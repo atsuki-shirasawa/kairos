@@ -154,6 +154,7 @@ export function App() {
           {state.layout === "list" ? (
             <SessionList
               {...body}
+              view={state.view}
               sort={state.sort}
               onSort={(sort) => update({ sort })}
               tabs={summaryTabs}
