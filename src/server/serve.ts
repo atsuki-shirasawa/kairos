@@ -8,7 +8,7 @@ import { openDb } from "./db/index.ts";
 import { EventHub } from "./events.ts";
 import { Ingester } from "./ingest/ingester.ts";
 import { watchProjects } from "./ingest/watcher.ts";
-import { DATA_DIR, DEFAULT_CLAUDE_DIR, DEFAULT_DB_PATH } from "./paths.ts";
+import { DEFAULT_CLAUDE_DIR, DEFAULT_DB_PATH, SUMMARIZER_CWD } from "./paths.ts";
 import { type Effort, runClaude } from "./summarize/claude.ts";
 import type { SummaryLang } from "./summarize/prompt.ts";
 import { DEFAULT_MODEL, Summarizer } from "./summarize/summarizer.ts";
@@ -43,7 +43,7 @@ export async function serve(opts: ServeOptions = {}): Promise<void> {
     (prompt) =>
       runClaude(prompt, {
         model,
-        cwd: join(DATA_DIR, "summarizer"),
+        cwd: SUMMARIZER_CWD,
         ...(opts.summaryEffort ? { effort: opts.summaryEffort } : {}),
       }),
     {

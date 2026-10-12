@@ -114,10 +114,13 @@ function Entry({ message: m, result }: { message: Message; result: Message | und
   switch (m.kind) {
     case "prompt":
     case "command":
+    case "sdk_prompt":
       return (
         <div className="ml-8 rounded-lg bg-accent px-3 py-2">
           <div className="mb-0.5 flex items-center justify-between">
-            <span className="font-medium text-xs">{t.you}</span>
+            <span className="font-medium text-xs">
+              {m.kind === "sdk_prompt" ? t.sdkRequest : t.you}
+            </span>
             <Time ts={m.ts} />
           </div>
           {m.kind === "command" ? (

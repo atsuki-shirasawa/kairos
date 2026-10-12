@@ -11,7 +11,14 @@ export interface DigestMessage {
  * Message kinds the digest reads; any other kind adds nothing to it. Finding targets checks for
  * these too, so a section the digest would come out empty for is never picked.
  */
-export const DIGEST_KINDS = ["prompt", "command", "assistant", "tool_use", "compact"] as const;
+export const DIGEST_KINDS = [
+  "prompt",
+  "command",
+  "sdk_prompt",
+  "assistant",
+  "tool_use",
+  "compact",
+] as const;
 
 /** Default cap on the digest length in characters; past it, the middle is dropped. */
 export const DIGEST_LIMIT = 60_000;
@@ -29,7 +36,8 @@ export function buildDigest(messages: DigestMessage[], limit = DIGEST_LIMIT): st
   const lines: string[] = [];
   for (const m of messages) {
     const text = m.text ?? "";
-    if (m.kind === "prompt" || m.kind === "command")
+    // The SDK input is what a headless session was asked to do, so it reads as the user's request
+    if (m.kind === "prompt" || m.kind === "command" || m.kind === "sdk_prompt")
       lines.push(`\n[User] ${clip(text, PROMPT_CHARS)}`);
     else if (m.kind === "assistant") lines.push(`[Claude] ${clip(text, REPLY_CHARS)}`);
     else if (m.kind === "tool_use")

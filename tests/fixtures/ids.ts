@@ -16,4 +16,6 @@ export const SID = {
   fragments: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
   iterations: "ffffffff-ffff-4fff-8fff-ffffffffffff",
   merges: "abababab-abab-4bab-8bab-abababababab",
+  sdkCommand: "cdcdcdcd-cdcd-4cdc-8cdc-cdcdcdcdcdcd",
+  summarizerRun: "cececece-cece-4cec-8cec-cececececece",
 } as const;

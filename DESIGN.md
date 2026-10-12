@@ -306,7 +306,11 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   the space goes to the heading instead. The heading gives up lines to the time range rather than
   overlapping it. Unsummarized blocks use the dim fill and muted text. A pulsing project-colored
   dot marks work in progress. Selected: a 2px `primary` outline over the normal fill (a deeper
-  fill as well said the same thing twice). Filtered-out
+  fill as well said the same thing twice). A headless run (`claude -p` / SDK, shown only when
+  turned on in the "⋯" menu) keeps its project's color and fill but gets a dashed left edge: the
+  solid edge is the branch of work you prompted (in the week, day and month views alike). The
+  tooltip says why, and the drawer heading carries a "Headless" badge: 12px `muted-ink` text in a
+  1px `border` outline with `md` radius, beside the project line. Filtered-out
   blocks fade to 30% opacity and come back on hover or focus
 - **Moments (commit and PR nodes):** read like a git graph: the block's colored edge is the branch,
   and each commit is a 7px `ink` ring (filled with `surface`) hanging just inside it at the height

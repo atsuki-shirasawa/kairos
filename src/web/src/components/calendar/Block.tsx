@@ -63,6 +63,8 @@ interface BlockState {
   faded: boolean;
   /** Not summarized yet, so the heading is the raw first prompt. */
   dim: boolean;
+  /** A headless run (claude -p / SDK), not work you prompted. */
+  headless: boolean;
   short: boolean;
   depth: number;
   continuesBefore: boolean;
@@ -100,7 +102,14 @@ export function Block({
   const body = detailed && geo.visible >= BODY_MIN_PX ? segment.body : null;
   const { commits, prs } = segment.activity;
   const projectName = project?.name ?? formatMessages().unknownProject;
-  const state: BlockState = { ...block, selected, faded, dim, short: geo.short };
+  const state: BlockState = {
+    ...block,
+    selected,
+    faded,
+    dim,
+    headless: session.headless,
+    short: geo.short,
+  };
   // In the week view the block's position on the grid already tells the time, so the range line
   // only repeats it; it stays for the selected block, and the tooltip always has it
   const meta = (detailed || selected) && geo.height >= META_MIN_PX && geo.visible >= META_MIN_PX;
@@ -183,6 +192,7 @@ function blockClassName({
   selected,
   faded,
   dim,
+  headless,
   short,
   depth,
   continuesBefore,
@@ -192,6 +202,9 @@ function blockClassName({
     // Pale background with a strong left edge. Kept quieter than the time column gradient
     "@container group absolute flex flex-col gap-0.5 overflow-hidden rounded-r-md rounded-l-[3px] border-l-[3px] pr-1.5 pl-2.5",
     short ? "py-px" : "py-1",
+    // A dashed edge marks a run nobody prompted (claude -p / SDK): still the project's work, so
+    // same color and fill, but the solid "branch" edge is kept for your own work
+    headless && "border-dashed",
     // Stacked blocks get a base-colored outline to separate them from the one below
     depth > 0 && "shadow-[0_0_0_1px_var(--card)]",
     // The fill is a variable painted over the real length only (see `blockStyle`). Mixing into an
@@ -428,8 +441,9 @@ function WorkingDot() {
 }
 
 /**
- * The block's tooltip: heading, project, time and results, and why it looks faded or dim. Marks
- * (short work drawn on the column's edge) share it, since for them it is the only text shown.
+ * The block's tooltip: heading, project, time and results, and why it looks dashed, faded or
+ * dim. Marks (short work drawn on the column's edge) share it, since for them it is the only text
+ * shown.
  */
 export function BlockTooltip({
   label,
@@ -469,6 +483,7 @@ export function BlockTooltip({
       ) : (
         (commits > 0 || prs > 0) && <p className="opacity-70">{f.commitsPrs(commits, prs)}</p>
       )}
+      {session.headless && <p className="opacity-70">{m.headless}</p>}
       {faded && <p className="opacity-70">{m.notMatching}</p>}
       {dim && <p className="opacity-70">{m.notSummarized}</p>}
     </TooltipContent>

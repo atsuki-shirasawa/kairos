@@ -65,6 +65,7 @@ function session(
     label: opts.label ?? null,
     branch: null,
     scheduledRuns: 0,
+    headless: false,
     continued: false,
     title: `${id} title`,
     startedAt: 0,

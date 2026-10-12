@@ -38,6 +38,7 @@ function session(active: boolean): CalendarSession {
     label: null,
     branch: null,
     scheduledRuns: 0,
+    headless: false,
     continued: false,
     title: "s",
     startedAt: DAY0 + 9 * H,

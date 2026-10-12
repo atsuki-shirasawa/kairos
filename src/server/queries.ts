@@ -19,7 +19,9 @@ import type {
 import { ARTIFACT_GRACE_MS } from "../shared/constants.ts";
 import { isSummarizable } from "../shared/sections.ts";
 import { costOf } from "./pricing.ts";
+import { storedShowHeadless } from "./settings.ts";
 import { loadRecapInput, type RecapTarget, recapHash } from "./summarize/recap.ts";
+import { DEFAULT_HIDDEN_CWDS, visibleSessionSql } from "./visibility.ts";
 
 /** Within this long after the last activity, a session counts as in progress. */
 export const ACTIVE_WINDOW_MS = 5 * 60_000;
@@ -206,17 +208,31 @@ export class Queries {
     private readonly now: () => number = Date.now,
     /** Summary progress (answered by the Summarizer). */
     private readonly summaries: SummaryState = NO_SUMMARIES,
+    /** Launch directories whose sessions are never shown (see `SessionVisibility`). */
+    private readonly hiddenCwds: readonly string[] = DEFAULT_HIDDEN_CWDS,
   ) {}
 
   /**
-   * Project list. Only projects with sessions that have user prompts (projects with only headless
-   * sessions, e.g. from testing a hook, never show on the calendar, so they are left out of the filter too).
+   * Condition keeping the sessions the calendar shows, on the sessions table aliased `alias`.
+   * Read per query, so turning headless sessions on or off applies to the next request.
+   */
+  private visible(alias = "s"): string {
+    return visibleSessionSql(
+      { headless: storedShowHeadless(this.db), hiddenCwds: this.hiddenCwds },
+      alias,
+    );
+  }
+
+  /**
+   * Project list. Only projects with visible sessions (projects with only headless sessions, e.g.
+   * from testing a hook, don't show on the calendar unless those are shown, so they are left out of
+   * the filter too).
    */
   projects(): Project[] {
     return this.db
       .query<ProjectRow, []>(
         `SELECT id, path, name, repo, color, hidden FROM projects p
-         WHERE EXISTS (SELECT 1 FROM sessions s WHERE s.project_id = p.id AND s.prompt_count > 0)
+         WHERE EXISTS (SELECT 1 FROM sessions s WHERE s.project_id = p.id AND ${this.visible()})
          ORDER BY name, path`,
       )
       .all()
@@ -244,11 +260,11 @@ export class Queries {
     return row ? toProject(row) : null;
   }
 
-  /** Starts of the nearest work blocks before and after [from, to) (from sessions with user prompts). */
+  /** Starts of the nearest work blocks before and after [from, to) (from visible sessions). */
   neighbors(from: number, to: number): { prev: number | null; next: number | null } {
     const one = (sql: string, t: number) =>
       this.db.query<{ t: number | null }, [number]>(sql).get(t)?.t ?? null;
-    const base = "FROM segments g JOIN sessions s ON s.id = g.session_id WHERE s.prompt_count > 0";
+    const base = `FROM segments g JOIN sessions s ON s.id = g.session_id WHERE ${this.visible()}`;
     return {
       prev: one(`SELECT MAX(g.start) AS t ${base} AND g.end < ?`, from),
       next: one(`SELECT MIN(g.start) AS t ${base} AND g.start >= ?`, to),
@@ -261,7 +277,7 @@ export class Queries {
       .query<Span, [number, number]>(
         `SELECT g.start, g.end, s.project_id AS projectId
          FROM segments g JOIN sessions s ON s.id = g.session_id
-         WHERE s.prompt_count > 0 AND g.start < ?2 AND g.end >= ?1
+         WHERE ${this.visible()} AND g.start < ?2 AND g.end >= ?1
          ORDER BY g.start, g.end`,
       )
       .all(from, to);
@@ -272,6 +288,7 @@ export class Queries {
    * compared with the work as it is now, so one written before more work came in shows as stale.
    */
   recaps(from: number, to: number): Recap[] {
+    // Recaps tell what you did, so like loadRecapInput they leave headless sessions out
     const ids = this.db
       .query<{ id: number }, [number, number]>(
         `SELECT DISTINCT s.project_id AS id FROM segments g JOIN sessions s ON s.id = g.session_id
@@ -310,12 +327,12 @@ export class Queries {
     return loadRecapInput(this.db, target) !== null;
   }
 
-  /** Sessions with user prompts whose work blocks overlap [from, to). */
+  /** Visible sessions whose work blocks overlap [from, to). */
   calendar(from: number, to: number): CalendarSession[] {
     const rows = this.db
       .query<SessionRow, [number, number]>(
         `SELECT s.* FROM sessions s
-         WHERE s.prompt_count > 0
+         WHERE ${this.visible()}
            AND EXISTS (SELECT 1 FROM segments g WHERE g.session_id = s.id AND g.start < ?2 AND g.end >= ?1)
          ORDER BY s.started_at`,
       )
@@ -338,6 +355,7 @@ export class Queries {
         endedAt: r.ended_at ?? 0,
         promptCount: r.prompt_count,
         scheduledRuns: r.scheduled_runs,
+        headless: r.prompt_count === 0,
         continued: r.continued_in !== null || this.predecessorOf(r.id) !== null,
         active: isActive(r.ended_at, now),
         segments: segQuery.all(r.id, from, to).map((g) => ({
@@ -382,6 +400,7 @@ export class Queries {
       active: isActive(s.ended_at, this.now()),
       promptCount: s.prompt_count,
       scheduledRuns: s.scheduled_runs,
+      headless: s.prompt_count === 0,
       continuedFrom,
       continuedIn: s.continued_in,
       commits: artifacts.filter((a) => a.kind === "commit"),
@@ -473,7 +492,7 @@ export class Queries {
     const terms = searchTerms(query);
     if (terms.length === 0) return { hits: [], more: false };
     const rows = this.db
-      .query<SearchRow, string[]>(searchSql(terms, limit))
+      .query<SearchRow, string[]>(searchSql(terms, limit, this.visible()))
       .all(...terms.map((t) => likePattern(t.text)));
     const first = terms[0]?.text ?? "";
     return {
@@ -662,9 +681,9 @@ const SEARCH_SOURCES = `
          AND a.ts BETWEEN g.start AND g.end + ${ARTIFACT_GRACE_MS}
        WHERE a.kind IN ('pr', 'commit') AND a.is_copy = 0
       UNION ALL
-      SELECT g.session_id, g.start, CASE m.kind WHEN 'prompt' THEN 'prompt' ELSE 'reply' END, m.text
+      SELECT g.session_id, g.start, CASE m.kind WHEN 'assistant' THEN 'reply' ELSE 'prompt' END, m.text
         FROM messages m JOIN segments g ON g.session_id = m.session_id AND m.ts BETWEEN g.start AND g.end
-       WHERE m.kind IN ('prompt', 'assistant') AND m.agent_id IS NULL AND m.is_copy = 0`;
+       WHERE m.kind IN ('prompt', 'sdk_prompt', 'assistant') AND m.agent_id IS NULL AND m.is_copy = 0`;
 
 /**
  * Paths of files edited in each section, subagents included, as `filesEdited` counts them.
@@ -723,9 +742,10 @@ function likePattern(term: string): string {
 
 /**
  * Search SQL for `terms` bound as ?1..?n (from `likePattern`). Only the number of terms, which of
- * them are `file:` terms and the internal `limit` shape the SQL; the text is always a bound parameter.
+ * them are `file:` terms, the internal `limit` and the visibility condition (`visibleSessionSql`)
+ * shape the SQL; the search text is always a bound parameter.
  */
-function searchSql(terms: SearchTerm[], limit: number): string {
+function searchSql(terms: SearchTerm[], limit: number, visible: string): string {
   const cond = (t: SearchTerm, i: number) =>
     `(src.field ${t.file ? "=" : "!="} 'file' AND lower(src.text) LIKE ?${i + 1} ESCAPE '\\')`;
   const conds = terms.map((t, i) => `MAX(${cond(t, i)})`).join(" AND ");
@@ -734,7 +754,7 @@ function searchSql(terms: SearchTerm[], limit: number): string {
   return `WITH src AS (${sources}),
          matched AS (
            SELECT src.sid, src.start FROM src
-           JOIN sessions s ON s.id = src.sid AND s.prompt_count > 0
+           JOIN sessions s ON s.id = src.sid AND ${visible}
            GROUP BY src.sid, src.start HAVING ${conds}
          ),
          best AS (

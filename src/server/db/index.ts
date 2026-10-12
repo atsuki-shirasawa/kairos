@@ -186,6 +186,11 @@ export const MIGRATIONS: string[] = [
     PRIMARY KEY (project_id, period_from, period_to)
   );
   `,
+  // 7: requests given through the SDK (`claude -p`), which make a session with no human prompts
+  // a headless one. Existing rows are filled when the DERIVED_VERSION bump recomputes aggregates
+  `
+  ALTER TABLE sessions ADD COLUMN sdk_prompt_count INTEGER NOT NULL DEFAULT 0;
+  `,
 ];
 
 /** Schema version once every migration is applied (stored in `PRAGMA user_version`). */

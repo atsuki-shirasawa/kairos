@@ -16,7 +16,12 @@ import type {
 } from "../../shared/api.ts";
 import type { EventHub } from "../events.ts";
 import { Queries } from "../queries.ts";
-import { storedSummaryLang, storeSummaryLang } from "../settings.ts";
+import {
+  storedShowHeadless,
+  storedSummaryLang,
+  storeShowHeadless,
+  storeSummaryLang,
+} from "../settings.ts";
 import { DEFAULT_SUMMARY_LANG, isSummaryLang } from "../summarize/prompt.ts";
 import type { Summarizer } from "../summarize/summarizer.ts";
 import { guardHost, guardWrite } from "./security.ts";
@@ -32,17 +37,21 @@ export const MIN_QUERY_CHARS = 2;
 /** Longer queries are cut to this many characters. */
 const MAX_QUERY_CHARS = 200;
 
-/** Dependencies of the API. `summarizer` is absent when summaries are off; `now` is for tests. */
+/**
+ * Dependencies of the API. `summarizer` is absent when summaries are off; `now` and `hiddenCwds`
+ * (launch directories never shown, by default Kairos's own summarizer directory) are for tests.
+ */
 export interface AppDeps {
   db: Database;
   events: EventHub;
   summarizer?: Summarizer;
   now?: () => number;
+  hiddenCwds?: readonly string[];
 }
 
 /** Builds the Hono app: Host and write guards first, then the JSON API and the SSE stream. */
-export function createApp({ db, events, summarizer, now }: AppDeps): Hono {
-  const q = new Queries(db, now, summarizer);
+export function createApp({ db, events, summarizer, now, hiddenCwds }: AppDeps): Hono {
+  const q = new Queries(db, now, summarizer, hiddenCwds);
   const app = new Hono();
 
   app.use("*", guardHost);
@@ -97,11 +106,13 @@ export function createApp({ db, events, summarizer, now }: AppDeps): Hono {
 
   app.get("/api/settings", (c) => c.json<Settings>(currentSettings(db, summarizer)));
 
-  // The UI sends its language here, so summaries follow it. Existing summaries are kept
+  // The UI sends its language here, so summaries follow it (existing summaries are kept), and
+  // whether to show headless sessions
   app.patch("/api/settings", async (c) => {
     const update = parseSettingsUpdate(await c.req.json<unknown>().catch(() => null));
     if (!update) return c.json({ error: "invalid request" }, 400);
-    storeSummaryLang(db, update.summaryLang);
+    if (update.summaryLang) storeSummaryLang(db, update.summaryLang);
+    if (update.showHeadless !== undefined) storeShowHeadless(db, update.showHeadless);
     return c.json<Settings>(currentSettings(db, summarizer));
   });
 
@@ -202,16 +213,27 @@ function currentSettings(db: Database, summarizer: Summarizer | undefined): Sett
   return {
     summaryLang: summarizer?.lang ?? storedSummaryLang(db) ?? DEFAULT_SUMMARY_LANG,
     summaryLangFixed: summarizer?.langFixed ?? false,
+    showHeadless: storedShowHeadless(db),
   };
 }
 
-/** Validates a `PATCH /api/settings` body; null if it is not a supported language. */
+/**
+ * Validates a `PATCH /api/settings` body; null unless it changes something, and only validly
+ * (a supported language, a boolean).
+ */
 function parseSettingsUpdate(body: unknown): SettingsUpdate | null {
-  const lang =
-    typeof body === "object" && body !== null
-      ? (body as Record<string, unknown>).summaryLang
-      : undefined;
-  return isSummaryLang(lang) ? { summaryLang: lang } : null;
+  if (typeof body !== "object" || body === null) return null;
+  const b = body as Record<string, unknown>;
+  const update: SettingsUpdate = {};
+  if ("summaryLang" in b) {
+    if (!isSummaryLang(b.summaryLang)) return null;
+    update.summaryLang = b.summaryLang;
+  }
+  if ("showHeadless" in b) {
+    if (typeof b.showHeadless !== "boolean") return null;
+    update.showHeadless = b.showHeadless;
+  }
+  return Object.keys(update).length ? update : null;
 }
 
 /** Validates a `PATCH /api/projects/:id` body; null unless it changes something, and only validly. */

@@ -104,6 +104,28 @@ export function useSummaryLangSync(locale: Locale) {
   }, [data, locale, client]);
 }
 
+/**
+ * Whether headless sessions (claude -p / SDK runs) are shown, and a setter. A server setting, so
+ * the calendar, search and navigation all follow it; changing it refetches everything under
+ * "calendar". `show` is false until the settings have loaded, which `loaded` tells.
+ */
+export function useShowHeadless(): [
+  show: boolean,
+  setShow: (show: boolean) => void,
+  loaded: boolean,
+] {
+  const client = useQueryClient();
+  const { data } = useQuery({ queryKey: keys.settings, queryFn: api.settings });
+  const { mutate } = useMutation({
+    mutationFn: (show: boolean) => api.updateSettings({ showHeadless: show }),
+    onSuccess: (settings) => {
+      client.setQueryData(keys.settings, settings);
+      void client.invalidateQueries({ queryKey: ["calendar"] });
+    },
+  });
+  return [data?.showHeadless ?? false, mutate, data !== undefined];
+}
+
 /** One session's details for the drawer. Idle while no session is open (`id` is null). */
 export function useSession(id: string | null) {
   return useQuery({

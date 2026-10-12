@@ -4,7 +4,7 @@
 import { statSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { DATA_DIR, DEFAULT_CLAUDE_DIR, DEFAULT_DB_PATH, LOG_PATH } from "../server/paths.ts";
+import { DEFAULT_CLAUDE_DIR, DEFAULT_DB_PATH, LOG_PATH, SUMMARIZER_CWD } from "../server/paths.ts";
 import { EFFORT_LEVELS, isEffort } from "../server/summarize/claude.ts";
 import { HOST, PORT } from "../shared/constants.ts";
 import { AUTO_SUMMARY_DAYS } from "../shared/sections.ts";
@@ -284,7 +284,7 @@ async function summarize(dbPath: string): Promise<void> {
   const { runClaude } = await import("../server/summarize/claude.ts");
   const { DEFAULT_MODEL, Summarizer } = await import("../server/summarize/summarizer.ts");
   const model = values["summary-model"] ?? DEFAULT_MODEL;
-  const cwd = join(DATA_DIR, "summarizer");
+  const cwd = SUMMARIZER_CWD;
   // This may run inside a Claude Code session (e.g. via `!`), whose variables must not reach claude -p
   const env = serverEnv();
   // Checked at startup, but the narrowing doesn't reach into this function

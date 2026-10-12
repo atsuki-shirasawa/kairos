@@ -188,6 +188,8 @@ function CellLine({ block, ...c }: CellContext & { block: PlacedBlock }) {
           )}
           className={cn(
             "flex h-5 w-full min-w-0 items-center gap-1 rounded-r-sm rounded-l-[2px] border-l-[3px] pr-1 pl-1.5 text-left text-xs outline-none",
+            // Headless runs get the week's dashed edge here too
+            session.headless && "border-dashed",
             // The same fills as the week's blocks: the project color mixed into an achromatic base
             dim
               ? "bg-[color-mix(in_oklch,var(--c)_var(--mix-block-dim),var(--block-base))] text-muted-foreground"

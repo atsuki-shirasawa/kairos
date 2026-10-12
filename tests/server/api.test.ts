@@ -16,6 +16,9 @@ import type {
 import { SID } from "../fixtures/ids.ts";
 import { min, setup } from "./ingest/helpers.ts";
 
+/** Where the summarizerRun fixture was launched, standing in for Kairos's summarizer directory. */
+const SUMMARIZER_CWD = "/Users/me/tmp/scratch/kairos-data/summarizer";
+
 let db: Database;
 let app: Hono;
 let events: EventHub;
@@ -27,7 +30,7 @@ beforeEach(() => {
   db = s.db;
   events = new EventHub();
   now = min(10_000);
-  app = createApp({ db, events, now: () => now });
+  app = createApp({ db, events, now: () => now, hiddenCwds: [SUMMARIZER_CWD] });
 });
 
 const URL_BASE = "http://127.0.0.1:4319";
@@ -196,6 +199,54 @@ describe("GET /api/search", () => {
     // The headless session's only reply is "ok"
     const res = await search("ok");
     expect(res.hits.map((h) => h.sessionId)).not.toContain(SID.headless);
+  });
+});
+
+describe("headless sessions", () => {
+  const calendarIds = async () =>
+    (await json<CalendarResponse>(`/api/calendar?from=${DAY_FROM}&to=${DAY_TO}`)).sessions.map(
+      (s) => s.id,
+    );
+  const showHeadless = async (show: boolean) =>
+    expect((await patch("/api/settings", { showHeadless: show })).status).toBe(200);
+
+  test("are hidden until the setting is turned on, then shown flagged as headless", async () => {
+    expect(await calendarIds()).not.toContain(SID.headless);
+    await showHeadless(true);
+    const res = await json<CalendarResponse>(`/api/calendar?from=${DAY_FROM}&to=${DAY_TO}`);
+    const headless = res.sessions.find((s) => s.id === SID.headless);
+    expect(headless).toMatchObject({
+      headless: true,
+      promptCount: 0,
+      title: "Run exactly this one Bash command: echo ok",
+    });
+    expect(res.sessions.find((s) => s.id === SID.basic)?.headless).toBe(false);
+    // Their projects join the filter too
+    expect(res.projects.map((p) => p.name)).toContain("probe");
+    await showHeadless(false);
+    expect(await calendarIds()).not.toContain(SID.headless);
+  });
+
+  test("never include Kairos's own summary runs", async () => {
+    await showHeadless(true);
+    const ids = await calendarIds();
+    expect(ids).toContain(SID.sdkCommand);
+    expect(ids).not.toContain(SID.summarizerRun);
+    expect((await json<Project[]>("/api/projects")).map((p) => p.name)).not.toContain("summarizer");
+  });
+
+  test("are searchable by their SDK input once shown", async () => {
+    const search = () => json<SearchResponse>(`/api/search?q=${encodeURIComponent("echo ok")}`);
+    expect((await search()).hits.map((h) => h.sessionId)).not.toContain(SID.headless);
+    await showHeadless(true);
+    expect((await search()).hits).toContainEqual(
+      expect.objectContaining({ sessionId: SID.headless, field: "headline" }),
+    );
+  });
+
+  test("rejects a non-boolean setting", async () => {
+    expect((await patch("/api/settings", { showHeadless: "yes" })).status).toBe(400);
+    expect((await patch("/api/settings", {})).status).toBe(400);
   });
 });
 
