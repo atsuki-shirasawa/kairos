@@ -25,6 +25,11 @@ export const toolbarMessages = defineMessages({
     themeLight: "Light",
     themeDark: "Dark",
     language: "Language",
+    headlessRuns: "Headless runs",
+    headlessRunsTitle:
+      "Sessions started by claude -p or the Agent SDK, with no prompt from you. Hidden by default",
+    hide: "Hide",
+    show: "Show",
     shortcuts: "Keyboard shortcuts",
     shortcutPeriod: "Previous / next period",
     shortcutToday: "Today",
@@ -60,6 +65,11 @@ export const toolbarMessages = defineMessages({
     themeLight: "ライト",
     themeDark: "ダーク",
     language: "言語",
+    headlessRuns: "ヘッドレス実行",
+    headlessRunsTitle:
+      "claude -p や Agent SDK から始まり、あなたの発言がないセッション。初期状態では表示しません",
+    hide: "非表示",
+    show: "表示",
     shortcuts: "キーボード操作",
     shortcutPeriod: "前・次の期間",
     shortcutToday: "今日",

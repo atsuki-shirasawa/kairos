@@ -21,6 +21,8 @@ export interface AggregateRow {
   ended: number | null;
   prompts: number;
   scheduled: number;
+  /** Requests given through the SDK; with no human prompts, the session is headless. */
+  sdk: number;
 }
 
 /** A main-thread message used to compute work blocks and their fallback titles. */
@@ -146,19 +148,22 @@ export function prepareStatements(db: Database) {
     aggregate: p(
       `SELECT MIN(ts) AS started, MAX(ts) AS ended,
                 COALESCE(SUM(kind IN ('prompt', 'command')), 0) AS prompts,
-                COALESCE(SUM(kind = 'scheduled'), 0) AS scheduled
+                COALESCE(SUM(kind = 'scheduled'), 0) AS scheduled,
+                COALESCE(SUM(kind = 'sdk_prompt'), 0) AS sdk
          FROM messages WHERE session_id = ? AND agent_id IS NULL AND is_copy = 0`,
     ),
     firstPrompt: p(
-      "SELECT text FROM messages WHERE session_id = ? AND agent_id IS NULL AND is_copy = 0 AND kind = 'prompt' ORDER BY file_id, seq LIMIT 1",
+      // A human prompt wins; a headless session falls back to its SDK input
+      `SELECT text FROM messages WHERE session_id = ? AND agent_id IS NULL AND is_copy = 0 AND kind IN ('prompt', 'sdk_prompt')
+       ORDER BY kind = 'prompt' DESC, file_id, seq LIMIT 1`,
     ),
     updateAggregate: p(
-      "UPDATE sessions SET started_at = ?, ended_at = ?, prompt_count = ?, scheduled_runs = ?, first_prompt = ? WHERE id = ?",
+      "UPDATE sessions SET started_at = ?, ended_at = ?, prompt_count = ?, scheduled_runs = ?, sdk_prompt_count = ?, first_prompt = ? WHERE id = ?",
     ),
     // Activity used to compute work blocks. For headlines, also take the start of prompt and reply text
     activity: p(
       `SELECT ts, is_scheduled, kind,
-              CASE WHEN kind IN ('prompt', 'command', 'assistant') THEN substr(text, 1, 400) END AS text
+              CASE WHEN kind IN ('prompt', 'command', 'sdk_prompt', 'assistant') THEN substr(text, 1, 400) END AS text
        FROM messages WHERE session_id = ? AND agent_id IS NULL AND is_copy = 0 AND ts IS NOT NULL ORDER BY ts, file_id, seq`,
     ),
     clearSegments: p("DELETE FROM segments WHERE session_id = ?"),

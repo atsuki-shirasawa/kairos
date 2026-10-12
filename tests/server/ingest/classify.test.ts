@@ -50,7 +50,22 @@ describe("classifyUser", () => {
       "tool_result",
     ],
     ["compaction summary", user("Summary", { isCompactSummary: true }), "compact_summary"],
-    ["no origin (claude -p etc.)", user("Run this", { promptSource: "sdk" }), "meta"],
+    ["no origin (claude -p etc.)", user("Run this", { promptSource: "sdk" }), "sdk_prompt"],
+    [
+      "slash command from the SDK (no promptSource)",
+      user("<command-name>/goal</command-name>", { entrypoint: "sdk-cli" }),
+      "sdk_prompt",
+    ],
+    [
+      "hook text in an SDK session",
+      user("A Stop hook is active", { entrypoint: "sdk-cli", isMeta: true }),
+      "meta",
+    ],
+    [
+      "command without origin in an interactive session",
+      user("<command-name>/clear</command-name>"),
+      "meta",
+    ],
   ])("%s", (_name, r, expected) => {
     expect(classifyUser(r)).toBe(expected);
   });

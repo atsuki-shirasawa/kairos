@@ -107,6 +107,11 @@ export interface CalendarSession {
   promptCount: number;
   /** Turns started by `/loop` or a scheduled task. */
   scheduledRuns: number;
+  /**
+   * An automatic run: no user prompt, started through the SDK (e.g. `claude -p`). Only returned
+   * while `Settings.showHeadless` is on.
+   */
+  headless: boolean;
   /** Continued from an earlier session, or continued into a later one. */
   continued: boolean;
   /** Shortly after the last activity (likely still in progress). */
@@ -236,6 +241,8 @@ export interface SessionDetail {
   active: boolean;
   promptCount: number;
   scheduledRuns: number;
+  /** An automatic run (see `CalendarSession.headless`). */
+  headless: boolean;
   continuedFrom: string | null;
   continuedIn: string | null;
   commits: Artifact[];
@@ -249,6 +256,8 @@ export interface SessionDetail {
 export type MessageKind =
   | "prompt"
   | "command"
+  /** The request given to `claude -p` or the Agent SDK. */
+  | "sdk_prompt"
   | "assistant"
   | "tool_use"
   | "tool_result"
@@ -319,11 +328,14 @@ export interface Settings {
   summaryLang: "en" | "ja";
   /** Fixed with `kairos serve --summary-lang`; the UI's language doesn't change it. */
   summaryLangFixed: boolean;
+  /** Also show automatic runs (headless sessions) on the calendar, in search and in navigation. */
+  showHeadless: boolean;
 }
 
-/** `PATCH /api/settings` body. */
+/** `PATCH /api/settings` body: the settings to change (at least one). */
 export interface SettingsUpdate {
-  summaryLang: "en" | "ja";
+  summaryLang?: "en" | "ja";
+  showHeadless?: boolean;
 }
 
 /** Events delivered on `/api/events` (Server-Sent Events). */

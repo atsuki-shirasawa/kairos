@@ -17,6 +17,7 @@ export const calendarMessages = defineMessages({
       `${label}, ${project}, ${date} ${range}`,
     rangeDuration: (range: string, duration: string) => `${range} (${duration})`,
     notMatching: "Doesn't match the filter",
+    headless: "Headless run: started by claude -p or the SDK, with no prompt from you",
     notSummarized: "Not summarized yet, so the first prompt is shown as the heading",
     /** Last row of a block's commits and PRs in the day view, for those that don't fit. */
     moreMoments: (n: number) => `+${n} more`,
@@ -42,6 +43,7 @@ export const calendarMessages = defineMessages({
       `${label}、${project}、${date} ${range}`,
     rangeDuration: (range: string, duration: string) => `${range}（${duration}）`,
     notMatching: "絞り込みの条件に合いません",
+    headless: "ヘッドレス実行: claude -p や SDK から始まり、あなたの発言はありません",
     notSummarized: "要約前のため、最初の発言を見出しにしています",
     moreMoments: (n: number) => `ほか ${n} 件`,
     momentAria: (pr: boolean, time: string, ref: string | null, title: string | null) =>

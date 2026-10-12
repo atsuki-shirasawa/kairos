@@ -29,10 +29,11 @@ export function DrawerHeader({
   return (
     <header className="shrink-0 border-b px-4 pt-2 pb-4">
       <div className="flex h-9 items-center gap-2">
-        <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           {session && (
             <ProjectLine project={session.project} label={session.label} branch={session.branch} />
           )}
+          {session?.headless && <HeadlessBadge />}
         </div>
         <DrawerControls session={session} onClose={onClose} onPrev={onPrev} onNext={onNext} />
       </div>
@@ -121,6 +122,19 @@ function ResumeButton({ session: s }: { session: SessionDetail }) {
         {state === "idle" ? "" : label}
       </span>
     </Button>
+  );
+}
+
+/** Says the session is a headless run (claude -p / SDK), which the calendar marks with a dashed edge. */
+function HeadlessBadge() {
+  const t = drawerMessages();
+  return (
+    <span
+      className="shrink-0 rounded-md border px-1.5 text-muted-foreground text-xs"
+      title={t.headlessTitle}
+    >
+      {t.headless}
+    </span>
   );
 }
 

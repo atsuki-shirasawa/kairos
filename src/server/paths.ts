@@ -11,6 +11,12 @@ export const DEFAULT_CLAUDE_DIR = join(homedir(), ".claude");
 export const DATA_DIR =
   process.env.KAIROS_DATA_DIR ?? join(homedir(), "Library", "Application Support", "kairos");
 
+/**
+ * Working directory of the `claude -p` runs that write summaries. They are not saved, but a
+ * session launched here would be Kairos's own, so the read queries never show one.
+ */
+export const SUMMARIZER_CWD = join(DATA_DIR, "summarizer");
+
 /** SQLite database used when `--db` is not given. */
 export const DEFAULT_DB_PATH = join(DATA_DIR, "kairos.db");
 

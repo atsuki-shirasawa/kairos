@@ -48,6 +48,24 @@ function segments(id: string): [number, number][] {
     .map((r) => [r.start, r.end]);
 }
 
+function sdkPrompts(id: string): string[] {
+  return db
+    .query<{ text: string }, [string]>(
+      "SELECT text FROM messages WHERE session_id = ? AND kind = 'sdk_prompt' ORDER BY file_id, seq",
+    )
+    .all(id)
+    .map((r) => r.text);
+}
+
+function fallbackTitles(id: string): (string | null)[] {
+  return db
+    .query<{ fallback_title: string | null }, [string]>(
+      "SELECT fallback_title FROM segments WHERE session_id = ? ORDER BY start",
+    )
+    .all(id)
+    .map((r) => r.fallback_title);
+}
+
 function count(sql: string, ...params: string[]): number {
   return db.query<{ n: number }, string[]>(sql).get(...params)?.n ?? 0;
 }
@@ -106,8 +124,29 @@ describe("README scenarios", () => {
     ).toBe(1);
   });
 
-  test("3. headless: zero user prompts", () => {
-    expect(session(SID.headless).prompt_count).toBe(0);
+  test("3. headless: zero user prompts, the SDK input titles the session and its block", () => {
+    expect(session(SID.headless)).toMatchObject({
+      prompt_count: 0,
+      title: "Run exactly this one Bash command: echo ok",
+    });
+    expect(sdkPrompts(SID.headless)).toEqual(["Run exactly this one Bash command: echo ok"]);
+    expect(segments(SID.headless)).toEqual([[min(120), min(120.2)]]);
+    expect(fallbackTitles(SID.headless)).toEqual(["Run exactly this one Bash command: echo ok"]);
+  });
+
+  test("16. sdkCommand: a slash command from the SDK is the SDK input; hook text is not", () => {
+    expect(session(SID.sdkCommand)).toMatchObject({
+      prompt_count: 0,
+      title: "/goal Write the release notes for v2",
+    });
+    expect(sdkPrompts(SID.sdkCommand)).toEqual(["/goal Write the release notes for v2"]);
+    expect(segments(SID.sdkCommand)).toEqual([[min(884), min(886)]]);
+  });
+
+  test("17. summarizerRun: stored like any SDK session (hidden by the read queries)", () => {
+    expect(session(SID.summarizerRun).prompt_count).toBe(0);
+    expect(sdkPrompts(SID.summarizerRun)).toHaveLength(1);
+    expect(segments(SID.summarizerRun)).toEqual([[min(890), min(890.2)]]);
   });
 
   test("4. started in a worktree: grouped under the parent repository with a label", () => {
@@ -350,8 +389,15 @@ describe("project identity (git remote)", () => {
     fresh.ingester.scan();
     expect(projects(fresh.db)).toEqual([
       { path: "/Users/me/dev/app", name: "webapp", repo: "github.com/me/webapp", color: null },
-      // A directory without a remote (the headless scenario) keeps its directory name
+      // Directories without a remote (the SDK scenarios) keep their directory name
       { path: "/Users/me/tmp/probe", name: "probe", repo: null, color: null },
+      { path: "/Users/me/tmp/release", name: "release", repo: null, color: null },
+      {
+        path: "/Users/me/tmp/scratch/kairos-data/summarizer",
+        name: "summarizer",
+        repo: null,
+        color: null,
+      },
     ]);
     const label = (id: string) =>
       fresh.db
@@ -373,6 +419,13 @@ describe("project identity (git remote)", () => {
     expect(projects(db)).toEqual([
       { path: "/Users/me/dev/app", name: "webapp", repo: "github.com/me/webapp", color: "p3" },
       { path: "/Users/me/tmp/probe", name: "probe", repo: null, color: null },
+      { path: "/Users/me/tmp/release", name: "release", repo: null, color: null },
+      {
+        path: "/Users/me/tmp/scratch/kairos-data/summarizer",
+        name: "summarizer",
+        repo: null,
+        color: null,
+      },
     ]);
     expect(session(SID.blog)).toMatchObject({ project: "/Users/me/dev/app", label: "blog" });
     expect(session(SID.relocated).label).toBe("refactor-api");
@@ -381,7 +434,7 @@ describe("project identity (git remote)", () => {
   test("does not reassign sessions whose directory is gone", () => {
     resetDerived();
     new Ingester(db, projectsDir, undefined, () => undefined).refreshAllIfOutdated();
-    expect(projects(db)).toHaveLength(3);
+    expect(projects(db)).toHaveLength(5);
     expect(session(SID.blog).project).toBe("/Users/me/dev/blog");
   });
 });

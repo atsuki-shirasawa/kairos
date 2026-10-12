@@ -5,22 +5,30 @@
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { LogBuilder, type Rec } from "./builder.ts";
+import { at, LogBuilder, type Rec } from "./builder.ts";
 import { SID } from "./ids.ts";
 
 const ROOT = join(import.meta.dir, "claude");
 const APP = "/Users/me/dev/app";
 const BLOG = "/Users/me/dev/blog";
 
-/** Directory name with / and . in the path replaced by -, as Claude Code does. */
+/** Directory name with every non-alphanumeric character (/, ., spaces) replaced by -, as Claude Code does. */
 export function projectDirName(cwd: string): string {
-  return cwd.replace(/[/.]/g, "-");
+  return cwd.replace(/[^a-zA-Z0-9]/g, "-");
 }
 
 function write(launchCwd: string, b: LogBuilder, tail = ""): void {
   const path = join(ROOT, "projects", projectDirName(launchCwd), `${b.sessionId}.jsonl`);
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, b.toJsonl() + tail);
+}
+
+/**
+ * Marks a session as launched through the SDK (`claude -p`, the Agent SDK): real headless logs
+ * carry `entrypoint: "sdk-cli"` on every chain record, where the builder writes `cli`.
+ */
+function launchedBySdk(b: LogBuilder): void {
+  for (const r of b.records) if ("entrypoint" in r) r.entrypoint = "sdk-cli";
 }
 
 function header(b: LogBuilder): void {
@@ -142,6 +150,7 @@ function headless(): void {
   });
   b.bash(120.1, "echo ok", "ok");
   b.text(120.2, "ok");
+  launchedBySdk(b);
   write("/Users/me/tmp/probe", b);
 }
 
@@ -455,6 +464,43 @@ function merges(): void {
   write(APP, b);
 }
 
+// ---------------------------------------------------------------- 16. slash command sent from the SDK
+function sdkCommand(): void {
+  const cwd = "/Users/me/tmp/release";
+  const b = new LogBuilder(SID.sdkCommand, cwd, "release");
+  b.meta("queue-operation", {
+    operation: "enqueue",
+    timestamp: at(884),
+    content: "/goal Write the release notes for v2",
+  });
+  // A command from the SDK carries neither origin nor promptSource
+  b.systemUser(
+    884,
+    "<command-name>/goal</command-name>\n<command-message>goal</command-message>\n<command-args>Write the release notes for v2</command-args>",
+  );
+  // Text a hook injects is isMeta, not part of the request
+  b.systemUser(884.05, "A session-scoped Stop hook is now active.", { isMeta: true });
+  b.bash(885, "git log --oneline v1..HEAD", "a1b2c3d feat: export to CSV");
+  b.text(886, "リリースノートを書きました。");
+  launchedBySdk(b);
+  write(cwd, b);
+}
+
+// ---------------------------------------------------------------- 17. Kairos's own summary run
+function summarizerRun(): void {
+  // Where Kairos runs `claude -p` for summaries (here with KAIROS_DATA_DIR moved, as for a preview
+  // server); normally not saved (--no-session-persistence)
+  const cwd = "/Users/me/tmp/scratch/kairos-data/summarizer";
+  const b = new LogBuilder(SID.summarizerRun, cwd);
+  b.systemUser(890, "Summarize this work block in one headline and a few bullets.", {
+    promptSource: "sdk",
+    turnOrigin: "sdk",
+  });
+  b.text(890.2, "ヘッドライン: ログイン画面の改善");
+  launchedBySdk(b);
+  write(cwd, b);
+}
+
 if (import.meta.main) {
   rmSync(ROOT, { recursive: true, force: true });
   for (const scenario of [
@@ -473,6 +519,8 @@ if (import.meta.main) {
     fragments,
     iterations,
     merges,
+    sdkCommand,
+    summarizerRun,
   ]) {
     scenario();
   }

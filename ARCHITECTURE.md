@@ -88,11 +88,12 @@ sequenceDiagram
 |---|---|
 | Human prompt | `type=user` and `origin.kind=human` (any `promptSource`; `sdk` is also human input, e.g. from the desktop app). Includes slash commands |
 | Automatic-run turn | From a user record with `turnOrigin=scheduled` until the next human prompt. Set `messages.is_scheduled=1` and exclude from work-block computation. `task-notification` and `peer` don't change how a turn is treated |
-| Headless session | Zero human prompts. Not shown on the calendar |
+| SDK input | A main-thread `type=user` record with no `origin`, not `isMeta`, launched through the SDK (`entrypoint=sdk-cli` or `promptSource=sdk`): the request given to `claude -p` or the Agent SDK. Stored as `sdk_prompt` (a slash command as `/name args`). Not a human prompt, but it starts a work block and serves as the title and block title when there is no human prompt |
+| Headless session | Zero human prompts and at least one SDK input. Hidden unless "Show automatic runs" is on (a server setting); sessions launched in Kairos's own summarizer directory are never shown. Summarized like any other session |
 | Prompt-less work block | A block with no human prompt, `/loop` tick or tool call (a compaction, an API error or a short reply to a notification after a break) isn't drawn. Prompt-less blocks with tool calls stay: Claude acting on a notification on its own |
 | Worktree | If the launch cwd is `<repo>/.claude/worktrees/<name>`, the project is `<repo>` and `<name>` becomes a secondary label. A later `relocated` / `worktree-state` only affects the secondary label |
 | Same repository | If `.git/config` has an `origin` remote, the project is named after the repository and other clones of the same remote merge into it (a directory name that differs becomes the secondary label). Only the file is read; no git commands run |
-| Title | `custom-title` > `agent-name` > `ai-title` > the first human prompt |
+| Title | `custom-title` > `agent-name` > `ai-title` > the first human prompt > the first SDK input |
 | Recap | Store `system/away_summary` and use it as a placeholder until the AI summary is ready |
 | Tool output | Truncated to the first 4KB |
 | Thinking and images | Not stored |
@@ -136,6 +137,7 @@ sequenceDiagram
 - `kairos summarize` backfills the rest from the CLI: it opens the DB directly and summarizes, one at a time, every finished section the automatic loop would pick if it had no 7-day limit (`findTargets` is shared by both). It strips the `CLAUDE*` variables before running `claude`, like the daemon does, since it may run inside a Claude Code session. A running server isn't notified, so the browser needs a reload. It stops after 3 failures in a row (e.g. `claude` not logged in)
 - Sections without a headline (older than 7 days, in progress, not yet generated) show `segments.fallback_title`, computed at ingest (the first prompt, or failing that the first line of Claude's last reply)
 - The summary language follows the UI language: the UI sends it with `PATCH /api/settings` and the server keeps it in `kv` (`summary_lang`), so it survives restarts from the SessionStart hook. Starting with `--summary-lang <en|ja>` fixes it and the UI's choice is ignored. Without either, English. Changing it doesn't touch existing summaries or recaps; they can be regenerated
+- Headless runs (`claude -p` / Agent SDK sessions with no human prompt) are hidden unless the "⋯" menu turns them on; the choice is kept in `kv` (`show_headless`) so every read query agrees (`src/server/visibility.ts`). They are summarized either way. Sessions launched in Kairos's own summarizer directory are never shown or summarized. Recaps cover human work only
 - `claude` runs with `--effort low` (`--summary-effort` changes it), in a dedicated working directory with `--no-session-persistence`, `--tools ""`, `--strict-mcp-config` and `--setting-sources project` to eliminate side effects
 
 ### 4.1 Recaps
@@ -158,8 +160,8 @@ A recap explains what was done on one project during a shown period (the summary
 | GET | `/api/spans?from&to` | Only the start, end and project of work blocks overlapping the period. Used for the "days with records" dots in the date picker; assigning to days is done in the UI's local time |
 | GET | `/api/sessions/:id` | Session details (per-section summaries, artifacts, subagents) |
 | GET | `/api/sessions/:id/messages?cursor&limit` | Paginated conversation |
-| GET | `/api/settings` | Summary language and whether `--summary-lang` fixes it |
-| PATCH | `/api/settings` | `{ summaryLang }`: the UI's language, used for new summaries and recaps |
+| GET | `/api/settings` | Summary language, whether `--summary-lang` fixes it, and whether headless runs are shown |
+| PATCH | `/api/settings` | `{ summaryLang?, showHeadless? }` (at least one): the UI's language, used for new summaries and recaps; whether calendar, search, navigation and the project list include headless sessions |
 | GET | `/api/recaps?from&to` | Recaps of every project with work starting in the period, written or not (body, stale, pending, error) |
 | POST | `/api/recaps` | `{ projectId, from, to }`: push writing or rewriting a recap onto the queue (202; 404 without work in the period; 429 when 20 are already waiting) |
 | POST | `/api/sessions/:id/sections/:start/summary` | Push generating or regenerating a section's summary onto the priority queue (202) |

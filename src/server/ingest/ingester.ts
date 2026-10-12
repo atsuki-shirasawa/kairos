@@ -1,7 +1,7 @@
 import type { Database, Statement } from "bun:sqlite";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
-import { classifyUser, commandText } from "./classify.ts";
+import { classifyUser, commandText, isCommandText } from "./classify.ts";
 import { extractCommit, GIT_COMMIT_RE } from "./commits.ts";
 import {
   type ProjectRef,
@@ -38,12 +38,12 @@ import {
 import { usageCounts } from "./usage.ts";
 
 /** Bump when the interpretation rules change. Files whose source logs still exist are then re-read. */
-export const PARSER_VERSION = 7;
+export const PARSER_VERSION = 8;
 /**
  * Bump when the calculation of derived data that can be recomputed from the DB (aggregates, work blocks,
  * project assignment from the startup cwd) changes. All sessions are recomputed, even those whose logs are gone.
  */
-export const DERIVED_VERSION = 4;
+export const DERIVED_VERSION = 5;
 const FALLBACK_TITLE_CHARS = 120;
 
 const LIMIT = { text: 20_000, toolInput: 4_000, toolResult: 4_000, short: 2_000 };
@@ -411,8 +411,9 @@ export class Ingester {
     let kind = classifyUser(r);
     if (kind === "scheduled") ctx.state.autoTurn = true;
     else if (kind === "prompt" || kind === "command") ctx.state.autoTurn = false;
-    // Instructions to a subagent have no origin, so treat them as the prompt here
-    if (ctx.agentId !== null && kind === "meta") kind = "prompt";
+    // Instructions to a subagent have no origin (and in an SDK session look like SDK input),
+    // so treat them as the prompt here
+    if (ctx.agentId !== null && (kind === "meta" || kind === "sdk_prompt")) kind = "prompt";
 
     const id = str(r.uuid) ?? `${ctx.fileId}:${seq}`;
     const content = rec(r.message)?.content;
@@ -424,6 +425,12 @@ export class Ingester {
       case "command":
         this.insert(ctx, id, seq, ts, kind, commandText(text));
         return;
+      case "sdk_prompt": {
+        const trimmed = text.trim();
+        const stored = isCommandText(trimmed) ? commandText(trimmed) : clip(trimmed, LIMIT.text);
+        this.insert(ctx, id, seq, ts, kind, stored);
+        return;
+      }
       case "scheduled":
       case "interrupt":
       case "notification":
@@ -714,6 +721,7 @@ export class Ingester {
       agg.ended,
       agg.prompts,
       agg.scheduled,
+      agg.sdk,
       first?.text ?? null,
       sessionId,
     );
@@ -786,7 +794,10 @@ function drawnActivity(rows: ActivityRow[]): ActivityRow[] {
  * acting on a notification on its own, often with commits.
  */
 function isWork(inside: ActivityRow[]): boolean {
-  return inside.some((r) => isPrompt(r) || r.kind === "scheduled" || r.kind === "tool_use");
+  return inside.some(
+    (r) =>
+      isPrompt(r) || r.kind === "sdk_prompt" || r.kind === "scheduled" || r.kind === "tool_use",
+  );
 }
 
 /** Whether a row is something the user asked for (a prompt or a slash command). */
@@ -796,11 +807,14 @@ function isPrompt(r: ActivityRow): boolean {
 
 /**
  * Title for a work block until a summary exists: the first line of its first prompt (a typed
- * prompt preferred over a command), else of its last reply.
+ * prompt preferred over a command, then the SDK input of a headless session), else of its last reply.
  */
 function fallbackTitle(inside: ActivityRow[]): string | null {
   const prompts = inside.filter(isPrompt);
-  const firstPrompt = prompts.find((r) => r.kind === "prompt") ?? prompts[0];
+  const firstPrompt =
+    prompts.find((r) => r.kind === "prompt") ??
+    prompts[0] ??
+    inside.find((r) => r.kind === "sdk_prompt");
   const lastReply = inside.findLast((r) => r.kind === "assistant");
   return (
     (firstPrompt ?? lastReply)?.text?.trim().split("\n")[0]?.slice(0, FALLBACK_TITLE_CHARS) ?? null

@@ -2,6 +2,7 @@
 // due for an automatic summary, and saving summaries and recaps.
 import type { Database } from "bun:sqlite";
 import { AUTO_SUMMARY_DAYS, isSummarizable, SECTION_IDLE_MS } from "../../shared/sections.ts";
+import { DEFAULT_HIDDEN_CWDS, visibleSessionSql } from "../visibility.ts";
 import { buildDigest, DIGEST_KINDS, type DigestMessage } from "./digest.ts";
 import type { ParsedSummary, PromptInput } from "./prompt.ts";
 import { type RecapInput, type RecapTarget, recapHash } from "./recap.ts";
@@ -58,6 +59,8 @@ export interface TargetFilter {
   endedBefore?: number;
   /** At most this many sections. */
   limit?: number;
+  /** Launch directories never summarized (default: Kairos's own summarizer directory). */
+  hiddenCwds?: readonly string[];
 }
 
 /** A section to summarize, with its project's name for showing progress. */
@@ -68,7 +71,8 @@ export interface NamedTarget extends Target {
 /**
  * Finished sections whose summary is missing or older than the section, newest first, under the
  * same rules as automatic runs (short sections get `title` mode). Sections with no conversation to
- * summarize are left out. Shared by the automatic loop and
+ * summarize are left out. Headless sessions are summarized whether or not the calendar shows them,
+ * so their summaries are ready when they are turned on. Shared by the automatic loop and
  * `kairos summarize`, so both agree on what still needs a summary.
  */
 export function findTargets(db: Database, now: number, filter: TargetFilter = {}): NamedTarget[] {
@@ -88,7 +92,7 @@ export function findTargets(db: Database, now: number, filter: TargetFilter = {}
        JOIN sessions s ON s.id = g.session_id
        LEFT JOIN projects p ON p.id = s.project_id
        LEFT JOIN summaries sm ON sm.session_id = g.session_id AND sm.start = g.start
-       WHERE s.prompt_count > 0
+       WHERE ${visibleSessionSql({ headless: true, hiddenCwds: filter.hiddenCwds ?? DEFAULT_HIDDEN_CWDS })}
          AND g.end >= ?1 AND g.end < ?6
          AND g.start >= ?2 AND g.start < ?3
          AND (g.end <= ?4 OR EXISTS (SELECT 1 FROM segments later WHERE later.session_id = g.session_id AND later.start > g.start))

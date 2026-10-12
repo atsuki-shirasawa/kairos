@@ -48,6 +48,15 @@ test("finds old sections the automatic loop skips, newest first, with the automa
   );
 });
 
+test("includes headless sessions, but never Kairos's own summary runs", () => {
+  const ids = findTargets(db, now, {
+    hiddenCwds: ["/Users/me/tmp/scratch/kairos-data/summarizer"],
+  }).map((t) => t.sessionId);
+  expect(ids).toContain(SID.headless);
+  expect(ids).toContain(SID.sdkCommand);
+  expect(ids).not.toContain(SID.summarizerRun);
+});
+
 test("leaves out sections with no conversation, which would otherwise come back on every run", () => {
   const section = findTargets(db, now).find((t) => t.mode === "summary");
   if (!section) throw new Error("fixture has no full-summary section");

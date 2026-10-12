@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.tsx";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
+import { useShowHeadless } from "@/hooks/queries.ts";
 import type { Theme } from "@/hooks/useTheme.ts";
 import { LOCALES, type Locale, setLocale, useLocale } from "@/i18n/index.ts";
 import { toolbarMessages } from "@/i18n/messages/toolbar.ts";
@@ -39,8 +40,8 @@ function shortcuts(): [string[], string][] {
 }
 
 /**
- * The "⋯" menu: theme, language and the keyboard shortcuts. The caller owns the open state
- * because `?` opens it too.
+ * The "⋯" menu: theme, language, whether headless runs show, and the keyboard shortcuts. The
+ * caller owns the open state because `?` opens it too.
  */
 export function AppMenu({
   open,
@@ -68,17 +69,30 @@ export function AppMenu({
         <SettingRow label={m.language}>
           <LanguageToggle />
         </SettingRow>
+        <SettingRow label={m.headlessRuns} title={m.headlessRunsTitle}>
+          <HeadlessToggle />
+        </SettingRow>
         <ShortcutList />
       </PopoverContent>
     </Popover>
   );
 }
 
-/** A labelled setting with its control on the right. */
-function SettingRow({ label, children }: { label: string; children: ReactNode }) {
+/** A labelled setting with its control on the right. `title` explains the label on hover. */
+function SettingRow({
+  label,
+  title,
+  children,
+}: {
+  label: string;
+  title?: string;
+  children: ReactNode;
+}) {
   return (
     <div className="flex items-center justify-between gap-2 border-b p-3">
-      <span className="font-medium text-sm">{label}</span>
+      <span className="font-medium text-sm" title={title}>
+        {label}
+      </span>
       {children}
     </div>
   );
@@ -129,6 +143,32 @@ function LanguageToggle() {
           {LANGUAGE_NAMES[value]}
         </ToggleGroupItem>
       ))}
+    </ToggleGroup>
+  );
+}
+
+/** Hides or shows headless runs (claude -p / SDK sessions). Saved on the server. */
+function HeadlessToggle() {
+  const m = toolbarMessages();
+  const [show, setShow, loaded] = useShowHeadless();
+  return (
+    <ToggleGroup
+      type="single"
+      size="sm"
+      spacing={0.5}
+      className={SEGMENTED}
+      value={show ? "show" : "hide"}
+      onValueChange={(v) => v && setShow(v === "show")}
+      // Until the settings load, "Hide" would only be a guess
+      disabled={!loaded}
+      aria-label={m.headlessRuns}
+    >
+      <ToggleGroupItem value="hide" className={cn(SEGMENT, "px-2")}>
+        {m.hide}
+      </ToggleGroupItem>
+      <ToggleGroupItem value="show" className={cn(SEGMENT, "px-2")}>
+        {m.show}
+      </ToggleGroupItem>
     </ToggleGroup>
   );
 }
