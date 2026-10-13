@@ -67,7 +67,7 @@ export function FilterChips({
   return (
     <section
       aria-label={m.chipsLabel}
-      className="flex shrink-0 flex-wrap items-center gap-1.5 border-b bg-background px-5 py-1.5 max-md:px-3"
+      className="flex shrink-0 flex-wrap items-center gap-1.5 border-b bg-background px-5 py-1.5 max-lg:px-3"
     >
       {chips.map((c) => (
         <span

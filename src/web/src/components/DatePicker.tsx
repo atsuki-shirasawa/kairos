@@ -99,9 +99,13 @@ export function DatePicker({
           <span className="truncate font-num font-semibold text-[17px] tracking-tight">
             {range.title}
           </span>
-          {range.sub && <span className="text-muted-foreground text-sm">{range.sub}</span>}
+          {range.sub && (
+            <span className="shrink-0 whitespace-nowrap text-muted-foreground text-sm">
+              {range.sub}
+            </span>
+          )}
           {range.year && (
-            <span className="font-num text-muted-foreground text-sm">{range.year}</span>
+            <span className="shrink-0 font-num text-muted-foreground text-sm">{range.year}</span>
           )}
           <ChevronDown className="size-3.5 shrink-0 self-center text-muted-foreground" />
         </button>

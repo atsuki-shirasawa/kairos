@@ -79,18 +79,18 @@ export function Toolbar({
   onMenuOpen,
 }: Props) {
   return (
-    // Below md (a half-screen window) the bar tightens instead of overflowing: the wordmark goes
-    // and search shrinks to its icon, but every control stays. Groups are set apart by spacing,
-    // not rules
-    <header className="flex h-16 shrink-0 items-center gap-3 border-b bg-background px-5 max-md:gap-2 max-md:px-3">
+    // Below lg (a half-screen or small laptop window; the full bar needs ~940px with a two-month
+    // week label) the bar tightens instead of overflowing: the wordmark goes and search shrinks to
+    // its icon, but every control stays. Groups are set apart by spacing, not rules
+    <header className="flex h-16 shrink-0 items-center gap-3 border-b bg-background px-5 max-lg:gap-2 max-lg:px-3">
       <Brand progress={progress} />
-      <span className="w-3 shrink-0 max-md:hidden" aria-hidden />
+      <span className="w-3 shrink-0 max-lg:hidden" aria-hidden />
       <PeriodNav view={view} onMove={onMove} onToday={onToday} />
       <h1 className="flex min-w-0">
         <DatePicker view={view} anchor={anchor} now={now} projects={projects} onJump={onJump} />
       </h1>
 
-      <div className="ml-auto flex shrink-0 items-center gap-2 max-md:gap-1">
+      <div className="ml-auto flex shrink-0 items-center gap-2 max-lg:gap-1">
         <SearchField
           inputRef={searchRef}
           value={filter.q}
@@ -105,7 +105,7 @@ export function Toolbar({
         />
         <ViewToggle view={view} onView={onView} />
         <LayoutToggle layout={layout} onLayout={onLayout} />
-        <span className="w-2 shrink-0 max-md:hidden" aria-hidden />
+        <span className="w-2 shrink-0 max-lg:hidden" aria-hidden />
         <CopyReportButton view={view} report={report} hasWork={hasWork} />
         <FilterMenu projects={projects} sessions={sessions} filter={filter} onFilter={onFilter} />
         <AppMenu open={menuOpen} onOpenChange={onMenuOpen} theme={theme} onTheme={onTheme} />

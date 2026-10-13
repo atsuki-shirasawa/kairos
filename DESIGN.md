@@ -269,8 +269,10 @@ A work block's fill is the project color mixed into `block-base` in `oklch`:
 - **Toolbar** controls are 32px tall (icons stay 16px), so they sit in the 64px bar without
   floating; the layout toggle's track is 32px with 28px segments inside. Elsewhere (popovers, the
   summary's tabs) controls stay 28px
-- **Toolbar** never overflows: below `md` (a half-screen window) the wordmark and the spacing go,
-  search shrinks to its icon until focused, and its results span the screen. No control is dropped
+- **Toolbar** never overflows: below `lg` (a half-screen or small-laptop window) the wordmark and
+  the spacing go, search shrinks to its icon until focused, and its results span the screen. No
+  control is dropped. Between `lg` and `xl` the open search field is 192px rather than 256px, so the
+  period label beside it keeps its full width
 - **Toolbar** holds only view switching, date navigation, search, report copy and filters. Theme,
   language and the shortcut list live in the "⋯" menu
 - **Filters** are edited in the toolbar's popover (384px wide, scrolling within the window) and,

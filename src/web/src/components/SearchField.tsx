@@ -98,11 +98,13 @@ export function SearchField({
         aria-label={m.label(period)}
         className={cn(
           // Frameless until used, like the toolbar's other controls; the icon and "/" say what it is
-          "h-8 w-36 rounded-md border border-transparent pr-7 pl-7 text-sm outline-none transition-[width] duration-150 placeholder:text-muted-foreground hover:bg-accent focus-visible:border-ring group-focus-within:w-64 group-focus-within:border-input group-focus-within:bg-card motion-reduce:transition-none",
+          "h-8 w-36 rounded-md border border-transparent pl-7 text-sm outline-none transition-[width] duration-150 placeholder:text-muted-foreground hover:bg-accent focus-visible:border-ring group-focus-within:w-64 group-focus-within:border-input group-focus-within:bg-card motion-reduce:transition-none",
+          // Up to xl the open field stays narrower, so the period label beside it keeps its width
+          "max-xl:group-focus-within:w-48",
           // In a narrow window only the icon shows until focused, then it opens to a usable width
-          "max-md:w-7 max-md:pr-0 max-md:group-focus-within:w-32 max-md:group-focus-within:pr-7 max-md:placeholder:text-transparent",
-          value && "w-64 border-primary/50 bg-card max-md:w-32 max-md:pr-7",
-          showFiles && (value ? "pr-13 max-md:pr-13" : "pr-7"),
+          "max-lg:w-7 max-lg:group-focus-within:w-32 max-lg:placeholder:text-transparent",
+          value && "w-64 border-primary/50 bg-card max-lg:w-32 max-xl:w-48",
+          searchPadding(value !== ""),
         )}
       />
       {showFiles && (
@@ -114,7 +116,7 @@ export function SearchField({
             files
               ? "bg-primary/15 text-primary"
               : "text-muted-foreground hover:bg-accent hover:text-foreground",
-            !focused && !value && "max-md:hidden",
+            !focused && !value && "max-lg:hidden",
           )}
           // Keep the caret in the field, so typing goes on and the results stay open
           onMouseDown={(e) => e.preventDefault()}
@@ -145,7 +147,7 @@ export function SearchField({
       ) : (
         !showFiles && (
           <kbd
-            className="pointer-events-none absolute right-1.5 rounded border bg-muted px-1 font-num text-[11px] text-muted-foreground leading-4 max-md:hidden"
+            className="pointer-events-none absolute right-1.5 rounded border bg-muted px-1 font-num text-[11px] text-muted-foreground leading-4 max-lg:hidden"
             aria-hidden
           >
             /
@@ -156,7 +158,7 @@ export function SearchField({
       {open && (
         // Anchored under the field; in a narrow window the field sits mid-bar, so the results span
         // the screen instead of running off its left edge
-        <div className="absolute top-10 right-0 z-40 flex max-h-[min(70vh,36rem)] w-[30rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md max-md:fixed max-md:inset-x-2 max-md:top-14 max-md:w-auto max-md:max-w-none">
+        <div className="absolute top-10 right-0 z-40 flex max-h-[min(70vh,36rem)] w-[30rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md max-lg:fixed max-lg:inset-x-2 max-lg:top-14 max-lg:w-auto max-lg:max-w-none">
           <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b px-3 text-xs">
             <span className="font-medium text-muted-foreground">
               {m.allPeriods}
@@ -214,6 +216,17 @@ export function SearchField({
       )}
     </search>
   );
+}
+
+/**
+ * Right padding that keeps typed text clear of the buttons at the field's end: clear and file
+ * with a query, otherwise the "/" hint or the file button. Decided in one place because a
+ * `group-focus-within:` padding outranks a plain one and would let text run under the buttons.
+ */
+function searchPadding(hasQuery: boolean): string {
+  if (hasQuery) return "pr-13";
+  // A narrow window shows only the icon until focused, so there is nothing to pad for
+  return "pr-7 max-lg:pr-0 max-lg:group-focus-within:pr-7";
 }
 
 /** The words to mark in results: the query's terms, with a `file:` prefix taken off its path. */
