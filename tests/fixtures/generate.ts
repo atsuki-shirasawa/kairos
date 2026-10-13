@@ -501,6 +501,54 @@ function summarizerRun(): void {
   write(cwd, b);
 }
 
+/** A short headless run (`claude -p`) in `cwd` at `minute`, as scripts and probes fire them. */
+function probeRun(id: string, cwd: string, minute: number, request: string): LogBuilder {
+  const b = new LogBuilder(id, cwd);
+  b.systemUser(minute, request, { promptSource: "sdk", turnOrigin: "sdk" });
+  b.bash(minute + 0.1, "echo ok", "ok");
+  b.text(minute + 0.2, "ok");
+  return b;
+}
+
+// ---------------------------------------------------------------- 18. run in a Claude Code scratchpad
+function scratchpadRun(): void {
+  // A session in the app project ran `claude -p` in its scratchpad, which Claude Code names after
+  // the launching project's directory
+  const cwd = `/private/tmp/claude-501/${projectDirName(APP)}/0f1e2d3c-4b5a-4968-8778-695a4b3c2d1e/scratchpad/hookcheck`;
+  const b = probeRun(SID.scratchpadRun, cwd, 900, "Check that the Stop hook fires once");
+  launchedBySdk(b);
+  write(cwd, b);
+}
+
+// ---------------------------------------------------------------- 19. runs in temporary directories
+function tempRuns(): void {
+  const tmp = "/private/tmp/retry-probe.Qx7Lm2";
+  const tmpRun = probeRun(SID.tmpRun, tmp, 902, "Retry the request once and report the status");
+  launchedBySdk(tmpRun);
+  write(tmp, tmpRun);
+  const job = "/Users/me/.claude/jobs/5e6f7a8b/tmp/probe-7";
+  const jobRun = probeRun(SID.jobRun, job, 904, "List the files in this directory");
+  launchedBySdk(jobRun);
+  write(job, jobRun);
+}
+
+// ---------------------------------------------------------------- 20. runs in a container checkout
+function containerRuns(): void {
+  // A checkout inside a container: the path doesn't exist on this machine, so its git remote can't
+  // be read. One run opened a PR, which says which repository the directory holds
+  const cwd = "/work/checkout";
+  const pr = probeRun(SID.containerPr, cwd, 906, "Fix the typo in the README and open a PR");
+  pr.ghPrCreate(907, 'gh pr create --title "docs: fix a typo" --body ""', {
+    number: 50,
+    repository: "me/app",
+  });
+  launchedBySdk(pr);
+  write(cwd, pr);
+  const run = probeRun(SID.containerRun, cwd, 910, "Run the tests and report failures");
+  launchedBySdk(run);
+  write(cwd, run);
+}
+
 if (import.meta.main) {
   rmSync(ROOT, { recursive: true, force: true });
   for (const scenario of [
@@ -521,6 +569,9 @@ if (import.meta.main) {
     merges,
     sdkCommand,
     summarizerRun,
+    scratchpadRun,
+    tempRuns,
+    containerRuns,
   ]) {
     scenario();
   }

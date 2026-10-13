@@ -18,4 +18,9 @@ export const SID = {
   merges: "abababab-abab-4bab-8bab-abababababab",
   sdkCommand: "cdcdcdcd-cdcd-4cdc-8cdc-cdcdcdcdcdcd",
   summarizerRun: "cececece-cece-4cec-8cec-cececececece",
+  scratchpadRun: "12121212-1212-4212-8212-121212121212",
+  tmpRun: "13131313-1313-4313-8313-131313131313",
+  jobRun: "14141414-1414-4414-8414-141414141414",
+  containerPr: "15151515-1515-4515-8515-151515151515",
+  containerRun: "16161616-1616-4616-8616-161616161616",
 } as const;

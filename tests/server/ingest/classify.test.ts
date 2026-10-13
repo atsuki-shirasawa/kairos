@@ -4,10 +4,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { classifyUser, commandText, type UserKind } from "../../../src/server/ingest/classify.ts";
 import {
+  encodeDir,
+  isTemporary,
   MAX_GIT_FILE,
   parseRemote,
   readGitRemote,
+  repoOfPrUrl,
   resolveProject,
+  scratchpadOwner,
 } from "../../../src/server/ingest/project.ts";
 import { toSegments } from "../../../src/server/ingest/segments.ts";
 
@@ -122,6 +126,41 @@ describe("resolveProject", () => {
       name: "webapp",
       label: "fix-x",
     });
+  });
+});
+
+describe("temporary directories", () => {
+  test("isTemporary: system temp directories and Claude Code job directories", () => {
+    for (const dir of [
+      "/tmp",
+      "/tmp/probe",
+      "/private/tmp/loop.Ab12Cd",
+      "/var/folders/xy/abc/T/run",
+      "/private/var/folders/xy/abc/T",
+      "/Users/me/.claude/jobs/0a1b2c3d/tmp/probe-2",
+    ])
+      expect(isTemporary(dir)).toBe(true);
+    for (const dir of ["/Users/me/tmp/probe", "/tmpfiles", "/work/clone", "/Users/me/.claude/jobs"])
+      expect(isTemporary(dir)).toBe(false);
+  });
+
+  test("scratchpadOwner: the encoded launch directory of a scratchpad's session", () => {
+    const pad = "/private/tmp/claude-501/-Users-me-dev-app/0f1e2d3c-4b5a/scratchpad/check";
+    expect(scratchpadOwner(pad)).toBe("-Users-me-dev-app");
+    expect(scratchpadOwner("/tmp/claude-501/-Users-me-dev-app/0f1e2d3c/scratchpad")).toBe(
+      "-Users-me-dev-app",
+    );
+    expect(scratchpadOwner("/private/tmp/claude-501/-Users-me-dev-app/0f1e2d3c/notes")).toBeNull();
+    expect(encodeDir("/Users/me/dev/my.app")).toBe("-Users-me-dev-my-app");
+  });
+
+  test("repoOfPrUrl: the repository of a pull request, keyed as a remote is", () => {
+    expect(repoOfPrUrl("https://github.com/me/app/pull/12")).toEqual({
+      key: "github.com/me/app",
+      name: "app",
+    });
+    expect(repoOfPrUrl("https://github.com/me/app/issues/12")).toBeNull();
+    expect(repoOfPrUrl("not a url")).toBeNull();
   });
 });
 

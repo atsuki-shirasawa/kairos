@@ -77,6 +77,23 @@ export function prepareStatements(db: Database) {
       "INSERT INTO projects (path, name, repo) VALUES (?, ?, ?) ON CONFLICT(path) DO UPDATE SET name = name RETURNING id",
     ),
     projectByRepo: p("SELECT id FROM projects WHERE repo = ?"),
+    prUrlsOfCwd: p(
+      `SELECT DISTINCT a.ref FROM artifacts a JOIN sessions s ON s.id = a.session_id
+       WHERE a.kind = 'pr' AND a.is_copy = 0 AND s.launch_cwd = ?`,
+    ),
+    launchDirs: p(
+      `SELECT launch_cwd AS cwd, MIN(project_id) AS projectId FROM sessions
+       WHERE launch_cwd IS NOT NULL AND project_id IS NOT NULL GROUP BY launch_cwd`,
+    ),
+    filePrCount: p("SELECT COUNT(*) AS n FROM artifacts WHERE file_id = ? AND kind = 'pr'"),
+    repoOfCwd: p(
+      `SELECT p.repo FROM sessions s JOIN projects p ON p.id = s.project_id
+       WHERE s.launch_cwd = ? AND p.repo IS NOT NULL LIMIT 1`,
+    ),
+    tempLaunchDirs: p(
+      `SELECT DISTINCT s.launch_cwd AS cwd FROM sessions s JOIN projects p ON p.id = s.project_id
+       WHERE p.path = ? AND s.launch_cwd IS NOT NULL`,
+    ),
     projectByPath: p("SELECT id FROM projects WHERE path = ?"),
     adoptRepo: p("UPDATE projects SET repo = ?, name = ? WHERE id = ?"),
     reassignProject: p(

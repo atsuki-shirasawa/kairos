@@ -93,6 +93,7 @@ sequenceDiagram
 | Prompt-less work block | A block with no human prompt, `/loop` tick or tool call (a compaction, an API error or a short reply to a notification after a break) isn't drawn. Prompt-less blocks with tool calls stay: Claude acting on a notification on its own |
 | Worktree | If the launch cwd is `<repo>/.claude/worktrees/<name>`, the project is `<repo>` and `<name>` becomes a secondary label. A later `relocated` / `worktree-state` only affects the secondary label |
 | Same repository | If `.git/config` has an `origin` remote, the project is named after the repository and other clones of the same remote merge into it (a directory name that differs becomes the secondary label). Only the file is read; no git commands run |
+| Temporary and gone directories | Without a remote, a directory that is gone from this machine (a container's checkout) or temporary takes the repository of the PRs opened from it, if they all point to one. A Claude Code scratchpad joins the project of the session that made it (its path encodes that session's directory). Other temporary directories (`/tmp`, `/private/tmp`, `/var/folders`, `~/.claude/jobs/*/tmp`) share one `tmp` project. The directory name becomes the secondary label |
 | Title | `custom-title` > `agent-name` > `ai-title` > the first human prompt > the first SDK input |
 | Recap | Store `system/away_summary` and use it as a placeholder until the AI summary is ready |
 | Tool output | Truncated to the first 4KB |

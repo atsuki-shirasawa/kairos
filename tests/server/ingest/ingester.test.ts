@@ -4,7 +4,7 @@ import { appendFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { classifyPath, Ingester } from "../../../src/server/ingest/ingester.ts";
 import { SID } from "../../fixtures/ids.ts";
-import { min, setup } from "./helpers.ts";
+import { min, noRemotes, setup } from "./helpers.ts";
 
 let db: Database;
 let ingester: Ingester;
@@ -147,6 +147,33 @@ describe("README scenarios", () => {
     expect(session(SID.summarizerRun).prompt_count).toBe(0);
     expect(sdkPrompts(SID.summarizerRun)).toHaveLength(1);
     expect(segments(SID.summarizerRun)).toEqual([[min(890), min(890.2)]]);
+  });
+
+  test("18. scratchpadRun: a run in a Claude Code scratchpad joins the project that launched it", () => {
+    expect(session(SID.scratchpadRun)).toMatchObject({
+      project: "/Users/me/dev/app",
+      label: "hookcheck",
+    });
+  });
+
+  test("19. tempRuns: runs in temporary directories share one tmp project", () => {
+    expect(session(SID.tmpRun)).toMatchObject({ project: "/tmp", label: "retry-probe.Qx7Lm2" });
+    expect(session(SID.jobRun)).toMatchObject({ project: "/tmp", label: "probe-7" });
+    expect(count("SELECT COUNT(*) AS n FROM projects WHERE path = '/tmp' AND name = 'tmp'")).toBe(
+      1,
+    );
+  });
+
+  test("20. containerRuns: a gone directory takes the repository of the PRs opened in it", () => {
+    const repo = db
+      .query<{ repo: string | null; name: string }, []>(
+        "SELECT repo, name FROM projects WHERE path = '/work/checkout'",
+      )
+      .get();
+    expect(repo).toEqual({ repo: "github.com/me/app", name: "app" });
+    // The run without a PR is in the same directory, so it goes with it
+    for (const id of [SID.containerPr, SID.containerRun])
+      expect(session(id)).toMatchObject({ project: "/work/checkout", label: "checkout" });
   });
 
   test("4. started in a worktree: grouped under the parent repository with a label", () => {
@@ -379,7 +406,7 @@ describe("project identity (git remote)", () => {
     "/Users/me/dev/app": "git@github.com:me/webapp.git",
     "/Users/me/dev/blog": "https://github.com/me/webapp.git",
   };
-  const lookup = (dir: string) => remotes[dir] ?? null;
+  const lookup = (dir: string) => remotes[dir] ?? noRemotes(dir);
   const projects = (d: Database) =>
     d.query("SELECT path, name, repo, color FROM projects ORDER BY id").all();
   const resetDerived = () => db.query("DELETE FROM kv WHERE key = 'derived_version'").run();
@@ -388,6 +415,8 @@ describe("project identity (git remote)", () => {
     const fresh = setup(lookup);
     fresh.ingester.scan();
     expect(projects(fresh.db)).toEqual([
+      // The jobs directory's log folder sorts first, so the shared tmp project is made first
+      { path: "/tmp", name: "tmp", repo: null, color: null },
       { path: "/Users/me/dev/app", name: "webapp", repo: "github.com/me/webapp", color: null },
       // Directories without a remote (the SDK scenarios) keep their directory name
       { path: "/Users/me/tmp/probe", name: "probe", repo: null, color: null },
@@ -398,6 +427,8 @@ describe("project identity (git remote)", () => {
         repo: null,
         color: null,
       },
+      // A container checkout, named after the repository of the PR opened in it
+      { path: "/work/checkout", name: "app", repo: "github.com/me/app", color: null },
     ]);
     const label = (id: string) =>
       fresh.db
@@ -417,6 +448,7 @@ describe("project identity (git remote)", () => {
     expect(new Ingester(db, projectsDir, undefined, lookup).refreshAllIfOutdated()).toBe(true);
     // The blog project is now empty, so it is deleted
     expect(projects(db)).toEqual([
+      { path: "/tmp", name: "tmp", repo: null, color: null },
       { path: "/Users/me/dev/app", name: "webapp", repo: "github.com/me/webapp", color: "p3" },
       { path: "/Users/me/tmp/probe", name: "probe", repo: null, color: null },
       { path: "/Users/me/tmp/release", name: "release", repo: null, color: null },
@@ -426,16 +458,96 @@ describe("project identity (git remote)", () => {
         repo: null,
         color: null,
       },
+      // A container checkout, named after the repository of the PR opened in it
+      { path: "/work/checkout", name: "app", repo: "github.com/me/app", color: null },
     ]);
     expect(session(SID.blog)).toMatchObject({ project: "/Users/me/dev/app", label: "blog" });
     expect(session(SID.relocated).label).toBe("refactor-api");
   });
 
-  test("does not reassign sessions whose directory is gone", () => {
+  test("keeps sessions whose directory is gone where they are, unless their PRs say otherwise", () => {
     resetDerived();
     new Ingester(db, projectsDir, undefined, () => undefined).refreshAllIfOutdated();
-    expect(projects(db)).toHaveLength(5);
+    // blog opened no PR, so nothing places it anew
     expect(session(SID.blog).project).toBe("/Users/me/dev/blog");
+    // app's PRs and the container's point to the same repository, so they share its project
+    expect(session(SID.basic).project).toBe(session(SID.containerPr).project);
+  });
+
+  test("a container checkout joins the project of the repository its PRs went to", () => {
+    const fresh = setup((dir) =>
+      dir === "/Users/me/dev/app" ? "git@github.com:me/app.git" : noRemotes(dir),
+    );
+    fresh.ingester.scan();
+    const place = fresh.db
+      .query<{ path: string; label: string | null }, [string]>(
+        "SELECT p.path, s.label FROM sessions s JOIN projects p ON p.id = s.project_id WHERE s.id = ?",
+      )
+      .get(SID.containerRun);
+    expect(place).toEqual({ path: "/Users/me/dev/app", label: "checkout" });
+  });
+
+  test("a temporary clone placed by its remote stays there once the directory is gone", () => {
+    const tmp = "/private/tmp/retry-probe.Qx7Lm2";
+    const fresh = setup((dir) => (dir === tmp ? "git@github.com:me/app.git" : noRemotes(dir)));
+    fresh.ingester.scan();
+    fresh.db.query("DELETE FROM kv WHERE key = 'derived_version'").run();
+    const gone = (dir: string) => (dir === tmp ? undefined : noRemotes(dir));
+    new Ingester(fresh.db, fresh.projectsDir, undefined, gone).refreshAllIfOutdated();
+    const repo = fresh.db
+      .query<{ repo: string | null }, [string]>(
+        "SELECT p.repo FROM sessions s JOIN projects p ON p.id = s.project_id WHERE s.id = ?",
+      )
+      .get(SID.tmpRun)?.repo;
+    expect(repo).toBe("github.com/me/app");
+  });
+
+  test("a scratchpad read before its owner's log joins the owner once the scan ends", () => {
+    const fresh = setup();
+    const pad = fresh.ingester.listFiles().find((f) => f.includes("scratchpad"));
+    if (!pad) throw new Error("no scratchpad fixture");
+    fresh.ingester.ingestFile(pad);
+    const projectOf = () =>
+      fresh.db
+        .query<{ path: string }, [string]>(
+          "SELECT p.path FROM sessions s JOIN projects p ON p.id = s.project_id WHERE s.id = ?",
+        )
+        .get(SID.scratchpadRun)?.path;
+    expect(projectOf()).toBe("/tmp");
+    fresh.ingester.scan();
+    expect(projectOf()).toBe("/Users/me/dev/app");
+  });
+
+  test("a PR from /tmp itself never turns the shared tmp project into a repository", () => {
+    db.query("UPDATE sessions SET launch_cwd = '/tmp' WHERE id = ?").run(SID.containerPr);
+    resetDerived();
+    new Ingester(db, projectsDir, undefined, noRemotes).refreshAllIfOutdated();
+    expect(db.query("SELECT name, repo FROM projects WHERE path = '/tmp'").get()).toEqual({
+      name: "tmp",
+      repo: null,
+    });
+  });
+
+  test("PRs to more than one repository leave a gone directory to its own name", () => {
+    const fresh = setup();
+    fresh.ingester.scan();
+    fresh.db
+      .query("UPDATE artifacts SET ref = 'https://github.com/me/other/pull/3' WHERE session_id = ?")
+      .run(SID.containerPr);
+    fresh.db
+      .query(
+        "INSERT INTO artifacts (session_id, kind, ref, title, ts, file_id) SELECT ?, 'pr', 'https://github.com/me/app/pull/9', NULL, NULL, file_id FROM artifacts WHERE session_id = ?",
+      )
+      .run(SID.containerRun, SID.containerPr);
+    fresh.db.query("DELETE FROM kv WHERE key = 'derived_version'").run();
+    new Ingester(fresh.db, fresh.projectsDir, undefined, noRemotes).refreshAllIfOutdated();
+    const names = fresh.db
+      .query<{ name: string }, []>(
+        "SELECT DISTINCT p.name FROM sessions s JOIN projects p ON p.id = s.project_id WHERE s.launch_cwd = '/work/checkout'",
+      )
+      .all();
+    // The earlier assignment is kept rather than replaced by a guess
+    expect(names).toEqual([{ name: "app" }]);
   });
 });
 

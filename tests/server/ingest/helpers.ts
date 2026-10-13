@@ -10,11 +10,17 @@ export const T0 = Date.UTC(2026, 8, 28);
 /** n minutes after the fixture's base time (ms). */
 export const min = (n: number) => T0 + n * 60_000;
 
+/** The container checkout of scenario 20, which doesn't exist on the machine reading the logs. */
+export const GONE_DIRS: ReadonlySet<string> = new Set(["/work/checkout"]);
+
 /**
- * Copies the fixtures to a temp directory and ingests them (so tests can modify the files).
- * git remotes default to none, so results do not depend on real local directories.
+ * Stand-in for reading git remotes: every directory exists without a remote, except `GONE_DIRS`.
+ * Results then don't depend on real local directories.
  */
-export function setup(lookup: RemoteLookup = () => null): {
+export const noRemotes: RemoteLookup = (dir) => (GONE_DIRS.has(dir) ? undefined : null);
+
+/** Copies the fixtures to a temp directory and ingests them (so tests can modify the files). */
+export function setup(lookup: RemoteLookup = noRemotes): {
   db: Database;
   ingester: Ingester;
   projectsDir: string;

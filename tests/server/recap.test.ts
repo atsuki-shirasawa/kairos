@@ -23,10 +23,10 @@ const DAY = 24 * 60 * 60_000;
 // The fixture week, wide enough to hold every fixture session
 const FROM = min(-3 * 24 * 60);
 const TO = FROM + 7 * DAY;
-const APP = 1;
-const BLOG = 2;
-
 let db: Database;
+/** Project ids of app and blog, looked up by path: ingest order decides the ids. */
+let APP: number;
+let BLOG: number;
 let prompts: string[];
 let reply: (prompt: string) => Promise<string>;
 let summarizer: Summarizer;
@@ -36,6 +36,10 @@ beforeEach(() => {
   const s = setup();
   s.ingester.scan();
   db = s.db;
+  const idOf = (path: string) =>
+    db.query<{ id: number }, [string]>("SELECT id FROM projects WHERE path = ?").get(path)?.id ?? 0;
+  APP = idOf("/Users/me/dev/app");
+  BLOG = idOf("/Users/me/dev/blog");
   prompts = [];
   updated = [];
   reply = async () =>

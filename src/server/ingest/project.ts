@@ -40,6 +40,56 @@ export function resolveProject(cwd: string, lookup: RemoteLookup = readGitRemote
   };
 }
 
+/**
+ * The project that collects headless runs launched in temporary directories. Each throwaway
+ * directory became a project of its own, taking one of eight colors and a row in the filter.
+ */
+export const TEMP_PROJECT = { path: "/tmp", name: "tmp" } as const;
+
+/** System temp directories (`/tmp`, `$TMPDIR` under `/var/folders`) and Claude Code's job directories. */
+const TEMP_RE =
+  /^(?:\/private)?\/(?:tmp|var\/folders)(?:\/|$)|\/\.claude\/jobs\/[^/]+\/tmp(?:\/|$)/;
+
+/** Whether the directory is a temporary one, whose name says nothing about the work. */
+export function isTemporary(cwd: string): boolean {
+  return TEMP_RE.test(cwd);
+}
+
+/**
+ * A Claude Code scratchpad: `<tmp>/claude-<uid>/<launch dir, encoded>/<session>/scratchpad/…`.
+ * The encoded part names the directory of the session that made it.
+ */
+const SCRATCHPAD_RE = /^(?:\/private)?\/tmp\/claude-[^/]+\/(-[^/]+)\/[^/]+\/scratchpad(?:\/|$)/;
+
+/** The encoded launch directory of the session that owns a scratchpad, or null for other paths. */
+export function scratchpadOwner(cwd: string): string | null {
+  return SCRATCHPAD_RE.exec(cwd)?.[1] ?? null;
+}
+
+/**
+ * A directory as Claude Code names its log folder: every character other than a letter or digit
+ * becomes `-`. Lossy (a `-` may have been `/` or `.`), so it is only compared, never decoded.
+ */
+export function encodeDir(path: string): string {
+  return path.replace(/[^a-zA-Z0-9]/g, "-");
+}
+
+/**
+ * The repository (`host/owner/repo` key and name) of a PR URL such as
+ * `https://github.com/owner/repo/pull/12`, in the same form `parseRemote` gives a git remote.
+ */
+export function repoOfPrUrl(url: string): { key: string; name: string } | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  const [owner, repo, kind] = parsed.pathname.split("/").filter(Boolean);
+  if (!owner || !repo || kind !== "pull") return null;
+  return parseRemote(`https://${parsed.hostname}/${owner}/${repo}`);
+}
+
 /** Directory that identifies the project; the parent repository for a worktree. */
 export function projectDir(cwd: string): string {
   return WORKTREE_RE.exec(cwd)?.[1] ?? cwd.replace(/\/+$/, "");
