@@ -235,15 +235,15 @@ function EmptyNotice({
   const m = appMessages();
   if (progress)
     return (
-      <Notice>
+      <EmptyState>
         {m.ingesting(Math.floor((progress.done / Math.max(progress.total, 1)) * 100))}
-      </Notice>
+      </EmptyState>
     );
-  if (hiddenBy === "project") return <Notice>{m.hiddenByProject(period)}</Notice>;
-  if (hiddenBy === "brief") return <Notice>{m.hiddenByBrief(period)}</Notice>;
-  if (prev === null && next === null) return <Notice>{m.noRecordsYet}</Notice>;
+  if (hiddenBy === "project") return <EmptyState>{m.hiddenByProject(period)}</EmptyState>;
+  if (hiddenBy === "brief") return <EmptyState>{m.hiddenByBrief(period)}</EmptyState>;
+  if (prev === null && next === null) return <EmptyState>{m.noRecordsYet}</EmptyState>;
   return (
-    <Notice>
+    <EmptyState>
       <p>{m.noRecords(period)}</p>
       <div className="mt-2 flex flex-wrap justify-center gap-2">
         {prev !== null && (
@@ -261,7 +261,7 @@ function EmptyNotice({
           </Button>
         )}
       </div>
-    </Notice>
+    </EmptyState>
   );
 }
 
@@ -278,12 +278,32 @@ function NoMatchNotice({ period, onClear }: { period: View; onClear: () => void 
   );
 }
 
-/** A status message floating over the top of the period body. */
+/**
+ * A status message floating over the top of the period body, for states that sit over content
+ * still on screen (blocks faded by a filter, the last data before the server went away).
+ */
 function Notice({ children }: { children: React.ReactNode }) {
   return (
     <div className="pointer-events-none absolute inset-x-0 top-24 flex justify-center px-4">
       <div
         className="pointer-events-auto rounded-md border bg-popover px-4 py-2 text-center text-muted-foreground text-sm shadow-sm"
+        role="status"
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The period body's state when it has nothing to show, centered in the empty area. Plain text on
+ * the page rather than a bordered card, so it reads as the page's state, not a passing toast.
+ */
+function EmptyState({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4">
+      <div
+        className="pointer-events-auto max-w-md px-4 py-3 text-center text-muted-foreground text-sm"
         role="status"
       >
         {children}
