@@ -1,10 +1,20 @@
 import type { Project, Section, SessionDetail } from "@shared/api.ts";
-import { Check, ChevronDown, ChevronUp, GitBranch, SquareTerminal, X } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  GitBranch,
+  SquareTerminal,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { useCopy } from "@/hooks/useCopy.ts";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { projectColor } from "@/lib/colors.ts";
+import type { BlockRef, RunPosition } from "@/lib/navigation.ts";
 import { resumeCommand } from "@/lib/shell.ts";
 import { SectionTime } from "./SectionTime.tsx";
 
@@ -19,12 +29,16 @@ export function DrawerHeader({
   onClose,
   onPrev,
   onNext,
+  run,
+  onRun,
 }: {
   session: SessionDetail | undefined;
   section: Section | null;
   onClose: () => void;
   onPrev: (() => void) | null;
   onNext: (() => void) | null;
+  run: RunPosition | null;
+  onRun: (run: BlockRef) => void;
 }) {
   return (
     <header className="shrink-0 border-b px-4 pt-2 pb-4">
@@ -38,6 +52,8 @@ export function DrawerHeader({
         <DrawerControls session={session} onClose={onClose} onPrev={onPrev} onNext={onNext} />
       </div>
       {session && <DetailHeader session={session} section={section} />}
+      {/* Its own line: in the top row its fixed width squeezed the branch name to one letter */}
+      {run && <RunStepper run={run} onRun={onRun} />}
     </header>
   );
 }
@@ -135,6 +151,31 @@ function HeadlessBadge() {
     >
       {t.headless}
     </span>
+  );
+}
+
+/**
+ * "Run 3 of 14" with ‹ › for a burst of headless runs, which the calendar draws as one mark. The
+ * ↑ ↓ controls walk all work in time order and may leave the burst when other work is interleaved;
+ * these stay inside it.
+ */
+function RunStepper({ run, onRun }: { run: RunPosition; onRun: (run: BlockRef) => void }) {
+  const t = drawerMessages();
+  const { index, runs } = run;
+  const step = (dir: -1 | 1) => {
+    const target = runs[index + dir];
+    return target ? () => onRun(target) : null;
+  };
+  return (
+    <div className="mt-2 -ml-1.5 flex items-center text-muted-foreground text-xs">
+      <IconButton label={t.prevRun} onClick={step(-1)}>
+        <ChevronLeft />
+      </IconButton>
+      <span className="font-num">{t.runOf(index + 1, runs.length)}</span>
+      <IconButton label={t.nextRun} onClick={step(1)}>
+        <ChevronRight />
+      </IconButton>
+    </div>
   );
 }
 

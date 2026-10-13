@@ -474,6 +474,7 @@ export function BlockTooltip({
   commits,
   prs,
   moments,
+  note = null,
   faded,
   dim,
 }: {
@@ -485,6 +486,8 @@ export function BlockTooltip({
   commits: number;
   prs: number;
   moments: Moment[];
+  /** An extra line under the facts, such as how to reach the runs of a burst. */
+  note?: string | null;
   faded: boolean;
   dim: boolean;
 }) {
@@ -504,6 +507,7 @@ export function BlockTooltip({
         (commits > 0 || prs > 0) && <p className="opacity-70">{f.commitsPrs(commits, prs)}</p>
       )}
       {session.headless && <p className="opacity-70">{m.headless}</p>}
+      {note && <p className="opacity-70">{note}</p>}
       {faded && <p className="opacity-70">{m.notMatching}</p>}
       {dim && <p className="opacity-70">{m.notSummarized}</p>}
     </TooltipContent>

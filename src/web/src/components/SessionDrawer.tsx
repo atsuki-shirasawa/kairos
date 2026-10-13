@@ -6,6 +6,7 @@ import {
 import { useSession } from "@/hooks/queries.ts";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import { selectedSection } from "@/lib/drawer.ts";
+import type { BlockRef, RunPosition } from "@/lib/navigation.ts";
 import { cn } from "@/lib/utils.ts";
 import { Detail } from "./drawer/Detail.tsx";
 import { DrawerHeader } from "./drawer/Header.tsx";
@@ -19,10 +20,14 @@ interface Props {
   /** Move to the previous / next work in time order. null at either end. */
   onPrev: (() => void) | null;
   onNext: (() => void) | null;
+  /** The burst of headless runs the open block belongs to (drawn as one mark), if any. */
+  run: RunPosition | null;
+  /** Opens another run of that burst. */
+  onRun: (run: BlockRef) => void;
 }
 
 /** The detail pane on the right. The heading stays pinned; below it: summary → session flow → outcomes → conversation → numbers. */
-export function SessionDrawer({ id, at, onClose, onSelect, onPrev, onNext }: Props) {
+export function SessionDrawer({ id, at, onClose, onSelect, onPrev, onNext, run, onRun }: Props) {
   const t = drawerMessages();
   const { data, isPending, isError, error } = useSession(id);
   // The conversation is long, so it starts collapsed; the numbers start open. Either choice holds
@@ -53,6 +58,8 @@ export function SessionDrawer({ id, at, onClose, onSelect, onPrev, onNext }: Pro
           onClose={onClose}
           onPrev={onPrev}
           onNext={onNext}
+          run={run}
+          onRun={onRun}
         />
         <div
           ref={scrollRef}

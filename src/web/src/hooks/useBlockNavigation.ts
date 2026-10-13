@@ -2,7 +2,15 @@
 import type { CalendarSession } from "@shared/api.ts";
 import { useCallback, useMemo } from "react";
 import type { UrlStateUpdate } from "@/hooks/useUrlState.ts";
-import { type BlockRef, orderedBlocks, selectedSegment, stepBlock } from "@/lib/navigation.ts";
+import {
+  type BlockRef,
+  burstsOf,
+  orderedBlocks,
+  type RunPosition,
+  runOf,
+  selectedSegment,
+  stepBlock,
+} from "@/lib/navigation.ts";
 
 /** The blocks either side of the selection, and how to open one. */
 export interface BlockStepping {
@@ -10,6 +18,8 @@ export interface BlockStepping {
   next: BlockRef | null;
   /** Opens a block without pushing history; does nothing for null. */
   goTo: (block: BlockRef | null) => void;
+  /** The burst of headless runs the selection belongs to, which the drawer steps through. */
+  run: RunPosition | null;
 }
 
 /**
@@ -44,7 +54,14 @@ export function useBlockStepping({
     },
     [update],
   );
-  return { prev: stepBlock(ordered, current, -1), next: stepBlock(ordered, current, 1), goTo };
+  const bursts = useMemo(() => burstsOf(visible), [visible]);
+  const run = runOf(bursts, current);
+  return {
+    prev: stepBlock(ordered, current, -1),
+    next: stepBlock(ordered, current, 1),
+    goTo,
+    run,
+  };
 }
 
 /** The open block (calendar button, list or table row) in the main area. */

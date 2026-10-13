@@ -17,67 +17,96 @@ export const MARK_STRIP_PX = 14;
  * color at the time it happened. A quick question is a moment rather than a stretch of work, so
  * it gets a tick on the ruler instead of a card that would push longer work aside. Hovering shows
  * the same tooltip as a card; clicking opens it in the drawer.
+ *
+ * One mark can stand for a burst of headless runs (`runGroups`): it sits at the first run, reads
+ * "n headless runs", and opens the first (during a search, the first that matches), with the
+ * drawer stepping through the rest. In the week and day views it is placed at `top` on the
+ * column; in a month cell it sits in line.
  */
 export function Mark({
-  block,
+  runs,
   top,
   hourPx,
   project,
+  lead,
   selected,
   faded,
+  dim,
   onSelect,
 }: {
-  block: PlacedBlock;
-  /** Y of the mark, already spread so close marks don't hide each other (`markTops`). */
-  top: number;
+  /** The block it stands for, or every run of a burst in time order (never empty). */
+  runs: PlacedBlock[];
+  /** The run a click opens: the first, or during a search the first that matches. */
+  lead: PlacedBlock;
+  /** Y of the mark, spread so close marks don't hide each other (`markTops`); null in line. */
+  top: number | null;
   hourPx: number;
   project: Project | undefined;
   selected: boolean;
   faded: boolean;
+  dim: boolean;
   onSelect: (id: string, at: number) => void;
 }) {
-  const { session, segment } = block;
-  const range = timeRange(block);
+  const first = runs[0];
+  if (!first) return null;
+  const { session, segment } = first;
+  const burst = runs.length > 1;
+  // Runs can overlap, so the burst ends with whichever run ends last, not the one starting last
+  const end = Math.max(...runs.map((b) => b.end));
+  const range = timeRange({ ...first, end });
   const projectName = project?.name ?? formatMessages().unknownProject;
-  const moments = blockMoments(block, hourPx, Number.POSITIVE_INFINITY);
+  const m = calendarMessages();
+  const label = burst ? m.runs(runs.length) : segment.headline;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         {/* The hit area is taller than the bar, so a 3px line is still easy to point at */}
         <button
           type="button"
-          onClick={() => onSelect(session.id, segment.start)}
+          onClick={() => onSelect(lead.session.id, lead.segment.start)}
           aria-pressed={selected}
           data-selected={selected || undefined}
-          aria-label={calendarMessages().blockAria(
-            segment.headline,
-            projectName,
-            dateLabel(block.dayStart),
-            range,
-          )}
+          aria-label={m.blockAria(label, projectName, dateLabel(first.dayStart), range)}
           className={cn(
-            "group absolute left-0.5 z-[1] flex h-2.5 w-2.5 -translate-y-1/2 items-center rounded-sm outline-none focus-visible:outline-2 focus-visible:outline-ring",
+            "group flex h-2.5 w-2.5 items-center rounded-sm outline-none focus-visible:outline-2 focus-visible:outline-ring",
+            top === null ? "shrink-0" : "absolute left-0.5 z-[1] -translate-y-1/2",
             selected && "outline-2 outline-primary outline-offset-1",
             faded && !selected && "opacity-30 hover:opacity-100 focus-visible:opacity-100",
           )}
-          style={{ top, "--c": projectColor(project) } as React.CSSProperties}
+          style={{ top: top ?? undefined, "--c": projectColor(project) } as React.CSSProperties}
         >
-          <MarkBar headless={session.headless} />
+          {burst ? <BurstBar /> : <MarkBar headless={session.headless} />}
         </button>
       </TooltipTrigger>
       <BlockTooltip
-        label={segment.headline}
+        label={label}
         projectName={projectName}
         session={session}
         range={range}
-        durationMs={block.end - block.start}
-        commits={segment.activity.commits}
-        prs={segment.activity.prs}
-        moments={moments}
+        durationMs={end - first.start}
+        commits={runs.reduce((sum, b) => sum + b.segment.activity.commits, 0)}
+        prs={runs.reduce((sum, b) => sum + b.segment.activity.prs, 0)}
+        moments={runs.flatMap((b) => blockMoments(b, hourPx, Number.POSITIVE_INFINITY))}
+        note={burst ? m.runsHint : null}
         faded={faded}
-        dim={!segment.summarized}
+        // A burst's heading is its count, not a first prompt waiting for a summary
+        dim={dim && !burst}
       />
     </Tooltip>
+  );
+}
+
+/**
+ * A burst of headless runs: two rows of the headless dashes, one above the other, so it reads as
+ * several runs stacked rather than one. The dashes keep it headless; the second row is the count.
+ * Always headless: `runGroups` groups nothing else.
+ */
+function BurstBar() {
+  return (
+    <span className="flex w-full flex-col gap-px">
+      <MarkBar headless />
+      <MarkBar headless />
+    </span>
   );
 }
 

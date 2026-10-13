@@ -59,7 +59,7 @@ export function App() {
   const recapBodies = useRecapBodies(from, to);
   const setFilter = useCallback((filter: Filter) => update({ filter }), [update]);
 
-  const { prev, next, goTo } = useBlockStepping({
+  const { prev, next, goTo, run } = useBlockStepping({
     focused,
     visible,
     from,
@@ -81,6 +81,7 @@ export function App() {
     prev,
     next,
     goTo,
+    run,
     closeDrawer,
     toggleMenu: () => setMenuOpen((v) => !v),
     focusSearch: () => searchRef.current?.focus(),
@@ -202,6 +203,9 @@ export function App() {
             onSelect={(session, at) => update({ session, at }, { push: true })}
             onPrev={prev ? () => goTo(prev) : null}
             onNext={next ? () => goTo(next) : null}
+            // Only the calendar draws a burst as one mark; the list and table give each run a row
+            run={state.layout === "calendar" ? run : null}
+            onRun={goTo}
           />
         )}
       </div>

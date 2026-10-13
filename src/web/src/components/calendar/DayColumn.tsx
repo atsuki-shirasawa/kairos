@@ -2,7 +2,7 @@ import type { Project } from "@shared/api.ts";
 import { markTops } from "@/lib/calendarGrid.ts";
 import { DAY, HOUR } from "@/lib/dates.ts";
 import type { SegmentMatch } from "@/lib/filter.ts";
-import type { PlacedBlock } from "@/lib/layout.ts";
+import { type PlacedBlock, runGroups } from "@/lib/layout.ts";
 import { cn } from "@/lib/utils.ts";
 import { Block } from "./Block.tsx";
 import { MARK_STRIP_PX, Mark } from "./Mark.tsx";
@@ -42,8 +42,8 @@ export function DayColumn({
   const projectOf = (b: PlacedBlock) =>
     b.session.projectId !== null ? projects.get(b.session.projectId) : undefined;
   const cards = blocks.filter((b) => !b.mark);
-  const marks = blocks.filter((b) => b.mark).sort((a, b) => a.start - b.start);
-  const tops = markTops(marks.map((b) => (b.start / HOUR) * hourPx));
+  const marks = runGroups(blocks.filter((b) => b.mark).sort((a, b) => a.start - b.start));
+  const tops = markTops(marks.map(([b]) => ((b?.start ?? 0) / HOUR) * hourPx));
   return (
     <div
       className={cn("relative min-w-0 border-l", today && "bg-primary/[0.04]")}
@@ -71,18 +71,24 @@ export function DayColumn({
           />
         ))}
       </div>
-      {marks.map((b, i) => (
-        <Mark
-          key={`${b.session.id}-${b.start}`}
-          block={b}
-          top={tops[i] ?? 0}
-          hourPx={hourPx}
-          project={projectOf(b)}
-          selected={isSelected(b)}
-          faded={!matches(b.session, b.segment)}
-          onSelect={onSelect}
-        />
-      ))}
+      {marks.map((runs, i) => {
+        const [b] = runs;
+        if (!b) return null;
+        return (
+          <Mark
+            key={`${b.session.id}-${b.start}`}
+            runs={runs}
+            top={tops[i] ?? 0}
+            hourPx={hourPx}
+            project={projectOf(b)}
+            lead={runs.find((r) => matches(r.session, r.segment)) ?? b}
+            selected={runs.some(isSelected)}
+            faded={!runs.some((r) => matches(r.session, r.segment))}
+            dim={!b.segment.summarized}
+            onSelect={onSelect}
+          />
+        );
+      })}
     </div>
   );
 }

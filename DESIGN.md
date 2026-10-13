@@ -258,6 +258,15 @@ A work block's fill is the project color mixed into `block-base` in `oklch`:
   (a block crossing midnight is whole); the work in progress stays a card. The strip appears only
   on days that have marks. A headless run's mark is split into two 4px dashes with a 2px gap: at
   3px an outlined bar has no hollow left to see, and a broken line already means headless
+- **A burst of headless runs is one mark.** Runs of a project each starting within five minutes of
+  the previous one's end (`RUN_GAP_MS`), and within 15 minutes of the first (`RUN_SPAN_MS`; runs
+  with no project are never grouped), are drawn as a single mark at the first run: two rows of the
+  headless dashes, 1px apart, so it reads as a stack. One mark per run turned a script firing
+  `claude -p` every few seconds into a ladder pushed an hour down the strip. Its tooltip says
+  "n headless runs" with the span; clicking opens the first run (the first matching one during a
+  search), and in the calendar layout the drawer's header gets a "Run n of m" line with ‹ › under
+  the headline to step through the burst (↑ ↓ still walk all work). A loop's iterations, minutes
+  or hours apart, stay one mark each at their real time
 - **A block's height is its real length.** Blocks shorter than the minimum height (room for one
   heading) fill only their real length at full strength; the rest is a label area with a faint fill
   (40% of the block fill) and a faint left edge, so the card keeps its shape instead of looking cut off

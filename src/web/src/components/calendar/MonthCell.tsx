@@ -7,12 +7,12 @@ import { blockMoments, monthCellFit } from "@/lib/calendarGrid.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { dateLabel, durationLabel } from "@/lib/dates.ts";
 import type { SegmentMatch } from "@/lib/filter.ts";
-import type { PlacedBlock } from "@/lib/layout.ts";
+import { type PlacedBlock, runGroups } from "@/lib/layout.ts";
 import { cn } from "@/lib/utils.ts";
 import { BlockTooltip, timeRange } from "./Block.tsx";
 import { MIN_HOUR_PX } from "./constants.ts";
 import { DayTooltip, dayFigures } from "./DayHeader.tsx";
-import { MarkBar } from "./Mark.tsx";
+import { Mark } from "./Mark.tsx";
 
 /** Height of the date line at the top of a cell. */
 export const CELL_HEAD_PX = 28;
@@ -56,10 +56,10 @@ export function MonthCell({
   slots: number;
   onOpenDay: (day: number) => void;
 }) {
-  const marks = blocks.filter((b) => b.mark);
-  const shownMarks = marks.slice(0, MAX_MARKS);
+  const shownMarks = runGroups(blocks.filter((b) => b.mark)).slice(0, MAX_MARKS);
+  const inMarks = new Set(shownMarks.flat());
   // `blocks` is in time order, so the lines stay in it with the leftover marks mixed in
-  const lines = blocks.filter((b) => !b.mark || !shownMarks.includes(b));
+  const lines = blocks.filter((b) => !inMarks.has(b));
   const { shown, more } = monthCellFit(lines.length, slots);
   // j / k can open a block that didn't fit; "+n more" then stands in for it, so the day shows
   // where the selection is and closing the drawer has somewhere to return focus to
@@ -76,8 +76,8 @@ export function MonthCell({
       <div className="flex shrink-0 items-center gap-1.5 px-1" style={{ height: CELL_HEAD_PX }}>
         <DateButton day={day} outside={outside} today={today} onOpen={() => onOpenDay(day)} />
         <span className="flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden">
-          {shownMarks.map((b) => (
-            <CellMark key={`${b.session.id}-${b.start}`} block={b} {...context} />
+          {shownMarks.map((runs) => (
+            <CellMark key={`${runs[0]?.session.id}-${runs[0]?.start}`} runs={runs} {...context} />
           ))}
         </span>
         {figures.shown > 0 && (
@@ -227,47 +227,21 @@ function CellLine({ block, ...c }: CellContext & { block: PlacedBlock }) {
 }
 
 /** Short work as a mark beside the date, in the order it happened, as on the week's columns. */
-function CellMark({ block, ...c }: CellContext & { block: PlacedBlock }) {
-  const { session, segment } = block;
-  const { project, projectName, selected, faded, dim } = blockState(block, c);
-  const range = timeRange(block);
+function CellMark({ runs, ...c }: CellContext & { runs: PlacedBlock[] }) {
+  const [first] = runs;
+  if (!first) return null;
+  const states = runs.map((b) => blockState(b, c));
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        {/* The hit area is taller than the bar, so a 3px line is still easy to point at */}
-        <button
-          type="button"
-          onClick={() => c.onSelect(session.id, segment.start)}
-          aria-pressed={selected}
-          data-selected={selected || undefined}
-          aria-label={calendarMessages().blockAria(
-            segment.headline,
-            projectName,
-            dateLabel(block.dayStart),
-            range,
-          )}
-          className={cn(
-            "group flex h-2.5 w-2.5 shrink-0 items-center rounded-sm outline-none focus-visible:outline-2 focus-visible:outline-ring",
-            selected && "outline-2 outline-primary outline-offset-1",
-            faded && !selected && "opacity-30 hover:opacity-100 focus-visible:opacity-100",
-          )}
-          style={{ "--c": projectColor(project) } as React.CSSProperties}
-        >
-          <MarkBar headless={session.headless} />
-        </button>
-      </TooltipTrigger>
-      <BlockTooltip
-        label={segment.headline}
-        projectName={projectName}
-        session={session}
-        range={range}
-        durationMs={block.end - block.start}
-        commits={segment.activity.commits}
-        prs={segment.activity.prs}
-        moments={blockMoments(block, MIN_HOUR_PX, Number.POSITIVE_INFINITY)}
-        faded={faded}
-        dim={dim}
-      />
-    </Tooltip>
+    <Mark
+      runs={runs}
+      top={null}
+      hourPx={MIN_HOUR_PX}
+      lead={runs.find((_, i) => !states[i]?.faded) ?? first}
+      project={states[0]?.project}
+      selected={states.some((s) => s.selected)}
+      faded={states.every((s) => s.faded)}
+      dim={states[0]?.dim ?? false}
+      onSelect={c.onSelect}
+    />
   );
 }

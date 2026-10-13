@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import type { CalendarSession } from "../../src/shared/api.ts";
-import { orderedBlocks, selectedSegment, stepBlock } from "../../src/web/src/lib/navigation.ts";
+import {
+  burstsOf,
+  orderedBlocks,
+  runOf,
+  selectedSegment,
+  stepBlock,
+} from "../../src/web/src/lib/navigation.ts";
 
 const DAY0 = new Date(2026, 9, 5).getTime(); // 2026-10-05 (Mon) 00:00
 const at = (h: number) => DAY0 + h * 3_600_000;
@@ -90,5 +96,38 @@ describe("selectedSegment", () => {
     expect(selectedSegment(sessions, "a", null)?.start).toBe(at(14));
     expect(selectedSegment(sessions, "a", at(9))?.start).toBe(at(9));
     expect(selectedSegment(sessions, "z", null)).toBeNull();
+  });
+});
+
+describe("burstsOf / runOf", () => {
+  const headless = (id: string, h: number) => ({
+    ...session(id, [at(h), at(h) + 5_000]),
+    headless: true,
+  });
+  const burst = [headless("r1", 10), headless("r2", 10.01), headless("r3", 10.02)];
+  const refs = (ss: CalendarSession[]) => ss.map((s) => ({ id: s.id, at: s.startedAt }));
+
+  test("places a run within its burst", () => {
+    expect(runOf(burstsOf(burst), { id: "r2", at: at(10.01) })).toEqual({
+      index: 1,
+      runs: refs(burst),
+    });
+  });
+
+  test("is null for a lone run, prompted work, or no selection", () => {
+    const lone = [headless("r1", 10), headless("r2", 12)];
+    expect(runOf(burstsOf(lone), { id: "r1", at: at(10) })).toBeNull();
+    expect(runOf(burstsOf([...burst, ...sessions]), { id: "b", at: at(11) })).toBeNull();
+    expect(runOf(burstsOf(burst), null)).toBeNull();
+  });
+
+  test("splits a burst at midnight, as each day column draws its own mark", () => {
+    const late = [
+      headless("a", 23.98),
+      headless("b", 23.99),
+      headless("c", 24.0),
+      headless("d", 24.01),
+    ];
+    expect(burstsOf(late)).toEqual([refs(late.slice(0, 2)), refs(late.slice(2))]);
   });
 });

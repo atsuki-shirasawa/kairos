@@ -105,6 +105,10 @@ export const drawerMessages = defineMessages({
     unknownProject: "Unknown project",
     headless: "Headless",
     headlessTitle: "Started by claude -p or the SDK, with no prompt from you",
+    /** Position in a burst of headless runs drawn as one mark on the calendar. */
+    runOf: (n: number, total: number) => `Run ${n} of ${total}`,
+    prevRun: "Previous headless run",
+    nextRun: "Next headless run",
     active: "Active",
   },
   ja: {
@@ -209,6 +213,9 @@ export const drawerMessages = defineMessages({
     unknownProject: "プロジェクト不明",
     headless: "ヘッドレス",
     headlessTitle: "claude -p や SDK から始まり、あなたの発言はありません",
+    runOf: (n: number, total: number) => `実行 ${n} / ${total}`,
+    prevRun: "前のヘッドレス実行",
+    nextRun: "次のヘッドレス実行",
     active: "作業中",
   },
 });
