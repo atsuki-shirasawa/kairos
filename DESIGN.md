@@ -282,7 +282,10 @@ A work block's fill is the project color mixed into `block-base` in `oklch`:
   lines and "+n more"); what doesn't fit, including marks past six, becomes "+n more", which opens
   the day. Tooltips, selection and filter fading are the week view's
 - **Day column headers** put the weekday above the date number: beside it, "5 月" reads as May in Japanese
-- **Drawer** opens from the right with 20px padding; below `lg` it overlays the screen with a backdrop
+- **Drawer** opens from the right with 20px padding; below `lg` it overlays the screen with a backdrop.
+  In the week and month calendars it also floats over the calendar (no backdrop) up to `xl`:
+  pushing seven columns into the ~600px left at 1024px cut most titles to one word. The day view,
+  list and summary still make room for it
 - **Toolbar** groups its controls by spacing, not frames or divider rules: period navigation and
   search are frameless until hovered or used. The period (month / week / day) and the layout
   (calendar / summary) are two separate controls, as in Google Calendar: the period is an outlined
@@ -309,7 +312,7 @@ A work block's fill is the project color mixed into `block-base` in `oklch`:
 
 Few cards and few shadows. Boundaries are 1px `line` rules. Only floating things lift:
 
-- The drawer, when it overlays on narrow screens (`shadow-2xl`)
+- The drawer, when it overlays (`shadow-2xl`): below `lg`, and below `xl` in the week and month calendars
 - Popovers and the search results (`shadow-md`)
 - The active segment of a segmented toggle (`shadow-sm`)
 

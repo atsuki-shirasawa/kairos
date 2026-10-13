@@ -24,10 +24,25 @@ interface Props {
   run: RunPosition | null;
   /** Opens another run of that burst. */
   onRun: (run: BlockRef) => void;
+  /**
+   * Float over the content between `lg` and `xl` instead of pushing it aside. The week and month
+   * views' seven columns can't spare the drawer's width at laptop sizes; the rest reflow fine.
+   */
+  overlay: boolean;
 }
 
 /** The detail pane on the right. The heading stays pinned; below it: summary → session flow → outcomes → conversation → numbers. */
-export function SessionDrawer({ id, at, onClose, onSelect, onPrev, onNext, run, onRun }: Props) {
+export function SessionDrawer({
+  id,
+  at,
+  onClose,
+  onSelect,
+  onPrev,
+  onNext,
+  run,
+  onRun,
+  overlay,
+}: Props) {
   const t = drawerMessages();
   const { data, isPending, isError, error } = useSession(id);
   // The conversation is long, so it starts collapsed; the numbers start open. Either choice holds
@@ -49,6 +64,9 @@ export function SessionDrawer({ id, at, onClose, onSelect, onPrev, onNext, run, 
           "flex w-full shrink-0 flex-col border-l bg-card outline-none",
           "max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-30 max-lg:max-w-md max-lg:shadow-2xl",
           "lg:w-[26rem] xl:w-[30rem]",
+          // No backdrop here: the visible blocks stay clickable to switch sessions
+          overlay &&
+            "lg:max-xl:absolute lg:max-xl:inset-y-0 lg:max-xl:right-0 lg:max-xl:z-30 lg:max-xl:shadow-2xl",
         )}
         aria-label={t.ariaDetail}
       >

@@ -150,7 +150,7 @@ export function App() {
         onMenuOpen={setMenuOpen}
       />
       <FilterChips filter={state.filter} onFilter={setFilter} />
-      <div className="flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1">
         <main className="relative flex min-w-0 flex-1 flex-col">
           {state.layout === "list" ? (
             <SessionList
@@ -206,6 +206,8 @@ export function App() {
             // Only the calendar draws a burst as one mark; the list and table give each run a row
             run={state.layout === "calendar" ? run : null}
             onRun={goTo}
+            // The day view's single column has room to spare, so only the seven-column views float it
+            overlay={state.layout === "calendar" && state.view !== "day"}
           />
         )}
       </div>

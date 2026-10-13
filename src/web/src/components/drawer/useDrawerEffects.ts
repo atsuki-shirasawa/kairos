@@ -1,8 +1,9 @@
 import { type RefObject, useEffect, useRef } from "react";
 
 /**
- * Moves focus into the drawer when it opens, but only on narrow screens: there the drawer overlays
- * the calendar, while on wide screens it sits beside it and stealing focus would be a surprise.
+ * Moves focus into the drawer when it opens, but only on narrow screens: there it is modal (with a
+ * backdrop). On wider screens it sits beside the content, or floats over the calendar without a
+ * backdrop below `xl`, and the grid stays usable, so stealing focus would be a surprise.
  */
 export function useFocusWhenOverlaid<T extends HTMLElement>(): RefObject<T | null> {
   const ref = useRef<T>(null);
