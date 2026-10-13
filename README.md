@@ -57,6 +57,12 @@ Add the following to `hooks.SessionStart` in `~/.claude/settings.json`.
 
 `kairos ensure` does nothing if the server is already running (about 20ms); otherwise it starts the server in the background and returns immediately. It prints nothing, so it doesn't affect the Claude conversation. The server keeps running after Claude Code exits. It doesn't open a browser — run `kairos open` or open http://127.0.0.1:4319 when you want to look.
 
+### Running sessions
+
+While Claude Code sessions are running, a row under the toolbar shows each one: working (and the tool call in flight), asking you (a question or plan approval left unanswered), waiting for your next prompt, or idle (waiting 15 minutes or more). The tooltip adds the task list's progress, the last test run and the context size, and clicking a card opens its latest work block. The browser tab's title counts the sessions asking or waiting, e.g. `(2) Kairos`.
+
+No hooks are needed: Kairos reads Claude Code's own record of running sessions (`~/.claude/sessions/<pid>.json`, read-only) alongside the logs. That record is undocumented, so a Claude Code update may change it; if it can't be read, the row simply doesn't appear. Whether a session is waiting on a permission prompt can't be told from these files, so such a session shows as working.
+
 ## Usage
 
 | Command | What it does |
@@ -68,7 +74,7 @@ Add the following to `hooks.SessionStart` in `~/.claude/settings.json`.
 | `kairos report [day]` | A day's work (default: today) as Markdown, per project, with what is still open. `--since` / `--until` for a period, `--full` adds the summaries, `--json` for scripts |
 | `kairos open-items` | What summaries left open and nothing has closed yet, per project. `--project .` for the one you're in |
 | `kairos search <terms>` | Find work blocks by summary, title, branch, PR, commit or conversation (`file:<path>` for edited files), with links into Kairos |
-| `kairos doctor` | Check the setup: session logs, `claude`, the web build, the server and its port, the DB, and the SessionStart hook |
+| `kairos doctor` | Check the setup: session logs, `claude`, the web build, the server and its port, the DB, the SessionStart hook, and the record of running sessions |
 | `kairos logs [-f]` | The end of the server log (`-n <lines>`, `-f` to follow) |
 | `kairos ingest` | Ingest logs manually (to build the DB without running the server) |
 | `kairos summarize` | Summarize every work block that has no summary yet. The server only does the last 7 days on its own. `--since` / `--until <YYYY-MM-DD>` and `--limit <n>` narrow it; `--dry-run` only counts |

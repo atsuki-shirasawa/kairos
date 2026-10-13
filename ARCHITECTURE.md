@@ -158,6 +158,18 @@ A recap explains what was done on one project during a shown period (the summary
 - Shares the Summarizer's queue, so only one `claude` runs at a time: requested section summaries first, then recaps, then automatic section summaries. A failure is shown in the view until the next request (no automatic retry)
 - Recaps cover the whole project in the period; the view's filters don't change them
 
+### 4.2 Running sessions
+
+Kairos shows which Claude Code sessions are running and what each is doing, without hooks (`src/server/live/`).
+
+- **Registry:** Claude Code keeps `~/.claude/sessions/<pid>.json` per running process (session ID, cwd, `kind` interactive / bg, `status` busy / idle and when it changed, name, process start time). It is undocumented, so every field is validated and anything odd is skipped. Only `<pid>.json` files are read; the `.key` files beside them (credentials for messaging other sessions) and the messaging sockets are never touched
+- **Liveness:** an entry counts while its PID exists (`kill -0`) and `ps -o lstart` agrees with its recorded start time, so a file left by a crashed process doesn't claim a reused PID. The answer is remembered per entry while the entry stays in the registry; a failed `ps` is asked again
+- **Tracker:** `LiveTracker` watches the directory (plus a 5-second poll for processes that die without cleaning up) and publishes `live.updated` only when the set of running sessions or a status changes
+- **State:** `asking` when the main conversation's newest call without a result is AskUserQuestion or ExitPlanMode (and no new turn — a prompt, slash command or interrupt — came after it), else `working` for busy and `waiting` for idle. The UI turns a wait of 15 minutes or more into idle. A permission prompt can't be told apart from a long-running tool, so it shows as working
+- **Details from the DB:** the call in flight (the same tail scan), the latest work block, the context size of the latest main-thread response, task progress (TaskCreate / TaskUpdate replayed as for summaries) and the last test run of the current block (`facts.ts`). A session not ingested yet is listed with what the registry knows
+- **Visibility:** as the calendar: launches in hidden directories never, headless runs (a registry kind other than interactive / bg, or a session with only SDK input) only with "Show headless runs"; sessions of hidden projects never (the UI drops them too, so hiding a project takes effect at once)
+- The UI refetches on `live.updated` and on `sessions.updated` (the log moved on)
+
 ## 5. API
 
 | Method | Path | Description |
@@ -177,7 +189,8 @@ A recap explains what was done on one project during a shown period (the summary
 | POST | `/api/sessions/:id/sections/:start/summary` | Push generating or regenerating a section's summary onto the priority queue (202) |
 | GET | `/api/projects` | List of projects (color, hidden flag) |
 | PATCH | `/api/projects/:id` | Change color or hidden |
-| GET | `/api/events` | SSE (`sessions.updated` / `summary.updated` / `recap.updated` / `ingest.progress`) |
+| GET | `/api/live` | Claude Code sessions running now (state, the tool call in flight or the question asked, tasks, last test, context size), and whether the session registry could be read. See §4.2 |
+| GET | `/api/events` | SSE (`sessions.updated` / `summary.updated` / `recap.updated` / `ingest.progress` / `live.updated`) |
 
 Write routes (POST / PATCH) require `Content-Type: application/json` and the same Origin. Every request's Host header must be `127.0.0.1` or `localhost`.
 

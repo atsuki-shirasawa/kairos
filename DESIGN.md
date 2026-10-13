@@ -414,6 +414,21 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   × button (`muted-ink`, `accent` on hover); outcomes share one chip ("Commit or PR merged")
   because they combine as "any of", states get one each. "Clear all" follows when there are two
   or more. Neutral, not indigo: they are a reminder of the state, not a selection
+- **Running sessions:** a row under the toolbar, above the filter chips, with a 28px card per
+  Claude Code session running now; absent when none is. With chips showing, the chips' row draws
+  the one rule under both. A card is a small work block: the 3px project-colored left edge and
+  the dim block fill (`--mix-block-dim`, `--mix-block` on hover), a 6px state dot, the title in
+  12px medium `ink`, then the state word in `muted-ink` and how long it has lasted in `numeral`.
+  Working pulses the dot in the project color, as on the calendar's block in progress; asking (a
+  question or plan approval left unanswered) is a solid `warn` dot with its state in `warn`, since
+  it holds the turn until you answer; waiting and idle are a `muted-ink` ring, and idle (waiting
+  15 minutes or more) sets the title in `muted-ink` too. No opacity: the card stays readable.
+  Cards that want an answer come first, and the row wraps rather than scrolling sideways. Focus
+  is the 2px `ring` outline. The tooltip holds the rest (project and branch, the call in flight or
+  the question, tasks, the last test, context size, the recap), and clicking opens the latest work
+  block; a session not in the log yet has nothing to open, so its card is disabled (no hover fill,
+  default cursor) and the tooltip says why. The tab title leads with the number of sessions
+  asking or waiting ("(2) Kairos"), so a background tab still says so
 - **Mark:** `src/web/public/favicon.svg` — a circle with a dawn → evening → night gradient cut by a
   diagonal blade (Kairos stands on a razor's edge: cutting out a single moment). The background
   shows through the gap, so it reads on light and dark tabs; the gap stays open at 16px. Used for
