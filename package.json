@@ -20,7 +20,8 @@
     "format": "biome check --write .",
     "test": "bun test",
     "check": "biome check . && bun run typecheck && bun run jsdoc && bun test",
-    "screenshots": "bun scripts/screenshots/capture.ts"
+    "screenshots": "bun scripts/screenshots/capture.ts",
+    "eval:summary": "bun scripts/summary-eval.ts"
   },
   "dependencies": {
     "@fontsource/ibm-plex-sans-condensed": "^5.3.0",
