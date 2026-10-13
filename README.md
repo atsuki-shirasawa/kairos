@@ -61,14 +61,20 @@ Add the following to `hooks.SessionStart` in `~/.claude/settings.json`.
 
 | Command | What it does |
 |---|---|
-| `kairos open` | Start the server and open it in the browser |
-| `kairos status` | Whether it's running, the PID, and where the log is |
-| `kairos stop` / `kairos restart` | Stop / stop and start again (after updating Kairos) |
+| `kairos open [day]` | Start the server and open it in the browser; with a day (`yesterday`, `2026-10-01`), open that day |
+| `kairos status` | Whether it's running, the PID, its options, and where the log is |
+| `kairos stop` / `kairos restart` | Stop / stop and start again (after updating Kairos). `restart` keeps the options the running server was started with (except `--port`) unless you give new ones |
+| `kairos rebuild` | Build the web UI and restart, so local changes to Kairos take effect |
+| `kairos report [day]` | A day's work (default: today) as Markdown, per project, with what is still open. `--since` / `--until` for a period, `--full` adds the summaries, `--json` for scripts |
+| `kairos open-items` | What summaries left open and nothing has closed yet, per project. `--project .` for the one you're in |
+| `kairos search <terms>` | Find work blocks by summary, title, branch, PR, commit or conversation (`file:<path>` for edited files), with links into Kairos |
+| `kairos doctor` | Check the setup: session logs, `claude`, the web build, the server and its port, the DB, and the SessionStart hook |
+| `kairos logs [-f]` | The end of the server log (`-n <lines>`, `-f` to follow) |
 | `kairos ingest` | Ingest logs manually (to build the DB without running the server) |
 | `kairos summarize` | Summarize every work block that has no summary yet. The server only does the last 7 days on its own. `--since` / `--until <YYYY-MM-DD>` and `--limit <n>` narrow it; `--dry-run` only counts |
 | `kairos help [command]` | List the commands, or one command's options (also `kairos <command> --help`) |
 
-Options: `--summary-model <model>` (default: haiku), `--summary-effort <low|medium|high|xhigh|max>` (how hard the model thinks; default: low), `--summary-lang <en|ja>` (language of the summaries; by default they follow the language chosen in the UI, English until one is chosen), `--no-auto-summary` (don't summarize automatically; only when requested with the button in the UI), `--port <n>` (default: 4319), `--claude-dir <path>` (Claude Code config directory; default: `~/.claude`), `--db <path>` (DB file; default: under the data directory)
+Server options (`open`, `restart`, `rebuild`, `ensure`, `serve`): `--summary-model <model>` (default: haiku), `--summary-effort <low|medium|high|xhigh|max>` (how hard the model thinks; default: low), `--summary-lang <en|ja>` (language of the summaries; by default they follow the language chosen in the UI, English until one is chosen), `--no-auto-summary` (don't summarize automatically; only when requested with the button in the UI), `--port <n>` (default: 4319), `--claude-dir <path>` (Claude Code config directory; default: `~/.claude`), `--db <path>` (DB file; default: under the data directory)
 
 Changing the language (in the UI or with `--summary-lang`) doesn't rewrite existing summaries. They stay as they are, and you can regenerate any of them from the drawer.
 
@@ -77,7 +83,7 @@ Keyboard shortcuts: `←` `→` previous/next period, `t` today, `m` month view,
 ### Updating
 
 ```sh
-git pull && bun install && bun run build && kairos restart
+git pull && bun install && kairos rebuild
 ```
 
 ## Where data lives
@@ -107,12 +113,12 @@ Then remove the `kairos ensure` entry from SessionStart in `~/.claude/settings.j
 
 ## Troubleshooting
 
-Start with `kairos status` (is it running, which PID) and the log at `~/Library/Logs/kairos/server.log`.
+Start with `kairos doctor`, which checks most of the table below, then `kairos logs` (the log is at `~/Library/Logs/kairos/server.log`).
 
 | Symptom | What to do |
 |---|---|
 | Nothing at http://127.0.0.1:4319 | Run `kairos open`. If it still doesn't answer, check the log: `cannot listen on 127.0.0.1:4319` means another process holds the port (often `bun run dev`) |
-| The page is empty or 404, but the API answers | The web UI isn't built (the log says so). Run `bun run build`, then `kairos restart` |
+| The page is empty or 404, but the API answers | The web UI isn't built (the log says so). Run `kairos rebuild` |
 | It doesn't start when Claude Code launches | Check that the SessionStart hook uses the absolute path to `kairos` (`which kairos`); hooks don't see your shell's `PATH` |
 | Summaries say "Couldn't summarize" | The drawer tells you why. Usually `claude` isn't logged in (run `claude` in a terminal and log in) or isn't installed (install it, then `kairos restart`). Press the button in the drawer to try again |
 | Recent work is missing or looks stale | Ingest runs on file changes; `kairos restart` re-reads anything changed since the last run |
