@@ -2,6 +2,7 @@
 import { Database } from "bun:sqlite";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { readRegistry } from "../server/live/registry.ts";
 import { LOG_PATH } from "../server/paths.ts";
 import { health, isAlive, readPid } from "./daemon.ts";
 
@@ -132,6 +133,23 @@ function checkLogs(claudeDir: string): Check {
     : { name: "session logs", level: "fail", detail: `${dir} doesn't exist` };
 }
 
+/**
+ * Whether Claude Code's record of running sessions can be read. It is undocumented, so a Claude
+ * Code update may move or drop it; then the UI's row of running sessions stays empty.
+ */
+export function checkLiveRegistry(claudeDir: string): Check {
+  const name = "running sessions";
+  const dir = join(claudeDir, "sessions");
+  const entries = readRegistry(dir);
+  if (entries === null)
+    return {
+      name,
+      level: "warn",
+      detail: `can't read ${dir}; the UI won't show running sessions (an older or newer Claude Code?)`,
+    };
+  return { name, level: "ok", detail: `${dir} (${entries.length} recorded)` };
+}
+
 /** Whether the DB passes SQLite's quick check. Opened read-only, so a running server isn't disturbed. */
 function checkDb(dbPath: string): Check {
   const name = "database";
@@ -163,6 +181,7 @@ export async function runChecks(input: DoctorInput): Promise<Check[]> {
     await checkServer(input.repo, input.port),
     checkDb(input.dbPath),
     checkHook(input.claudeDir),
+    checkLiveRegistry(input.claudeDir),
   ];
 }
 

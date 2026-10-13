@@ -6,6 +6,7 @@ import type {
   CalendarResponse,
   HealthResponse,
   LedgerEntry,
+  LiveResponse,
   OpenItemsResponse,
   OpenItemUpdate,
   ProjectUpdate,
@@ -18,6 +19,8 @@ import type {
   SpansResponse,
 } from "../../shared/api.ts";
 import type { EventHub } from "../events.ts";
+import type { RegistryEntry } from "../live/registry.ts";
+import { liveSessions } from "../live/sessions.ts";
 import { Queries } from "../queries.ts";
 import {
   storedShowHeadless,
@@ -27,6 +30,7 @@ import {
 } from "../settings.ts";
 import { DEFAULT_SUMMARY_LANG, isSummaryLang } from "../summarize/prompt.ts";
 import type { Summarizer } from "../summarize/summarizer.ts";
+import { DEFAULT_HIDDEN_CWDS } from "../visibility.ts";
 import { guardHost, guardWrite } from "./security.ts";
 
 /** Longest range the calendar can fetch at once (a month view plus margins). */
@@ -40,20 +44,28 @@ export const MIN_QUERY_CHARS = 2;
 /** Longer queries are cut to this many characters. */
 const MAX_QUERY_CHARS = 200;
 
+/** The running Claude Code sessions (answered by `LiveTracker`). */
+export interface LiveSource {
+  entries(): readonly RegistryEntry[];
+  readonly available: boolean;
+}
+
 /**
- * Dependencies of the API. `summarizer` is absent when summaries are off; `now` and `hiddenCwds`
- * (launch directories never shown, by default Kairos's own summarizer directory) are for tests.
+ * Dependencies of the API. `summarizer` is absent when summaries are off, and `live` when running
+ * sessions aren't followed; `now` and `hiddenCwds` (launch directories never shown, by default
+ * Kairos's own summarizer directory) are for tests.
  */
 export interface AppDeps {
   db: Database;
   events: EventHub;
   summarizer?: Summarizer;
+  live?: LiveSource;
   now?: () => number;
   hiddenCwds?: readonly string[];
 }
 
 /** Builds the Hono app: Host and write guards first, then the JSON API and the SSE stream. */
-export function createApp({ db, events, summarizer, now, hiddenCwds }: AppDeps): Hono {
+export function createApp({ db, events, summarizer, live, now, hiddenCwds }: AppDeps): Hono {
   const q = new Queries(db, now, summarizer, hiddenCwds);
   const app = new Hono();
 
@@ -183,6 +195,24 @@ export function createApp({ db, events, summarizer, now, hiddenCwds }: AppDeps):
       }),
     );
   });
+
+  // Running sessions. Changes are announced via SSE live.updated (and sessions.updated for the log)
+  app.get("/api/live", (c) =>
+    c.json<LiveResponse>({
+      available: live?.available ?? false,
+      sessions: live
+        ? liveSessions(
+            db,
+            live.entries(),
+            {
+              showHeadless: storedShowHeadless(db),
+              hiddenCwds: hiddenCwds ?? DEFAULT_HIDDEN_CWDS,
+            },
+            (now ?? Date.now)(),
+          )
+        : [],
+    }),
+  );
 
   app.get("/api/events", (c) => streamEvents(c, events));
 

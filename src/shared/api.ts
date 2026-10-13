@@ -395,4 +395,67 @@ export type ServerEvent =
   | { type: "sessions.updated"; ids: string[] }
   | { type: "summary.updated"; sessionId: string; start: number }
   | { type: "recap.updated"; projectId: number; from: number; to: number }
-  | { type: "ingest.progress"; done: number; total: number };
+  | { type: "ingest.progress"; done: number; total: number }
+  | { type: "live.updated" };
+
+/**
+ * What a running session is doing, as far as the logs and Claude Code's session registry tell
+ * without hooks: running a turn, asking a question (AskUserQuestion / ExitPlanMode left
+ * unanswered), or done with its turn and waiting for the next prompt.
+ */
+export type LiveState = "working" | "asking" | "waiting";
+
+/** The last test or check run of a live session's current block. */
+export interface LiveTest {
+  /** The command, cut to one line. */
+  command: string;
+  /** false when it failed; null when a pipe or `|| true` hides its exit status. */
+  passed: boolean | null;
+  at: number;
+}
+
+/** Progress of the session's task list (TaskCreate / TaskUpdate). */
+export interface LiveTasks {
+  done: number;
+  total: number;
+  /** Subject of the task in progress, if any. */
+  current: string | null;
+}
+
+/** One Claude Code process running now, joined with what Kairos has ingested of its session. */
+export interface LiveSession {
+  id: string;
+  pid: number;
+  /** Claude Code's own name for the session (shown in its session list). */
+  name: string | null;
+  /** A background session (`claude --bg` and the like) rather than one in a terminal. */
+  background: boolean;
+  cwd: string;
+  /** null until the session's log has been ingested (the first seconds of a new session). */
+  projectId: number | null;
+  label: string | null;
+  branch: string | null;
+  title: string | null;
+  state: LiveState;
+  /** When the state last changed. */
+  since: number;
+  startedAt: number;
+  /** Start of the latest work block, to open it in the drawer. */
+  section: number | null;
+  /** The tool call being run while working. `text` is its one-line summary (a command, a path). */
+  tool: { name: string; text: string; since: number } | null;
+  /** The question being asked while asking. */
+  question: string | null;
+  /** Context size of the latest main-thread response (input + cache reads and writes). */
+  contextTokens: number | null;
+  tasks: LiveTasks | null;
+  test: LiveTest | null;
+  /** Claude Code's latest recap of the session (`away_summary`). */
+  recap: string | null;
+}
+
+/** `GET /api/live`. `available` is false when Claude Code's session registry can't be read. */
+export interface LiveResponse {
+  available: boolean;
+  sessions: LiveSession[];
+}

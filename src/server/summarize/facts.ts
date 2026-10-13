@@ -97,7 +97,8 @@ function parseJson(text: string | null): Record<string, unknown> | null {
 
 const strOf = (v: unknown): string | null => (typeof v === "string" && v ? v : null);
 
-function oneLine(text: string, limit = LINE_CHARS): string {
+/** Text on one line, whitespace collapsed, cut to `limit` characters with an ellipsis. */
+export function oneLine(text: string, limit = LINE_CHARS): string {
   const t = text.replace(/\s+/g, " ").trim();
   return t.length <= limit ? t : `${t.slice(0, limit)}…`;
 }
@@ -214,6 +215,14 @@ function outcomeOf(c: FactCall): "FAILED" | "passed" | "ended" {
 function isTestRun(c: FactCall): boolean {
   if (c.toolName !== "Bash" || !TEST_RE.test(commandOf(c))) return false;
   return parseJson(c.input)?.run_in_background !== true;
+}
+
+/** The last foreground test or check run among `calls`, with its full command and outcome. */
+export function lastTestRun(
+  calls: FactCall[],
+): { call: FactCall; command: string; outcome: "FAILED" | "passed" | "ended" } | null {
+  const last = calls.findLast(isTestRun);
+  return last ? { call: last, command: commandOf(last), outcome: outcomeOf(last) } : null;
 }
 
 /** The last test or check run in the section, and how many earlier runs failed. */
@@ -362,7 +371,7 @@ export function loadFacts(db: Database, sessionId: string, start: number, end: n
  * The main conversation's own tool calls in [from, to] with their results. With `tasks`, only task
  * calls, copies from the previous session included.
  */
-function loadCalls(
+export function loadCalls(
   db: Database,
   sessionId: string,
   from: number,

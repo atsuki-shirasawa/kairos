@@ -8,6 +8,7 @@ import { openDb } from "./db/index.ts";
 import { EventHub } from "./events.ts";
 import { Ingester } from "./ingest/ingester.ts";
 import { watchProjects } from "./ingest/watcher.ts";
+import { LiveTracker } from "./live/tracker.ts";
 import { DEFAULT_CLAUDE_DIR, DEFAULT_DB_PATH, SUMMARIZER_CWD } from "./paths.ts";
 import { type Effort, runClaude } from "./summarize/claude.ts";
 import type { SummaryLang } from "./summarize/prompt.ts";
@@ -38,7 +39,8 @@ export interface ServeOptions {
 export async function serve(opts: ServeOptions = {}): Promise<void> {
   const db = openDb(opts.dbPath ?? DEFAULT_DB_PATH);
   const events = new EventHub();
-  const ingester = new Ingester(db, join(opts.claudeDir ?? DEFAULT_CLAUDE_DIR, "projects"));
+  const claudeDir = opts.claudeDir ?? DEFAULT_CLAUDE_DIR;
+  const ingester = new Ingester(db, join(claudeDir, "projects"));
   const model = opts.summaryModel ?? DEFAULT_MODEL;
   const summarizer = new Summarizer(
     db,
@@ -57,7 +59,10 @@ export async function serve(opts: ServeOptions = {}): Promise<void> {
       onRecapUpdated: (t) => events.publish({ type: "recap.updated", ...t }),
     },
   );
-  const app = createApp({ db, events, summarizer });
+  const live = new LiveTracker(join(claudeDir, "sessions"), () =>
+    events.publish({ type: "live.updated" }),
+  );
+  const app = createApp({ db, events, summarizer, live });
 
   // Serve the built web app if there is one. In development Vite serves it and proxies only /api here.
   // The UI is only / (state lives in the query string), so there is no SPA fallback.
@@ -88,6 +93,7 @@ export async function serve(opts: ServeOptions = {}): Promise<void> {
   log(`ingested ${stats.changed}/${stats.files} files in ${(stats.ms / 1000).toFixed(1)}s`);
   if (stats.sessions.size) events.publish({ type: "sessions.updated", ids: [...stats.sessions] });
 
+  const stopLive = live.start();
   const stopWatching = watchProjects(ingester, (ids) => {
     events.publish({ type: "sessions.updated", ids });
     summarizer.poke();
@@ -96,6 +102,7 @@ export async function serve(opts: ServeOptions = {}): Promise<void> {
 
   const shutdown = () => {
     stopWatching();
+    stopLive();
     summarizer.stop();
     server.stop(true);
     db.close();

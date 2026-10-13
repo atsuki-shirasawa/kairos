@@ -3,6 +3,7 @@ import type {
   CalendarResponse,
   HealthResponse,
   LedgerEntry,
+  LiveResponse,
   MessagesResponse,
   OpenItemsResponse,
   OpenItemUpdate,
@@ -51,6 +52,8 @@ export const api = {
 
   calendar: (from: number, to: number) =>
     request<CalendarResponse>(`/api/calendar${query({ from, to })}`),
+
+  live: () => request<LiveResponse>("/api/live"),
 
   spans: (from: number, to: number) => request<SpansResponse>(`/api/spans${query({ from, to })}`),
 
@@ -121,12 +124,15 @@ export const api = {
 export function subscribe(onEvent: (event: ServerEvent) => void): () => void {
   const source = new EventSource("/api/events");
   const handler = (e: MessageEvent<string>) => onEvent(JSON.parse(e.data) as ServerEvent);
-  const types: ServerEvent["type"][] = [
-    "sessions.updated",
-    "summary.updated",
-    "recap.updated",
-    "ingest.progress",
-  ];
-  for (const t of types) source.addEventListener(t, handler);
+  // EventSource drops named events nobody listens for, so every type needs a listener; the
+  // record makes a new event type a type error here until it is added
+  const types = {
+    "sessions.updated": true,
+    "summary.updated": true,
+    "recap.updated": true,
+    "ingest.progress": true,
+    "live.updated": true,
+  } satisfies Record<ServerEvent["type"], true>;
+  for (const t of Object.keys(types)) source.addEventListener(t, handler);
   return () => source.close();
 }

@@ -25,6 +25,8 @@ export const keys = {
   // Nested under "calendar" so new sessions and summaries refresh the results too
   search: (q: string) => ["calendar", "search", q] as const,
   settings: ["settings"] as const,
+  // Not under "calendar": running sessions change on their own (live.updated) as well as with the log
+  live: ["live"] as const,
   // Nested under "calendar" so new work marks recaps stale, and recap.updated refreshes them
   recaps: (from: number, to: number) => ["calendar", "recaps", from, to] as const,
   // Nested under "calendar" so a new summary, which may open or close items, refreshes it
@@ -39,6 +41,11 @@ export function useCalendar(from: number, to: number, enabled = true) {
     enabled,
     placeholderData: keepPreviousData, // Keep the previous week on screen while the next one loads
   });
+}
+
+/** Claude Code sessions running now. Refetched on live.updated and sessions.updated. */
+export function useLive() {
+  return useQuery({ queryKey: keys.live, queryFn: api.live });
 }
 
 /** "Days with sessions" for the date picker. Fetched only while it is open. */

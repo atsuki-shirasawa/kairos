@@ -154,7 +154,8 @@ export const COMMANDS: Record<string, CommandHelp> = {
     description:
       "Check what the README's troubleshooting table checks by hand: the session logs, the\n" +
       "`claude` command, the web build, the server (and who holds the port if it isn't Kairos),\n" +
-      "the DB, and the SessionStart hook. Exits 1 when something is broken.",
+      "the DB, the SessionStart hook, and Claude Code's record of running sessions. Exits 1 when\n" +
+      "something is broken.",
     options: [
       ["--port <n>", "port to check (default: 4319)"],
       ["--db <path>", "DB file (default: under the data directory)"],

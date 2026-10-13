@@ -2,14 +2,16 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { CalendarGrid } from "@/components/CalendarGrid.tsx";
 import { FilterChips } from "@/components/filter/FilterChips.tsx";
+import { LiveBar } from "@/components/LiveBar.tsx";
 import { MonthGrid } from "@/components/MonthGrid.tsx";
 import { SessionDrawer } from "@/components/SessionDrawer.tsx";
 import { SessionList } from "@/components/SessionList.tsx";
 import { SummaryTabs, SummaryView } from "@/components/SummaryView.tsx";
 import { Toolbar } from "@/components/Toolbar.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { useCalendar, useSummaryLangSync } from "@/hooks/queries.ts";
+import { useCalendar, useLive, useSummaryLangSync } from "@/hooks/queries.ts";
 import { useBlockStepping, useCloseDrawer } from "@/hooks/useBlockNavigation.ts";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle.ts";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts.ts";
 import { useLiveUpdates } from "@/hooks/useLiveUpdates.ts";
 import { useNow } from "@/hooks/useNow.ts";
@@ -24,6 +26,7 @@ import { useLocale } from "@/i18n/index.ts";
 import { appMessages } from "@/i18n/messages/app.tsx";
 import { dateLabel, rangeOf, shift, startOfDay, type View } from "@/lib/dates.ts";
 import { type Filter, hiddenReason, isFocused, withoutConditions } from "@/lib/filter.ts";
+import { attentionCount, visibleLive } from "@/lib/live.ts";
 import { buildReport } from "@/lib/report.ts";
 
 /**
@@ -58,6 +61,12 @@ export function App() {
   );
   const recapBodies = useRecapBodies(from, to);
   const setFilter = useCallback((filter: Filter) => update({ filter }), [update]);
+  const live = useLive();
+  const running = useMemo(
+    () => visibleLive(live.data?.sessions ?? [], projectMap, now),
+    [live.data, projectMap, now],
+  );
+  useDocumentTitle(attentionCount(running, now));
 
   const { prev, next, goTo, run } = useBlockStepping({
     focused,
@@ -148,6 +157,13 @@ export function App() {
         onTheme={setTheme}
         menuOpen={menuOpen}
         onMenuOpen={setMenuOpen}
+      />
+      <LiveBar
+        sessions={running}
+        projects={projectMap}
+        now={now}
+        // The latest block is usually today's, but the view may be showing another period
+        onSelect={(session, at) => update({ anchor: startOfDay(at), session, at }, { push: true })}
       />
       <FilterChips filter={state.filter} onFilter={setFilter} />
       <div className="relative flex min-h-0 flex-1">

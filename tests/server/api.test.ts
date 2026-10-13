@@ -6,6 +6,7 @@ import { EventHub } from "../../src/server/events.ts";
 import type {
   CalendarResponse,
   HealthResponse,
+  LiveResponse,
   Message,
   MessagesResponse,
   Project,
@@ -545,4 +546,40 @@ test("GET /api/events streams events over SSE", async () => {
   expect(text).toContain(`"ids":["${SID.basic}"]`);
   controller.abort();
   await reader.cancel();
+});
+
+describe("GET /api/live", () => {
+  test("is unavailable when running sessions aren't followed", async () => {
+    expect(await json<LiveResponse>("/api/live")).toEqual({ available: false, sessions: [] });
+  });
+
+  test("lists the running sessions the calendar would show", async () => {
+    const running = (sessionId: string, cwd: string) => ({
+      pid: 1,
+      sessionId,
+      cwd,
+      kind: "interactive",
+      status: "busy",
+      statusUpdatedAt: now,
+      startedAt: now,
+      procStart: null,
+      name: null,
+    });
+    app = createApp({
+      db,
+      events,
+      now: () => now,
+      hiddenCwds: [SUMMARIZER_CWD],
+      live: {
+        available: true,
+        entries: () => [
+          running(SID.basic, "/Users/me/dev/app"),
+          running(SID.summarizerRun, SUMMARIZER_CWD),
+        ],
+      },
+    });
+    const body = await json<LiveResponse>("/api/live");
+    expect(body.available).toBe(true);
+    expect(body.sessions.map((s) => [s.id, s.state])).toEqual([[SID.basic, "working"]]);
+  });
 });

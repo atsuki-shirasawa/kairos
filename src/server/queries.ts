@@ -176,7 +176,7 @@ type MessageCounts = Omit<Activity, keyof ArtifactCounts | "claudeMs" | "effort"
 const EDIT_TOOLS = "'Edit', 'Write', 'MultiEdit', 'NotebookEdit'";
 
 /** Title: `/rename` name > agent name > Claude Code's automatic title > first line of the first prompt. */
-function title(r: {
+export function title(r: {
   custom_title: string | null;
   agent_name: string | null;
   ai_title: string | null;
