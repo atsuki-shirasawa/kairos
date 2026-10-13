@@ -68,13 +68,24 @@ export function SessionList({
   const { scrollRef, theadRef } = useListScroll(days[0] ?? 0, selectedId, selectedAt);
 
   // With no records at all, skip the empty table and show only the notice (EmptyNotice in App)
-  if (all.length === 0) return <div className="min-h-0 flex-1 bg-card px-4 pt-3">{tabs}</div>;
+  if (all.length === 0)
+    return (
+      <div className="min-h-0 flex-1 bg-card">
+        <div className="mx-auto max-w-5xl px-6 pt-4">{tabs}</div>
+      </div>
+    );
 
   const rowContext: RowContext = { projects, selectedId, selectedAt, onSelect, columns };
+  const minRem = tableMinRem(columns);
+  // As wide as the overview's column (max-w-5xl), so the tabs stay put when switching and a row's
+  // title stays near its numbers; wider only when the chosen columns need more
+  const centered = { maxWidth: `max(var(--container-5xl), ${minRem + 1}rem)` };
 
   return (
     <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto bg-card">
-      <div className="sticky left-0 flex items-start gap-2 pr-2 pl-4">
+      {/* A sibling of the table's box rather than inside it: as a direct child of the scroller its
+          sticky left-0 holds while the table scrolls sideways */}
+      <div className="sticky left-0 mx-auto flex items-start gap-2 pt-2 pr-4 pl-6" style={centered}>
         <div className="shrink-0 pt-2">{tabs}</div>
         <PeriodSummary
           blocks={all}
@@ -85,23 +96,23 @@ export function SessionList({
           <ColumnPicker keys={keys} onChange={setKeys} />
         </div>
       </div>
-      <table
-        className="w-full table-fixed border-collapse text-sm"
-        style={{ minWidth: `${tableMinRem(columns)}rem` }}
-      >
-        <ColumnWidths columns={columns} />
-        <TableHead
-          ref={theadRef}
-          columns={columns}
-          sort={sort}
-          onSort={(key) => setSort(nextSort(sort, key))}
-        />
-        {sort.key === "start" ? (
-          <DayBodies groups={groups} now={now} onOpenDay={onOpenDay} rowContext={rowContext} />
-        ) : (
-          <SortedBody blocks={sorted} rowContext={rowContext} />
-        )}
-      </table>
+      {/* The minimum width is on the box, not the table, so its right padding survives scrolling */}
+      <div className="mx-auto px-2" style={{ ...centered, minWidth: `${minRem + 1}rem` }}>
+        <table className="w-full table-fixed border-collapse text-sm">
+          <ColumnWidths columns={columns} />
+          <TableHead
+            ref={theadRef}
+            columns={columns}
+            sort={sort}
+            onSort={(key) => setSort(nextSort(sort, key))}
+          />
+          {sort.key === "start" ? (
+            <DayBodies groups={groups} now={now} onOpenDay={onOpenDay} rowContext={rowContext} />
+          ) : (
+            <SortedBody blocks={sorted} rowContext={rowContext} />
+          )}
+        </table>
+      </div>
     </div>
   );
 }
