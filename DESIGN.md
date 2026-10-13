@@ -236,8 +236,9 @@ A work block's fill is the project color mixed into `block-base` in `oklch`:
   else, so the name reads as a name rather than a label
 - **Four sizes:** 11px (metadata, hour labels, figures), 12px (block headings, labels), 14px
   (body, controls) and 17px (titles: the period heading, day numbers, the drawer title). The only
-  exceptions are the section summary's Outcome (15px, relaxed leading, because that is where you
-  read; its Goal takes the 17px title size at regular weight), the
+  exceptions are the section summary's Resolved, Open and Next, or an older body's Outcome
+  (15px, relaxed leading, because that is where you read; its Goal takes the 17px title size at
+  regular weight), the
   summary's totals (their three tiers), the wordmark, and count badges too small for 11px
 - **Two tones:** `ink` and `muted-ink`. Don't step between them with `text-foreground/80` and the
   like; if something needs to stand out from muted text, set it in `ink`. `muted-ink` at 60% is
@@ -368,12 +369,15 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   model that wrote it beside the Regenerate button), then session flow, outcomes, conversation
   (collapsed at first) and numbers. Blocks are separated by spacing alone: no rule after the
   heading and no surface behind the summary
-- **Section summary:** read as Goal → Outcome → Done, each at its own weight, so why the work was
-  done and what came of it are read before how. The Goal is the lead sentence with no label
-  (`summary-lead`, `ink`); Outcome (`summary-body`, `ink`) carries the commit or PR node when it
-  names one of the section's own; Done's points are 14px `muted-ink`, each clamped to two lines
-  with "Show in full" when one is cut off. Outcome and Done get labels in the drawer's small
-  heading style. A body that isn't in the three-item format is shown as written. The day view's
+- **Section summary:** read as Goal → what came of it → Done, each at its own weight, so why the
+  work was done and what came of it are read before how. The Goal is the lead sentence with no
+  label (`summary-lead`, `ink`). What came of it is Resolved, Open and Next (an older body's single
+  Outcome in their place), all `summary-body`, `ink`; Resolved (or Outcome) carries the commit or
+  PR node when it names one of the section's own, and each open item leads with its kind as a
+  quiet word (12px semibold `muted-ink`). A single Resolved or Open point is shown without a
+  bullet. Done's points are 14px `muted-ink`, each clamped to two
+  lines with "Show in full" when one is cut off. Every item but the Goal gets a label in the
+  drawer's small heading style. A body in neither format is shown as written. The day view's
   block body shows only the Goal: the heading says what, the lane what came of it
 - **One frame per thing.** Where a color rule, a surface and a divider would all mark the same
   boundary, keep one. The summary's project recaps sit under the project's colored rule with no

@@ -1,5 +1,5 @@
 // Prompts for section summaries, and parsing of the output.
-import { SUMMARY_LABELS } from "../../shared/summaryBody.ts";
+import { OPEN_KINDS, SUMMARY_LABELS } from "../../shared/summaryBody.ts";
 
 /** Language the summaries are written in. Set with `--summary-lang`. */
 export type SummaryLang = "en" | "ja";
@@ -28,7 +28,9 @@ interface LangRules {
   headline: string;
   goal: string;
   done: string;
-  outcome: string;
+  resolved: string;
+  open: string;
+  next: string;
 }
 
 const RULES: Record<SummaryLang, LangRules> = {
@@ -58,11 +60,11 @@ function contextOf(input: PromptInput): string {
 }
 
 /**
- * Log text with the prompt's own tags defused, so a quoted `</facts>` or `<transcript>` can't close
- * a block early and pose as the prompt.
+ * Log text with the prompts' own tags defused (the section prompt's and the recap's), so a quoted
+ * `</facts>` or `</work>` can't close a block early and pose as the prompt.
  */
 export function defuseTags(text: string): string {
-  return text.replace(/<(\/?)(facts|transcript|context)\b/gi, "‹$1$2");
+  return text.replace(/<(\/?)(facts|transcript|context|work|pull_requests|commits)\b/gi, "‹$1$2");
 }
 
 /**
@@ -94,11 +96,41 @@ function headlineRules(r: LangRules): string {
 - Write the headline itself, with no label such as "Headline" or "Summary" before it.`;
 }
 
-/** Prompt asking for a headline plus a goal / done / outcome body for one section. */
+/**
+ * What each open-item kind means. A human's leftovers are more than the agent's next move: known
+ * problems, undecided points and waits too, each needing a different kind of attention later.
+ */
+const OPEN_KIND_RULES: Record<(typeof OPEN_KINDS)[number], string> = {
+  todo: "asked for but not finished",
+  issue: "a problem found but not handled (a known bug, a review finding left as is — say which)",
+  question: "an undecided point or an unanswered question",
+  waiting: "blocked on something outside the work: CI, a review, the user's call, another system",
+};
+
+/**
+ * What keeps the items apart and honest. Written from real output that listed plans under Done,
+ * left numbers bare, wrote "the remaining findings" without saying which, recorded the project's
+ * backlog order as a leftover, and buried a blocker at the end of a file list.
+ */
+function bodyRules(r: LangRules): string {
+  return `Item rules:
+- ${r.goal}: what the user explicitly asked for in this section, not what Claude chose to do on its own.
+- ${r.done}: what happened, outcome first. Something only planned or about to happen is not done. A commit, merge or test run that ${r.resolved} cites as evidence is left out of ${r.done}.
+- ${r.resolved}: only what the facts or the transcript show as settled, each with its evidence: a commit, a PR or merge, a test run that passed, the user confirming it works. A decision made in the section (a question the user answered, an option chosen over another) goes here too, with its reason. Name the evidence itself (the commit, the PR, the test result), not where in this prompt you saw it. Without such evidence it stays under ${r.done}. A test that failed last, or work cut off by an interrupt, is not resolved.
+- ${r.open}: what the transcript or the facts leave unfinished, unhandled, undecided or waiting; don't add doubts of your own. Each item names the specific thing left (which finding, which page, which question), not "the rest" or "remaining items". Put a blocker here even when it was mentioned in passing.
+- The project's backlog or the order of upcoming issues ("next up is #6") is not an open item of this section; if work on it was about to start, it is the ${r.next} step.
+- ${r.next}: the step that was about to happen when the section ended, in one line. Leave the item out when nothing was, rather than saying so.
+- Give every number what it counts ("517 of 610 cases pass", not "517/610").
+- State each fact in one item only.
+- Leave an item out rather than invent content for it; never write "none" or "nothing pending" in its place. ${r.goal} and ${r.done} are always present.`;
+}
+
+/** Prompt asking for a headline plus a goal / done / resolved / open / next body for one section. */
 export function buildPrompt(input: PromptInput, lang: SummaryLang = DEFAULT_SUMMARY_LANG): string {
   const r = RULES[lang];
+  const kinds = OPEN_KINDS.map((k) => `  - [${k}] … (${OPEN_KIND_RULES[k]})`).join("\n");
   return `Below is an excerpt from one continuous stretch of work (a section) in a Claude Code session.
-Write a summary in ${r.name} so that, looking back later on a calendar, it is clear what was done during this time.
+Write a summary in ${r.name} so that, looking back later on a calendar, it is clear what was done during this time, what got resolved and what was left open.
 
 Output format (Markdown; no preamble or closing remarks):
 Line 1: the headline
@@ -106,9 +138,15 @@ Blank line
 - ${r.goal}: …
 - ${r.done}:
   - … (the main work, 1–3 points; a long section with several distinct pieces of work may have up to 5, in the order they happened)
-- ${r.outcome}: … (what was finished, commits or PRs, open issues)
+- ${r.resolved}:
+  - … (what got settled, with its evidence)
+- ${r.open}:
+${kinds}
+- ${r.next}: … (only when a next step was about to happen; otherwise no ${r.next} line at all)
 
-Use exactly these three top-level items, as plain "- " bullets with no bold, numbering or blank lines between them.
+Use only these top-level items, in this order, as plain "- " bullets with no bold, numbering or blank lines between them. ${r.resolved}, ${r.open} and ${r.next} are left out when there is nothing for them. Each open item starts with one of the tags above, written in English as shown.
+
+${bodyRules(r)}
 
 ${headlineRules(r)}
 

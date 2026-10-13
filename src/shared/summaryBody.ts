@@ -1,20 +1,62 @@
 // The shape of a section summary body: the prompt asks for it, and the drawer reads it back.
 
-/** Item labels of a summary body, per summary language. The prompt writes them; the UI finds them. */
+/**
+ * Item labels of a summary body, per summary language. The prompt writes them; the UI finds them.
+ * Outcome belongs to the older three-item format, which mixed what finished with what was left;
+ * bodies written before the split still use it.
+ */
 export const SUMMARY_LABELS = {
-  en: { goal: "Goal", done: "Done", outcome: "Outcome" },
-  ja: { goal: "目的", done: "やったこと", outcome: "結果" },
+  en: {
+    goal: "Goal",
+    done: "Done",
+    resolved: "Resolved",
+    open: "Open",
+    next: "Next",
+    outcome: "Outcome",
+  },
+  ja: {
+    goal: "目的",
+    done: "やったこと",
+    resolved: "解決",
+    open: "残課題",
+    next: "次の一手",
+    outcome: "結果",
+  },
 } as const;
 
-/** A summary body split into its three items, each still Markdown. */
+/**
+ * What kind of thing an open item is, written as a "[kind]" tag before it. The tags stay in English
+ * in both languages, so the parser and the UI don't depend on the summary language.
+ */
+export const OPEN_KINDS = ["todo", "issue", "question", "waiting"] as const;
+/** One of `OPEN_KINDS`: asked for but not finished, found but not handled, undecided, or blocked. */
+export type OpenKind = (typeof OPEN_KINDS)[number];
+
+/** One open item. The kind is null when the model left the tag out or wrote an unknown one. */
+export interface OpenItem {
+  kind: OpenKind | null;
+  text: string;
+}
+
+/** A summary body split into its items, each still Markdown. */
 export interface SummaryParts {
   goal: string;
-  outcome: string;
   /** One entry per point of work; a Done written inline is a single entry. */
   done: string[];
+  /** What got settled, each with its evidence. Empty when nothing was, or in an older body. */
+  resolved: string[];
+  /** What is left open. Empty when nothing is, or in an older body. */
+  open: OpenItem[];
+  /** What was about to happen next, the cue for resuming; null when not given. */
+  next: string | null;
+  /** An older body's single Outcome item; null in the current format. */
+  outcome: string | null;
 }
 
 type Part = keyof typeof SUMMARY_LABELS.en;
+
+/** A top-level item as read: the text after its label and the lines under it. */
+type Item = { text: string; children: string[] };
 
 /**
  * Which item a label names. Both languages are recognized in either UI language: a summary keeps
@@ -69,13 +111,14 @@ function splitBullets(lines: string[]): string[] | null {
 }
 
 /**
- * Reads a body written to the summary prompt's format: exactly the three top-level items, each
- * once. Returns null for anything else (an older format, a model that wandered off), so the caller
- * can show the body as plain Markdown instead of guessing at its structure.
+ * Reads a body written to the summary prompt's format, current or older: Goal and Done, then any of
+ * Resolved, Open, Next (or the older Outcome), each top-level item at most once. Returns null for
+ * anything else (an even older format, a model that wandered off), so the caller can show the body
+ * as plain Markdown instead of guessing at its structure.
  */
 export function parseSummaryBody(body: string): SummaryParts | null {
-  const items = new Map<Part, { text: string; children: string[] }>();
-  let current: { text: string; children: string[] } | null = null;
+  const items = new Map<Part, Item>();
+  let current: Item | null = null;
   let preamble = 0;
   for (const line of linesOf(body)) {
     const item = ITEM_LINE.exec(line);
@@ -95,25 +138,77 @@ export function parseSummaryBody(body: string): SummaryParts | null {
       return null;
     }
   }
+  return partsOf(items);
+}
+
+/**
+ * The items read into their shapes, or null when one can't be: Goal and Done must say something.
+ * An optional item left empty reads as absent, so one sloppy line doesn't cost the structured view.
+ */
+function partsOf(items: Map<Part, Item>): SummaryParts | null {
   const goal = items.get("goal");
-  const done = items.get("done");
-  const outcome = items.get("outcome");
-  if (!goal || !done || !outcome) return null;
-  const parts = { goal: joinItem(goal), outcome: joinItem(outcome), done: doneItems(done) };
-  return parts.goal && parts.outcome && parts.done?.length ? (parts as SummaryParts) : null;
+  const doneItem = items.get("done");
+  const done = doneItem && pointsOf(doneItem);
+  if (!goal || !done?.length) return null;
+  const resolved = listOf(items.get("resolved"));
+  const open = listOf(items.get("open"))?.map(openItem);
+  const next = textOf(items.get("next"));
+  const outcome = textOf(items.get("outcome"));
+  if (!joinItem(goal) || !resolved || !open) return null;
+  return { goal: joinItem(goal), done, resolved, open, next, outcome };
+}
+
+/**
+ * An optional list item's points: none when it is absent, empty or says there is nothing; null
+ * when its lines aren't a list.
+ */
+function listOf(item: Item | undefined): string[] | null {
+  if (!item || saysNothing(item)) return [];
+  return pointsOf(item);
+}
+
+/** An optional item's text: null when it is absent, empty or says there is nothing. */
+function textOf(item: Item | undefined): string | null {
+  return (item && !saysNothing(item) && joinItem(item)) || null;
+}
+
+/** "None" and the like, which the model writes for an item it was told to leave out. */
+const NOTHING =
+  /^(?:(?:none|nothing)(?: (?:pending|left|open|remaining|further))?(?: (?:in|for) this section)?|not (?:stated|recorded|mentioned|given)(?: in (?:the|this) (?:transcript|section))?|n\/a|-|なし|特になし|記載なし|無し|ありません|特にありません)[.。]?$/i;
+
+/**
+ * Whether an item holds only a "none", inline or as its one nested bullet, so it reads as absent
+ * rather than as one point.
+ */
+function saysNothing(item: Item): boolean {
+  return NOTHING.test(joinItem(item).replace(/^[-*+]\s+/, ""));
 }
 
 /** An item's text with any lines under it (continuations, or a nested list in place of text). */
-function joinItem(item: { text: string; children: string[] }): string {
+function joinItem(item: Item): string {
   const rest = item.children.filter((l) => l.trim());
   return [item.text, ...dedent(rest)].join("\n").trim();
 }
 
-/** Done's points: its nested bullets, or its inline text as a single point. */
-function doneItems(item: { text: string; children: string[] }): string[] | null {
+/** A list item's points: its nested bullets, or its inline text as a single point. */
+function pointsOf(item: Item): string[] | null {
   const rest = item.children.filter((l) => l.trim());
   if (rest.length === 0) return item.text ? [item.text] : [];
   const bullets = splitBullets(rest);
   if (!bullets) return null;
   return item.text ? [item.text, ...bullets] : bullets;
+}
+
+/**
+ * A "[kind]" tag at the start of an open item, possibly bolded or in a full-width bracket. Not a
+ * Markdown link's text: "[Issue](…)" is a link, and taking its text as a tag would break it.
+ */
+const KIND_TAG = /^\**[[［]\s*([A-Za-z]+)\s*[\]］](?!\()\**\s*/;
+
+/** An open item's text split from its kind tag. An unknown tag stays in the text. */
+function openItem(point: string): OpenItem {
+  const tag = KIND_TAG.exec(point);
+  const kind = (tag?.[1] ?? "").toLowerCase();
+  if (!tag || !(OPEN_KINDS as readonly string[]).includes(kind)) return { kind: null, text: point };
+  return { kind: kind as OpenKind, text: point.slice(tag[0].length).trim() };
 }

@@ -1,5 +1,5 @@
 import type { Section, SessionDetail } from "@shared/api.ts";
-import { parseSummaryBody, type SummaryParts } from "@shared/summaryBody.ts";
+import { type OpenItem, parseSummaryBody, type SummaryParts } from "@shared/summaryBody.ts";
 import { RefreshCw, Sparkles } from "lucide-react";
 import { type RefObject, useLayoutEffect, useRef, useState } from "react";
 import { MomentNode } from "@/components/MomentNode.tsx";
@@ -109,10 +109,13 @@ function SummaryBody({ session: s, section }: { session: SessionDetail; section:
           key={section.start}
           parts={parts}
           baseUrl={baseUrl}
-          node={outcomeNode(parts.outcome, splitOutcomes(s.prs, s.commits, section).here)}
+          node={outcomeNode(
+            parts.outcome ?? parts.resolved.join("\n"),
+            splitOutcomes(s.prs, s.commits, section).here,
+          )}
         />
       ) : (
-        // A body not in the three-item format is shown as written rather than guessed at
+        // A body in neither summary format is shown as written rather than guessed at
         <Markdown issueBaseUrl={baseUrl} className={cn("text-[15px] leading-7", SUMMARY_MARKDOWN)}>
           {body}
         </Markdown>
@@ -123,9 +126,10 @@ function SummaryBody({ session: s, section }: { session: SessionDetail; section:
 }
 
 /**
- * The summary read as Goal → Outcome → Done, each at its own weight: why the work was done and
- * what came of it come first and largest, and the details of how follow, quieter and clamped. No
- * surface behind any of it; the type sizes alone make this the place to read.
+ * The summary read as Goal → what came of it → Done, each at its own weight: why the work was done
+ * and what came of it come first and largest, and the details of how follow, quieter and clamped.
+ * What came of it is an older body's Outcome, or Resolved, Open and Next. No surface behind any of
+ * it; the type sizes alone make this the place to read.
  */
 function StructuredSummary({
   parts,
@@ -137,6 +141,21 @@ function StructuredSummary({
   node: "pr" | "commit" | null;
 }) {
   const t = drawerMessages();
+  const text = (children: string) => (
+    <Markdown
+      issueBaseUrl={baseUrl}
+      className={cn("min-w-0 text-[15px] leading-7", SUMMARY_MARKDOWN)}
+    >
+      {children}
+    </Markdown>
+  );
+  // Centered on the first line (28px leading)
+  const withNode = (children: React.ReactNode) => (
+    <div className="flex gap-2">
+      {node && <MomentNode pr={node === "pr"} className="mt-2.5" />}
+      {children}
+    </div>
+  );
   return (
     <div className="space-y-5">
       {/* The lead sentence needs no label: it is the first thing read under the headline */}
@@ -146,23 +165,68 @@ function StructuredSummary({
       >
         {parts.goal}
       </Markdown>
-      <div>
-        <SummaryLabel>{t.summaryOutcome}</SummaryLabel>
-        <div className="flex gap-2">
-          {/* Centered on the first line (28px leading) */}
-          {node && <MomentNode pr={node === "pr"} className="mt-2.5" />}
-          <Markdown
-            issueBaseUrl={baseUrl}
-            className={cn("min-w-0 text-[15px] leading-7", SUMMARY_MARKDOWN)}
-          >
-            {parts.outcome}
-          </Markdown>
-        </div>
-      </div>
-      <div>
-        <SummaryLabel>{t.summaryDone}</SummaryLabel>
+      {parts.outcome !== null && (
+        <SummaryItem label={t.summaryOutcome}>{withNode(text(parts.outcome))}</SummaryItem>
+      )}
+      {parts.resolved.length > 0 && (
+        <SummaryItem label={t.summaryResolved}>
+          {withNode(<PointList items={parts.resolved} render={text} />)}
+        </SummaryItem>
+      )}
+      {parts.open.length > 0 && (
+        <SummaryItem label={t.summaryOpen}>
+          <PointList items={parts.open} render={(o) => <OpenPoint item={o} text={text} />} />
+        </SummaryItem>
+      )}
+      {parts.next !== null && <SummaryItem label={t.summaryNext}>{text(parts.next)}</SummaryItem>}
+      <SummaryItem label={t.summaryDone}>
         <DoneList items={parts.done} baseUrl={baseUrl} />
-      </div>
+      </SummaryItem>
+    </div>
+  );
+}
+
+/** One of the summary's items under its label. */
+function SummaryItem({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <SummaryLabel>{label}</SummaryLabel>
+      {children}
+    </div>
+  );
+}
+
+/** Resolved or Open points as a plain list; a single point needs no bullet. */
+function PointList<T>({ items, render }: { items: T[]; render: (item: T) => React.ReactNode }) {
+  if (items.length === 1 && items[0] !== undefined) return render(items[0]);
+  return (
+    <ul className="min-w-0 list-disc pl-5 marker:text-xs">
+      {items.map((item, i) => (
+        // Points have no identity beyond their place in the list
+        // biome-ignore lint/suspicious/noArrayIndexKey: see above
+        <li key={i}>{render(item)}</li>
+      ))}
+    </ul>
+  );
+}
+
+/** An open item, its kind as a quiet word before it so the list can be scanned by kind. */
+function OpenPoint({
+  item,
+  text,
+}: {
+  item: OpenItem;
+  text: (children: string) => React.ReactNode;
+}) {
+  const t = drawerMessages();
+  return (
+    <div className="flex items-baseline gap-2">
+      {item.kind && (
+        <span className="shrink-0 font-semibold text-muted-foreground text-xs">
+          {t.openKind[item.kind]}
+        </span>
+      )}
+      {text(item.text)}
     </div>
   );
 }
