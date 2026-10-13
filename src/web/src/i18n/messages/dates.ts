@@ -47,7 +47,7 @@ export const dateMessages = defineMessages({
       `${fromMonth + 1}月${fromDay}日 – ${toMonth === fromMonth ? "" : `${toMonth + 1}月`}${toDay}日`,
     monthDay: (month: number, day: number) => `${month + 1}月${day}日`,
     dateLabel: (weekday: string, month: number, day: number, year: number | null) =>
-      `${year === null ? "" : `${year}/`}${month + 1}/${day} ${weekday}`,
+      `${year === null ? "" : `${year}/`}${month + 1}/${day}（${weekday}）`,
     today: "今日",
     yesterday: "昨日",
     minutes: (m: number) => `${m}分`,

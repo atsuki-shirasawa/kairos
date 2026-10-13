@@ -169,7 +169,10 @@ export function monthWeeks(month: number): number[][] {
   return weeks;
 }
 
-/** Short date: "Mon, Oct 5". Adds the year when it isn't the current one ("Sun, Oct 5, 2025"). */
+/**
+ * Short date: "Mon, Oct 5" / "10/5（月）". Adds the year when it isn't the current one
+ * ("Sun, Oct 5, 2025" / "2025/10/5（日）").
+ */
 export function dateLabel(t: number, now = Date.now()): string {
   const d = new Date(t);
   const year = d.getFullYear() === new Date(now).getFullYear() ? null : d.getFullYear();

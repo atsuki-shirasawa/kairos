@@ -143,6 +143,6 @@ describe("buildReport", () => {
   test("follows the UI language for dates", () => {
     setLocale("ja");
     const sessions = [session("a", null, { start: at(9), end: at(10), headline: "調査" })];
-    expect(buildReport([DAY0], sessions, projects)).toMatch(/^## 10\/5 月\n/);
+    expect(buildReport([DAY0], sessions, projects)).toMatch(/^## 10\/5（月）\n/);
   });
 });

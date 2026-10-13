@@ -317,8 +317,8 @@ describe("dates", () => {
       );
       expect(rangeTitle("day", DAY0, DAY0)).toMatchObject({ title: "10月5日", sub: "月曜日" });
       expect(rangeTitle("month", DAY0, DAY0).title).toBe("10月");
-      expect(dateLabel(DAY0, DAY0)).toBe("10/5 月");
-      expect(dateLabel(new Date(2025, 9, 5).getTime(), DAY0)).toBe("2025/10/5 日");
+      expect(dateLabel(DAY0, DAY0)).toBe("10/5（月）");
+      expect(dateLabel(new Date(2025, 9, 5).getTime(), DAY0)).toBe("2025/10/5（日）");
       expect(relativeDay(DAY0, DAY0)).toBe("今日");
       expect(relativeDay(addDays(DAY0, -1), DAY0)).toBe("昨日");
       expect(durationLabel(125 * 60_000)).toBe("2時間5分");
