@@ -228,7 +228,8 @@ A work block's fill is the project color mixed into `block-base` in `oklch`:
 ## Typography
 
 - **IBM Plex Sans JP** (400 / 500 / 600) for body and UI. It covers both the English and the
-  Japanese UI. `palt` is on for the body so Japanese punctuation sits tight
+  Japanese UI. `palt` is on for the body so Japanese punctuation sits tight. In the English UI only
+  the ellipsis "…" comes from a Latin system face, since Plex Sans JP centers it (the Japanese form)
 - **IBM Plex Sans Condensed** (500 / 600) with tabular figures for times, dates and numbers — use
   the `font-num` utility. Condensed figures fit narrow day columns and don't jitter as they change
 - **Syne SemiBold** only for the "Kairos" wordmark in the header (Latin subset). A face used nowhere

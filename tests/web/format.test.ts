@@ -49,6 +49,11 @@ describe("modelLabel", () => {
     expect(modelLabel("claude-haiku-4-5-20251001")).toBe("Haiku 4.5");
     expect(modelLabel("gpt-x")).toBe("gpt-x");
   });
+
+  test("capitalizes a bare alias", () => {
+    expect(modelLabel("haiku")).toBe("Haiku");
+    expect(modelLabel("default")).toBe("default");
+  });
 });
 
 describe("cacheRate and sumUsage", () => {

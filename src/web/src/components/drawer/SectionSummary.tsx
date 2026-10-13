@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { useRequestSummary } from "@/hooks/queries.ts";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import { outcomeNode, splitOutcomes, summaryFailureKind } from "@/lib/drawer.ts";
+import { modelLabel } from "@/lib/format.ts";
 import { issueBaseUrl } from "@/lib/issueLinks.ts";
 import { cn } from "@/lib/utils.ts";
 import { Markdown } from "../Markdown.tsx";
@@ -42,7 +43,9 @@ export function SectionSummary({
           <>
             {/* Beside the button that would rewrite it, rather than on a line of its own */}
             {section.model && (
-              <span className="text-muted-foreground text-xs">{t.madeWith(section.model)}</span>
+              <span className="text-muted-foreground text-xs">
+                {t.madeWith(modelLabel(section.model))}
+              </span>
             )}
             {button(t.regenerate, RefreshCw)}
           </>

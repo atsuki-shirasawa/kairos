@@ -94,23 +94,40 @@ export function DayHeader({
 function DayFiguresLine({ figures }: { figures: DayFigures }) {
   const { busy, activity, commits, prs, trouble, usage } = figures;
   const f = formatMessages();
+  // One separator throughout: commitsPrs and usageText already join their parts with it
+  const details = [
+    <span key="blocks">{f.blocks(figures.counted)}</span>,
+    activity?.claudeMs ? (
+      <span key="claude">{drawerMessages().claudeShort(durationLabel(activity.claudeMs))}</span>
+    ) : null,
+    commits > 0 || prs > 0 ? <span key="outcomes">{f.commitsPrs(commits, prs)}</span> : null,
+    trouble > 0 ? (
+      <span key="trouble" className="text-warn">
+        {f.trouble(trouble)}
+      </span>
+    ) : null,
+    usage ? <span key="usage">{usageText(usage)}</span> : null,
+  ].filter((d) => d !== null);
   return (
     <div className="flex min-h-11 min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 border-l px-2.5 py-1.5 font-num text-muted-foreground text-xs">
       {figures.shown > 0 && (
         <>
-          {/* Working time leads; the rest is detail */}
+          {/* Working time leads, set apart by weight; the rest is detail */}
           <span className="font-semibold text-foreground text-sm">{durationLabel(busy)}</span>
-          <span>{f.blocks(figures.counted)}</span>
-          {activity?.claudeMs ? (
-            <span>{drawerMessages().claudeShort(durationLabel(activity.claudeMs))}</span>
-          ) : null}
-          {(commits > 0 || prs > 0) && <span>{f.commitsPrs(commits, prs)}</span>}
-          {trouble > 0 && <span className="text-warn">{f.trouble(trouble)}</span>}
-          {usage && <span>{usageText(usage)}</span>}
+          <span className="[&>span]:whitespace-nowrap">{interleave(details, f.separator)}</span>
         </>
       )}
     </div>
   );
+}
+
+/**
+ * The nodes with the separator between them. A line wraps only at a separator, and only after its
+ * dot: a non-breaking space before it keeps " · " from starting a line.
+ */
+function interleave(nodes: React.ReactElement[], separator: string): React.ReactNode[] {
+  const glued = separator.replace(/^ /, "\u00a0");
+  return nodes.flatMap((node, i) => (i === 0 ? [node] : [glued, node]));
 }
 
 /** Weekday above the day number, then the short figures line when the column has room. */
@@ -170,11 +187,11 @@ function DayStats({ figures }: { figures: DayFigures }) {
           {prs}
         </span>
       )}
-      {(commits > 0 || prs > 0) && (
-        <span className="@min-[20rem]:inline hidden">{f.commitsPrs(commits, prs)}</span>
-      )}
-      {/* Only when wide, add the block count. Cost stays in the tooltip */}
-      <span className="@min-[20rem]:inline hidden">{f.blocks(figures.counted)}</span>
+      {/* Only when wide, add the block count, joined like the day view's line. Cost stays in the tooltip */}
+      <span className="@min-[20rem]:inline hidden">
+        {commits > 0 || prs > 0 ? `${f.commitsPrs(commits, prs)}${f.separator}` : ""}
+        {f.blocks(figures.counted)}
+      </span>
     </span>
   );
 }

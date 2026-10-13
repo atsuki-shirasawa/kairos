@@ -25,8 +25,15 @@ export function costLabel(usd: number): string {
   return `$${Math.round(usd).toLocaleString("en-US")}`;
 }
 
-/** `claude-opus-5-5` → `Opus 5.5`, `claude-haiku-4-5-20251001` → `Haiku 4.5`. Unknown shapes pass through. */
+/** Model aliases `--model` accepts. Only these are capitalized; other names pass through. */
+const MODEL_ALIASES = new Set(["haiku", "sonnet", "opus", "fable"]);
+
+/**
+ * `claude-opus-5-5` → `Opus 5.5`, `claude-haiku-4-5-20251001` → `Haiku 4.5`, and an alias such as
+ * `haiku` → `Haiku` (lowercase, it reads as the poem). Unknown shapes pass through.
+ */
 export function modelLabel(model: string): string {
+  if (MODEL_ALIASES.has(model)) return `${model[0]?.toUpperCase()}${model.slice(1)}`;
   const m = /^claude-([a-z]+)-(\d+(?:-\d+)?)(?:-\d{8})?$/.exec(model);
   if (!m?.[1] || !m[2]) return model;
   return `${m[1][0]?.toUpperCase()}${m[1].slice(1)} ${m[2].replace("-", ".")}`;

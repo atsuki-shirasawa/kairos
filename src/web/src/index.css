@@ -11,9 +11,28 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Plex Sans JP draws "…" as centered dots, the Japanese form. In the English UI, truncated text
+   takes the ellipsis alone from a Latin face, so it sits on the baseline. The weight range keeps
+   the browser from faking bold dots in medium and semibold text */
+@font-face {
+  font-family: "Latin Ellipsis";
+  src: local("Helvetica Neue"), local("Helvetica"), local("Arial");
+  unicode-range: U+2026;
+  font-weight: 100 900;
+}
+
+/* The UI face by language. --font-sans reads it, so the font-sans utility follows too */
+:root {
+  --font-ui: "IBM Plex Sans JP", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+}
+:root:lang(en) {
+  --font-ui:
+    "Latin Ellipsis", "IBM Plex Sans JP", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+}
+
 /* Direction "Indigo hours": indigo for selection and the current time, mineral pigments for projects; everything else stays quiet. Tokens and rationale are in DESIGN.md */
 @theme inline {
-  --font-sans: "IBM Plex Sans JP", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  --font-sans: var(--font-ui);
   --font-heading: var(--font-sans);
   --font-num: "IBM Plex Sans Condensed", "IBM Plex Sans JP", system-ui, sans-serif;
   --font-mark: "Syne", "IBM Plex Sans JP", system-ui, sans-serif;
