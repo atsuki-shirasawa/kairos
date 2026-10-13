@@ -36,6 +36,12 @@ const TOOLTIP_MOMENTS = 6;
  * dozen or more, and hearing every subject on each block would bury the block's own label.
  */
 const SPOKEN_MOMENTS = 8;
+/**
+ * Lift for blocks that match the search, so a faded block never sits on top of one. Far above
+ * `1 + depth * 2 + 1` for any real stack; the column's block layer is isolated, so it stays below
+ * overlays.
+ */
+const MATCH_LAYER = 1000;
 /** Height of one label in the day view's lane of commits and PRs. */
 const LANE_ROW_PX = 18;
 /**
@@ -130,7 +136,10 @@ export function Block({
     <Tooltip>
       {/* The button fills the block and sits on top, so the block can hold Markdown (lists etc.),
           which is not allowed inside a button. The visible content below is never interactive */}
-      <div className={blockClassName(state)} style={blockStyle(block, geo, project, selected)}>
+      <div
+        className={blockClassName(state)}
+        style={blockStyle(block, geo, project, selected, faded)}
+      >
         <TooltipTrigger asChild>
           <button
             type="button"
@@ -233,14 +242,17 @@ function blockStyle(
   { top, height, stretched, filledPx }: BlockGeometry,
   project: Project | undefined,
   selected: boolean,
+  faded: boolean,
 ): React.CSSProperties {
   return {
     top,
     height,
     left: `calc(${(col / cols) * 100}% + ${2 + depth * INDENT_PX}px)`,
     width: `calc(${(span / cols) * 100}% - ${4 + depth * INDENT_PX}px)`,
-    // Later blocks draw on top. Even when selected, a block never hides the ones stacked over it
-    zIndex: 1 + depth * 2 + (selected ? 1 : 0),
+    // Later blocks draw on top. Even when selected, a block never hides the ones stacked over it.
+    // During a search, matching blocks rise above faded ones (a selected block is shown in full,
+    // so it rises too), keeping that order within each group
+    zIndex: (faded && !selected ? 0 : MATCH_LAYER) + 1 + depth * 2 + (selected ? 1 : 0),
     borderLeftColor: "var(--c)",
     "--c": projectColor(project),
     backgroundImage: "linear-gradient(var(--fill), var(--fill))",
