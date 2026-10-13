@@ -1,5 +1,5 @@
 import type { CalendarSession, Project } from "@shared/api.ts";
-import { parseSummaryBody } from "@shared/summaryBody.ts";
+import { type OpenItem, openItemsOf, parseSummaryBody } from "@shared/summaryBody.ts";
 import { useId } from "react";
 import { Markdown } from "@/components/Markdown.tsx";
 import { MomentNode } from "@/components/MomentNode.tsx";
@@ -22,6 +22,7 @@ import {
 import { projectColor } from "@/lib/colors.ts";
 import { dateLabel, durationLabel, hhmm } from "@/lib/dates.ts";
 import { artifactRef } from "@/lib/drawer.ts";
+import { openItemsLine } from "@/lib/format.ts";
 import type { PlacedBlock } from "@/lib/layout.ts";
 import { cn } from "@/lib/utils.ts";
 import { INDENT_PX, LINE_CLAMP } from "./constants.ts";
@@ -182,6 +183,7 @@ export function Block({
         commits={commits}
         prs={prs}
         moments={moments}
+        open={openItemsOf(segment.body)}
         faded={faded}
         dim={dim}
       />
@@ -474,6 +476,7 @@ export function BlockTooltip({
   commits,
   prs,
   moments,
+  open = [],
   note = null,
   faded,
   dim,
@@ -486,6 +489,8 @@ export function BlockTooltip({
   commits: number;
   prs: number;
   moments: Moment[];
+  /** The summary's open items, counted with their kinds. */
+  open?: OpenItem[];
   /** An extra line under the facts, such as how to reach the runs of a burst. */
   note?: string | null;
   faded: boolean;
@@ -493,6 +498,7 @@ export function BlockTooltip({
 }) {
   const m = calendarMessages();
   const f = formatMessages();
+  const openLine = openItemsLine(open);
   return (
     <TooltipContent side="right" className="max-w-72 flex-col items-start gap-0.5">
       <p className="font-medium">{label}</p>
@@ -506,6 +512,7 @@ export function BlockTooltip({
       ) : (
         (commits > 0 || prs > 0) && <p className="opacity-70">{f.commitsPrs(commits, prs)}</p>
       )}
+      {openLine && <p className="opacity-70">{openLine}</p>}
       {session.headless && <p className="opacity-70">{m.headless}</p>}
       {note && <p className="opacity-70">{note}</p>}
       {faded && <p className="opacity-70">{m.notMatching}</p>}

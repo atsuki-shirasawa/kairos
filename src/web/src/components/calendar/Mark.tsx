@@ -1,4 +1,5 @@
 import type { Project } from "@shared/api.ts";
+import { openItemsOf } from "@shared/summaryBody.ts";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip.tsx";
 import { calendarMessages } from "@/i18n/messages/calendar.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
@@ -87,6 +88,8 @@ export function Mark({
         commits={runs.reduce((sum, b) => sum + b.segment.activity.commits, 0)}
         prs={runs.reduce((sum, b) => sum + b.segment.activity.prs, 0)}
         moments={runs.flatMap((b) => blockMoments(b, hourPx, Number.POSITIVE_INFINITY))}
+        // A burst's runs are headless and summarized one by one, so only a single block has items
+        open={burst ? [] : openItemsOf(lead.segment.body)}
         note={burst ? m.runsHint : null}
         faded={faded}
         // A burst's heading is its count, not a first prompt waiting for a summary

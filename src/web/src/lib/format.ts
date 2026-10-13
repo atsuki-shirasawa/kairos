@@ -1,5 +1,6 @@
 // Labels for token counts, costs, and model names.
 import type { Activity, Usage } from "@shared/api.ts";
+import { OPEN_KINDS, type OpenItem } from "@shared/summaryBody.ts";
 import { getLocale } from "@/i18n/index.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 
@@ -59,6 +60,17 @@ export function sumUsage(list: (Usage | null)[]): Usage | null {
     unpriced: a.unpriced || b.unpriced,
     model: null,
   }));
+}
+
+/**
+ * A block's open items as one tooltip line: how many, then their kinds in `OPEN_KINDS` order.
+ * Null when there are none.
+ */
+export function openItemsLine(items: OpenItem[]): string | null {
+  if (items.length === 0) return null;
+  const m = formatMessages();
+  const kinds = OPEN_KINDS.filter((k) => items.some((i) => i.kind === k)).map((k) => m.openKind[k]);
+  return m.openItems(items.length, kinds.join(m.separator));
 }
 
 /** Number of snags: tool errors, interrupts, and API errors. */

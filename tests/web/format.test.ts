@@ -5,6 +5,7 @@ import {
   costLabel,
   modelLabel,
   numberLabel,
+  openItemsLine,
   sumActivity,
   sumUsage,
   tokensLabel,
@@ -108,6 +109,20 @@ describe("activity totals and snags", () => {
     setLocale("ja");
     expect(troubleDetail(a)).toBe("ツールのエラー 1・中断 1");
     expect(troubleDetail({ ...a, toolErrors: 0, interrupts: 0 })).toBe("なし");
+  });
+
+  test("open items count with their kinds, each once and in a fixed order", () => {
+    const items = [
+      { kind: "question" as const, text: "a" },
+      { kind: null, text: "b" },
+      { kind: "waiting" as const, text: "c" },
+      { kind: "question" as const, text: "d" },
+    ];
+    expect(openItemsLine(items)).toBe("Open 4 (Question · Waiting)");
+    expect(openItemsLine([{ kind: null, text: "b" }])).toBe("Open 1");
+    expect(openItemsLine([])).toBeNull();
+    setLocale("ja");
+    expect(openItemsLine(items)).toBe("残課題 4（未決・待ち）");
   });
 
   test("Claude time adds only recorded entries, and is null when none recorded it", () => {

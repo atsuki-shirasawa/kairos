@@ -1,3 +1,4 @@
+import type { OpenKind } from "@shared/summaryBody.ts";
 import { defineMessages } from "../index.ts";
 
 /** Labels shared by the calendar, the list, and the formatting helpers. */
@@ -21,6 +22,15 @@ export const formatMessages = defineMessages({
     /** Snags with what kind they were, where there is no room for a tooltip of its own. */
     troubleWithDetail: (n: number, detail: string) => `Snags ${n} (${detail})`,
     copyFailed: "Couldn't copy to the clipboard",
+    /** What kind of thing an open item of a summary is; the drawer and the tooltip share them. */
+    openKind: {
+      todo: "To do",
+      issue: "Issue",
+      question: "Question",
+      waiting: "Waiting",
+    } satisfies Record<OpenKind, string>,
+    /** A block's open items in its tooltip, with their kinds. */
+    openItems: (n: number, kinds: string) => `Open ${n}${kinds ? ` (${kinds})` : ""}`,
   },
   ja: {
     toolErrors: (n: number) => `ツールのエラー ${n}`,
@@ -37,6 +47,13 @@ export const formatMessages = defineMessages({
     trouble: (n: number) => `つまずき ${n}`,
     troubleWithDetail: (n: number, detail: string) => `つまずき ${n}（${detail}）`,
     copyFailed: "クリップボードにコピーできませんでした",
+    openKind: {
+      todo: "やること",
+      issue: "問題",
+      question: "未決",
+      waiting: "待ち",
+    } satisfies Record<OpenKind, string>,
+    openItems: (n: number, kinds: string) => `残課題 ${n}${kinds ? `（${kinds}）` : ""}`,
   },
 });
 

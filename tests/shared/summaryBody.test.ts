@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseSummaryBody } from "../../src/shared/summaryBody.ts";
+import { openItemsOf, parseSummaryBody } from "../../src/shared/summaryBody.ts";
 
 /** What an older three-item body parses to: no Resolved, Open or Next. */
 const older = (goal: string, done: string[], outcome: string) => ({
@@ -190,5 +190,15 @@ describe("parseSummaryBody", () => {
     ).toBeNull();
     // An empty item
     expect(parseSummaryBody("- Goal:\n- Done: b\n- Outcome: c")).toBeNull();
+  });
+});
+
+describe("openItemsOf", () => {
+  test("gives a body's open items, the same ones on a second call, and none for other bodies", () => {
+    const body = "- Goal: a\n- Done: b\n- Open:\n  - [waiting] CI";
+    expect(openItemsOf(body)).toEqual([{ kind: "waiting", text: "CI" }]);
+    expect(openItemsOf(body)).toBe(openItemsOf(body));
+    expect(openItemsOf("- Goal: a\n- Done: b\n- Outcome: left: CI")).toEqual([]);
+    expect(openItemsOf(null)).toEqual([]);
   });
 });

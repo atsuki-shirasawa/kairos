@@ -373,12 +373,15 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   work was done and what came of it are read before how. The Goal is the lead sentence with no
   label (`summary-lead`, `ink`). What came of it is Resolved, Open and Next (an older body's single
   Outcome in their place), all `summary-body`, `ink`; Resolved (or Outcome) carries the commit or
-  PR node when it names one of the section's own, and each open item leads with its kind as a
-  quiet word (12px semibold `muted-ink`). A single Resolved or Open point is shown without a
-  bullet. Done's points are 14px `muted-ink`, each clamped to two
-  lines with "Show in full" when one is cut off. Every item but the Goal gets a label in the
-  drawer's small heading style. A body in neither format is shown as written. The day view's
-  block body shows only the Goal: the heading says what, the lane what came of it
+  PR node when it names one of the section's own. Open items lead with their kind (to do, issue,
+  question, waiting) as a quiet word in a fixed-width column (12px semibold `muted-ink`, no
+  bullets), so the list scans by kind with no color of its own; the warn tone stays the snags'.
+  A single Resolved point is shown without a bullet. Done's points are 14px `muted-ink`, each
+  clamped to two lines with "Show in full" when one is cut off. Every item but the Goal gets a
+  label in the drawer's small heading style. A body in neither format is shown as written. The
+  day view's block body shows only the Goal: the heading says what, the lane what came of it. A
+  block marks nothing for its open items; its tooltip counts them with their kinds ("Open 2
+  (Question · Waiting)", kinds in a fixed order), and the filter's "Left something open" state finds them
 - **One frame per thing.** Where a color rule, a surface and a divider would all mark the same
   boundary, keep one. The summary's project recaps sit under the project's colored rule with no
   `muted` box of their own

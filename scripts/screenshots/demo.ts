@@ -44,7 +44,14 @@ interface DemoSection {
   snag?: boolean;
   headline: string;
   /** Left out for a short section, which gets only a headline. */
-  summary?: { goal: string; done: string[]; outcome: string };
+  summary?: {
+    goal: string;
+    done: string[];
+    resolved?: string[];
+    /** Each with its "[kind]" tag, as the summarizer writes it. */
+    open?: string[];
+    next?: string;
+  };
 }
 
 interface DemoSession {
@@ -87,7 +94,7 @@ const SESSIONS: DemoSession[] = [
             "Replaced the first fixed-bucket version after it let double bursts through at window edges",
             "Covered window edges and key isolation in tests",
           ],
-          outcome: "Two commits; opened PR #214",
+          open: ["[waiting] Review on PR #214"],
         },
       },
       {
@@ -104,7 +111,7 @@ const SESSIONS: DemoSession[] = [
             "Moved counting after authentication so rejected keys don't use up a budget",
             "Logged limited keys at info level for the dashboard",
           ],
-          outcome: "One commit pushed to #214; review approved",
+          resolved: ["Review on #214: fixes pushed and approved"],
         },
       },
     ],
@@ -132,7 +139,8 @@ const SESSIONS: DemoSession[] = [
             "Traced it to `useSize` re-rendering the chart on every resize event",
             "Debounced size updates and kept the previous frame until the new one is ready",
           ],
-          outcome: "Fixed and committed; one flaky snapshot test updated",
+          resolved: ["Flicker on resize: fixed and committed, tests pass"],
+          open: ["[issue] The chart's snapshot test is flaky; updated, not fixed"],
         },
       },
     ],
@@ -159,7 +167,7 @@ const SESSIONS: DemoSession[] = [
             "Outlined readers vs. writers, checkpoints and the `-wal` / `-shm` files",
             "Rewrote the intro and added a checkpoint section with a small benchmark",
           ],
-          outcome: "Draft ready for a read-through",
+          next: "Read the draft through before publishing",
         },
       },
     ],
@@ -193,7 +201,7 @@ const SESSIONS: DemoSession[] = [
             "Built the page and a paginated invoice table on the billing API",
             "Added empty and error states, with tests for each",
           ],
-          outcome: "Two commits on `feature/billing-page`; PR still to open",
+          open: ["[todo] Make the page work on small screens, then open the PR"],
         },
       },
       {
@@ -211,7 +219,7 @@ const SESSIONS: DemoSession[] = [
             "Stacked invoice rows into cards under 640px",
             "Opened PR #88 with screenshots of each state",
           ],
-          outcome: "PR #88 open",
+          open: ["[waiting] Review on PR #88"],
         },
       },
     ],
@@ -234,7 +242,8 @@ const SESSIONS: DemoSession[] = [
             "Profiled the query: a full scan over `documents` with `LIKE` on every request",
             "Sketched a search index as the fix",
           ],
-          outcome: "Cause found; index planned for Wednesday",
+          resolved: ["Cause: a full scan over `documents` with `LIKE` on every request"],
+          next: "Add a search index on Wednesday",
         },
       },
     ],
@@ -260,7 +269,7 @@ const SESSIONS: DemoSession[] = [
             "Replaced npm steps in both workflows and cached the install",
             "CI time went from about 6 minutes to under 2",
           ],
-          outcome: "PR #12 opened",
+          resolved: ["CI on Bun: under 2 minutes, PR #12 opened"],
         },
       },
     ],
@@ -290,7 +299,7 @@ const SESSIONS: DemoSession[] = [
             "Made refreshes share a single in-flight request",
             "Added a regression test with two simultaneous refreshes",
           ],
-          outcome: "Fixed in PR #219",
+          resolved: ["Token refresh race: fixed in PR #219, regression test passes"],
         },
       },
     ],
@@ -312,7 +321,7 @@ const SESSIONS: DemoSession[] = [
         summary: {
           goal: "Get Storybook building again",
           done: ["Moved the config to the new builder options for Vite 8"],
-          outcome: "Builds again; committed",
+          resolved: ["Storybook builds again on Vite 8; committed"],
         },
       },
     ],
@@ -352,7 +361,14 @@ const SESSIONS: DemoSession[] = [
             "Kept it in sync on update and delete with triggers",
             "Routed /search through the index; p95 went from 1.8 s to 40 ms on the largest account",
           ],
-          outcome: "Three commits on `feature/search-index`; PR after a review of the migration",
+          resolved: [
+            "Search speed: index and sync in three commits on `feature/search-index`, tests pass",
+          ],
+          open: [
+            "[question] Whether the migration and backfill are safe to run in production",
+            "[waiting] A review of the migration before the PR",
+          ],
+          next: "Have the migration reviewed, then open the PR",
         },
       },
       {
@@ -370,7 +386,8 @@ const SESSIONS: DemoSession[] = [
             "Found the backfill would hold a write lock for minutes; split it into batches of 5,000",
             "Documented the index and opened PR #221",
           ],
-          outcome: "PR #221 open",
+          resolved: ["Backfill no longer holds a long write lock: batches of 5,000"],
+          open: ["[waiting] Review on PR #221"],
         },
       },
     ],
@@ -392,7 +409,7 @@ const SESSIONS: DemoSession[] = [
         summary: {
           goal: "Publish the SQLite WAL post",
           done: ["Fixed wording and a wrong pragma name; added a summary box"],
-          outcome: "Published",
+          resolved: ["Post published"],
         },
       },
     ],
@@ -425,7 +442,7 @@ const SESSIONS: DemoSession[] = [
             "Added a dismissible checklist (invite, connect a source, first report)",
             "Steps tick off from workspace events instead of manual clicks",
           ],
-          outcome: "Two commits; copy still to be reviewed",
+          open: ["[waiting] Review of the checklist copy"],
         },
       },
     ],
@@ -450,7 +467,7 @@ const SESSIONS: DemoSession[] = [
             "Moved staging to managed certificates that renew automatically",
             "Removed the manual rotation script",
           ],
-          outcome: "Applied to staging and committed",
+          resolved: ["Staging certificates renew automatically; applied and committed"],
         },
       },
     ],
@@ -473,7 +490,7 @@ const SESSIONS: DemoSession[] = [
             "Checked contrast of every token against WCAG AA",
             "Flagged two hard-coded colors in charts",
           ],
-          outcome: "Changes requested on #91",
+          resolved: ["Review of #91 sent: changes requested for two hard-coded chart colors"],
         },
       },
     ],
@@ -498,7 +515,8 @@ const SESSIONS: DemoSession[] = [
             "Grouped this week's PRs (#214, #219, #221) into features and fixes",
             "Wrote upgrade notes for the search migration",
           ],
-          outcome: "Release notes committed; tag on Monday",
+          resolved: ["Release notes for 2.4 committed"],
+          next: "Tag 2.4 on Monday",
         },
       },
     ],
@@ -521,7 +539,7 @@ const SESSIONS: DemoSession[] = [
         summary: {
           goal: "Finish the onboarding checklist",
           done: ["Applied the copy review", "Opened PR #93"],
-          outcome: "PR #93 open",
+          open: ["[waiting] Review on PR #93"],
         },
       },
     ],
@@ -542,7 +560,7 @@ const SESSIONS: DemoSession[] = [
         summary: {
           goal: "Plan the next post",
           done: ["Outlined the problem, FTS5, the batched backfill and the numbers"],
-          outcome: "Outline saved as a draft",
+          next: "Write the post from the outline",
         },
       },
     ],
@@ -745,13 +763,16 @@ export function seedDemoSummaries(db: Database): void {
   seedRecaps(db, createdAt);
 }
 
-/** A section summary body in the summarizer's goal / done / outcome shape. */
+/** A section summary body in the summarizer's shape, leaving out the items a section has none of. */
 function summaryBody(s: NonNullable<DemoSection["summary"]>): string {
+  const list = (label: string, points: string[] | undefined) =>
+    points?.length ? [`- ${label}:`, ...points.map((p) => `  - ${p}`)] : [];
   return [
     `- Goal: ${s.goal}`,
-    "- Done:",
-    ...s.done.map((d) => `  - ${d}`),
-    `- Outcome: ${s.outcome}`,
+    ...list("Done", s.done),
+    ...list("Resolved", s.resolved),
+    ...list("Open", s.open),
+    ...(s.next ? [`- Next: ${s.next}`] : []),
   ].join("\n");
 }
 

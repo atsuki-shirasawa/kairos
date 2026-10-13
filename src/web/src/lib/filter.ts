@@ -1,6 +1,7 @@
 // Filtering the blocks in a period. Separate from hiding projects (saved in the DB, for things
 // you never want to see), these are "just for now" conditions kept in the URL.
 import type { CalendarSegment, CalendarSession, Project } from "@shared/api.ts";
+import { openItemsOf } from "@shared/summaryBody.ts";
 
 /** Outcomes a block can be narrowed to. A block passes when it has any of the chosen ones. */
 export const OUTCOMES = ["commit", "pr", "merge"] as const;
@@ -8,11 +9,11 @@ export const OUTCOMES = ["commit", "pr", "merge"] as const;
 export type Outcome = (typeof OUTCOMES)[number];
 
 /** States a block can be narrowed to. A block passes only when it has every chosen one. */
-export const STATES = ["active", "loop", "continued", "subagent", "snag"] as const;
+export const STATES = ["active", "loop", "continued", "subagent", "snag", "open"] as const;
 /**
  * `active`: in progress. `loop`: the session has `/loop` or scheduled runs. `continued`: continued
  * from or into another session. `subagent`: the block launched subagents. `snag`: the block hit a
- * tool error, an interrupt or an API error.
+ * tool error, an interrupt or an API error. `open`: its summary lists something left open.
  */
 export type BlockState = (typeof STATES)[number];
 
@@ -113,6 +114,8 @@ export function inState(
       return a.subagents > 0;
     case "snag":
       return a.toolErrors + a.interrupts + a.apiErrors > 0;
+    case "open":
+      return openItemsOf(segment.body).length > 0;
   }
 }
 

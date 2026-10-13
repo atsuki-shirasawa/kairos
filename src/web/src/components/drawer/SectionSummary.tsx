@@ -6,6 +6,7 @@ import { MomentNode } from "@/components/MomentNode.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { useRequestSummary } from "@/hooks/queries.ts";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
+import { formatMessages } from "@/i18n/messages/format.ts";
 import { outcomeNode, splitOutcomes, summaryFailureKind } from "@/lib/drawer.ts";
 import { modelLabel } from "@/lib/format.ts";
 import { issueBaseUrl } from "@/lib/issueLinks.ts";
@@ -175,7 +176,7 @@ function StructuredSummary({
       )}
       {parts.open.length > 0 && (
         <SummaryItem label={t.summaryOpen}>
-          <PointList items={parts.open} render={(o) => <OpenPoint item={o} text={text} />} />
+          <OpenList items={parts.open} text={text} />
         </SummaryItem>
       )}
       {parts.next !== null && <SummaryItem label={t.summaryNext}>{text(parts.next)}</SummaryItem>}
@@ -196,8 +197,14 @@ function SummaryItem({ label, children }: { label: string; children: React.React
   );
 }
 
-/** Resolved or Open points as a plain list; a single point needs no bullet. */
-function PointList<T>({ items, render }: { items: T[]; render: (item: T) => React.ReactNode }) {
+/** Resolved's points as a plain list; a single point needs no bullet. */
+function PointList({
+  items,
+  render,
+}: {
+  items: string[];
+  render: (item: string) => React.ReactNode;
+}) {
   if (items.length === 1 && items[0] !== undefined) return render(items[0]);
   return (
     <ul className="min-w-0 list-disc pl-5 marker:text-xs">
@@ -210,24 +217,36 @@ function PointList<T>({ items, render }: { items: T[]; render: (item: T) => Reac
   );
 }
 
-/** An open item, its kind as a quiet word before it so the list can be scanned by kind. */
-function OpenPoint({
-  item,
+/**
+ * Open items, each with its kind as a quiet word in a column of its own, so the list can be
+ * scanned by kind without a color for each. No bullets: the column already starts each row. The
+ * column is left out when no item has a kind.
+ */
+function OpenList({
+  items,
   text,
 }: {
-  item: OpenItem;
+  items: OpenItem[];
   text: (children: string) => React.ReactNode;
 }) {
-  const t = drawerMessages();
+  const f = formatMessages();
+  const kinds = items.some((o) => o.kind);
   return (
-    <div className="flex items-baseline gap-2">
-      {item.kind && (
-        <span className="shrink-0 font-semibold text-muted-foreground text-xs">
-          {t.openKind[item.kind]}
-        </span>
-      )}
-      {text(item.text)}
-    </div>
+    <ul className="space-y-1">
+      {items.map((item, i) => (
+        // Points have no identity beyond their place in the list
+        // biome-ignore lint/suspicious/noArrayIndexKey: see above
+        <li key={i} className="flex items-baseline gap-3">
+          {kinds && (
+            // Wide enough for the longest kind in either language ("Question", "やること")
+            <span className="w-16 shrink-0 whitespace-nowrap font-semibold text-muted-foreground text-xs">
+              {item.kind && f.openKind[item.kind]}
+            </span>
+          )}
+          {text(item.text)}
+        </li>
+      ))}
+    </ul>
   );
 }
 

@@ -42,7 +42,12 @@ function session(
     projectId?: number | null;
     label?: string | null;
     promptCount?: number;
-    segments?: { headline: string; activity?: Partial<Activity>; minutes?: number }[];
+    segments?: {
+      headline: string;
+      activity?: Partial<Activity>;
+      minutes?: number;
+      body?: string;
+    }[];
     /** Session-wide fields the conditions read (branch, active, ...). */
     fields?: Partial<CalendarSession>;
   } = {},
@@ -52,7 +57,7 @@ function session(
     end: i * HOUR * 3 + (g.minutes ?? 1) * 60_000,
     headline: g.headline,
     summarized: true,
-    body: null,
+    body: g.body ?? null,
     prs: [],
     commits: [],
     promptCount: 1,
@@ -212,6 +217,20 @@ describe("conditions", () => {
     expect(kept({ states: ["loop", "snag"] })).toEqual(["Commit"]);
     expect(kept({ states: ["active", "continued"] })).toEqual(["Read"]);
     expect(kept({ states: ["subagent"] })).toEqual(["Merge"]);
+  });
+
+  test("left open: a summary with open items, not an older body that mentions leftovers", () => {
+    const summaries = session("summaries", {
+      segments: [
+        { headline: "Open", body: "- Goal: a\n- Done: b\n- Open:\n  - [waiting] CI" },
+        { headline: "Closed", body: "- Goal: a\n- Done: b\n- Resolved: merged" },
+        { headline: "Older", body: "- Goal: a\n- Done: b\n- Outcome: left: month view" },
+      ],
+    });
+    const m = segmentMatcher({ ...NO_FILTER, states: ["open"] }, projects);
+    expect(summaries.segments.filter((g) => m(summaries, g)).map((g) => g.headline)).toEqual([
+      "Open",
+    ]);
   });
 
   test("length keeps blocks at least that long", () => {

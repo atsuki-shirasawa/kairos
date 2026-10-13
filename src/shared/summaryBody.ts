@@ -199,6 +199,26 @@ function pointsOf(item: Item): string[] | null {
   return item.text ? [item.text, ...bullets] : bullets;
 }
 
+/** Open items already read, by body. Bodies change only when a summary is rewritten. */
+const openCache = new Map<string, OpenItem[]>();
+/** Past this many bodies the cache starts over, so it stays small over a long-open tab. */
+const OPEN_CACHE_LIMIT = 2_000;
+
+/**
+ * A body's open items, none when it has none or isn't in the current format. The calendar asks
+ * this of every block on every render and filter keystroke (its tooltip, the "left open" filter
+ * and its count), so each body is parsed once.
+ */
+export function openItemsOf(body: string | null): OpenItem[] {
+  if (!body) return [];
+  const cached = openCache.get(body);
+  if (cached) return cached;
+  if (openCache.size >= OPEN_CACHE_LIMIT) openCache.clear();
+  const items = parseSummaryBody(body)?.open ?? [];
+  openCache.set(body, items);
+  return items;
+}
+
 /**
  * A "[kind]" tag at the start of an open item, possibly bolded or in a full-width bracket. Not a
  * Markdown link's text: "[Issue](…)" is a link, and taking its text as a tag would break it.

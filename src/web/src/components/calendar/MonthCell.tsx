@@ -1,4 +1,5 @@
 import type { Project } from "@shared/api.ts";
+import { openItemsOf } from "@shared/summaryBody.ts";
 import { MomentNode } from "@/components/MomentNode.tsx";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip.tsx";
 import { calendarMessages } from "@/i18n/messages/calendar.ts";
@@ -219,6 +220,7 @@ function CellLine({ block, ...c }: CellContext & { block: PlacedBlock }) {
         commits={commits}
         prs={prs}
         moments={blockMoments(block, MIN_HOUR_PX, Number.POSITIVE_INFINITY)}
+        open={openItemsOf(segment.body)}
         faded={faded}
         dim={dim}
       />
