@@ -62,7 +62,7 @@ export function Mark({
           )}
           style={{ top, "--c": projectColor(project) } as React.CSSProperties}
         >
-          <span className="h-[3px] w-full rounded-full bg-[var(--c)] group-hover:h-1" />
+          <MarkBar headless={session.headless} />
         </button>
       </TooltipTrigger>
       <BlockTooltip
@@ -78,5 +78,23 @@ export function Mark({
         dim={!segment.summarized}
       />
     </Tooltip>
+  );
+}
+
+/**
+ * The bar inside a mark (week, day and month views), in the project color set as `--c` on the
+ * button. A headless run (claude -p / SDK) splits it into two dashes: at 3px an outline would leave
+ * no hollow to see, and a broken line is what the dashed edge of a headless card already means.
+ */
+export function MarkBar({ headless }: { headless: boolean }) {
+  const bar = "h-[3px] bg-[var(--c)] group-hover:h-1";
+  if (!headless) return <span className={cn(bar, "w-full rounded-full")} />;
+  // A fixed gap keeps the break visible whatever the button's width; square-ish ends keep each
+  // 4px dash reading as part of a line rather than a dot
+  return (
+    <span className="flex w-full items-center gap-0.5">
+      <span className={cn(bar, "flex-1 rounded-[1px]")} />
+      <span className={cn(bar, "flex-1 rounded-[1px]")} />
+    </span>
   );
 }

@@ -256,7 +256,8 @@ A work block's fill is the project color mixed into `block-base` in `oklch`:
   sitting three or more abreast went from 88 of 257 to 7). Hovering shows the card's tooltip,
   clicking opens the drawer, and selection gets the `primary` outline. Judged by the real length
   (a block crossing midnight is whole); the work in progress stays a card. The strip appears only
-  on days that have marks
+  on days that have marks. A headless run's mark is split into two 4px dashes with a 2px gap: at
+  3px an outlined bar has no hollow left to see, and a broken line already means headless
 - **A block's height is its real length.** Blocks shorter than the minimum height (room for one
   heading) fill only their real length at full strength; the rest is a label area with a faint fill
   (40% of the block fill) and a faint left edge, so the card keeps its shape instead of looking cut off
@@ -322,11 +323,11 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   dot marks work in progress. Selected: a 2px `primary` outline over the normal fill (a deeper
   fill as well said the same thing twice). A headless run (`claude -p` / SDK, shown only when
   turned on in the "⋯" menu) keeps its project's color and fill but gets a dashed left edge: the
-  solid edge is the branch of work you prompted (in the week, day and month views alike). The
-  tooltip says why, and the drawer heading carries a "Headless" badge: 12px `muted-ink` text in a
-  1px `border` outline with `md` radius, beside the project line. Filtered-out
-  blocks fade to 30% opacity and drop behind matching ones where they overlap; hover or focus
-  brings one back in full and on top
+  solid edge is the branch of work you prompted (in the week, day and month views alike; a mark
+  breaks into two dashes instead). The tooltip says why, and the drawer heading carries a
+  "Headless" badge: 12px `muted-ink` text in a 1px `border` outline with `md` radius, beside the
+  project line. Filtered-out blocks fade to 30% opacity and drop behind matching ones where they
+  overlap; hover or focus brings one back in full and on top
 - **Moments (commit and PR nodes):** read like a git graph: the block's colored edge is the branch,
   and each commit is a 7px `ink` ring (filled with `surface`) hanging just inside it at the height
   of the minute it was made; a PR is the same node filled with `ink`. Nodes stay a radius inside the

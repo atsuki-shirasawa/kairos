@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils.ts";
 import { BlockTooltip, timeRange } from "./Block.tsx";
 import { MIN_HOUR_PX } from "./constants.ts";
 import { DayTooltip, dayFigures } from "./DayHeader.tsx";
+import { MarkBar } from "./Mark.tsx";
 
 /** Height of the date line at the top of a cell. */
 export const CELL_HEAD_PX = 28;
@@ -252,7 +253,7 @@ function CellMark({ block, ...c }: CellContext & { block: PlacedBlock }) {
           )}
           style={{ "--c": projectColor(project) } as React.CSSProperties}
         >
-          <span className="h-[3px] w-full rounded-full bg-[var(--c)] group-hover:h-1" />
+          <MarkBar headless={session.headless} />
         </button>
       </TooltipTrigger>
       <BlockTooltip
