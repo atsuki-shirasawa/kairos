@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { LiveSession, Project } from "../../src/shared/api.ts";
 import {
   attentionCount,
+  columnOf,
   dirName,
   documentTitle,
   IDLE_AFTER_MS,
@@ -97,4 +98,11 @@ test("counts asking and waiting sessions for the tab title", () => {
 test("names a session by its directory before it is ingested", () => {
   expect(dirName("/Users/me/dev/app/")).toBe("app");
   expect(dirName("/")).toBe("/");
+});
+
+test("puts asking and waiting together in the column that wants you", () => {
+  expect(columnOf("asking")).toBe("attention");
+  expect(columnOf("waiting")).toBe("attention");
+  expect(columnOf("working")).toBe("working");
+  expect(columnOf("idle")).toBe("idle");
 });

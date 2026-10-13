@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { CalendarGrid } from "@/components/CalendarGrid.tsx";
 import { FilterChips } from "@/components/filter/FilterChips.tsx";
-import { LiveBar } from "@/components/LiveBar.tsx";
+import { LivePage } from "@/components/LivePage.tsx";
 import { MonthGrid } from "@/components/MonthGrid.tsx";
 import { SessionDrawer } from "@/components/SessionDrawer.tsx";
 import { SessionList } from "@/components/SessionList.tsx";
@@ -26,7 +26,7 @@ import { useLocale } from "@/i18n/index.ts";
 import { appMessages } from "@/i18n/messages/app.tsx";
 import { dateLabel, rangeOf, shift, startOfDay, type View } from "@/lib/dates.ts";
 import { type Filter, hiddenReason, isFocused, withoutConditions } from "@/lib/filter.ts";
-import { attentionCount, visibleLive } from "@/lib/live.ts";
+import { attentionCount, liveDisplay, visibleLive } from "@/lib/live.ts";
 import { buildReport } from "@/lib/report.ts";
 
 /**
@@ -66,7 +66,9 @@ export function App() {
     () => visibleLive(live.data?.sessions ?? [], projectMap, now),
     [live.data, projectMap, now],
   );
-  useDocumentTitle(attentionCount(running, now));
+  const attention = attentionCount(running, now);
+  useDocumentTitle(attention);
+  const isLive = state.layout === "live";
 
   const { prev, next, goTo, run } = useBlockStepping({
     focused,
@@ -135,6 +137,11 @@ export function App() {
         onMove={(dir) => update({ anchor: shift(state.view, state.anchor, dir) })}
         onToday={() => update({ anchor: startOfDay(Date.now()) })}
         onJump={(day) => update({ anchor: day })}
+        live={{
+          running: running.length,
+          attention,
+          working: running.some((s) => liveDisplay(s, now) === "working"),
+        }}
         searchRef={searchRef}
         search={{
           hits: search.data?.hits ?? [],
@@ -158,17 +165,22 @@ export function App() {
         menuOpen={menuOpen}
         onMenuOpen={setMenuOpen}
       />
-      <LiveBar
-        sessions={running}
-        projects={projectMap}
-        now={now}
-        // The latest block is usually today's, but the view may be showing another period
-        onSelect={(session, at) => update({ anchor: startOfDay(at), session, at }, { push: true })}
-      />
-      <FilterChips filter={state.filter} onFilter={setFilter} />
+      {!isLive && <FilterChips filter={state.filter} onFilter={setFilter} />}
       <div className="relative flex min-h-0 flex-1">
         <main className="relative flex min-w-0 flex-1 flex-col">
-          {state.layout === "list" ? (
+          {isLive ? (
+            <LivePage
+              live={live.data}
+              sessions={running}
+              projects={projectMap}
+              now={now}
+              selectedId={state.session}
+              // The anchor follows the block, so going back to the calendar shows its day
+              onSelect={(session, at) =>
+                update({ anchor: startOfDay(at), session, at }, { push: true })
+              }
+            />
+          ) : state.layout === "list" ? (
             <SessionList
               {...body}
               view={state.view}
@@ -191,7 +203,7 @@ export function App() {
             <CalendarGrid {...body} />
           )}
           {calendar.isError && <Notice>{m.disconnected(<code>kairos ensure</code>)}</Notice>}
-          {calendar.isSuccess && visible.length === 0 && (
+          {!isLive && calendar.isSuccess && visible.length === 0 && (
             <EmptyNotice
               period={period}
               progress={progress}
@@ -201,7 +213,8 @@ export function App() {
               onJump={(t) => update({ anchor: startOfDay(t) })}
             />
           )}
-          {visible.length > 0 &&
+          {!isLive &&
+            visible.length > 0 &&
             focused.length === 0 &&
             isFocused(state.filter) &&
             !searchPanel && (
@@ -217,13 +230,15 @@ export function App() {
             at={state.at}
             onClose={closeDrawer}
             onSelect={(session, at) => update({ session, at }, { push: true })}
-            onPrev={prev ? () => goTo(prev) : null}
-            onNext={next ? () => goTo(next) : null}
+            // Stepping walks the period's blocks, which the live page doesn't show
+            onPrev={prev && !isLive ? () => goTo(prev) : null}
+            onNext={next && !isLive ? () => goTo(next) : null}
             // Only the calendar draws a burst as one mark; the list and table give each run a row
             run={state.layout === "calendar" ? run : null}
             onRun={goTo}
-            // The day view's single column has room to spare, so only the seven-column views float it
-            overlay={state.layout === "calendar" && state.view !== "day"}
+            // The day view's single column has room to spare, so only the seven-column views float
+            // it; the live page's three columns would shrink to slivers beside it
+            overlay={(state.layout === "calendar" && state.view !== "day") || isLive}
           />
         )}
       </div>

@@ -10,6 +10,17 @@ export const IDLE_AFTER_MS = 15 * 60_000;
 /** A running session's state as shown: the server's, with long waits turned idle. */
 export type LiveDisplay = "asking" | "waiting" | "working" | "idle";
 
+/** The page's columns: what wants an answer, what is running, and what was left open. */
+export type LiveColumn = "attention" | "working" | "idle";
+
+/** The page's columns, left to right. */
+export const LIVE_COLUMNS: readonly LiveColumn[] = ["attention", "working", "idle"];
+
+/** The column a state belongs in. */
+export function columnOf(display: LiveDisplay): LiveColumn {
+  return display === "asking" || display === "waiting" ? "attention" : display;
+}
+
 /** Display order: what wants an answer first, idle sessions last. */
 const ORDER: Record<LiveDisplay, number> = { asking: 0, waiting: 1, working: 2, idle: 3 };
 
@@ -36,10 +47,7 @@ export function visibleLive(
 
 /** How many sessions want your answer: asking, or done with a turn and not idle yet. */
 export function attentionCount(sessions: readonly LiveSession[], now: number): number {
-  return sessions.filter((s) => {
-    const d = liveDisplay(s, now);
-    return d === "asking" || d === "waiting";
-  }).length;
+  return sessions.filter((s) => columnOf(liveDisplay(s, now)) === "attention").length;
 }
 
 /** The tab title, led by the number of sessions that want you so it shows in a background tab. */

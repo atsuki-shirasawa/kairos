@@ -9,6 +9,9 @@ describe("shortcutFor", () => {
     expect(shortcutFor("m", false)).toBe("month");
     expect(shortcutFor("w", false)).toBe("week");
     expect(shortcutFor("d", false)).toBe("day");
+    expect(shortcutFor("c", false)).toBe("calendar");
+    expect(shortcutFor("s", false)).toBe("summary");
+    expect(shortcutFor("n", false)).toBe("live");
     expect(shortcutFor("j", false)).toBe("nextBlock");
     expect(shortcutFor("k", false)).toBe("prevBlock");
     expect(shortcutFor("Escape", false)).toBe("close");

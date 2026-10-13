@@ -169,6 +169,7 @@ Kairos shows which Claude Code sessions are running and what each is doing, with
 - **Details from the DB:** the call in flight (the same tail scan), the latest work block, the context size of the latest main-thread response, task progress (TaskCreate / TaskUpdate replayed as for summaries) and the last test run of the current block (`facts.ts`). A session not ingested yet is listed with what the registry knows
 - **Visibility:** as the calendar: launches in hidden directories never, headless runs (a registry kind other than interactive / bg, or a session with only SDK input) only with "Show headless runs"; sessions of hidden projects never (the UI drops them too, so hiding a project takes effect at once)
 - The UI refetches on `live.updated` and on `sessions.updated` (the log moved on)
+- The UI shows them on a page of their own (`?layout=live`), in three columns by state, opened from the toolbar's "Live" button, which carries the count of sessions waiting on you
 
 ## 5. API
 
@@ -200,7 +201,7 @@ Request and response types live in `src/shared` and are shared by the server and
 
 ![Week view with the detail drawer](docs/images/screen-week.png)
 
-Toolbar on top, the calendar (or the summary) below it, and the detail drawer on the right. Day view, where tall blocks also show their summary body:
+Toolbar on top, the calendar (or the summary, or the page of running sessions) below it, and the detail drawer on the right. Day view, where tall blocks also show their summary body:
 
 ![Day view](docs/images/screen-day.png)
 

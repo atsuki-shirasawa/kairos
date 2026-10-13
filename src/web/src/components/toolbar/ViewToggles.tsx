@@ -67,8 +67,9 @@ export function LayoutToggle({
       type="single"
       size="sm"
       spacing={0.5}
-      // The table is a tab of the summary, so it lights the summary button
-      value={layout === "list" ? "summary" : layout}
+      // The table is a tab of the summary, so it lights the summary button. On the live page
+      // neither is lit; its own button is
+      value={layout === "list" ? "summary" : layout === "live" ? "" : layout}
       onValueChange={(v) => v && onLayout(v as Layout)}
       aria-label={m.layoutToggle}
       className={`shrink-0 ${SEGMENTED}`}

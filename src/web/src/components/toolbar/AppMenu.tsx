@@ -30,7 +30,7 @@ function shortcuts(): [string[], string][] {
     [["←", "→"], m.shortcutPeriod],
     [["t"], m.shortcutToday],
     [["m", "w", "d"], m.shortcutView],
-    [["c", "s"], m.shortcutLayout],
+    [["c", "s", "n"], m.shortcutLayout],
     [["l"], m.shortcutTable],
     [["j", "k"], m.shortcutStep],
     [["/"], m.shortcutSearch],

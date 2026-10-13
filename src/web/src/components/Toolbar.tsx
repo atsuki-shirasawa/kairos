@@ -1,5 +1,6 @@
 import type { CalendarSession, Project, SearchHit } from "@shared/api.ts";
 import type { Theme } from "@/hooks/useTheme.ts";
+import { liveMessages } from "@/i18n/messages/live.ts";
 import type { Layout, View } from "@/lib/dates.ts";
 import type { Filter } from "@/lib/filter.ts";
 import { DatePicker } from "./DatePicker.tsx";
@@ -8,6 +9,7 @@ import { SearchField, type SearchState } from "./SearchField.tsx";
 import { AppMenu } from "./toolbar/AppMenu.tsx";
 import { Brand, type ImportProgress } from "./toolbar/Brand.tsx";
 import { CopyReportButton } from "./toolbar/CopyReportButton.tsx";
+import { LiveButton, type LiveSummary } from "./toolbar/LiveButton.tsx";
 import { PeriodNav } from "./toolbar/PeriodNav.tsx";
 import { LayoutToggle, ViewToggle } from "./toolbar/ViewToggles.tsx";
 
@@ -29,6 +31,8 @@ interface Props {
   onMove: (dir: -1 | 1) => void;
   onToday: () => void;
   onJump: (day: number) => void;
+  /** The running sessions, for the button that opens their page. */
+  live: LiveSummary;
   /** The search field. App holds the ref because the `/` key focuses it. */
   searchRef: React.RefObject<HTMLInputElement | null>;
   /** Results of the keyword across every period. */
@@ -48,8 +52,9 @@ interface Props {
 }
 
 /**
- * The header bar: wordmark, period navigation, view and layout toggles, search, filters,
- * report copy and the "⋯" menu.
+ * The header bar: wordmark, period navigation, view and layout toggles, the live page's button,
+ * search, filters, report copy and the "⋯" menu. The live page has no period, so there the
+ * period controls give way to its heading.
  */
 export function Toolbar({
   view,
@@ -66,6 +71,7 @@ export function Toolbar({
   onMove,
   onToday,
   onJump,
+  live,
   searchRef,
   search,
   projectMap,
@@ -85,29 +91,51 @@ export function Toolbar({
     <header className="flex h-16 shrink-0 items-center gap-3 border-b bg-background px-5 max-lg:gap-2 max-lg:px-3">
       <Brand progress={progress} />
       <span className="w-3 shrink-0 max-lg:hidden" aria-hidden />
-      <PeriodNav view={view} onMove={onMove} onToday={onToday} />
-      <h1 className="flex min-w-0">
-        <DatePicker view={view} anchor={anchor} now={now} projects={projects} onJump={onJump} />
-      </h1>
+      {/* The live page shows the present, so it has no period to move through or pick */}
+      {layout === "live" ? (
+        <h1 className="min-w-0 truncate font-semibold text-[17px] tracking-tight">
+          {liveMessages().heading}
+        </h1>
+      ) : (
+        <>
+          <PeriodNav view={view} onMove={onMove} onToday={onToday} />
+          <h1 className="flex min-w-0">
+            <DatePicker view={view} anchor={anchor} now={now} projects={projects} onJump={onJump} />
+          </h1>
+        </>
+      )}
 
       <div className="ml-auto flex shrink-0 items-center gap-2 max-lg:gap-1">
-        <SearchField
-          inputRef={searchRef}
-          value={filter.q}
-          files={filter.qFiles}
-          onFiles={(qFiles) => onFilter({ ...filter, qFiles })}
-          period={view}
-          onChange={(q) => onFilter({ ...filter, q })}
-          search={search}
-          projects={projectMap}
-          onOpen={onOpenHit}
-          onPanel={onSearchPanel}
-        />
-        <ViewToggle view={view} onView={onView} />
+        {/* Search narrows the shown period, which the live page doesn't have */}
+        {layout !== "live" && (
+          <SearchField
+            inputRef={searchRef}
+            value={filter.q}
+            files={filter.qFiles}
+            onFiles={(qFiles) => onFilter({ ...filter, qFiles })}
+            period={view}
+            onChange={(q) => onFilter({ ...filter, q })}
+            search={search}
+            projects={projectMap}
+            onOpen={onOpenHit}
+            onPanel={onSearchPanel}
+          />
+        )}
+        {layout !== "live" && <ViewToggle view={view} onView={onView} />}
         <LayoutToggle layout={layout} onLayout={onLayout} />
+        <LiveButton live={live} active={layout === "live"} onOpen={() => onLayout("live")} />
         <span className="w-2 shrink-0 max-lg:hidden" aria-hidden />
-        <CopyReportButton view={view} report={report} hasWork={hasWork} />
-        <FilterMenu projects={projects} sessions={sessions} filter={filter} onFilter={onFilter} />
+        {layout !== "live" && (
+          <>
+            <CopyReportButton view={view} report={report} hasWork={hasWork} />
+            <FilterMenu
+              projects={projects}
+              sessions={sessions}
+              filter={filter}
+              onFilter={onFilter}
+            />
+          </>
+        )}
         <AppMenu open={menuOpen} onOpenChange={onMenuOpen} theme={theme} onTheme={onTheme} />
       </div>
     </header>

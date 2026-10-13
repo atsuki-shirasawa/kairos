@@ -289,8 +289,9 @@ A work block's fill is the project color mixed into `block-base` in `oklch`:
 - **Day column headers** put the weekday above the date number: beside it, "5 月" reads as May in Japanese
 - **Drawer** opens from the right with 20px padding; below `lg` it overlays the screen with a backdrop.
   In the week and month calendars it also floats over the calendar (no backdrop) up to `xl`:
-  pushing seven columns into the ~600px left at 1024px cut most titles to one word. The day view,
-  list and summary still make room for it
+  pushing seven columns into the ~600px left at 1024px cut most titles to one word. The live
+  page's three columns would shrink the same way, so it floats there too. The day view, list and
+  summary still make room for it
 - **Toolbar** groups its controls by spacing, not frames or divider rules: period navigation and
   search are frameless until hovered or used. The period (month / week / day) and the layout
   (calendar / summary) are two separate controls, as in Google Calendar: the period is an outlined
@@ -303,8 +304,8 @@ A work block's fill is the project color mixed into `block-base` in `oklch`:
   the spacing go, search shrinks to its icon until focused, and its results span the screen. No
   control is dropped. Between `lg` and `xl` the open search field is 192px rather than 256px, so the
   period label beside it keeps its full width
-- **Toolbar** holds only view switching, date navigation, search, report copy and filters. Theme,
-  language and the shortcut list live in the "⋯" menu
+- **Toolbar** holds only view switching, date navigation, search, report copy, filters and the
+  live page's button. Theme, language and the shortcut list live in the "⋯" menu
 - **Filters** are edited in the toolbar's popover (384px wide, scrolling within the window) and,
   while any applies, listed as chips in a row under the toolbar, so what narrows the view stays in
   sight with the popover closed. Chosen over a sidebar: filters are occasional, "just for now"
@@ -414,21 +415,33 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   × button (`muted-ink`, `accent` on hover); outcomes share one chip ("Commit or PR merged")
   because they combine as "any of", states get one each. "Clear all" follows when there are two
   or more. Neutral, not indigo: they are a reminder of the state, not a selection
-- **Running sessions:** a row under the toolbar, above the filter chips, with a 28px card per
-  Claude Code session running now; absent when none is. With chips showing, the chips' row draws
-  the one rule under both. A card is a small work block: the 3px project-colored left edge and
-  the dim block fill (`--mix-block-dim`, `--mix-block` on hover), a 6px state dot, the title in
-  12px medium `ink`, then the state word in `muted-ink` and how long it has lasted in `numeral`.
-  Working pulses the dot in the project color, as on the calendar's block in progress; asking (a
-  question or plan approval left unanswered) is a solid `warn` dot with its state in `warn`, since
-  it holds the turn until you answer; waiting and idle are a `muted-ink` ring, and idle (waiting
-  15 minutes or more) sets the title in `muted-ink` too. No opacity: the card stays readable.
-  Cards that want an answer come first, and the row wraps rather than scrolling sideways. Focus
-  is the 2px `ring` outline. The tooltip holds the rest (project and branch, the call in flight or
-  the question, tasks, the last test, context size, the recap), and clicking opens the latest work
-  block; a session not in the log yet has nothing to open, so its card is disabled (no hover fill,
-  default cursor) and the tooltip says why. The tab title leads with the number of sessions
-  asking or waiting ("(2) Kairos"), so a background tab still says so
+- **Live page (running sessions):** a page of its own (`?layout=live`, `n`), opened from the
+  toolbar's "Live" button. The button is a ghost button beside the layout toggle, pressed (`muted`
+  fill, `ink` text) on the page: a 6px dot (`ink` pulsing while a session works, `muted-ink`
+  otherwise, a ring when nothing runs; not indigo, which would mark it selected, nor a project
+  color, since it stands for every project), the word "Live", and the number of sessions waiting on
+  you in `numeral` `warn`. The page has no period, so the period navigation, date picker, period
+  dropdown, search, report copy and filters give way to its 17px heading (search narrows a period
+  too). The body sits on `surface` in three columns (one below `lg`): Waiting on you (asking or done
+  with a turn), Working, Idle (waiting 15 minutes or more). A column heading is 14px medium with its
+  count beside it in the numeral face at the heading's size (`warn` for a non-empty Waiting on you)
+  and a 12px `muted-ink` note on what puts a session there; an empty column says "None". A card is a
+  work block: the 3px project-colored edge and the dim block fill (`--mix-block-dim`, `--mix-block`
+  on hover), the selected one outlined in `primary`. It shows a 6px state dot and the title (14px
+  medium, two lines at most; `muted-ink` when idle), the project, worktree and branch (12px
+  `muted-ink`, with a "Background" badge styled like the drawer's Headless one), the state word and
+  how long it has lasted with the start time at the right (`numeral`), then what it is doing: the
+  question (14px `ink`), the call in flight (tool name in medium, its summary in `muted-ink`), tasks
+  as a 4px bar in the project color on `muted`, the last test (its word in `warn` when it failed),
+  Claude Code's recap while it isn't working (three lines), and the context size. Working pulses the
+  dot in the project color, asking is a solid `warn` dot with its state word in `warn`, waiting and
+  idle are a `muted-ink` ring. No opacity: cards stay readable. The title is the card's button;
+  clicking anywhere else on the card does the same unless it ends a text selection, so a question or
+  command can still be copied. It opens the latest work block in the drawer, which floats over the
+  page as in the week view; a session not in the log yet has nothing to open, so its card is plain
+  content (no pointer, no hover fill). Only a card that opens takes the hover fill (`--mix-block`),
+  and keyboard focus on its title draws the 2px `ring` outline around the card. The tab title leads
+  with the number waiting on you ("(2) Kairos"), so a background tab still says so
 - **Mark:** `src/web/public/favicon.svg` — a circle with a dawn → evening → night gradient cut by a
   diagonal blade (Kairos stands on a razor's edge: cutting out a single moment). The background
   shows through the gap, so it reads on light and dark tabs; the gap stays open at 16px. Used for
@@ -445,6 +458,8 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
 - **Do** use `font-num` for any time, date, count or cost
 - **Don't** add new accent colors, gradients or decorative shadows to the frame — color belongs to
   the work blocks
-- **Don't** add controls to the toolbar; put rarely used settings in the "⋯" menu
+- **Don't** add controls to the toolbar; put rarely used settings in the "⋯" menu. The live
+  page's button is the exception: it says from every page how many sessions wait on you, which a
+  menu can't
 - **Don't** hard-code UI copy; it goes in the `en` / `ja` dictionaries (`.claude/rules/web.md`)
 - **Don't** render images or raw HTML from conversation Markdown

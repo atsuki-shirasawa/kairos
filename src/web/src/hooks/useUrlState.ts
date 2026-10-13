@@ -39,7 +39,7 @@ function read(): UrlState {
   const layout = q.get("layout");
   return {
     view,
-    layout: layout === "list" || layout === "summary" ? layout : "calendar",
+    layout: layout === "list" || layout === "summary" || layout === "live" ? layout : "calendar",
     anchor: fromISODate(q.get("date")) ?? startOfDay(Date.now()),
     session: q.get("session"),
     at: Number(q.get("at")) || null,

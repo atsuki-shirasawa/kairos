@@ -13,6 +13,7 @@ export type Shortcut =
   | "calendar"
   | "list"
   | "summary"
+  | "live"
   | "nextBlock"
   | "prevBlock"
   | "menu"
@@ -30,6 +31,7 @@ const KEYS = new Map<string, Shortcut>([
   ["c", "calendar"],
   ["l", "list"],
   ["s", "summary"],
+  ["n", "live"],
   ["j", "nextBlock"],
   ["k", "prevBlock"],
   ["/", "search"],

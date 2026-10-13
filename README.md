@@ -59,9 +59,9 @@ Add the following to `hooks.SessionStart` in `~/.claude/settings.json`.
 
 ### Running sessions
 
-While Claude Code sessions are running, a row under the toolbar shows each one: working (and the tool call in flight), asking you (a question or plan approval left unanswered), waiting for your next prompt, or idle (waiting 15 minutes or more). The tooltip adds the task list's progress, the last test run and the context size, and clicking a card opens its latest work block. The browser tab's title counts the sessions asking or waiting, e.g. `(2) Kairos`.
+The "Live" button in the toolbar (or `n`) opens a page of the Claude Code sessions running now, in three columns: waiting on you (asking a question or plan approval, or done with its turn), working (with the tool call in flight), and idle (waiting 15 minutes or more). Each card adds the task list's progress, the last test run, Claude Code's recap and the context size, and clicking it opens its latest work block. The button shows how many sessions are waiting on you from any page, and so does the browser tab's title, e.g. `(2) Kairos`.
 
-No hooks are needed: Kairos reads Claude Code's own record of running sessions (`~/.claude/sessions/<pid>.json`, read-only) alongside the logs. That record is undocumented, so a Claude Code update may change it; if it can't be read, the row simply doesn't appear. Whether a session is waiting on a permission prompt can't be told from these files, so such a session shows as working.
+No hooks are needed: Kairos reads Claude Code's own record of running sessions (`~/.claude/sessions/<pid>.json`, read-only) alongside the logs. That record is undocumented, so a Claude Code update may change it; if it can't be read, the page says so (and `kairos doctor` warns). Whether a session is waiting on a permission prompt can't be told from these files, so such a session shows as working.
 
 ## Usage
 
@@ -84,7 +84,7 @@ Server options (`open`, `restart`, `rebuild`, `ensure`, `serve`): `--summary-mod
 
 Changing the language (in the UI or with `--summary-lang`) doesn't rewrite existing summaries. They stay as they are, and you can regenerate any of them from the drawer.
 
-Keyboard shortcuts: `←` `→` previous/next period, `t` today, `m` month view, `w` week view, `d` day view, `c` calendar, `s` summary (totals, time by day and project, what was done, and recaps), `l` the summary as a table (one row per block with sortable numbers), `j` `k` next/previous work block, `/` search (the shown period, plus every period in the list under the field; `↓` to pick), `Esc` close details, `?` menu with theme, language and shortcuts
+Keyboard shortcuts: `←` `→` previous/next period, `t` today, `m` month view, `w` week view, `d` day view, `c` calendar, `s` summary (totals, time by day and project, what was done, and recaps), `n` the sessions running now, `l` the summary as a table (one row per block with sortable numbers), `j` `k` next/previous work block, `/` search (the shown period, plus every period in the list under the field; `↓` to pick), `Esc` close details, `?` menu with theme, language and shortcuts
 
 ### Updating
 

@@ -7,7 +7,7 @@ import { type Shortcut, shortcutFor } from "@/lib/shortcuts.ts";
 
 /** What the shortcuts read and act on. */
 export interface ShortcutTargets extends BlockStepping {
-  state: Pick<UrlState, "view" | "anchor" | "session">;
+  state: Pick<UrlState, "view" | "layout" | "anchor" | "session">;
   update: UrlStateUpdate;
   closeDrawer: () => void;
   toggleMenu: () => void;
@@ -39,9 +39,28 @@ function popoverOpen(): boolean {
   return document.querySelector("[data-slot=popover-content]") !== null;
 }
 
+/** Shortcuts that only make sense with a period on screen. */
+const PERIODLESS_IGNORED: ReadonlySet<Shortcut> = new Set([
+  "prevPeriod",
+  "nextPeriod",
+  "today",
+  "nextBlock",
+  "prevBlock",
+]);
+
 /** Runs a shortcut. Returns false when it doesn't apply now, so the key press passes through. */
 function run(shortcut: Shortcut, t: ShortcutTargets): boolean {
   const { state, update } = t;
+  // The live page has no period: moving through periods or stepping through their blocks would
+  // change a calendar nobody sees, so those keys pass through, and picking a period goes back to
+  // the calendar with it
+  if (state.layout === "live") {
+    if (PERIODLESS_IGNORED.has(shortcut)) return false;
+    if (shortcut === "month" || shortcut === "week" || shortcut === "day") {
+      update({ layout: "calendar", view: shortcut });
+      return true;
+    }
+  }
   switch (shortcut) {
     case "prevPeriod":
       update({ anchor: shift(state.view, state.anchor, -1) });
@@ -69,6 +88,9 @@ function run(shortcut: Shortcut, t: ShortcutTargets): boolean {
       break;
     case "summary":
       update({ layout: "summary" });
+      break;
+    case "live":
+      update({ layout: "live" });
       break;
     case "nextBlock":
       t.goTo(t.next);
