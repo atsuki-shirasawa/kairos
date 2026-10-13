@@ -141,7 +141,7 @@ function DoneItem({
   return (
     <li
       className={cn(
-        "-mx-2 flex items-baseline gap-3 rounded-sm px-2 py-1 hover:bg-accent",
+        "relative -mx-2 flex items-baseline gap-3 rounded-sm px-2 py-1 hover:bg-accent",
         selected && "bg-accent",
       )}
       data-selected={selected || undefined}
@@ -150,15 +150,17 @@ function DoneItem({
         <span className="w-7 shrink-0 text-foreground">{showDay && weekday(start)}</span>
         {hhmm(start)}–{hhmm(b.segment.end)}
       </span>
+      {/* Sized to the headline so the PR numbers sit right after it; its ::after covers the row,
+          so the whole highlighted row still opens the block */}
       <button
         type="button"
         onClick={() => onSelect(b.session.id, start)}
-        className="min-w-0 flex-1 text-left text-sm hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+        className="min-w-0 text-left text-sm after:absolute after:inset-0 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
       >
         {b.segment.headline}
       </button>
       {b.segment.prs.length > 0 && (
-        <span className="flex shrink-0 gap-2">
+        <span className="relative flex shrink-0 gap-2">
           {b.segment.prs.map((a) => (
             <PrNumber key={a.ref} artifact={a} />
           ))}
