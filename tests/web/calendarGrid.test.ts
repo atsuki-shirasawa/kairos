@@ -13,7 +13,9 @@ import {
   monthCellFit,
   monthRowHeights,
   NO_EDGES,
+  RAISED_LAYER,
   sameEdges,
+  stackOrder,
 } from "../../src/web/src/lib/calendarGrid.ts";
 import { layoutDay, type PlacedBlock } from "../../src/web/src/lib/layout.ts";
 
@@ -320,5 +322,25 @@ describe("monthRowHeights", () => {
       heightPx: 300,
     });
     expect(rows).toEqual([94, 94, 94, 94, 94, 36]);
+  });
+});
+
+describe("stackOrder", () => {
+  const order = (depth: number, selected = false, muted = false) =>
+    stackOrder({ depth, selected, muted });
+
+  test("draws deeper blocks on top, and a selected block never over the ones stacked on it", () => {
+    expect(order(1)).toBeGreaterThan(order(0));
+    expect(order(0, true)).toBeGreaterThan(order(0));
+    expect(order(0, true)).toBeLessThan(order(1));
+  });
+
+  test("puts every block in full view above every faded one", () => {
+    expect(order(0)).toBeGreaterThan(order(20, false, true));
+    expect(order(2, false, true)).toBeGreaterThan(order(1, false, true));
+  });
+
+  test("brings a hovered or focused faded block back above the blocks in full view", () => {
+    expect(RAISED_LAYER + order(0, false, true)).toBeGreaterThan(order(20, true));
   });
 });

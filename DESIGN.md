@@ -311,8 +311,8 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   solid edge is the branch of work you prompted (in the week, day and month views alike). The
   tooltip says why, and the drawer heading carries a "Headless" badge: 12px `muted-ink` text in a
   1px `border` outline with `md` radius, beside the project line. Filtered-out
-  blocks fade to 30% opacity, drop behind matching ones where they overlap, and come back on hover
-  or focus
+  blocks fade to 30% opacity and drop behind matching ones where they overlap; hover or focus
+  brings one back in full and on top
 - **Moments (commit and PR nodes):** read like a git graph: the block's colored edge is the branch,
   and each commit is a 7px `ink` ring (filled with `surface`) hanging just inside it at the height
   of the minute it was made; a PR is the same node filled with `ink`. Nodes stay a radius inside the

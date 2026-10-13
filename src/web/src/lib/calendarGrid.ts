@@ -127,6 +127,33 @@ export function headingLines(px: number): number {
 }
 
 /**
+ * Lift for blocks in full view during a search, so a faded block never sits on top of one. Far
+ * above `1 + depth * 2 + 1` for any real stack; the column's block layer is isolated, so neither
+ * this nor `RAISED_LAYER` reaches past it.
+ */
+const SHOWN_LAYER = 1000;
+
+/** Offset that brings a faded block back on top while it is hovered or focused. */
+export const RAISED_LAYER = 2 * SHOWN_LAYER;
+
+/**
+ * Paint order (z-index) of a block in its day column. Later blocks draw on top, and a selected
+ * block rises one step but never above the ones stacked over it. During a search, blocks in full
+ * view sit in a layer above the faded (`muted`) ones, keeping that order within each layer.
+ */
+export function stackOrder({
+  depth,
+  selected,
+  muted,
+}: {
+  depth: number;
+  selected: boolean;
+  muted: boolean;
+}): number {
+  return (muted ? 0 : SHOWN_LAYER) + 1 + depth * 2 + (selected ? 1 : 0);
+}
+
+/**
  * Index of the day holding the selected block, which keeps its width when columns get narrow.
  * -1 when nothing is selected or the view has few enough days that every column is wide.
  */
