@@ -191,6 +191,13 @@ export const MIGRATIONS: string[] = [
   `
   ALTER TABLE sessions ADD COLUMN sdk_prompt_count INTEGER NOT NULL DEFAULT 0;
   `,
+  // 8: no schema change. Summaries written before parseSummary skipped code fences have a fence
+  // ("```") as their headline (#29). Their shapes vary, so rather than repairing them here, delete
+  // them: the summarizer takes sections without a summary again (recent ones automatically, older
+  // ones with `kairos summarize` or from the drawer), and until then the fallback title shows
+  `
+  DELETE FROM summaries WHERE trim(headline) GLOB '\`\`\`*' OR trim(headline) GLOB '~~~*';
+  `,
 ];
 
 /** Schema version once every migration is applied (stored in `PRAGMA user_version`). */

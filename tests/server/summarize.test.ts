@@ -1,6 +1,9 @@
-import type { Database } from "bun:sqlite";
+import { Database } from "bun:sqlite";
 import { beforeEach, describe, expect, test } from "bun:test";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createApp } from "../../src/server/api/app.ts";
+import { MIGRATIONS, openDb } from "../../src/server/db/index.ts";
 import { EventHub } from "../../src/server/events.ts";
 import { buildDigest } from "../../src/server/summarize/digest.ts";
 import { buildPrompt, buildTitlePrompt, parseSummary } from "../../src/server/summarize/prompt.ts";
@@ -212,6 +215,41 @@ describe("prompt", () => {
     expect(parseSummary("サマリー")).toBeNull();
   });
 
+  test("parseSummary takes the headline from inside a code fence", () => {
+    expect(parseSummary("```\nWeather pages\n```\n- Goal: g\n- Outcome: o")).toEqual({
+      headline: "Weather pages",
+      body: "- Goal: g\n- Outcome: o",
+    });
+    expect(parseSummary("```text\n\nWeather pages\n\n```\n\n- Goal: g")).toEqual({
+      headline: "Weather pages",
+      body: "- Goal: g",
+    });
+    // The whole output fenced: the closing fence is the last line
+    expect(parseSummary("```markdown\nWeather pages\n\n- Goal: g\n- Outcome: o\n```")).toEqual({
+      headline: "Weather pages",
+      body: "- Goal: g\n- Outcome: o",
+    });
+    expect(parseSummary("````\nWeather pages\n````\n- Goal: g")?.headline).toBe("Weather pages");
+    expect(parseSummary("```c++\nWeather pages\n```\n- Goal: g")?.headline).toBe("Weather pages");
+    expect(parseSummary("~~~\nWeather pages\n~~~\n- Goal: g")?.body).toBe("- Goal: g");
+    expect(parseSummary("```\n```")).toBeNull();
+  });
+
+  test("parseSummary keeps the body's own code blocks when the headline is fenced", () => {
+    // Whole output fenced and the body opens with a code block: only the last fence is the stray one
+    expect(parseSummary("```\nH\n```sh\nbun test\n```\n- Outcome: o\n```")?.body).toBe(
+      "```sh\nbun test\n```\n- Outcome: o",
+    );
+    // Headline fence never closed: the body's fences pair up, so none is dropped
+    expect(parseSummary("```\nH\n- Done:\n```sh\nbun test\n```")?.body).toBe(
+      "- Done:\n```sh\nbun test\n```",
+    );
+  });
+
+  test("parseSummary keeps code fences in the body when the headline isn't fenced", () => {
+    expect(parseSummary("Weather pages\n```\nbun test\n```")?.body).toBe("```\nbun test\n```");
+  });
+
   test("parseSummary drops blank lines between bullets but keeps nesting", () => {
     expect(parseSummary("H\n\n- Goal: g\n\n- Done:\n  - a\n\n  - b\n\n- Outcome: o")?.body).toBe(
       "- Goal: g\n- Done:\n  - a\n  - b\n- Outcome: o",
@@ -279,4 +317,28 @@ test("Summarizer passes its language to the prompt", async () => {
   expect(summarizer.lang).toBe("en");
   await ja.summarize({ sessionId: SID.basic, start: min(45) });
   expect(prompts[0]).toContain("Write a summary in Japanese");
+});
+
+test("migration 8 deletes stored summaries whose headline is a code fence", () => {
+  const path = join(tmpdir(), `kairos-fence-${crypto.randomUUID()}.db`);
+  const old = new Database(path, { create: true });
+  for (const [i, sql] of MIGRATIONS.slice(0, 7).entries()) {
+    old.run(sql);
+    old.run(`PRAGMA user_version = ${i + 1}`);
+  }
+  old.run("INSERT INTO sessions (id) VALUES ('s')");
+  const insert = old.prepare(
+    "INSERT INTO summaries (session_id, start, headline, body, model, covered_until, created_at) VALUES ('s', ?, ?, ?, 'haiku', 0, 0)",
+  );
+  insert.run(1, "```", "Weather pages\n```\n- Goal: g");
+  insert.run(2, "```text", "");
+  insert.run(3, "~~~", "Weather pages\n~~~");
+  insert.run(4, "Fine headline", "x\n```\n- Goal: g");
+  old.close();
+
+  const db = openDb(path);
+  expect(db.query("SELECT start, headline FROM summaries").all()).toEqual([
+    { start: 4, headline: "Fine headline" },
+  ]);
+  db.close();
 });

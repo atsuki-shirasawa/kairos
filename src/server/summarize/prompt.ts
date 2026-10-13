@@ -143,11 +143,36 @@ function tightenList(body: string): string {
 const LABEL_LINE =
   /^\s*#*\s*\**(?:見出し|サマリー|要約|まとめ|headline|summary)\s*[:：]?\s*\**\s*[:：]?\s*$/i;
 
-/** Reads the first line as the headline and the rest as the body. Strips headline decorations (#, quotes). */
+/**
+ * A line holding only a code fence, which haiku sometimes wraps its headline in. Fences can be
+ * longer than three characters and carry any info string (```text, ```c++, ```ts title=x).
+ */
+const FENCE_LINE = /^\s*(?:`{3,}[^`]*|~{3,}.*)$/;
+
+/** A fence with no info string. Only this can close a block; "```sh" always opens one. */
+const BARE_FENCE_LINE = /^\s*(?:`{3,}|~{3,})\s*$/;
+
+/**
+ * Drops the fence that closes one opened above the headline. It is left over only when the body's
+ * fences don't pair up; then it is right after the headline (only the headline was fenced) or the
+ * last line (the whole output was). Balanced fences are the body's own code blocks.
+ */
+function dropClosingFence(rest: string[]): string[] {
+  if (rest.filter((l) => FENCE_LINE.test(l)).length % 2 === 0) return rest;
+  const next = rest.findIndex((l) => l.trim());
+  if (BARE_FENCE_LINE.test(rest[next] ?? "")) return rest.toSpliced(next, 1);
+  const last = rest.findLastIndex((l) => l.trim());
+  if (BARE_FENCE_LINE.test(rest[last] ?? "")) return rest.toSpliced(last, 1);
+  return rest;
+}
+
+/** Reads the first line as the headline and the rest as the body. Strips headline decorations (#, quotes, code fences). */
 export function parseSummary(output: string): ParsedSummary | null {
   const lines = output.trim().split("\n");
-  const first = lines.findIndex((l) => l.trim() && !LABEL_LINE.test(l));
+  const first = lines.findIndex((l) => l.trim() && !LABEL_LINE.test(l) && !FENCE_LINE.test(l));
   if (first === -1) return null;
+  const fenced = lines.slice(0, first).some((l) => FENCE_LINE.test(l));
+  const rest = lines.slice(first + 1);
   const headline = (lines[first] ?? "")
     // A Markdown heading needs the space; without it, "#1542 ..." is an issue number to keep
     .replace(/^#+\s+/, "")
@@ -156,11 +181,6 @@ export function parseSummary(output: string): ParsedSummary | null {
     .replace(/\*\*/g, "")
     .trim()
     .slice(0, 80);
-  const body = tightenList(
-    lines
-      .slice(first + 1)
-      .join("\n")
-      .trim(),
-  );
+  const body = tightenList((fenced ? dropClosingFence(rest) : rest).join("\n").trim());
   return headline ? { headline, body } : null;
 }
