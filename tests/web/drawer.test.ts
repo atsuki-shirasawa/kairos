@@ -4,6 +4,7 @@ import { ARTIFACT_GRACE_MS } from "../../src/shared/constants.ts";
 import {
   approxCostLabel,
   flowWindow,
+  outcomeNode,
   prLinkParts,
   ranDuring,
   selectedSection,
@@ -177,5 +178,28 @@ describe("summaryFailureKind", () => {
     expect(summaryFailureKind("did not finish within 120s")).toBe("timeout");
     expect(summaryFailureKind("API Error: 529 overloaded")).toBe("rateLimit");
     expect(summaryFailureKind("something else")).toBe("other");
+  });
+});
+
+describe("outcomeNode", () => {
+  const pr: Artifact = { kind: "pr", ref: "https://github.com/o/r/pull/30", title: null, ts: DAY0 };
+  const commit: Artifact = { kind: "commit", ref: "2023692abcdef", title: "fix", ts: DAY0 };
+
+  test("a PR when the outcome names one of the section's PRs", () => {
+    expect(outcomeNode("Merged PR #30 and closed #19", [commit, pr])).toBe("pr");
+  });
+
+  test("a commit when it names one of the section's commits by SHA", () => {
+    expect(outcomeNode("main is at `2023692`", [commit, pr])).toBe("commit");
+  });
+
+  test("a commit when the outcome quotes a longer SHA than the one recorded", () => {
+    const short: Artifact = { ...commit, ref: "2023692" };
+    expect(outcomeNode("main is at 2023692abcdef01", [short])).toBe("commit");
+  });
+
+  test("none for numbers and SHAs the section doesn't have", () => {
+    expect(outcomeNode("Closed #19 at 1234567", [commit, pr])).toBeNull();
+    expect(outcomeNode("Merged PR #30", [])).toBeNull();
   });
 });

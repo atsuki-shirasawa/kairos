@@ -1,9 +1,12 @@
 import type { Section, SessionDetail } from "@shared/api.ts";
+import { parseSummaryBody, type SummaryParts } from "@shared/summaryBody.ts";
 import { RefreshCw, Sparkles } from "lucide-react";
+import { type RefObject, useLayoutEffect, useRef, useState } from "react";
+import { MomentNode } from "@/components/MomentNode.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { useRequestSummary } from "@/hooks/queries.ts";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
-import { summaryFailureKind } from "@/lib/drawer.ts";
+import { outcomeNode, splitOutcomes, summaryFailureKind } from "@/lib/drawer.ts";
 import { issueBaseUrl } from "@/lib/issueLinks.ts";
 import { cn } from "@/lib/utils.ts";
 import { Markdown } from "../Markdown.tsx";
@@ -47,7 +50,7 @@ export function SectionSummary({
       }
     >
       {section.body ? (
-        <SummaryBody section={section} body={section.body} repo={s.project?.repo} />
+        <SummaryBody session={s} section={section} />
       ) : (
         <div className="space-y-2">
           <p className="text-muted-foreground text-sm">
@@ -83,29 +86,165 @@ function SummarizeButton({
   );
 }
 
+/**
+ * How Markdown inside the summary is set, structured or not: bold at the app's semibold and room
+ * between list items, so a summary looks the same whether or not it parses.
+ */
+const SUMMARY_MARKDOWN = "[&_li+li]:mt-1 [&_li>ol]:mt-1 [&_li>ul]:mt-1 [&_strong]:font-semibold";
+
 /** The summary text, then whether it is stale. */
-function SummaryBody({
-  section,
-  body,
-  repo,
-}: {
-  section: Section;
-  body: string;
-  repo: string | null | undefined;
-}) {
+function SummaryBody({ session: s, section }: { session: SessionDetail; section: Section }) {
   const t = drawerMessages();
+  const body = section.body ?? "";
+  const baseUrl = issueBaseUrl(s.project?.repo);
+  const parts = parseSummaryBody(body);
   return (
     <>
-      {/* The most-read part of the drawer stands out by its larger type alone, not a surface */}
-      <Markdown
-        issueBaseUrl={issueBaseUrl(repo)}
-        className="text-[15px] leading-7 [&_li+li]:mt-1 [&_li>ol]:mt-1 [&_li>ul]:mt-1 [&_strong]:font-semibold"
-      >
-        {body}
-      </Markdown>
+      {parts ? (
+        <StructuredSummary
+          // A new section starts with its Done points clamped again
+          key={section.start}
+          parts={parts}
+          baseUrl={baseUrl}
+          node={outcomeNode(parts.outcome, splitOutcomes(s.prs, s.commits, section).here)}
+        />
+      ) : (
+        // A body not in the three-item format is shown as written rather than guessed at
+        <Markdown issueBaseUrl={baseUrl} className={cn("text-[15px] leading-7", SUMMARY_MARKDOWN)}>
+          {body}
+        </Markdown>
+      )}
       {section.stale && <p className="mt-2 text-muted-foreground text-xs">{t.staleSummary}</p>}
     </>
   );
+}
+
+/**
+ * The summary read as Goal → Outcome → Done, each at its own weight: why the work was done and
+ * what came of it come first and largest, and the details of how follow, quieter and clamped. No
+ * surface behind any of it; the type sizes alone make this the place to read.
+ */
+function StructuredSummary({
+  parts,
+  baseUrl,
+  node,
+}: {
+  parts: SummaryParts;
+  baseUrl: string | null;
+  node: "pr" | "commit" | null;
+}) {
+  const t = drawerMessages();
+  return (
+    <div className="space-y-5">
+      {/* The lead sentence needs no label: it is the first thing read under the headline */}
+      <Markdown
+        issueBaseUrl={baseUrl}
+        className={cn("text-[17px] text-foreground leading-7", SUMMARY_MARKDOWN)}
+      >
+        {parts.goal}
+      </Markdown>
+      <div>
+        <SummaryLabel>{t.summaryOutcome}</SummaryLabel>
+        <div className="flex gap-2">
+          {/* Centered on the first line (28px leading) */}
+          {node && <MomentNode pr={node === "pr"} className="mt-2.5" />}
+          <Markdown
+            issueBaseUrl={baseUrl}
+            className={cn("min-w-0 text-[15px] leading-7", SUMMARY_MARKDOWN)}
+          >
+            {parts.outcome}
+          </Markdown>
+        </div>
+      </div>
+      <div>
+        <SummaryLabel>{t.summaryDone}</SummaryLabel>
+        <DoneList items={parts.done} baseUrl={baseUrl} />
+      </div>
+    </div>
+  );
+}
+
+/** A label over one of the summary's items, in the drawer's small heading style. */
+function SummaryLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <h4 className="mb-1 font-semibold text-muted-foreground text-xs tracking-wide">{children}</h4>
+  );
+}
+
+/**
+ * Done's points, each clamped to two lines so a long one doesn't push the rest of the drawer
+ * away. The toggle appears only when a point is actually cut off at the drawer's current width.
+ */
+function DoneList({ items, baseUrl }: { items: string[]; baseUrl: string | null }) {
+  const t = drawerMessages();
+  const [expanded, setExpanded] = useState(false);
+  const listRef = useRef<HTMLUListElement>(null);
+  const cut = useClampedChildren(listRef, items, expanded);
+  return (
+    <>
+      <ul ref={listRef} className="list-disc space-y-1 pl-5 text-muted-foreground marker:text-xs">
+        {items.map((item, i) => (
+          // Points have no identity beyond their place in the list
+          // biome-ignore lint/suspicious/noArrayIndexKey: see above
+          <li key={i}>
+            <Markdown
+              issueBaseUrl={baseUrl}
+              className={cn("leading-normal", SUMMARY_MARKDOWN, !expanded && "line-clamp-2")}
+            >
+              {item}
+            </Markdown>
+          </li>
+        ))}
+      </ul>
+      {(cut || expanded) && (
+        <Button
+          variant="ghost"
+          size="xs"
+          className="mt-1 -ml-2 text-muted-foreground"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((e) => !e)}
+        >
+          {expanded ? t.clampDone : t.showAllDone}
+        </Button>
+      )}
+    </>
+  );
+}
+
+/**
+ * Whether any list item's content is cut off by its line clamp. Re-checked when the items change,
+ * when the list resizes (the drawer can be resized) and once the web fonts are in: a clamped item
+ * keeps its two-line height whatever it holds, so neither of the last two resizes the list. Not
+ * measured while expanded: nothing is cut.
+ */
+function useClampedChildren(
+  ref: RefObject<HTMLElement | null>,
+  items: string[],
+  expanded: boolean,
+): boolean {
+  const [cut, setCut] = useState(false);
+  // `items` isn't read in the effect, but new text can be cut where the old wasn't
+  // biome-ignore lint/correctness/useExhaustiveDependencies: see above
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || expanded) return;
+    const measure = () =>
+      setCut(
+        [...el.querySelectorAll<HTMLElement>("li > div")].some(
+          (d) => d.scrollHeight > d.clientHeight + 1,
+        ),
+      );
+    measure();
+    let live = true;
+    void document.fonts.ready.then(() => live && measure());
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => {
+      live = false;
+      observer.disconnect();
+    };
+  }, [ref, items, expanded]);
+  return cut;
 }
 
 /** Why the last summary attempt failed, with a suggestion of what to do about it. */

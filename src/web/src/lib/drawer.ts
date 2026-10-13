@@ -135,3 +135,18 @@ export function summaryFailureKind(error: string): SummaryFailureKind {
   if (/rate.?limit|usage limit|overloaded|\b(429|529)\b/i.test(error)) return "rateLimit";
   return "other";
 }
+
+/**
+ * The node to set beside a summary's Outcome: a PR when it names one of the section's PRs by
+ * number, a commit when it names one of its commits by SHA, otherwise none. Only outcomes the
+ * section really has count, so a "#12" meaning an issue doesn't grow a node.
+ */
+export function outcomeNode(outcome: string, here: Artifact[]): "pr" | "commit" | null {
+  const numbers = new Set(outcome.match(/#\d+/g) ?? []);
+  if (here.some((a) => a.kind === "pr" && numbers.has(artifactRef(a) ?? ""))) return "pr";
+  const hexes = outcome.match(/\b[0-9a-f]{7,40}\b/g) ?? [];
+  // Either may be the longer one: the ref is often git's short SHA, the summary may quote a full one
+  const named = (a: Artifact) =>
+    shortSha(a) !== null && hexes.some((h) => a.ref.startsWith(h) || h.startsWith(a.ref));
+  return here.some((a) => a.kind === "commit" && named(a)) ? "commit" : null;
+}

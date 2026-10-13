@@ -1,4 +1,5 @@
 import type { CalendarSession, Project } from "@shared/api.ts";
+import { parseSummaryBody } from "@shared/summaryBody.ts";
 import { useId } from "react";
 import { Markdown } from "@/components/Markdown.tsx";
 import { MomentNode } from "@/components/MomentNode.tsx";
@@ -103,7 +104,7 @@ export function Block({
   // just waiting for its summary, so it is excluded
   const dim = !segment.summarized && !working;
   // In the day view a tall block has room to be read without opening the drawer
-  const body = detailed && geo.visible >= BODY_MIN_PX ? segment.body : null;
+  const body = detailed && geo.visible >= BODY_MIN_PX ? blockBody(segment.body) : null;
   const { commits, prs } = segment.activity;
   const projectName = project?.name ?? formatMessages().unknownProject;
   const state: BlockState = {
@@ -336,6 +337,15 @@ function BlockMeta({
       {detailed && session.label && <span className="truncate">{session.label}</span>}
     </span>
   );
+}
+
+/**
+ * What a block shows under its heading: the summary's Goal, which says why the work was done next
+ * to a heading that says what it was. The lane beside it already shows what came of it, and the
+ * drawer has the rest. A body in another format is shown whole.
+ */
+function blockBody(body: string | null): string | null {
+  return body && (parseSummaryBody(body)?.goal ?? body);
 }
 
 /** The summary body, faded out at the bottom where the block cuts it off. */

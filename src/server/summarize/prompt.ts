@@ -1,4 +1,5 @@
 // Prompts for section summaries, and parsing of the output.
+import { SUMMARY_LABELS } from "../../shared/summaryBody.ts";
 
 /** Language the summaries are written in. Set with `--summary-lang`. */
 export type SummaryLang = "en" | "ja";
@@ -32,17 +33,13 @@ const RULES: Record<SummaryLang, LangRules> = {
   en: {
     name: "English",
     headline: "a short noun phrase of about 3–8 words, no trailing period, no quotes or symbols",
-    goal: "Goal",
-    done: "Done",
-    outcome: "Outcome",
+    ...SUMMARY_LABELS.en,
   },
   // A Japanese headline reads best as a short noun-ending phrase (体言止め)
   ja: {
     name: "Japanese",
     headline: "15〜35 字、体言止め（「〜した」「〜し、〜」で終えない）、記号や引用符なし",
-    goal: "目的",
-    done: "やったこと",
-    outcome: "結果",
+    ...SUMMARY_LABELS.ja,
   },
 };
 
