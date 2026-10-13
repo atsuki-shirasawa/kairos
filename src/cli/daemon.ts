@@ -25,26 +25,46 @@ export async function health(port = PORT, timeoutMs = 300): Promise<HealthRespon
   }
 }
 
-interface PidFile {
+/** What the PID file records about the running server. */
+export interface PidFile {
   pid: number;
   /** When it was written. Used to tell whether the server is still starting. */
   at: number;
+  /** The `kairos serve` options it was started with, so `kairos restart` can start it the same way. */
+  args: string[];
 }
 
-/** Reads the PID file (`<pid> <written at>`). null when it is missing or unreadable. */
+/**
+ * Reads the PID file: `<pid> <written at>` on the first line, the server's options as a JSON array
+ * on the second (missing in files written by older versions). null when it is missing or unreadable.
+ */
 export function readPid(): PidFile | null {
   try {
-    const [pid, at] = readFileSync(PID_PATH, "utf8").trim().split(/\s+/).map(Number);
-    return pid ? { pid, at: at || 0 } : null;
+    const [first = "", second] = readFileSync(PID_PATH, "utf8").split("\n");
+    const [pid, at] = first.trim().split(/\s+/).map(Number);
+    return pid ? { pid, at: at || 0, args: parseArgsLine(second) } : null;
   } catch {
     return null;
   }
 }
 
-/** Records the server's PID with the current time, which `ensure` uses to judge "starting". */
-export function writePid(pid: number): void {
+/** The options line of the PID file; anything but an array of strings reads as no options. */
+function parseArgsLine(line: string | undefined): string[] {
+  try {
+    const args: unknown = JSON.parse(line ?? "");
+    return Array.isArray(args) && args.every((a) => typeof a === "string") ? args : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Records the server's PID with the current time, which `ensure` uses to judge "starting", and
+ * the options it was started with.
+ */
+export function writePid(pid: number, args: string[] = []): void {
   mkdirSync(dirname(PID_PATH), { recursive: true });
-  writeFileSync(PID_PATH, `${pid} ${Date.now()}\n`);
+  writeFileSync(PID_PATH, `${pid} ${Date.now()}\n${JSON.stringify(args)}\n`);
 }
 
 /** Removes the PID file if it is ours (leaves it alone if another server rewrote it). */
@@ -95,7 +115,7 @@ export async function ensure(
     env: serverEnv(),
   });
   closeSync(log);
-  if (child.pid) writePid(child.pid);
+  if (child.pid) writePid(child.pid, args);
   child.unref();
   return "started";
 }

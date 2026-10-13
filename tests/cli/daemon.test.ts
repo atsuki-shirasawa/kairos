@@ -12,9 +12,16 @@ const PORT = "4398";
 const env = { ...process.env, KAIROS_DATA_DIR: join(root, "data") };
 const args = ["--port", PORT, "--claude-dir", claudeDir, "--no-auto-summary"];
 
-function run(command: string): { out: string; ms: number; code: number } {
+/** Options each command takes here: the CLI refuses ones a command doesn't take. */
+const OPTIONS_OF: Record<string, string[]> = { status: ["--port", PORT], stop: [] };
+
+function run(command: string, options = OPTIONS_OF[command] ?? args) {
   const t = performance.now();
-  const p = Bun.spawnSync(["bun", CLI, command, ...args], { env, stdout: "pipe", stderr: "pipe" });
+  const p = Bun.spawnSync(["bun", CLI, command, ...options], {
+    env,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
   return {
     out: p.stdout.toString() + p.stderr.toString(),
     ms: performance.now() - t,
@@ -63,6 +70,17 @@ test("ensure returns immediately without output, and concurrent calls start only
   expect(again.out).toBe("");
   expect(again.code).toBe(0);
   expect(run("status").out).toContain("Running");
+}, 30_000);
+
+test("restart without options keeps the ones the server was started with", async () => {
+  // --port only says where the server is, so it doesn't replace the kept options
+  const restarted = run("restart", ["--port", PORT]);
+  expect(restarted.code).toBe(0);
+  expect(restarted.out).toContain("Restarted");
+  expect(restarted.out).toContain("--no-auto-summary");
+  const res = await fetch(`http://127.0.0.1:${PORT}/api/health`);
+  expect(((await res.json()) as { autoSummary: boolean }).autoSummary).toBe(false);
+  expect(run("status").out).toContain("Options: ");
 }, 30_000);
 
 test("stop stops the server and removes the PID file", async () => {

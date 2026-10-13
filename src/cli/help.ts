@@ -7,7 +7,9 @@ interface CommandHelp {
   summary: string;
   /** Longer explanation for the command's own page; the summary is used when absent. */
   description?: string;
-  /** Option lines (`--flag <arg>`, explanation) that apply to this command. */
+  /** The arguments it takes, as the usage line shows them (`[day]`); it takes none when absent. */
+  args?: string;
+  /** Option lines (`--flag <arg>`, explanation) that apply to this command; any other is refused. */
   options?: [string, string][];
   examples?: string[];
 }
@@ -23,16 +25,43 @@ const SERVER_OPTIONS: [string, string][] = [
   ["--no-auto-summary", "do not summarize automatically (only when requested from the drawer)"],
 ];
 
+/** Options of the commands that read the DB, catching up on the logs first when the server is down. */
+const READ_OPTIONS: [string, string][] = [
+  ["--json", "print JSON instead of text"],
+  ["--db <path>", "DB file (default: under the data directory)"],
+  [
+    "--claude-dir <path>",
+    "Claude Code config directory, read when the server is not running (default: ~/.claude)",
+  ],
+  ["--port <n>", "port of the server, for links (default: 4319)"],
+];
+
 /** Every command, in the order the overview lists them. */
 export const COMMANDS: Record<string, CommandHelp> = {
   open: {
     summary: "start the server and open it in the browser",
-    options: SERVER_OPTIONS,
+    description:
+      "Start the server if it is not running and open it in the browser: this week, or the day\n" +
+      "given (YYYY-MM-DD, today or yesterday).",
+    args: "[day]",
+    options: [["--session <id>", "open this session's drawer"], ...SERVER_OPTIONS],
+    examples: ["kairos open", "kairos open yesterday", "kairos open 2026-10-01"],
   },
   status: { summary: "show the server status", options: [["--port <n>", "port to check"]] },
   stop: { summary: "stop the background server" },
   restart: {
     summary: "stop and start the server again (after updating Kairos)",
+    description:
+      "Stop the server and start it again. It keeps the options the running server was started\n" +
+      "with, unless you give server options, which replace them. --port is never kept: give it\n" +
+      "again if the server isn't on the default port.",
+    options: SERVER_OPTIONS,
+  },
+  rebuild: {
+    summary: "build the web UI and restart the server (after changing Kairos)",
+    description:
+      "Build the web UI (`bun run build` in the repository), then restart the server so it\n" +
+      "serves the new build and code. If the build fails, the running server is left alone.",
     options: SERVER_OPTIONS,
   },
   ensure: {
@@ -57,8 +86,8 @@ export const COMMANDS: Record<string, CommandHelp> = {
       "Each summary is saved as soon as it is written, so stopping with Ctrl+C loses nothing\n" +
       "and running it again picks up the rest.",
     options: [
-      ["--since <YYYY-MM-DD>", "only blocks that started on or after this day"],
-      ["--until <YYYY-MM-DD>", "only blocks that started on or before this day"],
+      ["--since <day>", "only blocks that started on or after this day (YYYY-MM-DD)"],
+      ["--until <day>", "only blocks that started on or before this day"],
       ["--limit <n>", "at most n blocks (the newest)"],
       ["--dry-run", "show how many blocks would be summarized, without running claude"],
       ["--summary-model <m>", "model used for summaries (default: haiku)"],
@@ -72,6 +101,7 @@ export const COMMANDS: Record<string, CommandHelp> = {
         "--claude-dir <path>",
         "Claude Code config directory, read when the server is not running (default: ~/.claude)",
       ],
+      ["--port <n>", "port of the running server, whose recent blocks are left to it"],
     ],
     examples: [
       "kairos summarize --dry-run",
@@ -79,7 +109,66 @@ export const COMMANDS: Record<string, CommandHelp> = {
       "kairos summarize --limit 20 --summary-lang ja",
     ],
   },
-  help: { summary: "show this help, or a command's (kairos help <command>)" },
+  report: {
+    summary: "print a day's or a period's work as Markdown",
+    description:
+      "Print the work blocks of a day (default: today) or of --since / --until as Markdown, per\n" +
+      "day and project, like the report the UI copies, followed by what was still open at the\n" +
+      "end. Paste it into a stand-up note, Slack or a ticket.",
+    args: "[day]",
+    options: [
+      ["--since <day>", "first day of the period (YYYY-MM-DD, today or yesterday)"],
+      ["--until <day>", "last day of the period (default: today)"],
+      ["--full", "include each block's summary under its line"],
+      ...READ_OPTIONS,
+    ],
+    examples: [
+      "kairos report",
+      "kairos report yesterday --full",
+      "kairos report --since 2026-10-06 --until 2026-10-10 | pbcopy",
+    ],
+  },
+  "open-items": {
+    summary: "list what is still open, per project",
+    description:
+      "List the open items (todos, issues, questions, waits) that summaries left and nothing has\n" +
+      "closed yet, grouped by project.",
+    options: [
+      ["--project <p>", "only this project: a path inside it (. for here) or its name"],
+      ...READ_OPTIONS,
+    ],
+    examples: ["kairos open-items", "kairos open-items --project ."],
+  },
+  search: {
+    summary: "find work blocks by what was done in them",
+    description:
+      "Find work blocks matching every term, newest first: in summaries, session titles,\n" +
+      "branches, PR and commit titles, and the conversation. `file:<path>` matches files edited\n" +
+      "in the block. Each hit comes with a link that opens it in Kairos.",
+    args: "<terms...>",
+    options: [["--limit <n>", "at most n hits"], ...READ_OPTIONS],
+    examples: ["kairos search migration", "kairos search file:src/cli/index.ts"],
+  },
+  doctor: {
+    summary: "check the setup: claude, the build, the server, the DB and the hook",
+    description:
+      "Check what the README's troubleshooting table checks by hand: the session logs, the\n" +
+      "`claude` command, the web build, the server (and who holds the port if it isn't Kairos),\n" +
+      "the DB, and the SessionStart hook. Exits 1 when something is broken.",
+    options: [
+      ["--port <n>", "port to check (default: 4319)"],
+      ["--db <path>", "DB file (default: under the data directory)"],
+      ["--claude-dir <path>", "Claude Code config directory (default: ~/.claude)"],
+    ],
+  },
+  logs: {
+    summary: "show the end of the server log",
+    options: [
+      ["-n, --lines <n>", "how many lines (default: 50)"],
+      ["-f, --follow", "keep printing as the log grows"],
+    ],
+  },
+  help: { summary: "show this help, or a command's (kairos help <command>)", args: "[command]" },
 };
 
 /** Text styles, or no-ops when color is off. */
@@ -182,7 +271,7 @@ export function commandHelp(name: string, color: boolean): string | null {
   if (!c) return null;
   const { bold } = styles(color);
   const parts = [
-    `${bold("usage:")} kairos ${name}${c.options ? " [options]" : ""}`,
+    `${bold("usage:")} kairos ${name}${c.args ? ` ${c.args}` : ""}${c.options ? " [options]" : ""}`,
     "",
     c.description ?? `${c.summary[0]?.toUpperCase()}${c.summary.slice(1)}.`,
   ];

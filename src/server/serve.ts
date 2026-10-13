@@ -28,6 +28,8 @@ export interface ServeOptions {
   summaryLang?: SummaryLang;
   /** When false, summaries are not made automatically (only when requested from the drawer). */
   autoSummary?: boolean;
+  /** The command-line options it was started with, kept in the PID file for `kairos restart`. */
+  args?: string[];
 }
 
 /**
@@ -75,7 +77,7 @@ export async function serve(opts: ServeOptions = {}): Promise<void> {
     db.close();
     process.exit(1);
   }
-  writePid(process.pid);
+  writePid(process.pid, opts.args ?? []);
   log(`serving http://${HOST}:${server.port}/ (pid ${process.pid})`);
   if (!existsSync(WEB_DIST))
     log("web UI is not built; run `bun run build` (only the API is available)");
