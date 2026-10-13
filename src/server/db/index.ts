@@ -198,6 +198,32 @@ export const MIGRATIONS: string[] = [
   `
   DELETE FROM summaries WHERE trim(headline) GLOB '\`\`\`*' OR trim(headline) GLOB '~~~*';
   `,
+  // 9: open items carried across sections and sessions (#35). Filled from each section summary's
+  // Open item when the section is summarized; nothing is filled for summaries written before.
+  // The project comes from the session at read time, since project assignment is recomputed.
+  // closed_by: 'ref' when the log shows the issue closed, the PR merged or the task completed
+  // (recomputable, so kept when a section is regenerated); 'model' when a later section's summary
+  // said it settled the item (rewritten when that section is regenerated)
+  `
+  CREATE TABLE open_items (
+    id                 INTEGER PRIMARY KEY,
+    session_id         TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    start              INTEGER NOT NULL,
+    -- End of the section as summarized; only what happens after it can close the item
+    opened_at          INTEGER NOT NULL,
+    kind               TEXT,
+    text               TEXT NOT NULL,
+    -- JSON array of the issue / PR numbers ("#12"), Jira keys and task IDs ("task:3") it names
+    refs               TEXT NOT NULL DEFAULT '[]',
+    closed_at          INTEGER,
+    closed_session_id  TEXT,
+    closed_start       INTEGER,
+    closed_by          TEXT,
+    closed_note        TEXT
+  );
+  CREATE INDEX open_items_section ON open_items(session_id, start);
+  CREATE INDEX open_items_closed_in ON open_items(closed_session_id, closed_start);
+  `,
 ];
 
 /** Schema version once every migration is applied (stored in `PRAGMA user_version`). */

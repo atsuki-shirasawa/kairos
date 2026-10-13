@@ -1,6 +1,8 @@
 import type { Database } from "bun:sqlite";
+import { parseSummaryBody } from "../../shared/summaryBody.ts";
 import { storedSummaryLang } from "../settings.ts";
 import { FailureLog } from "./failures.ts";
+import { labelCandidates, loadCandidates, recordSection, takeClosures } from "./ledger.ts";
 import {
   buildPrompt,
   buildTitlePrompt,
@@ -209,17 +211,35 @@ export class Summarizer {
         this.failures.giveUp(k, NO_CONVERSATION);
         return false;
       }
-      const build = target.mode === "title" ? buildTitlePrompt : buildPrompt;
-      const parsed = parseSummary(await this.run(build(input.prompt, this.lang)));
+      const title = target.mode === "title";
+      // Earlier items go only to a full summary: a headline can't say what it settled
+      const earlier = title ? [] : loadCandidates(this.db, target, input.refs);
+      const labeled = labelCandidates(earlier, target.sessionId);
+      const build = title ? buildTitlePrompt : buildPrompt;
+      const parsed = parseSummary(
+        await this.run(build({ ...input.prompt, earlierOpen: labeled }, this.lang)),
+      );
       if (!parsed) throw new Error("Could not parse the summary output");
       // Headline-only: keep the body empty, discarding any extra lines after the headline
-      const body = target.mode === "title" ? "" : parsed.body;
-      saveSummary(
-        this.db,
-        target,
-        { headline: parsed.headline, body },
-        { model: this.model, coveredUntil: input.end, createdAt: this.now() },
-      );
+      const { body, closures } = title ? { body: "", closures: [] } : takeClosures(parsed.body);
+      const idOf = new Map(labeled.map((l, n) => [l.label, earlier[n]?.id]));
+      this.db.transaction(() => {
+        saveSummary(
+          this.db,
+          target,
+          { headline: parsed.headline, body },
+          { model: this.model, coveredUntil: input.end, createdAt: this.now() },
+        );
+        recordSection(this.db, target, {
+          end: input.end,
+          opened: parseSummaryBody(body)?.open ?? [],
+          tasks: input.tasks,
+          closed: closures.flatMap((c) => {
+            const id = idOf.get(c.label);
+            return id === undefined ? [] : [{ id, note: c.note }];
+          }),
+        });
+      })();
       this.failures.clear(k);
       return true;
     } catch (e) {

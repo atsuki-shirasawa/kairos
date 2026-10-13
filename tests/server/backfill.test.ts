@@ -27,19 +27,19 @@ beforeEach(() => {
 const summarized = () =>
   db.query<{ n: number }, []>("SELECT COUNT(*) AS n FROM summaries").get()?.n ?? 0;
 
-test("finds old sections the automatic loop skips, newest first, with the automatic modes", () => {
+test("finds old sections the automatic loop skips, newest sessions first, with the automatic modes", () => {
   expect(summarizer.next()).toBeNull();
   const targets = findTargets(db, now);
   expect(targets.length).toBeGreaterThan(2);
-  const ends = targets.map((t) =>
+  const lastEnd = (sessionId: string) =>
     db
-      .query<{ end: number }, [string, number]>(
-        "SELECT end FROM segments WHERE session_id = ? AND start = ?",
-      )
-      .get(t.sessionId, t.start),
-  );
-  const endTimes = ends.map((e) => e?.end ?? 0);
-  expect(endTimes).toEqual([...endTimes].sort((a, b) => b - a));
+      .query<{ end: number }, [string]>("SELECT MAX(end) AS end FROM segments WHERE session_id = ?")
+      .get(sessionId)?.end ?? 0;
+  const sessionEnds = targets.map((t) => lastEnd(t.sessionId));
+  expect(sessionEnds).toEqual([...sessionEnds].sort((a, b) => b - a));
+  // Within a session, its sections come in order, so the ledger sees what earlier ones left open
+  const basic = targets.filter((t) => t.sessionId === SID.basic).map((t) => t.start);
+  expect(basic).toEqual([min(0), min(45)]);
   expect(targets).toContainEqual(
     expect.objectContaining({ sessionId: SID.basic, start: min(0), mode: "title" }),
   );

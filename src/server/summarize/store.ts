@@ -4,7 +4,8 @@ import type { Database } from "bun:sqlite";
 import { AUTO_SUMMARY_DAYS, isSummarizable, SECTION_IDLE_MS } from "../../shared/sections.ts";
 import { DEFAULT_HIDDEN_CWDS, visibleSessionSql } from "../visibility.ts";
 import { buildDigest, DIGEST_KINDS, type DigestMessage } from "./digest.ts";
-import { formatFacts, loadFacts } from "./facts.ts";
+import { formatFacts, loadFacts, type TaskState, taskStates } from "./facts.ts";
+import { refsOf } from "./ledger.ts";
 import type { ParsedSummary, PromptInput } from "./prompt.ts";
 import { type RecapInput, type RecapTarget, recapHash } from "./recap.ts";
 
@@ -29,6 +30,10 @@ export interface SectionInput {
   /** End of the section when it was read; saved as `covered_until`. */
   end: number;
   prompt: PromptInput;
+  /** Issues, PRs, Jira keys and tasks the section names, to find earlier open items about them. */
+  refs: string[];
+  /** Tasks in the session at the section's end, to tie open items to the tasks they name. */
+  tasks: TaskState[];
 }
 
 /** How many candidates one automatic lookup reads; enough to step past ones waiting on a retry. */
@@ -37,7 +42,8 @@ const AUTO_BATCH = 50;
 const PREVIOUS_HEADLINES = 8;
 
 /**
- * Recent finished sections whose summary is missing or older than the section, newest first.
+ * Recent finished sections whose summary is missing or older than the section, newest sessions
+ * first and each session's sections in order.
  * A section is finished once it has been idle for a while or a later one exists in its session.
  * Short sections get `title` mode.
  */
@@ -70,7 +76,8 @@ export interface NamedTarget extends Target {
 }
 
 /**
- * Finished sections whose summary is missing or older than the section, newest first, under the
+ * Finished sections whose summary is missing or older than the section, newest sessions first and
+ * each session's sections in order, under the
  * same rules as automatic runs (short sections get `title` mode). Sections with no conversation to
  * summarize are left out. Headless sessions are summarized whether or not the calendar shows them,
  * so their summaries are ready when they are turned on. Shared by the automatic loop and
@@ -106,7 +113,11 @@ export function findTargets(db: Database, now: number, filter: TargetFilter = {}
              AND m.agent_id IS NULL AND m.is_copy = 0 AND m.is_scheduled = 0
              AND m.kind IN (${DIGEST_KINDS.map((k) => `'${k}'`).join(", ")})
          )
-       ORDER BY g.end DESC
+       -- Newest sessions first, but a session's sections in order: a section can only report
+       -- settling an open item (the ledger) when the section that left it was summarized before
+       -- (the session's last section overall, so a narrowed search keeps the same order)
+       ORDER BY (SELECT MAX(x.end) FROM segments x WHERE x.session_id = g.session_id) DESC,
+         g.session_id, g.start
        LIMIT ?5`,
     )
     .all(
@@ -146,15 +157,19 @@ export function loadSectionInput(db: Database, target: SectionRef): SectionInput
   const digest = buildDigest(loadMessages(db, target, end));
   if (!digest) return null;
   const session = loadSessionLabel(db, target.sessionId);
+  const facts = loadFacts(db, target.sessionId, target.start, end);
+  const factsText = formatFacts(facts);
   return {
     end,
     prompt: {
       sessionTitle: session?.title?.split("\n")[0] ?? "(untitled)",
       projectName: session?.project ?? null,
       previous: loadPreviousHeadlines(db, target),
-      facts: formatFacts(loadFacts(db, target.sessionId, target.start, end)),
+      facts: factsText,
       digest,
     },
+    refs: refsOf(`${factsText}\n${digest}`),
+    tasks: taskStates(facts.taskCalls, target.start),
   };
 }
 

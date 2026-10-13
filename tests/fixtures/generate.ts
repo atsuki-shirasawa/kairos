@@ -645,6 +645,44 @@ function facts(): void {
   write(APP, b);
 }
 
+// ---------------------------------------------------------------- 22. open items carried forward
+function ledger(): void {
+  const a = new LogBuilder(SID.ledgerOpen, APP);
+  header(a);
+  // The first section files an issue and a task and leaves both open
+  a.prompt(1700, "CSV エクスポートが Excel で文字化けする件を調べて");
+  a.bash(1702, "bun test tests/export.test.ts", "5 pass\n0 fail");
+  const task = a.toolUse(1703, "TaskCreate", {
+    subject: "Add a BOM to the CSV export",
+    description: "Excel reads UTF-8 without a BOM as Shift_JIS",
+  });
+  a.toolResult(1703, task, "Task #1 created successfully: Add a BOM to the CSV export");
+  a.bash(
+    1705,
+    'gh issue create --title "export: CSV is garbled in Excel" --body ""',
+    "https://github.com/me/app/issues/21",
+  );
+  a.prompt(1710, "修正は後でやる。issue にだけしておいて");
+  a.text(1712, "issue #21 を作りました。BOM を付ける修正（タスク #1）は未着手です。");
+  a.turnEnd(1712);
+  // The next section finishes the task
+  a.prompt(1740, "BOM を付けて");
+  const done = a.toolUse(1740.5, "TaskUpdate", { taskId: "1", status: "completed" });
+  a.toolResult(1740.5, done, "Updated task #1 status");
+  a.text(1741, "BOM を付けました。");
+  a.turnEnd(1741);
+  write(APP, a);
+
+  // A later session closes the issue
+  const b = new LogBuilder(SID.ledgerClose, APP);
+  header(b);
+  b.prompt(1800, "#21 を閉じて");
+  b.bash(1801, 'gh issue close 21 --comment "BOM added"', "✓ Closed issue me/app#21");
+  b.text(1802, "#21 を閉じました。");
+  b.turnEnd(1802);
+  write(APP, b);
+}
+
 if (import.meta.main) {
   rmSync(ROOT, { recursive: true, force: true });
   for (const scenario of [
@@ -669,6 +707,7 @@ if (import.meta.main) {
     tempRuns,
     containerRuns,
     facts,
+    ledger,
   ]) {
     scenario();
   }

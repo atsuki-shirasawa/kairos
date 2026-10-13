@@ -145,6 +145,14 @@ export function taskStates(calls: FactCall[], sectionStart: number): TaskState[]
   return [...tasks.values()].filter((t) => t.status !== "deleted");
 }
 
+/** ID of the task a successful TaskUpdate call marked completed, or null for any other call. */
+export function completedTask(c: FactCall): string | null {
+  if (c.toolName !== "TaskUpdate" || c.isError) return null;
+  const input = parseJson(c.input);
+  const status = strOf(input?.status) ?? strOf(input?.state);
+  return status === "completed" ? (strOf(input?.taskId) ?? strOf(input?.task_id)) : null;
+}
+
 /** Questions Claude asked with AskUserQuestion and the user's answers (or that they declined). */
 export function questionsOf(calls: FactCall[]): string[] {
   return calls
@@ -168,13 +176,19 @@ function commandOf(c: FactCall): string {
   return strOf(parseJson(c.input)?.command) ?? c.text;
 }
 
+/** Numbers of the issues a successful Bash call closed with `gh issue close`. */
+export function closedIssues(c: FactCall): string[] {
+  if (c.toolName !== "Bash" || c.isError) return [];
+  return [...commandOf(c).matchAll(ISSUE_CLOSE_RE)].map(([, num]) => num ?? "").filter(Boolean);
+}
+
 /** Issues closed and filed with `gh issue` during the section. */
 export function issueOps(calls: FactCall[]): string[] {
   const lines: string[] = [];
   for (const c of calls) {
     if (c.toolName !== "Bash" || c.isError) continue;
     const cmd = commandOf(c);
-    for (const [, num] of cmd.matchAll(ISSUE_CLOSE_RE)) lines.push(`- closed #${num}`);
+    for (const num of closedIssues(c)) lines.push(`- closed #${num}`);
     if (ISSUE_CREATE_RE.test(cmd)) {
       const title = titleAfter(cmd, ISSUE_CREATE_RE);
       const num = ISSUE_URL_RE.exec(c.result ?? "")?.[1];

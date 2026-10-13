@@ -124,19 +124,21 @@ sequenceDiagram
     participant UI as Web UI
 
     loop every minute + on every ingest
-        S->>DB: find sections to summarize (newest first)
+        S->>DB: find sections to summarize (newest sessions first, each session's sections in order)
         Note over S,DB: 10+ minutes or 2+ prompts<br/>and finished (30 minutes since last activity or a later section exists)<br/>and no summary or covered_until < end<br/>and within the last 7 days
     end
     S->>DB: read the section's facts, and build an excerpt from its messages (up to 60k characters, head and tail first)
-    S->>C: prompt (session name, headlines of earlier sections, facts, excerpt)
-    C-->>S: headline + body (Markdown)
-    S->>DB: upsert summaries (key: session_id + start, covered_until = end)
+    S->>DB: read earlier open items this section may have settled (open_items)
+    S->>C: prompt (session name, headlines of earlier sections, facts, earlier open items, excerpt)
+    C-->>S: headline + body (Markdown), plus the earlier items it settled
+    S->>DB: upsert summaries (key: session_id + start, covered_until = end) and open_items
     S-->>UI: SSE: summary.updated
 ```
 
 - The prompt's input has two parts. **Facts** come first: what the log records for the section, collected by code (`src/server/summarize/facts.ts`). The **excerpt** follows: the conversation, clipped
   - Facts: commits, PRs and merges (up to 5 minutes after the end); issues closed or filed with `gh issue`; the last test or check run where a command starts (not one started in the background), whether it passed and its totals, and how many earlier runs failed (when a pipe, `|| true` or a following command hides the exit status, only its output is given); each task's state at the section's end (TaskCreate / TaskUpdate replayed over the whole session, since tasks outlive sections; tasks the section touched plus earlier ones still open); AskUserQuestion questions with their answers; interrupts; recaps (`away_summary`) up to 10 minutes after the end; and the pending tasks, current work and next step of compact summaries inside the section. Capped at 8k characters
   - Excerpt: prompts, replies (800 characters each, the section's last reply 4k, since that is where Claude sums up what is left), tool calls (160 characters), and the last line of failed tests, git and gh calls
+- **Open items ledger** (`src/server/summarize/ledger.ts`, table `open_items`): each full summary's Open items become rows, with the issue / PR numbers, Jira keys and task IDs they name (a task also by its subject). Earlier open items go into the prompt when they come from the same session or a session it continues, or from the project and name a ref the section names too (newest 15). The model lists the ones the section settled under a `Closed:` item, which is stripped before the body is saved. Closing goes by refs first: after every save, an open item of the project whose every issue / PR / task ref the log later shows settled (`gh issue close`, a merged PR, a TaskUpdate to completed in the same session chain) is closed as `ref`, whichever section was summarized first. The model's word closes the rest as `model`. Regenerating a section replaces the items it opened (a later section's model close carries over to an item worded the same) and reopens the ones its summary closed; `ref` closes stay. Summaries written before the ledger add nothing to it
 - Concurrency is 1. On failure the reason is recorded and it retries up to 3 times after 1, 2 and 4 minutes
 - For short sections (under 10 minutes and at most one prompt), only a headline is generated automatically. The body is stored in `summaries` as an empty string and returned by the API as no summary (`body: null`)
 - The body of short sections and sections older than 7 days can be pushed to the priority queue with the button in the drawer (`POST /api/sessions/:id/sections/:start/summary`)
