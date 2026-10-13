@@ -3,8 +3,10 @@ import type {
   Activity,
   Artifact,
   CalendarSession,
+  LedgerEntry,
   MessageKind,
   MessagesResponse,
+  OpenItemUpdate,
   Project,
   ProjectUpdate,
   Recap,
@@ -19,6 +21,7 @@ import type {
 import { ARTIFACT_GRACE_MS } from "../shared/constants.ts";
 import { isSummarizable } from "../shared/sections.ts";
 import { notNote } from "./db/notes.ts";
+import { openItemsIn, sessionCloses, type UpdateRefusal, updateOpenItem } from "./openItems.ts";
 import { costOf } from "./pricing.ts";
 import { storedShowHeadless } from "./settings.ts";
 import { loadRecapInput, type RecapTarget, recapHash } from "./summarize/recap.ts";
@@ -323,6 +326,16 @@ export class Queries {
     });
   }
 
+  /** Open items of human work that were open at some point in [from, to), oldest first. */
+  openItems(from: number, to: number): LedgerEntry[] {
+    return openItemsIn(this.db, from, to);
+  }
+
+  /** Closes an open item by hand, or reopens one closed by hand (see `updateOpenItem`). */
+  updateOpenItem(id: number, update: OpenItemUpdate): LedgerEntry | UpdateRefusal {
+    return updateOpenItem(this.db, id, update, this.now());
+  }
+
   /** Whether the project has work starting in [from, to) to recap. */
   hasRecapWork(target: RecapTarget): boolean {
     return loadRecapInput(this.db, target) !== null;
@@ -444,6 +457,7 @@ export class Queries {
 
   /** Every section of the session with its summary state, usage and activity, in order. */
   private sections(sessionId: string, sessionTitle: string): Section[] {
+    const closes = sessionCloses(this.db, sessionId);
     return this.db
       .query<SectionRow, [string]>(`${SECTION_SELECT} WHERE g.session_id = ? ORDER BY g.start`)
       .all(sessionId)
@@ -462,6 +476,7 @@ export class Queries {
           error: this.summaries.errorOf(sessionId, g.start),
           usage: this.usage(sessionId, g.start, g.end),
           activity: this.activity(sessionId, g.start, g.end),
+          closes: closes.get(g.start) ?? [],
         }),
       );
   }

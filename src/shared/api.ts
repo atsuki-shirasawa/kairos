@@ -1,4 +1,5 @@
 // API types shared by the server and the web app. All times are milliseconds since the Unix epoch.
+import type { OpenKind } from "./summaryBody.ts";
 
 /** `GET /api/health`. `name` lets `kairos ensure` tell Kairos from another app on the port. */
 export interface HealthResponse {
@@ -222,6 +223,57 @@ export interface Section {
   /** Token usage within this time; null if none was recorded. */
   usage: Usage | null;
   activity: Activity;
+  /** Items earlier work left open that this section settled, as the log or its summary showed. */
+  closes: LedgerEntry[];
+}
+
+/**
+ * How an open item was closed: the log showed its issue closed, PR merged or task completed
+ * (`ref`), a later section's summary said it was settled (`model`), or by hand: done (`user`) or
+ * not to be done (`dismissed`).
+ */
+export type ClosedBy = "ref" | "model" | "user" | "dismissed";
+
+/** An item a section summary left open, tracked across sections and sessions until it closes. */
+export interface LedgerEntry {
+  id: number;
+  projectId: number | null;
+  kind: OpenKind | null;
+  /** Markdown, as the summary wrote it. */
+  text: string;
+  /** The block that left it open. */
+  sessionId: string;
+  start: number;
+  /** End of that block. */
+  openedAt: number;
+  closedAt: number | null;
+  closedBy: ClosedBy | null;
+  /** The block that closed it; null when closed by hand or outside any block. */
+  closedSessionId: string | null;
+  closedStart: number | null;
+  /**
+   * How it was closed: for a `ref` close, fixed English phrases ("closed #21", "merged PR #5",
+   * "task #3 completed") joined by "; ", which the UI puts into words; for a `model` close, the
+   * summary's evidence. null when not said.
+   */
+  closedNote: string | null;
+}
+
+/**
+ * `GET /api/open-items?from&to`: items of human work that were open at some point in the period:
+ * left open before its end, and not closed before its start.
+ */
+export interface OpenItemsResponse {
+  items: LedgerEntry[];
+}
+
+/**
+ * `PATCH /api/open-items/:id` body. `done` and `dismissed` close an open item by hand; `open`
+ * reopens one closed by hand. Items the log or a summary closed can't be reopened, since the next
+ * check would close them again.
+ */
+export interface OpenItemUpdate {
+  state: "done" | "dismissed" | "open";
 }
 
 /** `GET /api/sessions/:id`: everything the session drawer shows. */

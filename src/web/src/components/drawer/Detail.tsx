@@ -47,7 +47,7 @@ export function Detail({
 
   return (
     <div className="space-y-8">
-      {section && <SectionSummary session={s} section={section} />}
+      {section && <SectionSummary session={s} section={section} onSelect={onSelect} />}
 
       {hasFlow(s) && <Flow session={s} section={section} onSelect={onSelect} />}
 

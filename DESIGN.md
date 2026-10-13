@@ -195,7 +195,10 @@ Tokens map to CSS variables in `src/web/src/index.css` (shadcn/ui names): `surfa
 swaps every value for its `-dark` token under `.dark`.
 
 - **Primary (indigo `#2e4c8c` / `#8da8e8`):** selection (including the selected block's outline),
-  the current-time line, focus rings and links. Not for headings or surfaces
+  the current-time line, focus rings and links. Not for headings or surfaces. The exception is a
+  list row's trailing link to a block (an open item's age, how it closed): it stays `muted-ink`
+  until hovered, since it doubles as the row's date and a link color on every row would outshout
+  the items
 - **Background / Surface:** the screen is slightly grey; the calendar body and the drawer sit on
   white (navy in dark) surfaces
 - **Warn (`#8a6420`):** text of numbers that need attention (snags). Plain yellow ocher lacks
@@ -236,8 +239,8 @@ A work block's fill is the project color mixed into `block-base` in `oklch`:
   else, so the name reads as a name rather than a label
 - **Four sizes:** 11px (metadata, hour labels, figures), 12px (block headings, labels), 14px
   (body, controls) and 17px (titles: the period heading, day numbers, the drawer title). The only
-  exceptions are the section summary's Resolved, Open and Next, or an older body's Outcome
-  (15px, relaxed leading, because that is where you read; its Goal takes the 17px title size at
+  exceptions are the section summary's Resolved, Open and Next, its "Settled from earlier", or an
+  older body's Outcome (15px, relaxed leading, because that is where you read; its Goal takes the 17px title size at
   regular weight), the
   summary's totals (their three tiers), the wordmark, and count badges too small for 11px
 - **Two tones:** `ink` and `muted-ink`. Don't step between them with `text-foreground/80` and the
@@ -382,6 +385,22 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   day view's block body shows only the Goal: the heading says what, the lane what came of it. A
   block marks nothing for its open items; its tooltip counts them with their kinds ("Open 2
   (Question · Waiting)", kinds in a fixed order), and the filter's "Left something open" state finds them
+- **Open items (summary view):** under each project's recap, inside the same colored rule, a
+  label in the drawer's small heading style ("Open (5)") with the period's change at its right
+  (`numeral`, `muted-ink`: "+3 / −4 this week"). Rows are the drawer's Open list again: the kind
+  as a quiet word in its fixed-width column, then the text (14px `ink`), waiting items first.
+  Each row ends with how long it has been open ("since Mon, Oct 5", then "week 2"), 12px
+  `muted-ink` `numeral`, which is the link to the block that left it, and two 24px ghost icon
+  buttons (done, won't do) with their names in a tooltip. Items open 4 weeks or more fold into
+  "Open 4 weeks or more (n)" with their text at 60% opacity (the age and buttons stay readable); items closed in the period fold into
+  "Closed this week (n)" with muted text and how each closed (the link to the block that closed
+  it, when one did; undo for one closed by hand). A failed close or undo shows under the list in
+  `destructive`. No color, badge or surface of its own: it is part of the recap's frame. A
+  project with no work in the period but items still open gets its name and the list alone, under
+  its colored rule, after the projects with work
+- **Settled from earlier (drawer):** after the summary, the earlier open items the section
+  settled, laid out like its Open list, each ending with "left open Mon, Oct 5" linking to the
+  block that left it. Shown even for a section without a summary
 - **One frame per thing.** Where a color rule, a surface and a divider would all mark the same
   boundary, keep one. The summary's project recaps sit under the project's colored rule with no
   `muted` box of their own

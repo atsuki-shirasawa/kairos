@@ -6,12 +6,25 @@ import { projectColor } from "@/lib/colors.ts";
 import { durationLabel, hhmm, type View, weekday } from "@/lib/dates.ts";
 import { issueBaseUrl } from "@/lib/issueLinks.ts";
 import type { DayBlock } from "@/lib/layout.ts";
+import type { ProjectOpenItems } from "@/lib/openItems.ts";
 import { isSelected } from "@/lib/selection.ts";
 import type { PeriodSummary, ProjectSummary } from "@/lib/summary.ts";
 import { prLabel, startsNewDay, unwrittenRecaps } from "@/lib/summaryDone.ts";
 import { cn } from "@/lib/utils.ts";
+import { OpenItems } from "./OpenItems.tsx";
 import { RecapBlock } from "./RecapBlock.tsx";
 import { projectName, projectOf } from "./shared.tsx";
+import type { useProjectOpenItems } from "./useProjectOpenItems.ts";
+
+/** The period's open items and what can be done with them. */
+type Open = ReturnType<typeof useProjectOpenItems>;
+
+/** The failed update's message, when the item is one of this project's. */
+function failureIn(items: ProjectOpenItems, failure: Open["failure"]): string | null {
+  if (!failure) return null;
+  const all = [...items.open, ...items.old, ...items.closed];
+  return all.some((i) => i.id === failure.id) ? failure.message : null;
+}
 
 /** Shared by the "done" list and its project sections. */
 interface Selection {
@@ -28,6 +41,7 @@ export function Done({
   recaps,
   onRecap,
   requestError,
+  open,
   ...selection
 }: Selection & {
   view: View;
@@ -37,10 +51,12 @@ export function Done({
   onRecap: (projectId: number) => void;
   /** Why the latest request was refused (e.g. the queue is full). */
   requestError: string | null;
+  open: Open;
 }) {
   const m = summaryMessages();
   const shown = summary.projects.filter((p) => p.blocks.length > 0);
-  if (shown.length === 0) return null;
+  const idle = idleWithOpenItems(shown, open.openItems);
+  if (shown.length === 0 && idle.length === 0) return null;
   const unwritten = unwrittenRecaps(shown, recaps);
   return (
     <div>
@@ -67,10 +83,69 @@ export function Done({
             projects={projects}
             recap={p.projectId !== null ? recaps.get(p.projectId) : undefined}
             onRecap={onRecap}
+            open={open}
             {...selection}
           />
         ))}
+        {idle.map((id) => (
+          <IdleProject
+            key={id}
+            view={view}
+            projectId={id}
+            projects={projects}
+            open={open}
+            onSelect={selection.onSelect}
+          />
+        ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Projects with no work in the period that still have items open at its end, so leftovers of a
+ * project set aside don't drop out of view the week nothing happens on it.
+ */
+function idleWithOpenItems(
+  shown: ProjectSummary[],
+  openItems: Map<number, ProjectOpenItems>,
+): number[] {
+  const busy = new Set(shown.map((p) => p.projectId));
+  return [...openItems]
+    .filter(([id, g]) => !busy.has(id) && g.open.length + g.old.length > 0)
+    .map(([id]) => id);
+}
+
+/** A project without work in the period: its name and its open items, under its colored rule. */
+function IdleProject({
+  view,
+  projectId,
+  projects,
+  open,
+  onSelect,
+}: {
+  view: View;
+  projectId: number;
+  projects: Map<number, Project>;
+  open: Open;
+  onSelect: (id: string, at: number) => void;
+}) {
+  const items = open.openItems.get(projectId);
+  if (!items) return null;
+  const project = projectOf(projects, projectId);
+  return (
+    <div className="border-l-2 pl-4" style={{ borderColor: projectColor(project) }}>
+      <h3 className="mb-1.5 font-medium text-sm">{projectName(projects, projectId)}</h3>
+      <OpenItems
+        view={view}
+        items={items}
+        at={open.at}
+        error={failureIn(items, open.failure)}
+        onSelect={onSelect}
+        onUpdate={open.onUpdate}
+        busyId={open.busyId}
+        baseUrl={issueBaseUrl(project?.repo)}
+      />
     </div>
   );
 }
@@ -82,6 +157,7 @@ function ProjectDone({
   projects,
   recap,
   onRecap,
+  open,
   selectedId,
   selectedAt,
   onSelect,
@@ -92,8 +168,11 @@ function ProjectDone({
   /** Missing for work outside a known project, or when the period's work all started before it. */
   recap: Recap | undefined;
   onRecap: (projectId: number) => void;
+  open: Open;
 }) {
   const color = projectColor(projectOf(projects, p.projectId));
+  const baseUrl = issueBaseUrl(projectOf(projects, p.projectId)?.repo);
+  const items = p.projectId !== null ? open.openItems.get(p.projectId) : undefined;
   return (
     <div className="border-l-2 pl-4" style={{ borderColor: color }}>
       <h3 className="mb-1.5 flex items-baseline gap-2 font-medium text-sm">
@@ -103,10 +182,18 @@ function ProjectDone({
         </span>
       </h3>
       {recap && (
-        <RecapBlock
-          recap={recap}
-          baseUrl={issueBaseUrl(projectOf(projects, p.projectId)?.repo)}
-          onRecap={() => onRecap(recap.projectId)}
+        <RecapBlock recap={recap} baseUrl={baseUrl} onRecap={() => onRecap(recap.projectId)} />
+      )}
+      {items && (
+        <OpenItems
+          view={view}
+          items={items}
+          at={open.at}
+          error={failureIn(items, open.failure)}
+          onSelect={onSelect}
+          onUpdate={open.onUpdate}
+          busyId={open.busyId}
+          baseUrl={baseUrl}
         />
       )}
       <ul className="flex flex-col">

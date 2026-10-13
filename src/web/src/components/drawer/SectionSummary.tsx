@@ -1,4 +1,4 @@
-import type { Section, SessionDetail } from "@shared/api.ts";
+import type { LedgerEntry, Section, SessionDetail } from "@shared/api.ts";
 import { type OpenItem, parseSummaryBody, type SummaryParts } from "@shared/summaryBody.ts";
 import { RefreshCw, Sparkles } from "lucide-react";
 import { type RefObject, useLayoutEffect, useRef, useState } from "react";
@@ -6,22 +6,29 @@ import { MomentNode } from "@/components/MomentNode.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { useRequestSummary } from "@/hooks/queries.ts";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
-import { formatMessages } from "@/i18n/messages/format.ts";
+import { dateLabel } from "@/lib/dates.ts";
 import { outcomeNode, splitOutcomes, summaryFailureKind } from "@/lib/drawer.ts";
 import { modelLabel } from "@/lib/format.ts";
 import { issueBaseUrl } from "@/lib/issueLinks.ts";
 import { cn } from "@/lib/utils.ts";
 import { Markdown } from "../Markdown.tsx";
+import { BlockLink, KindWord } from "../OpenItemParts.tsx";
 import { Block } from "./Block.tsx";
 import { failureHint } from "./failureHint.ts";
 
-/** Summary of the selected section, or a button to make one. Short sections say so. */
+/**
+ * Summary of the selected section, or a button to make one. Short sections say so. Then the
+ * earlier open items the section settled, which even a section without a summary can have.
+ */
 export function SectionSummary({
   session: s,
   section,
+  onSelect,
 }: {
   session: SessionDetail;
   section: Section;
+  /** Opens another block: the one that left a settled item open. */
+  onSelect: (id: string, at: number | null) => void;
 }) {
   const t = drawerMessages();
   const request = useRequestSummary(s.id);
@@ -62,6 +69,13 @@ export function SectionSummary({
           </p>
           {!busy && button(section.summarizable ? t.summarizeNow : t.summarize, Sparkles)}
         </div>
+      )}
+      {section.closes.length > 0 && (
+        <Closes
+          items={section.closes}
+          baseUrl={issueBaseUrl(s.project?.repo)}
+          onSelect={onSelect}
+        />
       )}
       {section.error && !busy && <SummaryFailure error={section.error} />}
       {request.isError && <p className="mt-2 text-destructive text-xs">{request.error.message}</p>}
@@ -229,7 +243,6 @@ function OpenList({
   items: OpenItem[];
   text: (children: string) => React.ReactNode;
 }) {
-  const f = formatMessages();
   const kinds = items.some((o) => o.kind);
   return (
     <ul className="space-y-1">
@@ -237,16 +250,50 @@ function OpenList({
         // Points have no identity beyond their place in the list
         // biome-ignore lint/suspicious/noArrayIndexKey: see above
         <li key={i} className="flex items-baseline gap-3">
-          {kinds && (
-            // Wide enough for the longest kind in either language ("Question", "やること")
-            <span className="w-16 shrink-0 whitespace-nowrap font-semibold text-muted-foreground text-xs">
-              {item.kind && f.openKind[item.kind]}
-            </span>
-          )}
+          {kinds && <KindWord item={item} />}
           {text(item.text)}
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * Earlier open items this section settled, each with its kind and a link to the block that left
+ * it open, so following an item back to where it started is one click.
+ */
+function Closes({
+  items,
+  baseUrl,
+  onSelect,
+}: {
+  items: LedgerEntry[];
+  baseUrl: string | null;
+  onSelect: (id: string, at: number | null) => void;
+}) {
+  const t = drawerMessages();
+  return (
+    <div className="mt-5">
+      <SummaryLabel>{t.summaryCloses}</SummaryLabel>
+      <ul className="space-y-1">
+        {items.map((item) => (
+          <li key={item.id} className="flex items-baseline gap-3">
+            <KindWord item={item} />
+            <Markdown
+              issueBaseUrl={baseUrl}
+              className={cn("min-w-0 flex-1 text-[15px] leading-7", SUMMARY_MARKDOWN)}
+            >
+              {item.text}
+            </Markdown>
+            <BlockLink
+              label={t.closesFrom(dateLabel(item.openedAt))}
+              numeric
+              onClick={() => onSelect(item.sessionId, item.start)}
+            />
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

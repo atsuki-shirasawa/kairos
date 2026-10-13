@@ -1,4 +1,4 @@
-import type { ProjectUpdate, RecapRequest } from "@shared/api.ts";
+import type { OpenItemUpdate, ProjectUpdate, RecapRequest } from "@shared/api.ts";
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -27,6 +27,8 @@ export const keys = {
   settings: ["settings"] as const,
   // Nested under "calendar" so new work marks recaps stale, and recap.updated refreshes them
   recaps: (from: number, to: number) => ["calendar", "recaps", from, to] as const,
+  // Nested under "calendar" so a new summary, which may open or close items, refreshes it
+  openItems: (from: number, to: number) => ["calendar", "open-items", from, to] as const,
 };
 
 /** Sessions and projects of the period [from, to), the data every layout draws. */
@@ -84,6 +86,26 @@ export function useRequestRecap() {
     mutationFn: (target: RecapRequest) => api.requestRecap(target),
     // Refetch so the recap shows as being written right away
     onSuccess: (_, t) => client.invalidateQueries({ queryKey: keys.recaps(t.from, t.to) }),
+  });
+}
+
+/** Open items of the period's projects. Fetched only for the summary view. */
+export function useOpenItems(from: number, to: number) {
+  return useQuery({ queryKey: keys.openItems(from, to), queryFn: () => api.openItems(from, to) });
+}
+
+/** Closes an open item by hand (done or won't do), or reopens one closed by hand. */
+export function useUpdateOpenItem() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, update }: { id: number; update: OpenItemUpdate }) =>
+      api.updateOpenItem(id, update),
+    // Every period's list, and the recaps that read the open items (one may turn stale)
+    onSettled: () =>
+      Promise.all([
+        client.invalidateQueries({ queryKey: ["calendar", "open-items"] }),
+        client.invalidateQueries({ queryKey: ["calendar", "recaps"] }),
+      ]),
   });
 }
 

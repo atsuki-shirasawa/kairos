@@ -9,6 +9,7 @@ import { Done } from "./summary/Done.tsx";
 import { ThroughDay } from "./summary/ThroughDay.tsx";
 import { Totals } from "./summary/Totals.tsx";
 import { usePeriodSummaries } from "./summary/usePeriodSummaries.ts";
+import { useProjectOpenItems } from "./summary/useProjectOpenItems.ts";
 import { useProjectRecaps } from "./summary/useProjectRecaps.ts";
 import { SEGMENT, SEGMENTED } from "./Toolbar.tsx";
 
@@ -64,6 +65,7 @@ export function SummaryView({
     now,
   });
   const { recaps, onRecap, requestError } = useProjectRecaps(from, to);
+  const open = useProjectOpenItems(from, to, now);
   // Keep the tabs when there's nothing to sum up, so the table stays one click away
   if (summary.blocks === 0 && summary.busyMs === 0)
     return <div className="mx-auto w-full max-w-5xl px-6 pt-4">{tabs}</div>;
@@ -94,6 +96,7 @@ export function SummaryView({
           recaps={recaps}
           onRecap={onRecap}
           requestError={requestError}
+          open={open}
           selectedId={selectedId}
           selectedAt={selectedAt}
           onSelect={onSelect}

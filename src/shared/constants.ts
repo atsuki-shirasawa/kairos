@@ -6,3 +6,8 @@ export const HOST = "127.0.0.1";
 export const ALLOWED_HOSTS = ["127.0.0.1", "localhost"] as const;
 /** A PR link may be recorded a little after the PR is created, so a work block's output includes this much time after its end. */
 export const ARTIFACT_GRACE_MS = 5 * 60_000;
+/**
+ * An open item open this many weeks or more counts as long-standing: the summary view folds it
+ * away, and a recap says how long it has been open.
+ */
+export const OPEN_ITEM_OLD_WEEKS = 4;

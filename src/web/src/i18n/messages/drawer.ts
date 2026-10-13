@@ -87,6 +87,10 @@ export const drawerMessages = defineMessages({
     summaryOutcome: "Outcome",
     summaryResolved: "Resolved",
     summaryOpen: "Open",
+    /** Earlier open items this section settled. */
+    summaryCloses: "Settled from earlier",
+    /** When a settled item was left open, as a link to that block. */
+    closesFrom: (date: string) => `left open ${date}`,
     summaryNext: "Next",
     summaryDone: "Done",
     showAllDone: "Show in full",
@@ -196,6 +200,8 @@ export const drawerMessages = defineMessages({
     summaryOutcome: "結果",
     summaryResolved: "解決",
     summaryOpen: "残課題",
+    summaryCloses: "以前の残課題を解消",
+    closesFrom: (date: string) => `${date}に残したもの`,
     summaryNext: "次の一手",
     summaryDone: "やったこと",
     showAllDone: "全文を表示",

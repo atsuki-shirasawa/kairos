@@ -32,6 +32,7 @@ const section = (start: number, end = start + H): Section => ({
   error: null,
   usage: null,
   activity: {} as Activity,
+  closes: [],
 });
 
 const sections = (n: number) => Array.from({ length: n }, (_, i) => section(DAY0 + i * H));

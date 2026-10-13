@@ -1,6 +1,6 @@
 import type { View } from "@/lib/dates.ts";
 import { defineMessages } from "../index.ts";
-import { THIS_JA, UNIT_EN } from "../period.ts";
+import { THIS_EN, THIS_JA, UNIT_EN } from "../period.ts";
 
 type Unit = View;
 
@@ -56,6 +56,34 @@ export const summaryMessages = defineMessages({
     recapNote:
       "Summarized by Claude from this period's section summaries. Sections without a summary add only their headline",
     noTime: "—",
+    /** Heading of a project's open items under its recap, with how many are open at the end. */
+    openHeading: (n: number) => `Open (${n})`,
+    /** How many were left open and closed during the period, beside the heading. */
+    openDelta: (u: Unit, opened: number, closed: number) => `+${opened} / −${closed} ${THIS_EN[u]}`,
+    openDeltaNote: (u: Unit) => `Left open ${THIS_EN[u]} / closed ${THIS_EN[u]}`,
+    /** How long an item has been open, in its first week: the date it was left open. */
+    openSince: (date: string) => `since ${date}`,
+    /** How long an item has been open, from its second week on. */
+    openWeek: (n: number) => `week ${n}`,
+    /** The folded group of items open for `weeks` weeks or more. */
+    openOld: (weeks: number, n: number) => `Open ${weeks} weeks or more (${n})`,
+    openClosed: (u: Unit, n: number) => `Closed ${THIS_EN[u]} (${n})`,
+    openShow: "Open the block that left it",
+    closedShow: "Open the block that closed it",
+    markDone: "Mark as done",
+    dismiss: "Won't do",
+    reopen: "Reopen",
+    /** How a closed item was closed. `what` is what the log showed (`logClosedIssue`, …). */
+    closedByRef: (what: string | null) => (what ? `In the log: ${what}` : "Closed in the log"),
+    /** What the log showed settle an item: an issue closed, a PR merged, a task completed. */
+    logClosedIssue: (ref: string) => `closed ${ref}`,
+    logMerged: (ref: string) => `merged PR ${ref}`,
+    logTaskDone: (ref: string) => `task ${ref} completed`,
+    logList: (parts: string[]) => parts.join(", "),
+    closedByModel: "Settled in a later block",
+    closedByUser: "Marked done",
+    closedDismissed: "Won't do",
+    openUpdateFailed: (message: string) => `Couldn't update: ${message}`,
   },
   ja: {
     region: (u: Unit) => `${THIS_JA[u]}のまとめ`,
@@ -92,5 +120,26 @@ export const summaryMessages = defineMessages({
     recapNote:
       "この期間のセクション要約をもとに Claude がまとめました。要約のないセクションは見出しだけを使います",
     noTime: "—",
+    openHeading: (n: number) => `残課題（${n}）`,
+    openDelta: (u: Unit, opened: number, closed: number) => `${THIS_JA[u]} +${opened} / −${closed}`,
+    openDeltaNote: (u: Unit) => `${THIS_JA[u]}に残した数 / 閉じた数`,
+    openSince: (date: string) => `${date}から`,
+    openWeek: (n: number) => `${n}週目`,
+    openOld: (weeks: number, n: number) => `${weeks}週以上続いているもの（${n}）`,
+    openClosed: (u: Unit, n: number) => `${THIS_JA[u]}に閉じたもの（${n}）`,
+    openShow: "残したブロックを開く",
+    closedShow: "閉じたブロックを開く",
+    markDone: "完了にする",
+    dismiss: "やらないことにする",
+    reopen: "元に戻す",
+    closedByRef: (what: string | null) => (what ? `ログ: ${what}` : "ログで完了"),
+    logClosedIssue: (ref: string) => `${ref} をクローズ`,
+    logMerged: (ref: string) => `PR ${ref} をマージ`,
+    logTaskDone: (ref: string) => `タスク ${ref} を完了`,
+    logList: (parts: string[]) => parts.join("、"),
+    closedByModel: "後のブロックで解決",
+    closedByUser: "完了にした",
+    closedDismissed: "やらないことにした",
+    openUpdateFailed: (message: string) => `更新できませんでした: ${message}`,
   },
 });

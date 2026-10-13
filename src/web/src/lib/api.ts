@@ -2,7 +2,10 @@
 import type {
   CalendarResponse,
   HealthResponse,
+  LedgerEntry,
   MessagesResponse,
+  OpenItemsResponse,
+  OpenItemUpdate,
   Project,
   ProjectUpdate,
   RecapRequest,
@@ -88,6 +91,16 @@ export const api = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(target),
+    }),
+
+  openItems: (from: number, to: number) =>
+    request<OpenItemsResponse>(`/api/open-items${query({ from, to })}`),
+
+  updateOpenItem: (id: number, update: OpenItemUpdate) =>
+    request<LedgerEntry>(`/api/open-items/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(update),
     }),
 
   messages: (

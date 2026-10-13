@@ -254,30 +254,33 @@ export function takeClosures(body: string): { body: string; closures: Closure[] 
   return { body: kept.join("\n").trim(), closures: lines.flatMap(closuresIn) };
 }
 
-/** How a later section closed an item, kept across a rewrite of the section that opened it. */
-type LaterClosure = Pick<
-  ItemRow & {
-    closed_at: number;
-    closed_session_id: string;
-    closed_start: number | null;
-    closed_note: string | null;
-  },
-  "closed_at" | "closed_session_id" | "closed_start" | "closed_note"
->;
+/**
+ * How an item was closed after the section that opened it: by a later section's summary or by
+ * hand. Kept across a rewrite of the opening section.
+ */
+type LaterClosure = {
+  closed_at: number;
+  closed_session_id: string | null;
+  closed_start: number | null;
+  closed_by: string;
+  closed_note: string | null;
+};
 
 /** Text compared loosely, so a regenerated item with the same wording finds its closure again. */
 const sameText = (text: string) => text.replace(/\s+/g, " ").trim().toLowerCase();
 
 /**
- * Model closures that later sections made of the items this section opened, by item text. The
- * rows are replaced when the section is regenerated; an item worded the same keeps its closure.
+ * Closures of the items this section opened, by item text, other than the log's (rechecked after
+ * every save anyway) and this section's own: a later section's summary or a hand edit. The rows
+ * are replaced when the section is regenerated; an item worded the same keeps its closure.
  */
 function laterClosures(db: Database, target: SectionRef): Map<string, LaterClosure> {
   const rows = db
     .query<LaterClosure & { text: string }, [string, number]>(
-      `SELECT text, closed_at, closed_session_id, closed_start, closed_note FROM open_items
-       WHERE session_id = ?1 AND start = ?2 AND closed_by = 'model'
-         AND NOT (closed_session_id = ?1 AND closed_start = ?2)`,
+      `SELECT text, closed_at, closed_session_id, closed_start, closed_by, closed_note
+       FROM open_items
+       WHERE session_id = ?1 AND start = ?2 AND closed_by IN ('model', 'user', 'dismissed')
+         AND NOT (closed_by = 'model' AND closed_session_id = ?1 AND closed_start = ?2)`,
     )
     .all(target.sessionId, target.start);
   return new Map(rows.map((r) => [sameText(r.text), r]));
@@ -316,7 +319,7 @@ export function recordSection(db: Database, target: SectionRef, update: LedgerUp
       closure?.closed_at ?? null,
       closure?.closed_session_id ?? null,
       closure?.closed_start ?? null,
-      closure ? "model" : null,
+      closure?.closed_by ?? null,
       closure?.closed_note ?? null,
     );
   }
@@ -330,7 +333,11 @@ export function recordSection(db: Database, target: SectionRef, update: LedgerUp
   closeByRefs(db, target.sessionId);
 }
 
-/** Something in the log that settles a ref: an issue closed, a PR merged, a task completed. */
+/**
+ * Something in the log that settles a ref: an issue closed, a PR merged, a task completed. Its
+ * note is a fixed English phrase the UI recognizes and words in its language (`logCloses`), so
+ * change both together.
+ */
 interface CloseEvent {
   ref: string;
   ts: number;

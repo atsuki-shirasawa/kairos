@@ -4,8 +4,10 @@
 import type { Database } from "bun:sqlite";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { recordSection } from "../../src/server/summarize/ledger.ts";
 import { loadRecapInput } from "../../src/server/summarize/recap.ts";
 import { saveRecap, saveSummary } from "../../src/server/summarize/store.ts";
+import { parseSummaryBody } from "../../src/shared/summaryBody.ts";
 import { at, LogBuilder } from "../../tests/fixtures/builder.ts";
 
 /** Time zone the demo week is laid out in; the capture renders in the same zone. */
@@ -752,12 +754,21 @@ export function seedDemoSummaries(db: Database): void {
     }
     segments.forEach((seg, i) => {
       const s = session.sections[i] as DemoSection;
+      const target = { sessionId: session.id, start: seg.start };
+      const body = s.summary ? summaryBody(s.summary) : "";
       saveSummary(
         db,
-        { sessionId: session.id, start: seg.start },
-        { headline: s.headline, body: s.summary ? summaryBody(s.summary) : "" },
+        target,
+        { headline: s.headline, body },
         { model: "haiku", coveredUntil: seg.end, createdAt },
       );
+      // The open items list reads the ledger, which the summarizer fills as it saves
+      recordSection(db, target, {
+        end: seg.end,
+        opened: parseSummaryBody(body)?.open ?? [],
+        tasks: [],
+        closed: [],
+      });
     });
   }
   seedRecaps(db, createdAt);

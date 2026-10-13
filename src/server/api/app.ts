@@ -5,6 +5,9 @@ import { version } from "../../../package.json";
 import type {
   CalendarResponse,
   HealthResponse,
+  LedgerEntry,
+  OpenItemsResponse,
+  OpenItemUpdate,
   ProjectUpdate,
   RecapRequest,
   RecapsResponse,
@@ -149,6 +152,24 @@ export function createApp({ db, events, summarizer, now, hiddenCwds }: AppDeps):
     return c.json({ queued: true }, 202);
   });
 
+  app.get("/api/open-items", (c) => {
+    const range = parseRange(c.req.query("from"), c.req.query("to"));
+    if ("error" in range) return c.json(range, 400);
+    return c.json<OpenItemsResponse>({ items: q.openItems(range.from, range.to) });
+  });
+
+  // Closes an open item by hand (done or dismissed), or reopens one closed by hand
+  app.patch("/api/open-items/:id", async (c) => {
+    const id = Number(c.req.param("id"));
+    const update = parseOpenItemUpdate(await c.req.json<unknown>().catch(() => null));
+    if (!Number.isSafeInteger(id) || !update) return c.json({ error: "invalid request" }, 400);
+    const result = q.updateOpenItem(id, update);
+    if (result === "not found") return c.json({ error: "open item not found" }, 404);
+    if (result === "conflict")
+      return c.json({ error: "The item was closed or reopened in the meantime" }, 409);
+    return c.json<LedgerEntry>(result);
+  });
+
   app.get("/api/sessions/:id/messages", (c) => {
     const id = c.req.param("id");
     if (!q.session(id)) return c.json({ error: "session not found" }, 404);
@@ -251,6 +272,13 @@ function parseProjectUpdate(body: unknown): ProjectUpdate | null {
     update.hidden = b.hidden;
   }
   return Object.keys(update).length ? update : null;
+}
+
+/** Validates a `PATCH /api/open-items/:id` body; null unless it names a known state. */
+function parseOpenItemUpdate(body: unknown): OpenItemUpdate | null {
+  if (typeof body !== "object" || body === null) return null;
+  const { state } = body as Record<string, unknown>;
+  return state === "done" || state === "dismissed" || state === "open" ? { state } : null;
 }
 
 /** Validates a `POST /api/recaps` body; null unless the project id and range are valid. */
