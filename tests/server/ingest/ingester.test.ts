@@ -107,6 +107,31 @@ describe("README scenarios", () => {
     expect(session(SID.basic).ended_at).toBe(min(50.2));
   });
 
+  test("a long tool result keeps its end, where runners print their totals", () => {
+    const path = join(projectsDir, "-Users-me-dev-app", `${SID.basic}.jsonl`);
+    const long = `${"line\n".repeat(2000)}12 pass\n3 fail`;
+    appendFileSync(
+      path,
+      `${JSON.stringify({
+        type: "user",
+        uuid: "long-result",
+        sessionId: SID.basic,
+        timestamp: new Date(min(5)).toISOString(),
+        message: {
+          role: "user",
+          content: [{ type: "tool_result", tool_use_id: "toolu_x", content: long }],
+        },
+      })}\n`,
+    );
+    ingester.scan();
+    const text = db
+      .query<{ text: string }, []>("SELECT text FROM messages WHERE id = 'long-result:0'")
+      .get()?.text;
+    expect(text).toStartWith("line\n");
+    expect(text).toEndWith("12 pass\n3 fail");
+    expect(text).toContain("characters omitted");
+  });
+
   test("1. basic: thinking is not stored; tool calls keep a name and summary", () => {
     expect(
       count(

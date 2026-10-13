@@ -11,11 +11,19 @@ interface Word {
 }
 
 /**
- * Value of `--title "…"` / `--title=…` / `-t '…'`. null if missing or decided at run time
- * (e.g. `$(…)`). Looks only after `gh pr create`, up to the next `&&`, `;`, `|` or newline.
+ * Value of `--title "…"` / `--title=…` / `-t '…'` of `gh pr create`. null if missing or decided at
+ * run time (e.g. `$(…)`). Looks only after `gh pr create`, up to the next `&&`, `;`, `|` or newline.
  */
 export function prTitleOf(command: string): string | null {
-  const m = GH_PR_CREATE_RE.exec(command);
+  return titleAfter(command, GH_PR_CREATE_RE);
+}
+
+/**
+ * Value of the `--title` / `-t` option of the command `commandRe` finds (`gh pr create`,
+ * `gh issue create`), read with shell rules. null if missing or decided at run time.
+ */
+export function titleAfter(command: string, commandRe: RegExp): string | null {
+  const m = commandRe.exec(command);
   if (!m) return null;
   const words = shellWords(command.slice(m.index + m[0].length));
   for (const [i, w] of words.entries()) {

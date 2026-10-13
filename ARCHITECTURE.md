@@ -98,7 +98,7 @@ sequenceDiagram
 | Recap | Store `system/away_summary` and use the last one as a placeholder until the AI summary is ready. Every recap is also kept as an `away_summary` message (main session only) for summaries to read |
 | Compaction summary | Keep the body of the summary user record (`isCompactSummary`, main session only) as a `compact_summary` message. Past 40k characters, the middle is dropped: its pending tasks and next step come last |
 | Notes | `away_summary` and `compact_summary` messages are Claude Code's notes about the work, not the work: they don't count toward work blocks or session start and end, never belong to an automatic run's turn, and the conversation view leaves them out |
-| Tool output | Truncated to the first 4KB |
+| Tool output | Truncated to 4,000 characters, keeping the first quarter and the end (runners and errors print their totals and the reason last) |
 | Thinking and images | Not stored |
 | Commit | A successful Bash call containing `git commit` |
 | PR merge | A successful Bash call running `gh pr merge` (or a result whose `gitOperation.pr.action` is `merged`), stored as a `merge` artifact keyed by PR number. Counted in a work block's activity; not listed with PRs |
@@ -127,13 +127,16 @@ sequenceDiagram
         S->>DB: find sections to summarize (newest first)
         Note over S,DB: 10+ minutes or 2+ prompts<br/>and finished (30 minutes since last activity or a later section exists)<br/>and no summary or covered_until < end<br/>and within the last 7 days
     end
-    S->>DB: build an excerpt from the section's messages (up to 60k characters, head and tail first)
-    S->>C: prompt (session name, headlines of earlier sections, excerpt)
+    S->>DB: read the section's facts, and build an excerpt from its messages (up to 60k characters, head and tail first)
+    S->>C: prompt (session name, headlines of earlier sections, facts, excerpt)
     C-->>S: headline + body (Markdown)
     S->>DB: upsert summaries (key: session_id + start, covered_until = end)
     S-->>UI: SSE: summary.updated
 ```
 
+- The prompt's input has two parts. **Facts** come first: what the log records for the section, collected by code (`src/server/summarize/facts.ts`). The **excerpt** follows: the conversation, clipped
+  - Facts: commits, PRs and merges (up to 5 minutes after the end); issues closed or filed with `gh issue`; the last test or check run where a command starts (not one started in the background), whether it passed and its totals, and how many earlier runs failed (when a pipe, `|| true` or a following command hides the exit status, only its output is given); each task's state at the section's end (TaskCreate / TaskUpdate replayed over the whole session, since tasks outlive sections; tasks the section touched plus earlier ones still open); AskUserQuestion questions with their answers; interrupts; recaps (`away_summary`) up to 10 minutes after the end; and the pending tasks, current work and next step of compact summaries inside the section. Capped at 8k characters
+  - Excerpt: prompts, replies (800 characters each, the section's last reply 4k, since that is where Claude sums up what is left), tool calls (160 characters), and the last line of failed tests, git and gh calls
 - Concurrency is 1. On failure the reason is recorded and it retries up to 3 times after 1, 2 and 4 minutes
 - For short sections (under 10 minutes and at most one prompt), only a headline is generated automatically. The body is stored in `summaries` as an empty string and returned by the API as no summary (`body: null`)
 - The body of short sections and sections older than 7 days can be pushed to the priority queue with the button in the drawer (`POST /api/sessions/:id/sections/:start/summary`)

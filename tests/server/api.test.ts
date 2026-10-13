@@ -300,7 +300,8 @@ describe("GET /api/calendar", () => {
     const empty = await json<CalendarResponse>(
       `/api/calendar?from=${later}&to=${later + 24 * 60 * 60_000}`,
     );
-    expect(empty).toMatchObject({ sessions: [], prev: Date.UTC(2026, 8, 29, 1), next: null });
+    // The last work block is the facts scenario's, at 1600 min
+    expect(empty).toMatchObject({ sessions: [], prev: Date.UTC(2026, 8, 29, 2, 40), next: null });
   });
 
   test("returns work blocks, titles and labels", async () => {

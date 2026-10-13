@@ -44,7 +44,7 @@ import {
 import { usageCounts } from "./usage.ts";
 
 /** Bump when the interpretation rules change. Files whose source logs still exist are then re-read. */
-export const PARSER_VERSION = 9;
+export const PARSER_VERSION = 10;
 /**
  * Bump when the calculation of derived data that can be recomputed from the DB (aggregates, work blocks,
  * project assignment from the startup cwd) changes. All sessions are recomputed, even those whose logs are gone.
@@ -486,10 +486,19 @@ export class Ingester {
       const toolUseId = str(block.tool_use_id) ?? null;
       const isError = block.is_error === true;
       const output = toolResultText(block.content);
-      this.insert(ctx, `${id}:${i}`, seq + i, ts, "tool_result", clip(output, LIMIT.toolResult), {
-        toolUseId,
-        isError,
-      });
+      // Runners and errors print their totals and the reason last, so keep the end as well
+      this.insert(
+        ctx,
+        `${id}:${i}`,
+        seq + i,
+        ts,
+        "tool_result",
+        clipEnds(output, LIMIT.toolResult),
+        {
+          toolUseId,
+          isError,
+        },
+      );
       if (!toolUseId) return;
       this.attachPrTitle(ctx, toolUseId, result, output, isError || interrupted, ts);
       this.attachCommit(ctx, toolUseId, output, isError || interrupted, ts);

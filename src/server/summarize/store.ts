@@ -4,6 +4,7 @@ import type { Database } from "bun:sqlite";
 import { AUTO_SUMMARY_DAYS, isSummarizable, SECTION_IDLE_MS } from "../../shared/sections.ts";
 import { DEFAULT_HIDDEN_CWDS, visibleSessionSql } from "../visibility.ts";
 import { buildDigest, DIGEST_KINDS, type DigestMessage } from "./digest.ts";
+import { formatFacts, loadFacts } from "./facts.ts";
 import type { ParsedSummary, PromptInput } from "./prompt.ts";
 import { type RecapInput, type RecapTarget, recapHash } from "./recap.ts";
 
@@ -151,6 +152,7 @@ export function loadSectionInput(db: Database, target: SectionRef): SectionInput
       sessionTitle: session?.title?.split("\n")[0] ?? "(untitled)",
       projectName: session?.project ?? null,
       previous: loadPreviousHeadlines(db, target),
+      facts: formatFacts(loadFacts(db, target.sessionId, target.start, end)),
       digest,
     },
   };
@@ -199,7 +201,7 @@ function loadPreviousHeadlines(db: Database, target: SectionRef): string[] {
 function loadMessages(db: Database, target: SectionRef, end: number): DigestMessage[] {
   return db
     .query<DigestMessage, [string, number, number]>(
-      `SELECT kind, text, tool_name FROM messages
+      `SELECT kind, text, tool_name, tool_use_id, is_error FROM messages
        WHERE session_id = ? AND agent_id IS NULL AND is_copy = 0 AND is_scheduled = 0
          AND ts BETWEEN ? AND ? ORDER BY file_id, seq`,
     )

@@ -555,6 +555,96 @@ function containerRuns(): void {
   write(cwd, run);
 }
 
+// ---------------------------------------------------------------- 21. facts for summaries
+function facts(): void {
+  const b = new LogBuilder(SID.facts, APP);
+  header(b);
+  // An earlier section leaves a task open; tasks outlive the section that created them
+  b.prompt(1560, "リリースノートのタスクを作っておいて");
+  const notes = b.toolUse(1560.5, "TaskCreate", {
+    subject: "Write the release notes",
+    description: "Summarize the changes since v1.2",
+  });
+  b.toolResult(1560.5, notes, "Task #1 created successfully: Write the release notes");
+  b.text(1561, "タスクを作りました。");
+  b.turnEnd(1561);
+
+  b.prompt(1600, "検索で日本語が引っかからない問題を直して (#12)");
+  const fix = b.toolUse(1600.5, "TaskCreate", {
+    subject: "Fix Japanese search",
+    description: "Tokenize CJK text",
+  });
+  b.toolResult(1600.5, fix, "Task #2 created successfully: Fix Japanese search");
+  const start = b.toolUse(1600.6, "TaskUpdate", { taskId: "2", status: "in_progress" });
+  b.toolResult(1600.6, start, "Updated task #2 status");
+  b.bash(1603, "bun test", "3 pass\n1 fail", true);
+  b.system(1604, "compact_boundary", {
+    content: "Conversation compacted",
+    compactMetadata: { trigger: "auto", preTokens: 200_000, postTokens: 12_000 },
+  });
+  b.compactSummary(
+    1604,
+    [
+      "This session is being continued from a previous conversation. Summary:",
+      "1. Primary Request and Intent:",
+      "   Make search match Japanese text (#12).",
+      "7. **Pending Tasks:**",
+      "   - Make search match Japanese",
+      "8. **Current Work:**",
+      "   Fixing the tokenizer.",
+      "9. **Optional Next Step:**",
+      "   Run the tests again.",
+    ].join("\n"),
+  );
+  b.bash(1605, "bun test", "4 pass\n0 fail");
+  b.bash(
+    1606,
+    'git commit -m "fix: match Japanese in search"',
+    "[main 7c8d9e0] fix: match Japanese in search\n 1 file changed, 6 insertions(+)",
+  );
+  // Updates have also used task_id / state
+  const done = b.toolUse(1606.5, "TaskUpdate", { task_id: "2", state: "completed" });
+  b.toolResult(1606.5, done, "Updated task #2 status");
+  const ask = b.toolUse(1607, "AskUserQuestion", {
+    questions: [
+      {
+        question: "検索の構文をドキュメントに書きますか？",
+        header: "docs",
+        multiSelect: false,
+        options: [
+          { label: "今回書く", description: "README に追記する" },
+          { label: "次回にする", description: "issue にしておく" },
+        ],
+      },
+    ],
+  });
+  b.toolResult(
+    1607,
+    ask,
+    'Your questions have been answered: "検索の構文をドキュメントに書きますか？"="次回にする". You can now continue with these answers in mind.',
+  );
+  b.prompt(1608, "issue を閉じて、ドキュメントは issue にしておいて");
+  b.bash(1608.5, 'gh issue close 12 --comment "Fixed in 7c8d9e0"', "✓ Closed issue me/app#12");
+  b.bash(
+    1609,
+    'gh issue create --title "docs: describe the search syntax" --body ""',
+    "https://github.com/me/app/issues/13",
+  );
+  b.bash(1609.5, "git push", "! [rejected] main -> main (non-fast-forward)", true);
+  b.interrupt(1610);
+  // A last reply longer than the 800 characters other replies are clipped to; what is left comes last
+  b.text(
+    1612,
+    `${"検索のトークナイザを直し、日本語の語も分かち書きして索引に入れるようにしました。".repeat(20)}\n\n残り: ドキュメント（#13）と push のやり直し。`,
+  );
+  b.turnEnd(1612);
+  b.system(1615, "away_summary", {
+    content:
+      "検索の修正をコミットして #12 を閉じた。次は push のやり直し。 (disable recaps in /config)",
+  });
+  write(APP, b);
+}
+
 if (import.meta.main) {
   rmSync(ROOT, { recursive: true, force: true });
   for (const scenario of [
@@ -578,6 +668,7 @@ if (import.meta.main) {
     scratchpadRun,
     tempRuns,
     containerRuns,
+    facts,
   ]) {
     scenario();
   }
