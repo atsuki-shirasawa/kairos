@@ -4,7 +4,7 @@ import { defineMessages } from "../index.ts";
 export const calendarMessages = defineMessages({
   en: {
     openDay: (date: string) => `Open ${date} in day view`,
-    blocksWork: (blocks: string, busy: string) => `${blocks} · ${busy} of work`,
+    blocksWork: (blocks: string, busy: string) => `${blocks} · ${busy} worked`,
     claudeTotal: (ms: string) => ` (Claude ${ms} total)`,
     tokensCost: (tokens: string, cost: string) => `${tokens} tokens · ${cost} at API prices`,
     clickForDay: "Click for day view",

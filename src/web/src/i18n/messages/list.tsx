@@ -54,7 +54,7 @@ export const listMessages = defineMessages({
     columnsTitle: "Columns to show",
     columnsReset: "Reset",
     sortBy: (label: string) => `Sort by ${label}`,
-    noRecords: "No records",
+    noRecords: "No work",
     showDay: "Show this day",
     fromPreviousDay: "From the day before",
     toNextDay: "Continues next day",
@@ -66,7 +66,8 @@ export const listMessages = defineMessages({
     /** The period summary above the table. Arguments are already-styled numbers. */
     period: (view: View, count: number, blocks: ReactNode, busy: ReactNode) => (
       <>
-        {capitalize(THIS_EN[view])}: {blocks} {count === 1 ? "block" : "blocks"} · {busy} of work
+        {capitalize(THIS_EN[view])}: {blocks} {count === 1 ? "work block" : "work blocks"} · {busy}{" "}
+        worked
       </>
     ),
     claudeTotal: (ms: ReactNode) => <> (Claude {ms} total)</>,
@@ -106,7 +107,7 @@ export const listMessages = defineMessages({
     columnsTitle: "表示する列",
     columnsReset: "元に戻す",
     sortBy: (label: string) => `${label}で並べ替え`,
-    noRecords: "記録なし",
+    noRecords: "作業なし",
     showDay: "この日を表示",
     fromPreviousDay: "前日から",
     toNextDay: "翌日へ",

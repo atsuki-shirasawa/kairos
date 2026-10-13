@@ -14,8 +14,8 @@ export const datePickerMessages = defineMessages({
     isoWeek: "ISO week number",
     weekNumber: "Week number",
     dayLabel: (month: number, day: number, hasRecord: boolean, inRange: boolean) =>
-      `${dateMessages().month(month)} ${day}${hasRecord ? ", has sessions" : ""}${inRange ? " (shown)" : ""}`,
-    legend: "Days with sessions",
+      `${dateMessages().month(month)} ${day}${hasRecord ? ", has work" : ""}${inRange ? " (shown)" : ""}`,
+    legend: "Days with work",
   },
   ja: {
     triggerLabel: (heading: string) => `${heading}。日付を選んで移る`,
@@ -28,7 +28,7 @@ export const datePickerMessages = defineMessages({
     isoWeek: "ISO 週番号",
     weekNumber: "週番号",
     dayLabel: (month: number, day: number, hasRecord: boolean, inRange: boolean) =>
-      `${month + 1}月${day}日${hasRecord ? "、記録あり" : ""}${inRange ? "（表示中）" : ""}`,
-    legend: "記録のある日",
+      `${month + 1}月${day}日${hasRecord ? "、作業あり" : ""}${inRange ? "（表示中）" : ""}`,
+    legend: "作業のある日",
   },
 });

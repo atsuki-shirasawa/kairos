@@ -36,7 +36,7 @@ export const toolbarMessages = defineMessages({
     shortcutView: "Month / week / day view",
     shortcutLayout: "Calendar / summary",
     shortcutTable: "Summary as a table",
-    shortcutStep: "Open next / previous block",
+    shortcutStep: "Open next / previous work block",
     shortcutSearch: "Search",
     shortcutClose: "Close details",
     shortcutMenu: "This menu",

@@ -42,7 +42,8 @@ export const filterMessages = defineMessages({
     changeColorOf: (name: string) => `Change the color of ${name}`,
     changeColor: "Change color",
     colorOf: (name: string) => `Color of ${name}`,
-    blockCount: (n: number) => (n === 1 ? "1 block in this period" : `${n} blocks in this period`),
+    blockCount: (n: number) =>
+      n === 1 ? "1 work block in this period" : `${n} work blocks in this period`,
     chipsLabel: "Active conditions",
     outcomeChip: (names: string[]) => names.join(" or "),
     lengthChip: (min: number) => (min < 60 ? `${min} min or longer` : `${min / 60} h or longer`),

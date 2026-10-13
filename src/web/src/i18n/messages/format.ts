@@ -15,7 +15,7 @@ export const formatMessages = defineMessages({
     working: "In progress",
     /** The session's label (e.g. a worktree name) after the project name. */
     sessionLabel: (label: string) => ` (${label})`,
-    blocks: (n: number) => (n === 1 ? "1 block" : `${n} blocks`),
+    blocks: (n: number) => (n === 1 ? "1 work block" : `${n} work blocks`),
     commitsPrs: (commits: number, prs: number) => `Commits ${commits} · PRs ${prs}`,
     trouble: (n: number) => `Snags ${n}`,
     copyFailed: "Couldn't copy to the clipboard",
