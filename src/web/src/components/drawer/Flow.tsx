@@ -1,5 +1,6 @@
 import type { Section, SessionDetail } from "@shared/api.ts";
 import { useState } from "react";
+import { Hint } from "@/components/Hint.tsx";
 import { MomentNode } from "@/components/MomentNode.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
@@ -100,7 +101,6 @@ function FlowItem({
       type="button"
       onClick={onClick}
       aria-current={selected}
-      title={x.headline}
       className={cn(
         "flex w-full items-baseline gap-3 rounded-r-md border-transparent border-l-2 px-2 py-1.5 text-left text-sm hover:bg-accent",
         selected && "border-primary bg-accent font-medium",
@@ -116,7 +116,9 @@ function FlowItem({
         {multiDay && `${new Date(x.start).getMonth() + 1}/${new Date(x.start).getDate()} `}
         {hhmm(x.start)}–{hhmm(x.end)}
       </span>
+      {/* The title sits on the headline, not the row, so it never doubles the nodes' tooltip */}
       <span
+        title={x.headline}
         className={cn(
           "min-w-0 flex-1",
           x.body ? "line-clamp-2" : "line-clamp-1",
@@ -138,17 +140,24 @@ function FlowMoments({ commits, prs }: { commits: number; prs: number }) {
   const total = commits + prs;
   if (total === 0) return null;
   const nodes = Array.from({ length: Math.min(total, NODE_LIMIT) }, (_, i) => i < prs);
+  const words = formatMessages().commitsPrs(commits, prs);
   return (
-    <span
+    <Hint
+      text={words}
       className="flex shrink-0 items-center gap-0.5 self-center font-num text-[11px] text-muted-foreground"
-      title={formatMessages().commitsPrs(commits, prs)}
     >
+      {/* The tooltip only opens on hover, so the row's accessible name carries the words itself */}
+      <span className="sr-only">{words}</span>
       {nodes.map((pr, i) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: identical nodes, only their count matters
         <MomentNode key={i} pr={pr} />
       ))}
-      {total > NODE_LIMIT && <span className="ml-0.5">+{total - NODE_LIMIT}</span>}
-    </span>
+      {total > NODE_LIMIT && (
+        <span className="ml-0.5" aria-hidden>
+          +{total - NODE_LIMIT}
+        </span>
+      )}
+    </Hint>
   );
 }
 

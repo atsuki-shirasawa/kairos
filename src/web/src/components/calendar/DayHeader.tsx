@@ -1,4 +1,5 @@
 import type { Activity, Usage } from "@shared/api.ts";
+import { Hint } from "@/components/Hint.tsx";
 import { MomentNode } from "@/components/MomentNode.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip.tsx";
 import { calendarMessages } from "@/i18n/messages/calendar.ts";
@@ -6,7 +7,7 @@ import { dateMessages } from "@/i18n/messages/dates.ts";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { dateLabel, durationLabel, weekday } from "@/lib/dates.ts";
-import { costLabel, tokensLabel, troubleCount } from "@/lib/format.ts";
+import { costLabel, tokensLabel, troubleCount, troubleDetail } from "@/lib/format.ts";
 import { busyMs, type PlacedBlock } from "@/lib/layout.ts";
 import { counted, totalsOf } from "@/lib/totals.ts";
 import { cn } from "@/lib/utils.ts";
@@ -23,6 +24,8 @@ export interface DayFigures {
   commits: number;
   prs: number;
   trouble: number;
+  /** What kind of snags they were ("" without any), for the places that explain the count. */
+  troubleDetail: string;
 }
 
 /** Sums the day's blocks into the figures its header (or month cell) shows. */
@@ -37,6 +40,7 @@ export function dayFigures(blocks: PlacedBlock[]): DayFigures {
     commits: activity?.commits ?? 0,
     prs: activity?.prs ?? 0,
     trouble: activity ? troubleCount(activity) : 0,
+    troubleDetail: activity ? troubleDetail(activity) : "",
   };
 }
 
@@ -102,9 +106,10 @@ function DayFiguresLine({ figures }: { figures: DayFigures }) {
     ) : null,
     commits > 0 || prs > 0 ? <span key="outcomes">{f.commitsPrs(commits, prs)}</span> : null,
     trouble > 0 ? (
-      <span key="trouble" className="text-warn">
+      // Shown in the warn color, so it says on hover what kind of snags they were
+      <Hint key="trouble" text={figures.troubleDetail} focusable className="text-warn">
         {f.trouble(trouble)}
-      </span>
+      </Hint>
     ) : null,
     usage ? <span key="usage">{usageText(usage)}</span> : null,
   ].filter((d) => d !== null);
@@ -211,8 +216,13 @@ export function DayTooltip({ day, figures }: { day: number; figures: DayFigures 
       {usage && <p className="opacity-70">{usageText(usage)}</p>}
       {(commits > 0 || prs > 0 || trouble > 0) && (
         <p className="opacity-70">
-          {f.commitsPrs(commits, prs)}
-          {trouble > 0 && `${f.separator}${f.trouble(trouble)}`}
+          {/* Already inside a tooltip, so the kinds of snag go in parentheses */}
+          {[
+            (commits > 0 || prs > 0) && f.commitsPrs(commits, prs),
+            trouble > 0 && f.troubleWithDetail(trouble, figures.troubleDetail),
+          ]
+            .filter(Boolean)
+            .join(f.separator)}
         </p>
       )}
       <p className="opacity-70">{m.clickForDay}</p>

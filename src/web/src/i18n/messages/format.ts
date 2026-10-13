@@ -18,6 +18,8 @@ export const formatMessages = defineMessages({
     blocks: (n: number) => (n === 1 ? "1 work block" : `${n} work blocks`),
     commitsPrs: (commits: number, prs: number) => `Commits ${commits} · PRs ${prs}`,
     trouble: (n: number) => `Snags ${n}`,
+    /** Snags with what kind they were, where there is no room for a tooltip of its own. */
+    troubleWithDetail: (n: number, detail: string) => `Snags ${n} (${detail})`,
     copyFailed: "Couldn't copy to the clipboard",
   },
   ja: {
@@ -33,6 +35,7 @@ export const formatMessages = defineMessages({
     blocks: (n: number) => `${n} 件`,
     commitsPrs: (commits: number, prs: number) => `コミット ${commits}・PR ${prs}`,
     trouble: (n: number) => `つまずき ${n}`,
+    troubleWithDetail: (n: number, detail: string) => `つまずき ${n}（${detail}）`,
     copyFailed: "クリップボードにコピーできませんでした",
   },
 });
