@@ -53,8 +53,9 @@ export function DayColumn({
     >
       {/* Draw the current-time line under the blocks, so it doesn't hide a short block just before it */}
       {today && <NowLine top={((now - day) / HOUR) * hourPx} />}
+      {/* Isolated, so the blocks' z-indexes (lifted during a search) stay inside this layer */}
       <div
-        className="absolute inset-y-0 right-0"
+        className="absolute inset-y-0 right-0 isolate"
         style={{ left: marks.length > 0 ? MARK_STRIP_PX : 0 }}
       >
         {cards.map((b) => (

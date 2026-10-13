@@ -15,6 +15,8 @@ import {
   type MomentRow,
   momentMarks,
   momentRows,
+  RAISED_LAYER,
+  stackOrder,
 } from "@/lib/calendarGrid.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { dateLabel, durationLabel, hhmm } from "@/lib/dates.ts";
@@ -61,6 +63,8 @@ const LANE_ROOM = "@min-[36rem]:max-w-[min(32rem,calc(100%-min(38%,24rem)-0.75re
 interface BlockState {
   selected: boolean;
   faded: boolean;
+  /** Faded and not selected: drawn see-through, under the blocks in full view. */
+  muted: boolean;
   /** Not summarized yet, so the heading is the raw first prompt. */
   dim: boolean;
   /** A headless run (claude -p / SDK), not work you prompted. */
@@ -106,6 +110,7 @@ export function Block({
     ...block,
     selected,
     faded,
+    muted: faded && !selected,
     dim,
     headless: session.headless,
     short: geo.short,
@@ -130,7 +135,10 @@ export function Block({
     <Tooltip>
       {/* The button fills the block and sits on top, so the block can hold Markdown (lists etc.),
           which is not allowed inside a button. The visible content below is never interactive */}
-      <div className={blockClassName(state)} style={blockStyle(block, geo, project, selected)}>
+      <div
+        className={blockClassName(state)}
+        style={blockStyle(block, geo, project, stackOrder(state))}
+      >
         <TooltipTrigger asChild>
           <button
             type="button"
@@ -190,7 +198,7 @@ export function timeRange(block: PlacedBlock): string {
 /** Classes of the block's frame: fill, outline and fading by state. */
 function blockClassName({
   selected,
-  faded,
+  muted,
   dim,
   headless,
   short,
@@ -220,27 +228,29 @@ function blockClassName({
     selected && "outline-2 outline-primary outline-offset-1",
     continuesBefore && "rounded-t-none",
     continuesAfter && "rounded-b-none",
-    // Non-matching blocks keep only their shape. Restore them on hover/focus and when selected so they stay readable
-    faded &&
-      !selected &&
-      "opacity-30 transition-opacity has-[>button:focus-visible]:opacity-100 has-[>button:hover]:opacity-100 motion-reduce:transition-none",
+    // Stacking order comes from `blockStyle`, as a variable so hover and focus can override it
+    "z-(--z)",
+    // Non-matching blocks keep only their shape. Restore them on hover/focus and when selected so
+    // they stay readable; on hover/focus they also come back above the matching blocks over them
+    muted &&
+      "opacity-30 transition-opacity has-[>button:focus-visible]:z-(--z-raised) has-[>button:hover]:z-(--z-raised) has-[>button:focus-visible]:opacity-100 has-[>button:hover]:opacity-100 motion-reduce:transition-none",
   );
 }
 
-/** Position, stacking and project color of the block's frame. */
+/** Position, stacking order (see `stackOrder`) and project color of the block's frame. */
 function blockStyle(
   { col, cols, span, depth }: PlacedBlock,
   { top, height, stretched, filledPx }: BlockGeometry,
   project: Project | undefined,
-  selected: boolean,
+  z: number,
 ): React.CSSProperties {
   return {
     top,
     height,
     left: `calc(${(col / cols) * 100}% + ${2 + depth * INDENT_PX}px)`,
     width: `calc(${(span / cols) * 100}% - ${4 + depth * INDENT_PX}px)`,
-    // Later blocks draw on top. Even when selected, a block never hides the ones stacked over it
-    zIndex: 1 + depth * 2 + (selected ? 1 : 0),
+    "--z": z,
+    "--z-raised": RAISED_LAYER + z,
     borderLeftColor: "var(--c)",
     "--c": projectColor(project),
     backgroundImage: "linear-gradient(var(--fill), var(--fill))",
