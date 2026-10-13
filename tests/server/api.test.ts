@@ -502,6 +502,14 @@ describe("GET /api/sessions/:id/messages", () => {
     expect(JSON.parse(tool?.detail ?? "{}")).toMatchObject({ command: "ls src/components" });
   });
 
+  test("leaves out Claude Code's notes (compact summaries and recaps)", async () => {
+    for (const id of [SID.basic, SID.compaction]) {
+      const kinds = (await all(`/api/sessions/${id}/messages`, 100)).map((m) => m.kind as string);
+      expect(kinds).not.toContain("away_summary");
+      expect(kinds).not.toContain("compact_summary");
+    }
+  });
+
   test("includes copies from the previous session only with copies=1", async () => {
     const own = await all(`/api/sessions/${SID.continuedTo}/messages`, 100);
     const withCopies = await all(`/api/sessions/${SID.continuedTo}/messages?copies=1`, 100);

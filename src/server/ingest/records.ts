@@ -60,6 +60,17 @@ export function toolResultText(content: unknown): string {
     .join("\n");
 }
 
+/**
+ * Keeps `limit` characters, a quarter from the start and the rest from the end, for text whose
+ * conclusion comes last (a compact summary ends with what is pending and the next step).
+ */
+export function clipEnds(text: string, limit: number): string {
+  if (text.length <= limit) return text;
+  const head = Math.floor(limit / 4);
+  const omitted = (text.length - limit).toLocaleString("en-US");
+  return `${text.slice(0, head)}\n… (${omitted} characters omitted) …\n${text.slice(text.length - (limit - head))}`;
+}
+
 /** Truncates to `limit` characters and notes how much was cut. */
 export function clip(text: string, limit: number): string {
   if (text.length <= limit) return text;

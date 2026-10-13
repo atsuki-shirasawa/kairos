@@ -70,6 +70,10 @@ function basic(): void {
   b.turnEnd(5);
   b.meta("ai-title", { aiTitle: "ログインフォーム実装" });
   b.meta("last-prompt", { lastPrompt: "ログインフォームを実装して。バリデーションも付けてほしい" });
+  // Real recaps come about 3 minutes after the last activity; they must not stretch the block
+  b.system(8, "away_summary", {
+    content: "ログインフォームを実装してコミットした。次は PR 作成。 (disable recaps in /config)",
+  });
 
   // 40-minute gap → separate work blocks
   b.prompt(45, "PR を作って", "suggestion_accepted");
@@ -128,6 +132,8 @@ function loop(): void {
     b.text(m + 1, "CI は成功しています。");
     b.turnEnd(m + 1);
   }
+  // A recap after an automatic run still describes the session, not that run
+  b.system(124, "away_summary", { content: "30 分ごとに CI を確認している。次はループの停止。" });
   b.prompt(150, "ループ止めて");
   const del = b.toolUse(150.5, "CronDelete", { id: "e3278fca" });
   b.toolResult(150.5, del, "Deleted");

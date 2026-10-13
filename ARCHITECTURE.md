@@ -95,7 +95,9 @@ sequenceDiagram
 | Same repository | If `.git/config` has an `origin` remote, the project is named after the repository and other clones of the same remote merge into it (a directory name that differs becomes the secondary label). Only the file is read; no git commands run |
 | Temporary and gone directories | Without a remote, a directory that is gone from this machine (a container's checkout) or temporary takes the repository of the PRs opened from it, if they all point to one. A Claude Code scratchpad joins the project of the session that made it (its path encodes that session's directory). Other temporary directories (`/tmp`, `/private/tmp`, `/var/folders`, `~/.claude/jobs/*/tmp`) share one `tmp` project. The directory name becomes the secondary label |
 | Title | `custom-title` > `agent-name` > `ai-title` > the first human prompt > the first SDK input |
-| Recap | Store `system/away_summary` and use it as a placeholder until the AI summary is ready |
+| Recap | Store `system/away_summary` and use the last one as a placeholder until the AI summary is ready. Every recap is also kept as an `away_summary` message (main session only) for summaries to read |
+| Compaction summary | Keep the body of the summary user record (`isCompactSummary`, main session only) as a `compact_summary` message. Past 40k characters, the middle is dropped: its pending tasks and next step come last |
+| Notes | `away_summary` and `compact_summary` messages are Claude Code's notes about the work, not the work: they don't count toward work blocks or session start and end, never belong to an automatic run's turn, and the conversation view leaves them out |
 | Tool output | Truncated to the first 4KB |
 | Thinking and images | Not stored |
 | Commit | A successful Bash call containing `git commit` |

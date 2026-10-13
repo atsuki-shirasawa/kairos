@@ -94,6 +94,19 @@ describe("README scenarios", () => {
     ]);
   });
 
+  test("1. basic: every recap is kept as a note that doesn't stretch the block or session", () => {
+    const notes = db
+      .query<{ ts: number; text: string }, [string]>(
+        "SELECT ts, text FROM messages WHERE session_id = ? AND kind = 'away_summary' ORDER BY ts",
+      )
+      .all(SID.basic);
+    expect(notes).toEqual([
+      { ts: min(8), text: "ログインフォームを実装してコミットした。次は PR 作成。" },
+      { ts: min(55), text: "ログインフォームを実装して PR #42 を作成した。次はレビュー対応。" },
+    ]);
+    expect(session(SID.basic).ended_at).toBe(min(50.2));
+  });
+
   test("1. basic: thinking is not stored; tool calls keep a name and summary", () => {
     expect(
       count(
@@ -115,6 +128,12 @@ describe("README scenarios", () => {
       [min(0), min(1)],
       [min(150), min(151)],
     ]);
+    expect(
+      count(
+        "SELECT COUNT(*) AS n FROM messages WHERE session_id = ? AND kind = 'away_summary' AND is_scheduled = 0",
+        SID.loop,
+      ),
+    ).toBe(1);
     // Notifications arriving during an automatic run belong to that run's turn
     expect(
       count(
@@ -224,6 +243,20 @@ describe("README scenarios", () => {
     expect(segments(SID.compaction)).toEqual([
       [min(360), min(362)],
       [min(380), min(383)],
+    ]);
+  });
+
+  test("7. compaction: the summary body is kept as a note, outside the work blocks", () => {
+    const note = db
+      .query<{ ts: number; text: string }, [string]>(
+        "SELECT ts, text FROM messages WHERE session_id = ? AND kind = 'compact_summary'",
+      )
+      .all(SID.compaction);
+    expect(note).toEqual([
+      {
+        ts: min(371),
+        text: "This session is being continued from a previous conversation. Summary: 調査を行った。",
+      },
     ]);
   });
 

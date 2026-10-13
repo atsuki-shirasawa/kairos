@@ -20,6 +20,7 @@ import { GH_PR_CREATE_RE, prMergeOf, prTitleOf, prUrlIn } from "./prs.ts";
 import { type Line, type ReadResult, readNewLines } from "./reader.ts";
 import {
   clip,
+  clipEnds,
   contentText,
   isRec,
   list,
@@ -43,7 +44,7 @@ import {
 import { usageCounts } from "./usage.ts";
 
 /** Bump when the interpretation rules change. Files whose source logs still exist are then re-read. */
-export const PARSER_VERSION = 8;
+export const PARSER_VERSION = 9;
 /**
  * Bump when the calculation of derived data that can be recomputed from the DB (aggregates, work blocks,
  * project assignment from the startup cwd) changes. All sessions are recomputed, even those whose logs are gone.
@@ -51,7 +52,14 @@ export const PARSER_VERSION = 8;
 export const DERIVED_VERSION = 6;
 const FALLBACK_TITLE_CHARS = 120;
 
-const LIMIT = { text: 20_000, toolInput: 4_000, toolResult: 4_000, short: 2_000 };
+// A compact summary runs past 20k characters; past the limit, its end (pending tasks, next step) is kept
+const LIMIT = {
+  text: 20_000,
+  compactSummary: 40_000,
+  toolInput: 4_000,
+  toolResult: 4_000,
+  short: 2_000,
+};
 const RECAP_SUFFIX = /\s*\(disable recaps in \/config\)\s*$/;
 
 /** Where a session belongs: its project row, and the secondary label shown beside the name. */
@@ -457,7 +465,14 @@ export class Ingester {
       case "tool_result":
         this.handleToolResults(ctx, r, id, ts, seq);
         return;
-      // compact_summary and meta are not stored
+      // Claude Code's own account of the work so far, with what is pending, for summaries to read
+      case "compact_summary":
+        if (ctx.agentId === null)
+          this.insert(ctx, id, seq, ts, kind, clipEnds(text.trim(), LIMIT.compactSummary), {
+            note: true,
+          });
+        return;
+      // meta is not stored
     }
   }
 
@@ -615,7 +630,7 @@ export class Ingester {
     );
   }
 
-  /** Stores compactions, turn durations and away summaries; other system records are ignored. */
+  /** Stores compactions, turn durations and away summaries (recaps); other system records are ignored. */
   private handleSystem(ctx: Ctx, r: Rec, ts: number | null, seq: number): void {
     const id = str(r.uuid) ?? `${ctx.fileId}:${seq}`;
     if (r.subtype === "compact_boundary") {
@@ -627,7 +642,11 @@ export class Ingester {
       if (ts !== null && typeof r.durationMs === "number")
         this.q.insertTurn.run(ctx.sessionId, id, ctx.fileId, ts, r.durationMs);
     } else if (r.subtype === "away_summary" && ctx.agentId === null) {
-      this.set(ctx, "away_summary", str(r.content)?.replace(RECAP_SUFFIX, ""));
+      const text = str(r.content)?.replace(RECAP_SUFFIX, "");
+      this.set(ctx, "away_summary", text);
+      // Every recap, not just the last, says where the work stood at that moment
+      if (text)
+        this.insert(ctx, id, seq, ts, "away_summary", clip(text, LIMIT.short), { note: true });
     }
   }
 
@@ -646,6 +665,8 @@ export class Ingester {
       toolUseId?: string | null;
       isError?: boolean;
       meta?: string | null;
+      /** A note about the session, never part of an automatic run's turn. */
+      note?: boolean;
     } = {},
   ): void {
     this.q.insertMessage.run(
@@ -660,7 +681,7 @@ export class Ingester {
       opt.toolName ?? null,
       opt.toolUseId ?? null,
       opt.isError ? 1 : 0,
-      ctx.state.autoTurn ? 1 : 0,
+      ctx.state.autoTurn && !opt.note ? 1 : 0,
       opt.meta ?? null,
     );
   }

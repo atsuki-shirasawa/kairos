@@ -18,6 +18,7 @@ import type {
 } from "../shared/api.ts";
 import { ARTIFACT_GRACE_MS } from "../shared/constants.ts";
 import { isSummarizable } from "../shared/sections.ts";
+import { notNote } from "./db/notes.ts";
 import { costOf } from "./pricing.ts";
 import { storedShowHeadless } from "./settings.ts";
 import { loadRecapInput, type RecapTarget, recapHash } from "./summarize/recap.ts";
@@ -620,7 +621,7 @@ export class Queries {
       >(
         `SELECT id, file_id, seq, ts, kind, text, tool_name, tool_use_id, meta, is_error, is_scheduled, is_copy
          FROM messages
-         WHERE session_id = ?1 AND agent_id IS ?2 AND (is_copy = 0 OR ?5 = 1)
+         WHERE session_id = ?1 AND agent_id IS ?2 AND (is_copy = 0 OR ?5 = 1) AND ${notNote()}
            AND (file_id > ?3 OR (file_id = ?3 AND seq > ?4))
          ORDER BY file_id, seq
          LIMIT ?6`,

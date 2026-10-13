@@ -1,4 +1,5 @@
 import type { Database, Statement } from "bun:sqlite";
+import { notNote } from "../db/notes.ts";
 
 /** Saved resume point and interpretation state of one log file (a row of ingest_state). */
 export interface StateRow {
@@ -167,7 +168,7 @@ export function prepareStatements(db: Database) {
                 COALESCE(SUM(kind IN ('prompt', 'command')), 0) AS prompts,
                 COALESCE(SUM(kind = 'scheduled'), 0) AS scheduled,
                 COALESCE(SUM(kind = 'sdk_prompt'), 0) AS sdk
-         FROM messages WHERE session_id = ? AND agent_id IS NULL AND is_copy = 0`,
+         FROM messages WHERE session_id = ? AND agent_id IS NULL AND is_copy = 0 AND ${notNote()}`,
     ),
     firstPrompt: p(
       // A human prompt wins; a headless session falls back to its SDK input
@@ -181,7 +182,8 @@ export function prepareStatements(db: Database) {
     activity: p(
       `SELECT ts, is_scheduled, kind,
               CASE WHEN kind IN ('prompt', 'command', 'sdk_prompt', 'assistant') THEN substr(text, 1, 400) END AS text
-       FROM messages WHERE session_id = ? AND agent_id IS NULL AND is_copy = 0 AND ts IS NOT NULL ORDER BY ts, file_id, seq`,
+       FROM messages WHERE session_id = ? AND agent_id IS NULL AND is_copy = 0 AND ts IS NOT NULL AND ${notNote()}
+       ORDER BY ts, file_id, seq`,
     ),
     clearSegments: p("DELETE FROM segments WHERE session_id = ?"),
     insertSegment: p(
