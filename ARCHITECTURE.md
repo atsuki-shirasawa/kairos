@@ -245,7 +245,8 @@ kairos/
 │   │   │               #   fileState (per-file resume state), placement (session → project rules),
 │   │   │               #   interpret (how a user record is stored), outcomes (what a tool call awaits),
 │   │   │               #   project, commits, prs
-│   │   ├── summarize/  # summarizer (queue), digest (excerpt), prompt, claude (runs claude -p),
+│   │   ├── summarize/  # summarizer (loop) with jobs (queues), section (prepare / interpret), store,
+│   │   │               #   digest (excerpt), prompt, recap + recapPrompt, claude (runs claude -p),
 │   │   │               #   ledger/ (open items: refs, candidates, record, settle by the log, API reads)
 │   │   ├── api/        # Hono routes (app), request validation (validate), SSE (sse), security middleware
 │   │   ├── queries/    # read queries behind the API: the Queries façade (index) and its domain
