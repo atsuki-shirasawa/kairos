@@ -2,7 +2,7 @@
 // the project and title, the tool call in flight, the task list and the last test run.
 import type { Database } from "bun:sqlite";
 import type { LiveSession, LiveState, LiveTasks, LiveTest } from "../../shared/api.ts";
-import { title } from "../queries.ts";
+import { knownTitle } from "../queries.ts";
 import { type FactCall, lastTestRun, loadCalls, oneLine, taskStates } from "../summarize/facts.ts";
 import type { RegistryEntry } from "./registry.ts";
 
@@ -184,7 +184,9 @@ export function liveSessions(
       projectId: s?.project_id ?? null,
       label: s?.label ?? null,
       branch: s?.branch && s.branch !== "HEAD" ? s.branch : null,
-      title: s && (s.prompt_count > 0 || s.sdk_prompt_count > 0) ? title(s) : null,
+      // No placeholder: the card falls back to the session's name, which says more. A /rename
+      // before the first prompt counts too
+      title: s ? knownTitle(s) : null,
       state,
       since: e.statusUpdatedAt,
       startedAt: e.startedAt,

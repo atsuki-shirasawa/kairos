@@ -11,6 +11,7 @@ import {
 } from "../../src/server/live/registry.ts";
 import { liveSessions } from "../../src/server/live/sessions.ts";
 import { LiveTracker } from "../../src/server/live/tracker.ts";
+import { knownTitle } from "../../src/server/queries.ts";
 import { SID } from "../fixtures/ids.ts";
 import { min, setup } from "./ingest/helpers.ts";
 
@@ -303,4 +304,10 @@ describe("liveSessions", () => {
     db.run("UPDATE projects SET hidden = 1 WHERE id = ?", [shown?.projectId ?? -1]);
     expect(liveSessions(db, [entry(SID.facts)], VISIBLE, 0)).toEqual([]);
   });
+});
+
+test("a session with nothing to title it by has no title, so the card can use its name", () => {
+  const none = { custom_title: null, agent_name: null, ai_title: null, first_prompt: "  " };
+  expect(knownTitle(none)).toBeNull();
+  expect(knownTitle({ ...none, first_prompt: "fix the build\nand more" })).toBe("fix the build");
 });

@@ -1,6 +1,13 @@
 import type { LiveColumn, LiveDisplay } from "@/lib/live.ts";
 import { defineMessages } from "../index.ts";
 
+/** Short status-board names, shared by both languages: they read as states, like "Live". */
+const COLUMNS: Record<LiveColumn, string> = {
+  attention: "On you",
+  working: "Working",
+  idle: "Idle",
+};
+
 /** The page of running sessions and the toolbar button that opens it. */
 export const liveMessages = defineMessages({
   en: {
@@ -10,17 +17,13 @@ export const liveMessages = defineMessages({
       `Live: ${running === 1 ? "1 session" : `${running} sessions`} running${attention ? `, ${attention} waiting on you` : ""}`,
     /** The button's tooltip: its name and its key. */
     buttonTitle: (label: string) => `${label} (n)`,
-    heading: "Running now",
-    columns: {
-      attention: "Waiting on you",
-      working: "Working",
-      idle: "Idle",
-    } satisfies Record<LiveColumn, string>,
+    heading: "Running sessions",
+    columns: COLUMNS,
     columnNote: {
-      attention: "Asking a question, or done with its turn",
-      working: "Running a turn",
+      attention: "Waiting for your answer or your next prompt",
+      working: "Claude is working",
       idle: (minutes: number) =>
-        `Waiting ${minutes === 1 ? "1 minute" : `${minutes} minutes`} or more`,
+        `Nothing for ${minutes === 1 ? "1 minute" : `${minutes} minutes`} or more`,
     },
     nothingRunning: "No Claude Code session is running.",
     unavailable:
@@ -45,27 +48,23 @@ export const liveMessages = defineMessages({
   ja: {
     button: "Live",
     buttonLabel: (attention: number, running: number) =>
-      `Live: 実行中のセッション ${running} 件${attention ? `、うち ${attention} 件があなた待ち` : ""}`,
+      `Live: 起動中のセッション ${running} 件${attention ? `、うち ${attention} 件が要対応` : ""}`,
     buttonTitle: (label: string) => `${label} (n)`,
-    heading: "実行中",
-    columns: {
-      attention: "あなた待ち",
-      working: "作業中",
-      idle: "アイドル",
-    } satisfies Record<LiveColumn, string>,
+    heading: "起動中のセッション",
+    columns: COLUMNS,
     columnNote: {
-      attention: "質問している、またはターンを終えた",
-      working: "ターンを実行している",
-      idle: (minutes: number) => `${minutes} 分以上入力を待っている`,
+      attention: "質問への回答か、次の指示を待っています",
+      working: "Claude が作業しています",
+      idle: (minutes: number) => `${minutes} 分以上操作がありません`,
     },
-    nothingRunning: "実行中の Claude Code セッションはありません。",
+    nothingRunning: "起動中の Claude Code セッションはありません。",
     unavailable:
-      "Claude Code の実行中セッションの記録（~/.claude/sessions）を読めません。kairos doctor を実行してください。",
+      "Claude Code の起動中セッションの記録（~/.claude/sessions）を読めません。kairos doctor を実行してください。",
     state: {
-      asking: "質問中",
-      waiting: "入力待ち",
+      asking: "質問あり",
+      waiting: "指示待ち",
       working: "作業中",
-      idle: "アイドル",
+      idle: "休止中",
     } satisfies Record<LiveDisplay, string>,
     status: (state: string, duration: string) => `${state}・${duration}`,
     background: "バックグラウンド",

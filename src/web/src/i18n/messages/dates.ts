@@ -15,6 +15,11 @@ const MONTHS_EN = [
   "December",
 ];
 
+/** "Oct" for 9: the English short month. */
+function shortMonthEn(month: number): string {
+  return (MONTHS_EN[month] ?? "").slice(0, 3);
+}
+
 /** `month` is 0-based, as in `Date#getMonth`. */
 export const dateMessages = defineMessages({
   en: {
@@ -37,6 +42,10 @@ export const dateMessages = defineMessages({
     minutes: (m: number) => `${m}m`,
     hours: (h: number) => `${h}h`,
     hoursMinutes: (h: number, m: number) => `${h}h ${m}m`,
+    days: (d: number) => `${d}d`,
+    /** A time on another day: "Oct 5 8:43" / "Dec 30, 2025 8:43". */
+    monthDayTime: (month: number, day: number, year: number | null, time: string) =>
+      `${shortMonthEn(month)} ${day}${year === null ? "" : `, ${year}`} ${time}`,
   },
   ja: {
     weekdays: ["日", "月", "火", "水", "木", "金", "土"],
@@ -53,5 +62,8 @@ export const dateMessages = defineMessages({
     minutes: (m: number) => `${m}分`,
     hours: (h: number) => `${h}時間`,
     hoursMinutes: (h: number, m: number) => `${h}時間${m}分`,
+    days: (d: number) => `${d}日`,
+    monthDayTime: (month: number, day: number, year: number | null, time: string) =>
+      `${year === null ? "" : `${year}/`}${month + 1}/${day} ${time}`,
   },
 });

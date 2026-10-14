@@ -198,6 +198,29 @@ export function durationLabel(ms: number): string {
   return m % 60 ? msg.hoursMinutes(h, m % 60) : msg.hours(h);
 }
 
+/**
+ * How long something has lasted, coarser as it grows: minutes, then hours and minutes, then
+ * whole hours from 3h, then whole days from 24h. For a state that keeps running, where "218h 28m"
+ * says no more than "9d" and is harder to read. Every band rounds down, so the label never runs
+ * ahead of the time (2h 59m 31s is "2h 59m", not "3h").
+ */
+export function elapsedLabel(ms: number): string {
+  if (ms < 3 * HOUR) return durationLabel(Math.floor(ms / MINUTE) * MINUTE);
+  if (ms < DAY) return dateMessages().hours(Math.floor(ms / HOUR));
+  return dateMessages().days(Math.floor(ms / DAY));
+}
+
+/**
+ * A time of day, with the date when it isn't today and the year when it isn't this year
+ * ("8:43" / "Oct 5 8:43" / "Dec 30, 2025 8:43").
+ */
+export function timeOrDateTime(t: number, now = Date.now()): string {
+  if (isSameDay(t, now)) return hhmm(t);
+  const d = new Date(t);
+  const year = d.getFullYear() === new Date(now).getFullYear() ? null : d.getFullYear();
+  return dateMessages().monthDayTime(d.getMonth(), d.getDate(), year, hhmm(t));
+}
+
 /** Date for the URL (YYYY-MM-DD). */
 export function toISODate(t: number): string {
   const d = new Date(t);

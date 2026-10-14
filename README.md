@@ -59,7 +59,7 @@ Add the following to `hooks.SessionStart` in `~/.claude/settings.json`.
 
 ### Running sessions
 
-The "Live" button in the toolbar (or `n`) opens a page of the Claude Code sessions running now, in three columns: waiting on you (asking a question or plan approval, or done with its turn), working (with the tool call in flight), and idle (waiting 15 minutes or more). Each card adds the task list's progress, the last test run, Claude Code's recap and the context size, and clicking it opens its latest work block. The button shows how many sessions are waiting on you from any page, and so does the browser tab's title, e.g. `(2) Kairos`.
+The "Live" button in the toolbar (or `n`) opens a page of the Claude Code sessions running now, in three columns: On you (asking a question or plan approval, or done with its turn), Working (with the tool call in flight), and Idle (nothing for 15 minutes or more). Each card adds the task list's progress, the last test run, Claude Code's recap and the context size, and clicking it opens its latest work block. The button shows how many sessions are waiting on you from any page, and so does the browser tab's title, e.g. `(2) Kairos`.
 
 No hooks are needed: Kairos reads Claude Code's own record of running sessions (`~/.claude/sessions/<pid>.json`, read-only) alongside the logs. That record is undocumented, so a Claude Code update may change it; if it can't be read, the page says so (and `kairos doctor` warns). Whether a session is waiting on a permission prompt can't be told from these files, so such a session shows as working.
 

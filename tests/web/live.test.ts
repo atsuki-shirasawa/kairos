@@ -7,6 +7,7 @@ import {
   documentTitle,
   IDLE_AFTER_MS,
   liveDisplay,
+  toolLabel,
   visibleLive,
 } from "../../src/web/src/lib/live.ts";
 
@@ -105,4 +106,12 @@ test("puts asking and waiting together in the column that wants you", () => {
   expect(columnOf("waiting")).toBe("attention");
   expect(columnOf("working")).toBe("working");
   expect(columnOf("idle")).toBe("idle");
+});
+
+test("names an MCP tool by its server and tool, and leaves other tools as they are", () => {
+  expect(toolLabel("mcp__claude-in-chrome__computer")).toBe("claude-in-chrome › computer");
+  expect(toolLabel("mcp__plugin_github_github__create_issue")).toBe(
+    "plugin_github_github › create_issue",
+  );
+  expect(toolLabel("Bash")).toBe("Bash");
 });

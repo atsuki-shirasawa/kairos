@@ -59,3 +59,12 @@ export function documentTitle(attention: number): string {
 export function dirName(cwd: string): string {
   return cwd.replace(/\/+$/, "").split("/").at(-1) || cwd;
 }
+
+/**
+ * A tool's name as shown: an MCP tool's `mcp__<server>__<tool>` becomes "server › tool", since the
+ * raw name is an identifier rather than something to read. Other names are left as they are.
+ */
+export function toolLabel(name: string): string {
+  const m = /^mcp__(.+?)__(.+)$/.exec(name);
+  return m ? `${m[1]} › ${m[2]}` : name;
+}

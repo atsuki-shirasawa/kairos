@@ -2,7 +2,7 @@ import type { LiveResponse, LiveSession, Project } from "@shared/api.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { liveMessages } from "@/i18n/messages/live.ts";
 import { projectColor } from "@/lib/colors.ts";
-import { durationLabel, hhmm } from "@/lib/dates.ts";
+import { elapsedLabel, timeOrDateTime } from "@/lib/dates.ts";
 import { tokensLabel } from "@/lib/format.ts";
 import {
   columnOf,
@@ -12,6 +12,7 @@ import {
   type LiveColumn,
   type LiveDisplay,
   liveDisplay,
+  toolLabel,
 } from "@/lib/live.ts";
 import { cn } from "@/lib/utils.ts";
 
@@ -126,7 +127,7 @@ function LiveCard({
   const m = liveMessages();
   const display = liveDisplay(s, now);
   const name = s.title ?? s.name ?? dirName(s.cwd);
-  const duration = durationLabel(now - s.since);
+  const duration = elapsedLabel(now - s.since);
   const section = s.section;
   // A session not in the log yet has no block to open: its card is plain content
   const open = section === null ? null : () => onSelect(s.id, section);
@@ -157,12 +158,15 @@ function LiveCard({
         onOpen={open}
       />
       <p className="flex items-baseline gap-1 text-xs">
-        <span className={display === "asking" ? "text-warn" : "text-muted-foreground"}>
-          {m.state[display]}
-        </span>
+        {/* Only the waiting column holds two states; elsewhere the column already names it */}
+        {columnOf(display) === "attention" && (
+          <span className={display === "asking" ? "text-warn" : "text-muted-foreground"}>
+            {m.state[display]}
+          </span>
+        )}
         <span className="font-num text-muted-foreground">{duration}</span>
         <span className="ml-auto font-num text-muted-foreground">
-          {m.startedAt(hhmm(s.startedAt))}
+          {m.startedAt(timeOrDateTime(s.startedAt, now))}
         </span>
       </p>
       <CardNow session={s} display={display} />
@@ -249,7 +253,7 @@ function CardNow({ session: s, display }: { session: LiveSession; display: LiveD
       {s.question && <p className="text-sm">{s.question}</p>}
       {s.tool && (
         <p className="line-clamp-2 break-all">
-          <span className="font-medium">{s.tool.name}</span>{" "}
+          <span className="font-medium">{toolLabel(s.tool.name)}</span>{" "}
           <span className="text-muted-foreground">{s.tool.text}</span>
         </p>
       )}

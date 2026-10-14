@@ -6,6 +6,7 @@ import {
   addMonths,
   dateLabel,
   durationLabel,
+  elapsedLabel,
   isoWeek,
   monthWeeks,
   rangeOf,
@@ -14,6 +15,7 @@ import {
   shift,
   startOfMonth,
   startOfWeek,
+  timeOrDateTime,
   weekNumber,
 } from "../../src/web/src/lib/dates.ts";
 import {
@@ -306,6 +308,20 @@ describe("dates", () => {
     expect(durationLabel(125 * 60_000)).toBe("2h 5m");
   });
 
+  test("elapsed time coarsens to whole hours from 3h and whole days from 24h", () => {
+    expect(elapsedLabel(104 * 60_000)).toBe("1h 44m");
+    expect(elapsedLabel(3 * 60 * 60_000 - 29_000)).toBe("2h 59m");
+    expect(elapsedLabel(3 * 60 * 60_000 + 50 * 60_000)).toBe("3h");
+    expect(elapsedLabel((218 * 60 + 28) * 60_000)).toBe("9d");
+  });
+
+  test("a time on another day carries its date", () => {
+    const morning = DAY0 + (8 * 60 + 43) * 60_000;
+    expect(timeOrDateTime(morning, DAY0 + 12 * 60 * 60_000)).toBe("8:43");
+    expect(timeOrDateTime(morning, addDays(DAY0, 9))).toBe("Oct 5 8:43");
+    expect(timeOrDateTime(morning, addDays(DAY0, 120))).toBe("Oct 5, 2026 8:43");
+  });
+
   describe("in Japanese", () => {
     afterEach(() => setLocale("en"));
 
@@ -324,6 +340,9 @@ describe("dates", () => {
       expect(durationLabel(125 * 60_000)).toBe("2時間5分");
       expect(durationLabel(120 * 60_000)).toBe("2時間");
       expect(durationLabel(45 * 60_000)).toBe("45分");
+      expect(elapsedLabel(2 * 24 * 60 * 60_000)).toBe("2日");
+      expect(timeOrDateTime(DAY0, addDays(DAY0, 1))).toBe("10/5 0:00");
+      expect(timeOrDateTime(DAY0, addDays(DAY0, 120))).toBe("2026/10/5 0:00");
     });
   });
 });

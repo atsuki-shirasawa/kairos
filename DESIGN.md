@@ -422,16 +422,19 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   color, since it stands for every project), the word "Live", and the number of sessions waiting on
   you in `numeral` `warn`. The page has no period, so the period navigation, date picker, period
   dropdown, search, report copy and filters give way to its 17px heading (search narrows a period
-  too). The body sits on `surface` in three columns (one below `lg`): Waiting on you (asking or done
-  with a turn), Working, Idle (waiting 15 minutes or more). A column heading is 14px medium with its
-  count beside it in the numeral face at the heading's size (`warn` for a non-empty Waiting on you)
+  too). The body sits on `surface` in three columns (one below `lg`): On you (asking or done with a
+  turn), Working, Idle (nothing for 15 minutes or more). The column names are short status-board
+  words kept in English in both languages, like "Live"; their notes are translated. A column heading is 14px medium with its
+  count beside it in the numeral face at the heading's size (`warn` for a non-empty On you)
   and a 12px `muted-ink` note on what puts a session there; an empty column says "None". A card is a
   work block: the 3px project-colored edge and the dim block fill (`--mix-block-dim`, `--mix-block`
   on hover), the selected one outlined in `primary`. It shows a 6px state dot and the title (14px
   medium, two lines at most; `muted-ink` when idle), the project, worktree and branch (12px
-  `muted-ink`, with a "Background" badge styled like the drawer's Headless one), the state word and
-  how long it has lasted with the start time at the right (`numeral`), then what it is doing: the
-  question (14px `ink`), the call in flight (tool name in medium, its summary in `muted-ink`), tasks
+  `muted-ink`, with a "Background" badge styled like the drawer's Headless one), the state word (only
+  in On you, which holds two states; elsewhere the column names it) and how long it has lasted,
+  coarsening to whole hours from 3h and days from 24h, with the start time at the right (`numeral`,
+  with the date when not today), then what it is doing: the
+  question (14px `ink`), the call in flight (tool name in medium, an MCP tool as "server › tool", its summary in `muted-ink`), tasks
   as a 4px bar in the project color on `muted`, the last test (its word in `warn` when it failed),
   Claude Code's recap while it isn't working (three lines), and the context size. Working pulses the
   dot in the project color, asking is a solid `warn` dot with its state word in `warn`, waiting and

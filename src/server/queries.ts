@@ -175,15 +175,26 @@ type MessageCounts = Omit<Activity, keyof ArtifactCounts | "claudeMs" | "effort"
 /** Tools that modify files. The tool_use text (input summary) is the file path. */
 const EDIT_TOOLS = "'Edit', 'Write', 'MultiEdit', 'NotebookEdit'";
 
-/** Title: `/rename` name > agent name > Claude Code's automatic title > first line of the first prompt. */
-export function title(r: {
+/** The columns a session's title is made from. */
+interface TitleSource {
   custom_title: string | null;
   agent_name: string | null;
   ai_title: string | null;
   first_prompt: string | null;
-}): string {
+}
+
+/**
+ * Title: `/rename` name > agent name > Claude Code's automatic title > first line of the first
+ * prompt, or null when there is none of these.
+ */
+export function knownTitle(r: TitleSource): string | null {
   const first = r.first_prompt?.trim().split("\n")[0]?.slice(0, 120);
-  return r.custom_title || r.agent_name || r.ai_title || first || "(Untitled session)";
+  return r.custom_title || r.agent_name || r.ai_title || first || null;
+}
+
+/** The title, or a placeholder where something must be shown. */
+export function title(r: TitleSource): string {
+  return knownTitle(r) ?? "(Untitled session)";
 }
 
 /** A section's headline: its summary's, else the block's own title, else the session's. */
