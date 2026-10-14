@@ -113,7 +113,7 @@ export function Toolbar({
               view={view}
               anchor={period.anchor}
               now={now}
-              projects={projects}
+              projects={projectMap}
               onJump={period.onJump}
             />
           </h1>
@@ -145,6 +145,7 @@ export function Toolbar({
             <CopyReportButton view={view} report={report.build} hasWork={report.hasWork} />
             <FilterMenu
               projects={projects}
+              projectMap={projectMap}
               sessions={filter.sessions}
               filter={filter.value}
               onFilter={filter.onChange}

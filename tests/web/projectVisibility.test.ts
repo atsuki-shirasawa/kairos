@@ -3,6 +3,7 @@ import { NO_FILTER } from "../../src/web/src/lib/filter.ts";
 import {
   hiddenReason,
   hideSessions,
+  inShownProjects,
   isBrief,
   withProjects,
 } from "../../src/web/src/lib/projectVisibility.ts";
@@ -45,6 +46,10 @@ describe("hideSessions", () => {
   test("drops quick questions only when hiding them", () => {
     const shown = hideSessions(list, projects, { ...NO_FILTER, hideBrief: true });
     expect(shown.map((s) => s.id)).toEqual(["app", "unknown"]);
+  });
+
+  test("inShownProjects drops only hidden projects, keeping quick questions", () => {
+    expect(inShownProjects(list, projects).map((s) => s.id)).toEqual(["app", "unknown", "brief"]);
   });
 });
 

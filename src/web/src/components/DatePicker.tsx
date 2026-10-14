@@ -1,15 +1,20 @@
 import type { Project } from "@shared/api.ts";
 import { startOfDay } from "@shared/dates.ts";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.tsx";
 import { useSpans } from "@/hooks/queries.ts";
 import { datePickerMessages } from "@/i18n/messages/datePicker.ts";
 import {
+  type DayCellState,
+  dayCellState,
+  type MonthTableContext,
+  movedCursor,
+} from "@/lib/datePicker.ts";
+import {
   addDays,
   addMonths,
-  isSameDay,
   monthWeeks,
   rangeOf,
   rangeTitle,
@@ -20,9 +25,6 @@ import {
 } from "@/lib/dates.ts";
 import { recordedDays } from "@/lib/dayBlocks.ts";
 import { cn } from "@/lib/utils.ts";
-
-/** Days moved by the arrow keys. PageUp / PageDown move by a month. */
-const STEPS: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
 
 /**
  * A date picker that doubles as the period heading. Clicking opens a month calendar and jumps to
@@ -39,14 +41,13 @@ export function DatePicker({
   view: View;
   anchor: number;
   now: number;
-  projects: Project[];
+  /** Projects by id, so a day with only hidden projects' work gets no dot. */
+  projects: Map<number, Project>;
   onJump: (day: number) => void;
 }) {
   const m = datePickerMessages();
-  const [open, setOpen] = useState(false);
-  // The day selected with the keyboard. The shown month follows it
-  const [cursor, setCursor] = useState(anchor);
-  const grid = useRef<HTMLTableElement>(null);
+  const { open, setOpen, cursor, setCursor, grid, onOpenChange, onKeyDown } =
+    useDatePickerCursor(anchor);
   const range = rangeTitle(view, anchor, now);
   const { from, to } = rangeOf(view, anchor);
   const month = startOfMonth(cursor);
@@ -55,38 +56,18 @@ export function DatePicker({
   const gridFrom = days[0] ?? month;
   const gridTo = addDays(days.at(-1) ?? month, 1);
   const spans = useSpans(gridFrom, gridTo, open);
-  const recorded = useMemo(() => {
-    const hidden = new Set(projects.filter((p) => p.hidden).map((p) => p.id));
-    return recordedDays(spans.data?.spans ?? [], monthWeeks(month).flat(), hidden);
-  }, [spans.data, projects, month]);
-
-  // Move focus to the day picked with the arrow keys. Right after opening, onOpenAutoFocus handles it
-  useEffect(() => {
-    if (!open) return;
-    grid.current?.querySelector<HTMLElement>(`[data-day="${startOfDay(cursor)}"]`)?.focus();
-  }, [cursor, open]);
+  const recorded = useMemo(
+    () => recordedDays(spans.data?.spans ?? [], monthWeeks(month).flat(), projects),
+    [spans.data, projects, month],
+  );
 
   const jump = (day: number) => {
     onJump(day);
     setOpen(false);
   };
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    const step = STEPS[e.key];
-    if (step !== undefined) setCursor(addDays(cursor, step));
-    else if (e.key === "PageUp") setCursor(addMonths(cursor, -1));
-    else if (e.key === "PageDown") setCursor(addMonths(cursor, 1));
-    else return;
-    e.preventDefault();
-  };
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (v) setCursor(anchor);
-      }}
-    >
+    <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -143,89 +124,164 @@ export function DatePicker({
             </Button>
           </div>
         </div>
-        {/* App's key handler ignores data-date-picker, so arrow keys here don't change the period */}
-        <table
-          ref={grid}
-          data-date-picker
-          className="border-separate border-spacing-y-0.5"
+        <MonthTable
+          grid={grid}
+          weeks={weeks}
+          context={{ month, from, to, cursor, now, recorded }}
           onKeyDown={onKeyDown}
-        >
-          <thead>
-            <tr>
-              <th className="w-7 font-normal text-[11px] text-muted-foreground" title={m.isoWeek}>
-                <span className="sr-only">{m.weekNumber}</span>W
-              </th>
-              {weekdayHeaders().map((d) => (
-                <th key={d} className="size-8 font-normal text-muted-foreground text-xs">
-                  {d}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {weeks.map((week) => (
-              <tr key={week[0]}>
-                <td className="text-center font-num text-[11px] text-muted-foreground">
-                  {weekNumber(week[0] ?? month)}
-                </td>
-                {week.map((day, i) => {
-                  const inRange = day >= from && day < to;
-                  const outside = new Date(day).getMonth() !== new Date(month).getMonth();
-                  const hasRecord = recorded.has(day);
-                  return (
-                    <td
-                      key={day}
-                      className={cn(
-                        "p-0",
-                        // The shown period is a band; in week view the whole row becomes one band
-                        inRange && "bg-accent",
-                        inRange && (i === 0 || day === from) && "rounded-l-md",
-                        inRange && (i === 6 || addDays(day, 1) === to) && "rounded-r-md",
-                      )}
-                    >
-                      <button
-                        type="button"
-                        data-day={day}
-                        tabIndex={isSameDay(day, cursor) ? 0 : -1}
-                        onClick={() => jump(day)}
-                        onFocus={() => !isSameDay(day, cursor) && setCursor(day)}
-                        className={cn(
-                          "relative flex size-8 items-center justify-center rounded-md font-num text-sm hover:bg-foreground/10 focus-visible:outline-2 focus-visible:outline-ring",
-                          outside && "text-muted-foreground/60",
-                          // Today is marked by color only (no fill, so it stays legible on the band)
-                          isSameDay(day, now) && "font-semibold text-primary",
-                        )}
-                        aria-label={m.dayLabel(
-                          new Date(day).getMonth(),
-                          new Date(day).getDate(),
-                          hasRecord,
-                          inRange,
-                        )}
-                        aria-current={isSameDay(day, now) ? "date" : undefined}
-                      >
-                        {new Date(day).getDate()}
-                        {hasRecord && (
-                          <span
-                            className={cn(
-                              "absolute bottom-1 size-1 rounded-full bg-primary",
-                              outside && "opacity-50",
-                            )}
-                            aria-hidden
-                          />
-                        )}
-                      </button>
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          onJump={jump}
+          onFocusDay={setCursor}
+        />
         <p className="flex items-center justify-end gap-1.5 text-[11px] text-muted-foreground">
           <span className="size-1 rounded-full bg-primary" aria-hidden />
           {m.legend}
         </p>
       </PopoverContent>
     </Popover>
+  );
+}
+
+/**
+ * The picker's open state and keyboard cursor: the day selected with the keyboard, which the shown
+ * month follows. Opening puts the cursor back on the anchor, and while open the focus follows it.
+ */
+function useDatePickerCursor(anchor: number) {
+  const [open, setOpen] = useState(false);
+  const [cursor, setCursor] = useState(anchor);
+  const grid = useRef<HTMLTableElement>(null);
+
+  // Move focus to the day picked with the arrow keys. Right after opening, onOpenAutoFocus handles it
+  useEffect(() => {
+    if (!open) return;
+    grid.current?.querySelector<HTMLElement>(`[data-day="${startOfDay(cursor)}"]`)?.focus();
+  }, [cursor, open]);
+
+  const onOpenChange = (v: boolean) => {
+    setOpen(v);
+    if (v) setCursor(anchor);
+  };
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    const next = movedCursor(e.key, cursor);
+    if (next === null) return;
+    setCursor(next);
+    e.preventDefault();
+  };
+  return { open, setOpen, cursor, setCursor, grid, onOpenChange, onKeyDown };
+}
+
+/** The month as a table of Sunday-first weeks, each led by its ISO week number. */
+function MonthTable({
+  grid,
+  weeks,
+  context,
+  onKeyDown,
+  onJump,
+  onFocusDay,
+}: {
+  grid: RefObject<HTMLTableElement | null>;
+  weeks: number[][];
+  context: MonthTableContext;
+  onKeyDown: (e: React.KeyboardEvent) => void;
+  onJump: (day: number) => void;
+  onFocusDay: (day: number) => void;
+}) {
+  const m = datePickerMessages();
+  return (
+    // App's key handler ignores data-date-picker, so arrow keys here don't change the period
+    <table
+      ref={grid}
+      data-date-picker
+      className="border-separate border-spacing-y-0.5"
+      onKeyDown={onKeyDown}
+    >
+      <thead>
+        <tr>
+          <th className="w-7 font-normal text-[11px] text-muted-foreground" title={m.isoWeek}>
+            <span className="sr-only">{m.weekNumber}</span>W
+          </th>
+          {weekdayHeaders().map((d) => (
+            <th key={d} className="size-8 font-normal text-muted-foreground text-xs">
+              {d}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {weeks.map((week) => (
+          <tr key={week[0]}>
+            <td className="text-center font-num text-[11px] text-muted-foreground">
+              {weekNumber(week[0] ?? context.month)}
+            </td>
+            {week.map((day, i) => (
+              <DayCell
+                key={day}
+                day={day}
+                state={dayCellState(day, i, context)}
+                onJump={onJump}
+                onFocusDay={onFocusDay}
+              />
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+/** One day of the month table: a button that jumps to it, with a dot when it has work. */
+function DayCell({
+  day,
+  state: s,
+  onJump,
+  onFocusDay,
+}: {
+  day: number;
+  state: DayCellState;
+  onJump: (day: number) => void;
+  onFocusDay: (day: number) => void;
+}) {
+  const m = datePickerMessages();
+  return (
+    <td
+      className={cn(
+        "p-0",
+        // The shown period is a band; in week view the whole row becomes one band
+        s.inRange && "bg-accent",
+        s.bandStart && "rounded-l-md",
+        s.bandEnd && "rounded-r-md",
+      )}
+    >
+      <button
+        type="button"
+        data-day={day}
+        tabIndex={s.cursor ? 0 : -1}
+        onClick={() => onJump(day)}
+        onFocus={() => !s.cursor && onFocusDay(day)}
+        className={cn(
+          "relative flex size-8 items-center justify-center rounded-md font-num text-sm hover:bg-foreground/10 focus-visible:outline-2 focus-visible:outline-ring",
+          s.outside && "text-muted-foreground/60",
+          // Today is marked by color only (no fill, so it stays legible on the band)
+          s.today && "font-semibold text-primary",
+        )}
+        aria-label={m.dayLabel(
+          new Date(day).getMonth(),
+          new Date(day).getDate(),
+          s.recorded,
+          s.inRange,
+        )}
+        aria-current={s.today ? "date" : undefined}
+      >
+        {new Date(day).getDate()}
+        {s.recorded && (
+          <span
+            className={cn(
+              "absolute bottom-1 size-1 rounded-full bg-primary",
+              s.outside && "opacity-50",
+            )}
+            aria-hidden
+          />
+        )}
+      </button>
+    </td>
   );
 }

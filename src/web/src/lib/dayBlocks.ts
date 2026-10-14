@@ -1,6 +1,7 @@
 // Work blocks clipped to a day: what the calendar lays out, and what the list and summary count.
 import type { CalendarSegment, CalendarSession, Span } from "@shared/api.ts";
 import { DAY } from "@shared/dates.ts";
+import { isProjectShown } from "@shared/projects.ts";
 
 /** A work block clipped to a day, before layout. The list view uses it as is. */
 export interface DayBlock {
@@ -63,9 +64,9 @@ export function blocksOfDay(
 export function recordedDays(
   spans: Span[],
   days: number[],
-  hidden: ReadonlySet<number> = new Set(),
+  projects: ReadonlyMap<number, { hidden: boolean }>,
 ): Set<number> {
-  const visible = spans.filter((s) => s.projectId === null || !hidden.has(s.projectId));
+  const visible = spans.filter((s) => isProjectShown(projects, s.projectId));
   return new Set(days.filter((d) => visible.some((s) => overlaps(s, d, d + DAY))));
 }
 

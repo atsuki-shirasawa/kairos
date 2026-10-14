@@ -25,9 +25,19 @@ export function hideSessions(
   projects: Map<number, Project>,
   filter: Filter,
 ): CalendarSession[] {
-  return sessions.filter(
-    (s) => isProjectShown(projects, s.projectId) && !(filter.hideBrief && isBrief(s)),
-  );
+  const shown = inShownProjects(sessions, projects);
+  return filter.hideBrief ? shown.filter((s) => !isBrief(s)) : shown;
+}
+
+/**
+ * Sessions outside hidden projects, quick questions included: what the filter's conditions count,
+ * since hiding quick questions is one of those conditions.
+ */
+export function inShownProjects(
+  sessions: CalendarSession[],
+  projects: Map<number, Project>,
+): CalendarSession[] {
+  return sessions.filter((s) => isProjectShown(projects, s.projectId));
 }
 
 /**

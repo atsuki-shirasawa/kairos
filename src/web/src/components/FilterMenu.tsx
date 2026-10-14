@@ -10,6 +10,7 @@ import { filterMessages } from "@/i18n/messages/filter.ts";
 import { PALETTE, projectColor } from "@/lib/colors.ts";
 import type { Filter } from "@/lib/filter.ts";
 import { filterBadge, matchingProjectRows, projectRows } from "@/lib/filterMenu.ts";
+import { inShownProjects } from "@/lib/projectVisibility.ts";
 import { cn } from "@/lib/utils.ts";
 import { Conditions } from "./filter/Conditions.tsx";
 
@@ -26,11 +27,14 @@ const INPUT =
  */
 export function FilterMenu({
   projects,
+  projectMap,
   sessions,
   filter,
   onFilter,
 }: {
   projects: Project[];
+  /** The same projects by id, to leave hidden projects' sessions out of the conditions. */
+  projectMap: Map<number, Project>;
   sessions: CalendarSession[];
   filter: Filter;
   onFilter: (filter: Filter) => void;
@@ -43,10 +47,7 @@ export function FilterMenu({
 
   const rows = useMemo(() => projectRows(projects, sessions, locale), [projects, sessions, locale]);
   const { conditions, hidden } = filterBadge(filter, projects);
-  const unhidden = useMemo(() => {
-    const hiddenIds = new Set(projects.filter((p) => p.hidden).map((p) => p.id));
-    return sessions.filter((s) => s.projectId === null || !hiddenIds.has(s.projectId));
-  }, [projects, sessions]);
+  const unhidden = useMemo(() => inShownProjects(sessions, projectMap), [projectMap, sessions]);
   const shown = matchingProjectRows(rows, query);
   const showAll = () => {
     for (const p of projects) if (p.hidden) update.mutate({ id: p.id, update: { hidden: false } });

@@ -19,7 +19,7 @@ describe("recordedDays", () => {
       { start: at(23), end: at(25), projectId: 1 },
       { start: at(40), end: at(48), projectId: 1 },
     ];
-    expect([...recordedDays(spans, days)]).toEqual(days);
+    expect([...recordedDays(spans, days, new Map())]).toEqual(days);
     expect(blocksOfDay([session("a", [at(40), at(48)])], addDays(DAY0, 2))).toHaveLength(1);
   });
 
@@ -29,7 +29,10 @@ describe("recordedDays", () => {
       { start: at(25), end: at(26), projectId: 2 },
       { start: at(49), end: at(50), projectId: null },
     ];
-    expect([...recordedDays(spans, days, new Set([2]))]).toEqual([DAY0, addDays(DAY0, 2)]);
+    expect([...recordedDays(spans, days, new Map([[2, { hidden: true }]]))]).toEqual([
+      DAY0,
+      addDays(DAY0, 2),
+    ]);
   });
 });
 
