@@ -503,7 +503,9 @@ describe("project identity (git remote)", () => {
   test("when the rules change, reassigns existing sessions, keeps colors and deletes empty projects", () => {
     db.query("UPDATE projects SET color = 'p3' WHERE path = '/Users/me/dev/app'").run();
     resetDerived();
-    expect(new Ingester(db, projectsDir, undefined, lookup).refreshAllIfOutdated()).toBe(true);
+    expect(new Ingester(db, projectsDir, { lookupRemote: lookup }).refreshAllIfOutdated()).toBe(
+      true,
+    );
     // The blog project is now empty, so it is deleted
     expect(projects(db)).toEqual([
       { path: "/tmp", name: "tmp", repo: null, color: null },
@@ -525,7 +527,7 @@ describe("project identity (git remote)", () => {
 
   test("keeps sessions whose directory is gone where they are, unless their PRs say otherwise", () => {
     resetDerived();
-    new Ingester(db, projectsDir, undefined, () => undefined).refreshAllIfOutdated();
+    new Ingester(db, projectsDir, { lookupRemote: () => undefined }).refreshAllIfOutdated();
     // blog opened no PR, so nothing places it anew
     expect(session(SID.blog).project).toBe("/Users/me/dev/blog");
     // app's PRs and the container's point to the same repository, so they share its project
@@ -551,7 +553,7 @@ describe("project identity (git remote)", () => {
     fresh.ingester.scan();
     fresh.db.query("DELETE FROM kv WHERE key = 'derived_version'").run();
     const gone = (dir: string) => (dir === tmp ? undefined : noRemotes(dir));
-    new Ingester(fresh.db, fresh.projectsDir, undefined, gone).refreshAllIfOutdated();
+    new Ingester(fresh.db, fresh.projectsDir, { lookupRemote: gone }).refreshAllIfOutdated();
     const repo = fresh.db
       .query<{ repo: string | null }, [string]>(
         "SELECT p.repo FROM sessions s JOIN projects p ON p.id = s.project_id WHERE s.id = ?",
@@ -579,7 +581,7 @@ describe("project identity (git remote)", () => {
   test("a PR from /tmp itself never turns the shared tmp project into a repository", () => {
     db.query("UPDATE sessions SET launch_cwd = '/tmp' WHERE id = ?").run(SID.containerPr);
     resetDerived();
-    new Ingester(db, projectsDir, undefined, noRemotes).refreshAllIfOutdated();
+    new Ingester(db, projectsDir, { lookupRemote: noRemotes }).refreshAllIfOutdated();
     expect(db.query("SELECT name, repo FROM projects WHERE path = '/tmp'").get()).toEqual({
       name: "tmp",
       repo: null,
@@ -598,7 +600,7 @@ describe("project identity (git remote)", () => {
       )
       .run(SID.containerRun, SID.containerPr);
     fresh.db.query("DELETE FROM kv WHERE key = 'derived_version'").run();
-    new Ingester(fresh.db, fresh.projectsDir, undefined, noRemotes).refreshAllIfOutdated();
+    new Ingester(fresh.db, fresh.projectsDir, { lookupRemote: noRemotes }).refreshAllIfOutdated();
     const names = fresh.db
       .query<{ name: string }, []>(
         "SELECT DISTINCT p.name FROM sessions s JOIN projects p ON p.id = s.project_id WHERE s.launch_cwd = '/work/checkout'",

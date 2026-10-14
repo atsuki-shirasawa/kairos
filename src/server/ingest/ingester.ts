@@ -61,6 +61,14 @@ export interface ScanStats {
   ms: number;
 }
 
+/** Optional settings of an Ingester; the defaults are what the server and CLI use. */
+export interface IngesterOptions {
+  /** The longest pause inside one work block (default `WORK_BLOCK_GAP_MS`). */
+  gapMs?: number;
+  /** How to read the git remote. Tests replace it with one that does not touch real directories. */
+  lookupRemote?: RemoteLookup;
+}
+
 /**
  * Incrementally ingests the logs under `projectsDir` into the DB, resuming each file from its
  * saved offset. Never writes to the logs themselves.
@@ -75,9 +83,7 @@ export class Ingester {
   constructor(
     private readonly db: Database,
     readonly projectsDir: string,
-    gapMs = WORK_BLOCK_GAP_MS,
-    /** How to read the git remote. Tests replace it with one that does not touch real directories. */
-    lookupRemote: RemoteLookup = readGitRemote,
+    { gapMs = WORK_BLOCK_GAP_MS, lookupRemote = readGitRemote }: IngesterOptions = {},
   ) {
     this.q = prepareStatements(db);
     this.setters = prepareSessionSetters(db);

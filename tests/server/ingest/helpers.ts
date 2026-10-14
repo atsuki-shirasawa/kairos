@@ -29,6 +29,6 @@ export function setup(lookup: RemoteLookup = noRemotes): {
   cpSync(join(import.meta.dir, "../../fixtures/claude"), root, { recursive: true });
   const projectsDir = join(root, "projects");
   const db = openDb(":memory:");
-  const ingester = new Ingester(db, projectsDir, undefined, lookup);
+  const ingester = new Ingester(db, projectsDir, { lookupRemote: lookup });
   return { db, ingester, projectsDir };
 }
