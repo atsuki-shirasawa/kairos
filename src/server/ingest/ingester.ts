@@ -5,10 +5,11 @@ import { WORK_BLOCK_GAP_MS } from "../../shared/sections.ts";
 import { readKv, writeKv } from "../db/kv.ts";
 import { classifyUser } from "./classify.ts";
 import { extractCommit } from "./commits.ts";
+import { awaitOutcomes, type FileState, FileStateStore } from "./fileState.ts";
 import { classifyPath, listFiles } from "./files.ts";
 import { nextAutoTurn, storedUserKind, storedUserText } from "./interpret.ts";
 import { LIMIT } from "./limits.ts";
-import { type PendingOutcomes, pendingOutcomes } from "./outcomes.ts";
+import { pendingOutcomes } from "./outcomes.ts";
 import {
   encodeDir,
   isTemporary,
@@ -23,7 +24,7 @@ import {
   worktreeName,
 } from "./project.ts";
 import { prUrlIn } from "./prs.ts";
-import { type Line, type ReadResult, readNewLines } from "./reader.ts";
+import { type Line, readNewLines } from "./reader.ts";
 import {
   clip,
   clipEnds,
@@ -45,7 +46,6 @@ import {
   type SessionField,
   type SessionInfoRow,
   type Statements,
-  type StateRow,
 } from "./statements.ts";
 import { usageCounts } from "./usage.ts";
 
@@ -66,21 +66,6 @@ const RECAP_SUFFIX = /\s*\(disable recaps in \/config\)\s*$/;
 interface Place {
   id: number;
   label: string | null;
-}
-
-/** Interpretation state carried across files. Saved as JSON in ingest_state.state. */
-interface FileState {
-  /** Whether we are inside a turn triggered by an automatic run (/loop, cron). */
-  autoTurn: boolean;
-  /** git commits awaiting their result: tool_use id → command. */
-  pendingCommits: Record<string, string>;
-  /** gh pr create calls awaiting their result: tool_use id → title. */
-  pendingPrs: Record<string, string>;
-  /**
-   * gh pr merge calls awaiting their result: tool_use id → PR number (null when not named).
-   * Optional because states saved before merges were tracked don't have it.
-   */
-  pendingMerges?: Record<string, number | null>;
 }
 
 interface Ctx {
@@ -107,6 +92,7 @@ export interface ScanStats {
 export class Ingester {
   private readonly q: Statements;
   private readonly setters: Record<SessionField, Statement>;
+  private readonly fileStates: FileStateStore;
 
   constructor(
     private readonly db: Database,
@@ -117,6 +103,7 @@ export class Ingester {
   ) {
     this.q = prepareStatements(db);
     this.setters = prepareSessionSetters(db);
+    this.fileStates = new FileStateStore(this.q, PARSER_VERSION);
   }
 
   // ---------------------------------------------------------------- scanning
@@ -186,72 +173,22 @@ export class Ingester {
       return this.ingestSubagentMeta(path, file.sessionId, file.agentId);
     const agentId = file.kind === "subagent" ? file.agentId : null;
 
-    const saved = this.savedState(path);
+    const saved = this.fileStates.load(path);
     const read = readNewLines(path, saved?.offset ?? 0, saved?.ino ?? null);
     if (saved && !read.restarted && read.lines.length === 0) return [];
 
     return this.db.transaction(() => {
       this.q.ensureSession.run(file.sessionId);
-      const { fileId, state } = this.resumeFile(path, file.sessionId, agentId, saved, read);
+      const owner = { sessionId: file.sessionId, agentId };
+      const { fileId, state } = this.fileStates.resume(path, owner, saved, read);
       const ctx = this.newCtx(file.sessionId, agentId, fileId, state);
       const prsBefore = this.prCount(fileId);
       this.handleLines(ctx, read.lines);
-      this.saveState(ctx, read);
+      this.fileStates.save(fileId, read, ctx.state);
       this.replaceAfterPr(file.sessionId, prsBefore, fileId);
       if (agentId !== null) return [file.sessionId];
       return this.refreshWithContinuation(file.sessionId);
     })();
-  }
-
-  /** The file's saved ingest state, or null if there is none or a different parser version wrote it. */
-  private savedState(path: string): StateRow | null {
-    const st = this.q.getState.get(path) as StateRow | null;
-    if (st && st.parser_version !== PARSER_VERSION) {
-      this.q.deleteState.run(st.id); // messages and artifacts go too (ON DELETE CASCADE)
-      return null;
-    }
-    return st;
-  }
-
-  /**
-   * Returns the file's ID and the state to continue from: a new row for an unseen file, a fresh
-   * state with the file's rows cleared for a restarted one, or the saved state otherwise.
-   */
-  private resumeFile(
-    path: string,
-    sessionId: string,
-    agentId: string | null,
-    saved: StateRow | null,
-    read: ReadResult,
-  ): { fileId: number; state: FileState } {
-    const fresh: FileState = {
-      autoTurn: false,
-      pendingCommits: {},
-      pendingPrs: {},
-      pendingMerges: {},
-    };
-    if (!saved) {
-      const row = this.q.insertState.get(path, sessionId, agentId, PARSER_VERSION) as {
-        id: number;
-      };
-      return { fileId: row.id, state: fresh };
-    }
-    if (read.restarted) {
-      this.clearFileRows(saved.id);
-      return { fileId: saved.id, state: fresh };
-    }
-    return {
-      fileId: saved.id,
-      state: { ...fresh, ...(JSON.parse(saved.state) as Partial<FileState>) },
-    };
-  }
-
-  /** Deletes everything ingested from a file, so it can be read again from the start. */
-  private clearFileRows(fileId: number): void {
-    this.q.clearFile.run(fileId);
-    this.q.clearFileArtifacts.run(fileId);
-    this.q.clearFileUsage.run(fileId);
-    this.q.clearFileTurns.run(fileId);
   }
 
   /** Builds the per-file context, noting which once-per-session facts are already recorded. */
@@ -278,18 +215,6 @@ export class Ingester {
       }
       if (isRec(r)) this.handle(ctx, r, lineSeq(line.offset));
     }
-  }
-
-  /** Saves where to resume reading and the interpretation state carried to the next read. */
-  private saveState(ctx: Ctx, read: ReadResult): void {
-    this.q.saveState.run(
-      read.nextOffset,
-      read.size,
-      read.ino,
-      PARSER_VERSION,
-      JSON.stringify(ctx.state),
-      ctx.fileId,
-    );
   }
 
   /** Refreshes a main session and the session continuing it, returning the IDs refreshed. */
@@ -487,7 +412,7 @@ export class Ingester {
     failed: boolean,
     ts: number | null,
   ): void {
-    const pending = ctx.state.pendingMerges ?? {};
+    const pending = ctx.state.pendingMerges;
     const pr = rec(rec(result?.gitOperation)?.pr);
     const reported = pr?.action === "merged" && typeof pr.number === "number" ? pr.number : null;
     if (!(toolUseId in pending) && reported === null) return;
@@ -907,16 +832,6 @@ function lineSeq(offset: number): number {
 /** A record's message ID: its uuid, or the file and position when it has none. */
 function recordId(r: Rec, fileId: number, seq: number): string {
   return str(r.uuid) ?? `${fileId}:${seq}`;
-}
-
-/** Remembers what a tool call awaits under its ID, until its result arrives. */
-function awaitOutcomes(state: FileState, toolUseId: string, outcomes: PendingOutcomes): void {
-  if (outcomes.commit !== undefined) state.pendingCommits[toolUseId] = outcomes.commit;
-  if (outcomes.prTitle !== undefined) state.pendingPrs[toolUseId] = outcomes.prTitle;
-  if (outcomes.merge) {
-    state.pendingMerges ??= {};
-    state.pendingMerges[toolUseId] = outcomes.merge.number;
-  }
 }
 
 /** Fills in the elapsed time of a scan started at `started`. */
