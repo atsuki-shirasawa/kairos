@@ -1,9 +1,11 @@
 // Search across work blocks: splitting the query into terms, the LIKE scan's SQL, and turning a
-// matching row into an API hit. `Queries.search` runs it against the database.
+// matching row into an API hit, and `searchBlocks`, which runs it against the database.
 
+import type { Database } from "bun:sqlite";
 import type { SearchField, SearchHit } from "../../shared/api.ts";
 import { ARTIFACT_GRACE_MS } from "../../shared/constants.ts";
 import { EDIT_TOOLS } from "./editTools.ts";
+import { sectionHeadline, title } from "./titles.ts";
 
 /** Sections returned per search; `more` tells the UI that further ones matched. */
 export const SEARCH_LIMIT = 50;
@@ -165,4 +167,37 @@ export function excerpt(text: string, term: string): string {
   const from = Math.max(0, at - Math.floor(SNIPPET_CHARS / 3));
   const to = Math.min(flat.length, from + SNIPPET_CHARS);
   return `${from > 0 ? "…" : ""}${flat.slice(from, to)}${to < flat.length ? "…" : ""}`;
+}
+
+/** Search results: the hits, and whether more sections matched than were returned. */
+export interface SearchResult {
+  hits: SearchHit[];
+  more: boolean;
+}
+
+/**
+ * Work blocks matching every space-separated term, across all periods, newest first, among
+ * sessions matching `visible` (a `visibleSessionSql` condition on alias `s`).
+ * Looks at what a person would remember a piece of work by: the summary, the session title and
+ * branch, PR and commit titles, and the prompts and replies of the main conversation.
+ * `file:<path>` terms match the paths of files edited in the block instead (and only them).
+ * Each term may match a different place; the hit reports the most telling place the first term matched.
+ * A plain LIKE scan: on a year of real logs this takes tens of milliseconds, so no FTS index is needed.
+ */
+export function searchBlocks(
+  db: Database,
+  query: string,
+  visible: string,
+  limit = SEARCH_LIMIT,
+): SearchResult {
+  const terms = searchTerms(query);
+  if (terms.length === 0) return { hits: [], more: false };
+  const rows = db
+    .query<SearchRow, string[]>(searchSql(terms, limit, visible))
+    .all(...terms.map((t) => likePattern(t.text)));
+  const first = terms[0]?.text ?? "";
+  return {
+    hits: rows.slice(0, limit).map((r) => toSearchHit(r, first, sectionHeadline(r, title(r)))),
+    more: rows.length > limit,
+  };
 }
