@@ -159,6 +159,7 @@ export function prepareStatements(db: Database) {
          WHERE prev.continued_in = ?1 AND t.id = turns.id)
        WHERE session_id = ?1`,
     ),
+    sessionIds: p("SELECT id FROM sessions"),
     hasPredecessor: p("SELECT 1 FROM sessions WHERE continued_in = ? LIMIT 1"),
     // ID of the continuing session, if it is in the DB
     continuedIn: p(

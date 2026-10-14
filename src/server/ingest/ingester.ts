@@ -1,9 +1,9 @@
 import type { Database, Statement } from "bun:sqlite";
 import { existsSync, readFileSync } from "node:fs";
 import { WORK_BLOCK_GAP_MS } from "../../shared/sections.ts";
-import { readKv, writeKv } from "../db/kv.ts";
 import { classifyUser } from "./classify.ts";
 import { extractCommit } from "./commits.ts";
+import { DerivedData } from "./derived.ts";
 import { awaitOutcomes, type FileState, FileStateStore } from "./fileState.ts";
 import { classifyPath, listFiles } from "./files.ts";
 import { nextAutoTurn, storedUserKind, storedUserText } from "./interpret.ts";
@@ -25,10 +25,7 @@ import {
   str,
   toolResultText,
 } from "./records.ts";
-import { toSegments } from "./segments.ts";
 import {
-  type ActivityRow,
-  type AggregateRow,
   prepareSessionSetters,
   prepareStatements,
   type SessionField,
@@ -44,9 +41,6 @@ export const PARSER_VERSION = 10;
  * project assignment from the startup cwd) changes. All sessions are recomputed, even those whose logs are gone.
  */
 export const DERIVED_VERSION = 6;
-const FALLBACK_TITLE_CHARS = 120;
-/** The kv key that holds the DERIVED_VERSION the stored derived data was computed with. */
-const DERIVED_VERSION_KEY = "derived_version";
 
 const RECAP_SUFFIX = /\s*\(disable recaps in \/config\)\s*$/;
 
@@ -76,11 +70,12 @@ export class Ingester {
   private readonly setters: Record<SessionField, Statement>;
   private readonly fileStates: FileStateStore;
   private readonly placer: ProjectPlacer;
+  private readonly derived: DerivedData;
 
   constructor(
     private readonly db: Database,
     readonly projectsDir: string,
-    private readonly gapMs = WORK_BLOCK_GAP_MS,
+    gapMs = WORK_BLOCK_GAP_MS,
     /** How to read the git remote. Tests replace it with one that does not touch real directories. */
     lookupRemote: RemoteLookup = readGitRemote,
   ) {
@@ -88,6 +83,7 @@ export class Ingester {
     this.setters = prepareSessionSetters(db);
     this.fileStates = new FileStateStore(this.q, PARSER_VERSION);
     this.placer = new ProjectPlacer(this.q, lookupRemote);
+    this.derived = new DerivedData(db, this.q, this.placer, { gapMs, version: DERIVED_VERSION });
   }
 
   // ---------------------------------------------------------------- scanning
@@ -171,7 +167,7 @@ export class Ingester {
       this.fileStates.save(fileId, read, ctx.state);
       this.placer.replaceAfterPr(file.sessionId, prsBefore, fileId);
       if (agentId !== null) return [file.sessionId];
-      return this.refreshWithContinuation(file.sessionId);
+      return this.derived.refreshWithContinuation(file.sessionId);
     })();
   }
 
@@ -199,16 +195,6 @@ export class Ingester {
       }
       if (isRec(r)) this.handle(ctx, r, lineSeq(line.offset));
     }
-  }
-
-  /** Refreshes a main session and the session continuing it, returning the IDs refreshed. */
-  private refreshWithContinuation(sessionId: string): string[] {
-    this.refreshSession(sessionId);
-    // If the continued session was ingested first, this is where we learn which part is a copy
-    const next = this.q.continuedIn.get(sessionId) as { id: string } | null;
-    if (!next) return [sessionId];
-    this.refreshSession(next.id);
-    return [sessionId, next.id];
   }
 
   /** Records a subagent's type and description from its meta file. */
@@ -542,70 +528,12 @@ export class Ingester {
 
   /** Recomputes aggregates and work blocks from messages. */
   refreshSession(sessionId: string): void {
-    if (this.q.hasPredecessor.get(sessionId)) this.markCopies(sessionId);
-    this.updateAggregates(sessionId);
-    this.rebuildSegments(sessionId);
-  }
-
-  /** Marks the rows of a continued session that were copied from the session it continues. */
-  private markCopies(sessionId: string): void {
-    this.q.markCopiedMessages.run(sessionId);
-    this.q.markCopiedArtifacts.run(sessionId);
-    this.q.markCopiedUsage.run(sessionId);
-    this.q.markCopiedTurns.run(sessionId);
-  }
-
-  /** Recomputes the session's time range, prompt counts and first prompt. */
-  private updateAggregates(sessionId: string): void {
-    const agg = this.q.aggregate.get(sessionId) as AggregateRow;
-    const first = this.q.firstPrompt.get(sessionId) as { text: string } | null;
-    this.q.updateAggregate.run(
-      agg.started,
-      agg.ended,
-      agg.prompts,
-      agg.scheduled,
-      agg.sdk,
-      first?.text ?? null,
-      sessionId,
-    );
-  }
-
-  /** Replaces the session's work blocks with ones recomputed from its activity. */
-  private rebuildSegments(sessionId: string): void {
-    const used = drawnActivity(this.q.activity.all(sessionId) as ActivityRow[]);
-    this.q.clearSegments.run(sessionId);
-    for (const [start, end] of toSegments(
-      used.map((r) => r.ts),
-      this.gapMs,
-    )) {
-      const inside = used.filter((r) => r.ts >= start && r.ts <= end);
-      if (!isWork(inside)) continue;
-      const prompts = inside.filter(isPrompt).length;
-      this.q.insertSegment.run(sessionId, start, end, prompts, fallbackTitle(inside));
-    }
+    this.derived.refreshSession(sessionId);
   }
 
   /** Recomputes all sessions if the derived-data calculation has changed. */
   refreshAllIfOutdated(): boolean {
-    if (this.storedDerivedVersion() === DERIVED_VERSION) return false;
-    this.db.transaction(() => {
-      this.placer.reassignProjects();
-      for (const { id } of this.db.query<{ id: string }, []>("SELECT id FROM sessions").all())
-        this.refreshSession(id);
-      this.storeDerivedVersion();
-    })();
-    return true;
-  }
-
-  /** The DERIVED_VERSION the stored derived data was computed with, or null if never computed. */
-  private storedDerivedVersion(): number | null {
-    const value = readKv(this.db, DERIVED_VERSION_KEY);
-    return value === undefined ? null : Number(value);
-  }
-
-  /** Records that derived data is now computed with the current DERIVED_VERSION. */
-  private storeDerivedVersion(): void {
-    writeKv(this.db, DERIVED_VERSION_KEY, String(DERIVED_VERSION));
+    return this.derived.refreshAllIfOutdated();
   }
 }
 
@@ -629,49 +557,6 @@ function recordId(r: Rec, fileId: number, seq: number): string {
 function finishScan(stats: ScanStats, started: number): ScanStats {
   stats.ms = performance.now() - started;
   return stats;
-}
-
-/**
- * Activity that work blocks are drawn from. Automatic-run turns are not drawn, but a session with
- * only automatic runs uses everything, so it stays visible.
- */
-function drawnActivity(rows: ActivityRow[]): ActivityRow[] {
-  const human = rows.filter((r) => r.is_scheduled === 0);
-  return human.length ? human : rows;
-}
-
-/**
- * Whether a block of activity is worth drawing. A block with neither a request (a prompt, a command
- * or a `/loop` tick) nor a tool call is a fragment after a break: a compaction, an API error, or a
- * short reply to a notification. Prompt-less blocks with tool calls stay, since that is Claude
- * acting on a notification on its own, often with commits.
- */
-function isWork(inside: ActivityRow[]): boolean {
-  return inside.some(
-    (r) =>
-      isPrompt(r) || r.kind === "sdk_prompt" || r.kind === "scheduled" || r.kind === "tool_use",
-  );
-}
-
-/** Whether a row is something the user asked for (a prompt or a slash command). */
-function isPrompt(r: ActivityRow): boolean {
-  return r.kind === "prompt" || r.kind === "command";
-}
-
-/**
- * Title for a work block until a summary exists: the first line of its first prompt (a typed
- * prompt preferred over a command, then the SDK input of a headless session), else of its last reply.
- */
-function fallbackTitle(inside: ActivityRow[]): string | null {
-  const prompts = inside.filter(isPrompt);
-  const firstPrompt =
-    prompts.find((r) => r.kind === "prompt") ??
-    prompts[0] ??
-    inside.find((r) => r.kind === "sdk_prompt");
-  const lastReply = inside.findLast((r) => r.kind === "assistant");
-  return (
-    (firstPrompt ?? lastReply)?.text?.trim().split("\n")[0]?.slice(0, FALLBACK_TITLE_CHARS) ?? null
-  );
 }
 
 /** One-line summary of a tool input (command, file path, search term, etc.). */
