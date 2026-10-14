@@ -100,7 +100,8 @@ const sessions = [
   session("hidden", 2, [segment(at(12, 11), at(12, 12), "Hidden work")]),
 ];
 
-test("the report lists blocks per day and project, leaving out hidden projects", () => {
+test("the report lists blocks per day and project, with open items of those projects only", () => {
+  // Hidden projects' sessions are passed in too: buildReport leaves them out itself
   const report = buildReport(day(12), day(14), sessions, projects, [
     item(1, 1, "Write docs"),
     item(2, 1, "Already done", { closedAt: at(13, 5) }),
@@ -131,15 +132,16 @@ test("a report for one day is titled with that day, and an empty one says so", (
   );
 });
 
-test("open items are grouped by project, without hidden projects", () => {
+test("open items are grouped by project", () => {
   const text = renderOpenItems(
-    [item(1, 1, "Write\ndocs"), item(2, 2, "Hidden"), item(3, 1, "Ask", { kind: null })],
+    [item(1, 1, "Write\ndocs"), item(2, null, "Loose"), item(3, 1, "Ask", { kind: null })],
     projects,
   );
   expect(text).toBe(
-    "## kairos\n\n- [todo] Write docs (left open 2026-10-12)\n- Ask (left open 2026-10-12)",
+    "## kairos\n\n- [todo] Write docs (left open 2026-10-12)\n- Ask (left open 2026-10-12)\n\n" +
+      "## (no project)\n\n- [todo] Loose (left open 2026-10-12)",
   );
-  expect(renderOpenItems([item(2, 2, "Hidden")], projects)).toBe("No open items.");
+  expect(renderOpenItems([], projects)).toBe("No open items.");
 });
 
 test("search hits link to their block in the day view", () => {

@@ -3,10 +3,10 @@
 import { resolve } from "node:path";
 import type { Project } from "../../shared/api.ts";
 import { startOfDay } from "../../shared/dates.ts";
-import { isProjectShown } from "../../shared/projects.ts";
 import { type CliContext, type DayOption, dayArg } from "../args.ts";
 import { health } from "../daemon.ts";
 import { CliError, UsageError } from "../errors.ts";
+import { projectsById, visibleOnly } from "../projects.ts";
 import { colorFor } from "../style.ts";
 import { catchUp } from "./ingest.ts";
 
@@ -53,7 +53,7 @@ export async function reportCommand(ctx: CliContext): Promise<undefined> {
   const { from, to } = reportPeriod(day, ctx.period.since, ctx.period.until, Date.now());
   const { buildReport, renderReport } = await import("../views.ts");
   const { db, q } = await openForRead(ctx);
-  const projects = new Map(q.projects().map((p) => [p.id, p]));
+  const projects = projectsById(q.projects());
   // Items open at the period's last moment; buildReport drops the ones closed by then
   const r = buildReport(from, to, q.calendar(from, to), projects, q.openItems(to - 1, to));
   db.close();
@@ -82,16 +82,14 @@ export async function openItemsCommand(ctx: CliContext): Promise<undefined> {
   const { db, q } = await openForRead(ctx);
   const list = q.projects();
   const project = ctx.project ? findProject(list, ctx.project, process.cwd()) : undefined;
-  const projects = new Map(list.map((p) => [p.id, p]));
+  const projects = projectsById(list);
   const now = Date.now();
-  const items = q
+  const open = q
     .openItems(now, now + 1)
     .filter((i) => i.closedAt === null && (!project || i.projectId === project.id));
   db.close();
-  if (ctx.json) {
-    const shown = items.filter((i) => isProjectShown(projects, i.projectId));
-    console.log(JSON.stringify(shown, null, 2));
-  } else console.log(renderOpenItems(items, projects));
+  const items = visibleOnly(open, projects);
+  console.log(ctx.json ? JSON.stringify(items, null, 2) : renderOpenItems(items, projects));
 }
 
 /** `kairos search`: work blocks matching every term, newest first, with links into the UI. */
@@ -100,10 +98,10 @@ export async function searchCommand(ctx: CliContext): Promise<undefined> {
   if (!query) throw new UsageError("Give something to search for", "search");
   const { renderSearch } = await import("../views.ts");
   const { db, q } = await openForRead(ctx);
-  const projects = new Map(q.projects().map((p) => [p.id, p]));
+  const projects = projectsById(q.projects());
   const { hits, more } = q.search(query, ctx.limit);
   db.close();
-  const shown = hits.filter((h) => isProjectShown(projects, h.projectId));
+  const shown = visibleOnly(hits, projects);
   console.log(
     ctx.json
       ? JSON.stringify({ hits: shown, more }, null, 2)

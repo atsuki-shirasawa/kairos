@@ -4,8 +4,8 @@ import type { CalendarSession, LedgerEntry, Project, SearchHit } from "../shared
 import { prMarkdownLink } from "../shared/artifacts.ts";
 import { hhmm, isoDay, startOfDay } from "../shared/dates.ts";
 import { isOpenAt } from "../shared/openItems.ts";
-import { isProjectShown } from "../shared/projects.ts";
 import { formatTime, oneLine, printable, uiLink } from "./format.ts";
+import { visibleOnly } from "./projects.ts";
 import { styles } from "./style.ts";
 
 /** Shown for work outside any project, where the UI says "unknown project". */
@@ -62,7 +62,9 @@ function daysIn(from: number, to: number): number[] {
 
 /**
  * Groups the blocks that started in [from, to) by day and project, like the UI's copied report.
- * A block that runs past midnight is listed on the day it started only.
+ * A block that runs past midnight is listed on the day it started only. Hidden projects' sessions
+ * are left out here, so no caller can leak them; open items are kept only for projects that have
+ * a block here.
  */
 export function buildReport(
   from: number,
@@ -71,9 +73,8 @@ export function buildReport(
   projects: ReadonlyMap<number, Project>,
   openItems: LedgerEntry[],
 ): Report {
-  const blocks = sessions
-    // Headless runs come back only while the UI shows them, so the report follows that setting
-    .filter((s) => isProjectShown(projects, s.projectId))
+  // Headless runs come back only while the UI shows them, so the report follows that setting
+  const blocks = visibleOnly(sessions, projects)
     .flatMap((s) =>
       s.segments
         .filter((g) => g.start >= from && g.start < to)
@@ -166,15 +167,17 @@ export function renderReport(report: Report, full = false): string {
   return out.join("\n").trim();
 }
 
-/** Open items of shown projects, grouped by project, as Markdown (it may be read by Claude from a hook). */
+/**
+ * Open items (hidden projects already left out), grouped by project, as Markdown (it may be read
+ * by Claude from a hook).
+ */
 export function renderOpenItems(
   items: LedgerEntry[],
   projects: ReadonlyMap<number, Project>,
 ): string {
-  const visible = items.filter((i) => isProjectShown(projects, i.projectId));
-  if (visible.length === 0) return "No open items.";
+  if (items.length === 0) return "No open items.";
   const out: string[] = [];
-  for (const [name, list] of Map.groupBy(visible, (i) => projectName(projects, i.projectId))) {
+  for (const [name, list] of Map.groupBy(items, (i) => projectName(projects, i.projectId))) {
     out.push(`## ${printable(name)}`, "");
     for (const i of list)
       out.push(`${openItemLine(i.kind, i.text)} (left open ${isoDay(i.openedAt)})`);
