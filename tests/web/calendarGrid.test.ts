@@ -15,6 +15,7 @@ import {
   NO_EDGES,
   RAISED_LAYER,
   sameEdges,
+  splitCellBlocks,
   stackOrder,
 } from "../../src/web/src/lib/calendarGrid.ts";
 import { layoutDay, type PlacedBlock } from "../../src/web/src/lib/layout.ts";
@@ -285,6 +286,43 @@ describe("momentMarks", () => {
 describe("markTops", () => {
   test("keeps marks at their time, pushing close ones just below the one above", () => {
     expect(markTops([10, 40, 42, 43, 80])).toEqual([10, 40, 46, 52, 80]);
+  });
+});
+
+describe("splitCellBlocks", () => {
+  /** A block starting at hour `h`; `headless` runs of one project seconds apart group up. */
+  const cellBlock = (id: string, h: number, mark: boolean, headless = false) => ({
+    session: { id, projectId: 1, headless } as CalendarSession,
+    segment: {
+      start: DAY0 + h * H,
+      end: DAY0 + h * H + 5_000,
+    } as CalendarSession["segments"][number],
+    mark,
+  });
+  const ids = (list: { session: { id: string } }[]) => list.map((b) => b.session.id);
+
+  test("puts marks beside the date and longer work in the lines", () => {
+    const blocks = [cellBlock("a", 9, true), cellBlock("b", 10, false), cellBlock("c", 11, true)];
+    const { marks, lines } = splitCellBlocks(blocks, 6);
+    expect(marks.map(ids)).toEqual([["a"], ["c"]]);
+    expect(ids(lines)).toEqual(["b"]);
+  });
+
+  test("groups a burst of headless runs into one mark", () => {
+    const blocks = [cellBlock("a", 9, true, true), cellBlock("b", 9.001, true, true)];
+    expect(splitCellBlocks(blocks, 6).marks.map(ids)).toEqual([["a", "b"]]);
+  });
+
+  test("moves marks past the limit into the lines, keeping time order", () => {
+    const blocks = [
+      cellBlock("a", 9, true),
+      cellBlock("b", 10, true),
+      cellBlock("c", 11, false),
+      cellBlock("d", 12, true),
+    ];
+    const { marks, lines } = splitCellBlocks(blocks, 1);
+    expect(marks.map(ids)).toEqual([["a"]]);
+    expect(ids(lines)).toEqual(["b", "c", "d"]);
   });
 });
 

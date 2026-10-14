@@ -4,11 +4,11 @@ import { MomentNode } from "@/components/MomentNode.tsx";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip.tsx";
 import { calendarMessages } from "@/i18n/messages/calendar.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
-import { blockMoments, monthCellFit } from "@/lib/calendarGrid.ts";
+import { blockMoments, monthCellFit, splitCellBlocks } from "@/lib/calendarGrid.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { dateLabel, durationLabel } from "@/lib/dates.ts";
 import type { SegmentMatch } from "@/lib/filter.ts";
-import { type PlacedBlock, runGroups } from "@/lib/layout.ts";
+import type { PlacedBlock } from "@/lib/layout.ts";
 import { dayFigures } from "@/lib/totals.ts";
 import { cn } from "@/lib/utils.ts";
 import { BlockTooltip, timeRange } from "./Block.tsx";
@@ -58,10 +58,7 @@ export function MonthCell({
   slots: number;
   onOpenDay: (day: number) => void;
 }) {
-  const shownMarks = runGroups(blocks.filter((b) => b.mark)).slice(0, MAX_MARKS);
-  const inMarks = new Set(shownMarks.flat());
-  // `blocks` is in time order, so the lines stay in it with the leftover marks mixed in
-  const lines = blocks.filter((b) => !inMarks.has(b));
+  const { marks: shownMarks, lines } = splitCellBlocks(blocks, MAX_MARKS);
   const { shown, more } = monthCellFit(lines.length, slots);
   // j / k can open a block that didn't fit; "+n more" then stands in for it, so the day shows
   // where the selection is and closing the drawer has somewhere to return focus to
