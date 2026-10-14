@@ -7,7 +7,9 @@ import {
   type FactsInput,
   formatFacts,
   issueOps,
+  lastTestRun,
   questionsOf,
+  runnerCommand,
   taskStates,
   testSummary,
 } from "../../src/server/summarize/facts.ts";
@@ -169,6 +171,29 @@ describe("testSummary", () => {
       "echo pytest",
     ])
       expect(testSummary([bash(cmd, "ok")])).toBeNull();
+  });
+
+  test("names a multi-line command from the line that runs the tests", () => {
+    const cmd = "python3 - <<'EOF'\nprint('edit')\nEOF\nbun run format; bun run check";
+    expect(testSummary([bash(cmd, "0 fail")])).toStartWith(
+      "last run `… bun run format; bun run check` passed",
+    );
+    expect(runnerCommand("cd web && bun test")).toBe("cd web && bun test");
+    // Continued lines belong to the runner's command, before and after it
+    expect(runnerCommand("cd web && \\\n  bun test")).toBe("cd web && \\\n  bun test");
+    expect(runnerCommand("echo hi\nbun test \\\n  --coverage")).toBe("… bun test \\\n  --coverage");
+  });
+
+  test("gives the live page the same part of the command", () => {
+    const run = lastTestRun([bash("python3 - <<'EOF'\nx\nEOF\nbun test", "0 fail")]);
+    expect(run).toMatchObject({ command: "… bun test", outcome: "passed" });
+  });
+
+  test("doesn't call a run passed when a following line hides its exit status", () => {
+    expect(testSummary([bash("echo hi\nbun run check\necho done", "1 fail")])).toStartWith(
+      "last run `… bun run check echo done` ended",
+    );
+    expect(testSummary([bash("bun test \\\n  --coverage", "0 fail")])).toContain("passed");
   });
 
   test("leaves out a run started in the background", () => {

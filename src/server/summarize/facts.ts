@@ -33,9 +33,10 @@ export const TEST_RE = new RegExp(
 );
 /**
  * What hides a runner's exit status after it: a pipe (`| tail`), `|| true`, or another command
- * after `;`. The call then succeeds whether or not the tests passed.
+ * after `;` or on a following line (not a `\` continuation). The call then succeeds whether or not
+ * the tests passed.
  */
-const MASKED_STATUS_RE = /(?<!\|)\|(?!\|)|\|\|\s*(?:true|:)\b|;\s*\S/;
+const MASKED_STATUS_RE = /(?<!\|)\|(?!\|)|\|\|\s*(?:true|:)\b|;\s*\S|(?<!\\)\n\s*\S/;
 const ISSUE_CLOSE_RE = /\bgh issue close\s+(?:\S*\/issues\/)?#?(\d+)/g;
 const ISSUE_CREATE_RE = /\bgh\s+issue\s+create\b/;
 const ISSUE_URL_RE = /\/issues\/(\d+)/;
@@ -217,23 +218,43 @@ function isTestRun(c: FactCall): boolean {
   return parseJson(c.input)?.run_in_background !== true;
 }
 
-/** The last foreground test or check run among `calls`, with its full command and outcome. */
+/**
+ * The part of a command that runs the tests: from the start of the runner's line (and of any line
+ * it continues with `\`) to the end, so what follows it, such as a pipe that hides its status,
+ * stays in view. A multi-line command (a heredoc that edits files, then `bun run check`) would
+ * otherwise be shown by its first lines, which aren't the test run; "…" marks the lines left out.
+ * A command whose runner is on its first line is kept whole, `cd web && bun test` and all.
+ */
+export function runnerCommand(cmd: string): string {
+  const m = TEST_RE.exec(cmd);
+  if (!m) return cmd;
+  // The match may begin with the newline that ends the previous line
+  const at = m.index + (m[0].startsWith("\n") ? 1 : 0);
+  let start = cmd.lastIndexOf("\n", at - 1) + 1;
+  while (start > 1 && cmd[start - 2] === "\\") start = cmd.lastIndexOf("\n", start - 2) + 1;
+  const part = cmd.slice(start).trim();
+  return start > 0 ? `… ${part}` : part;
+}
+
+/** The last foreground test or check run among `calls`, with the part that ran it and its outcome. */
 export function lastTestRun(
   calls: FactCall[],
 ): { call: FactCall; command: string; outcome: "FAILED" | "passed" | "ended" } | null {
   const last = calls.findLast(isTestRun);
-  return last ? { call: last, command: commandOf(last), outcome: outcomeOf(last) } : null;
+  return last
+    ? { call: last, command: runnerCommand(commandOf(last)), outcome: outcomeOf(last) }
+    : null;
 }
 
 /** The last test or check run in the section, and how many earlier runs failed. */
 export function testSummary(calls: FactCall[]): string | null {
   const runs = calls.filter(isTestRun);
-  const last = runs.at(-1);
-  if (!last) return null;
+  const run = lastTestRun(runs);
+  if (!run) return null;
   const failedBefore = runs.slice(0, -1).filter((r) => r.isError).length;
-  const cmd = oneLine(commandOf(last), 80);
-  const tail = tailLines(last.result);
-  const outcome = outcomeOf(last);
+  const cmd = oneLine(run.command, 80);
+  const tail = tailLines(run.call.result);
+  const outcome = run.outcome;
   const how =
     outcome === "ended" ? "ended (exit status hidden by the command; see its output)" : outcome;
   return [
