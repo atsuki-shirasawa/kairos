@@ -2,8 +2,10 @@ import type { Database, Statement } from "bun:sqlite";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, join, relative, sep } from "node:path";
 import { WORK_BLOCK_GAP_MS } from "../../shared/sections.ts";
-import { classifyUser, commandText, isCommandText } from "./classify.ts";
+import { classifyUser } from "./classify.ts";
 import { extractCommit, GIT_COMMIT_RE } from "./commits.ts";
+import { nextAutoTurn, storedUserKind, storedUserText } from "./interpret.ts";
+import { LIMIT } from "./limits.ts";
 import {
   encodeDir,
   isTemporary,
@@ -53,14 +55,6 @@ export const PARSER_VERSION = 10;
 export const DERIVED_VERSION = 6;
 const FALLBACK_TITLE_CHARS = 120;
 
-// A compact summary runs past 20k characters; past the limit, its end (pending tasks, next step) is kept
-const LIMIT = {
-  text: 20_000,
-  compactSummary: 40_000,
-  toolInput: 4_000,
-  toolResult: 4_000,
-  short: 2_000,
-};
 const RECAP_SUFFIX = /\s*\(disable recaps in \/config\)\s*$/;
 
 /** Where a session belongs: its project row, and the secondary label shown beside the name. */
@@ -432,49 +426,17 @@ export class Ingester {
 
   /** Stores a user record according to its classified kind, tracking automatic-run turns. */
   private handleUser(ctx: Ctx, r: Rec, ts: number | null, seq: number): void {
-    let kind = classifyUser(r);
-    if (kind === "scheduled") ctx.state.autoTurn = true;
-    else if (kind === "prompt" || kind === "command") ctx.state.autoTurn = false;
-    // Instructions to a subagent have no origin (and in an SDK session look like SDK input),
-    // so treat them as the prompt here
-    if (ctx.agentId !== null && (kind === "meta" || kind === "sdk_prompt")) kind = "prompt";
-
+    const classified = classifyUser(r);
+    ctx.state.autoTurn = nextAutoTurn(ctx.state.autoTurn, classified);
+    const kind = storedUserKind(classified, ctx.agentId !== null);
+    if (kind === null) return;
     const id = recordId(r, ctx.fileId, seq);
-    const content = rec(r.message)?.content;
-    const text = contentText(content);
-    switch (kind) {
-      case "prompt":
-        this.insert(ctx, id, seq, ts, kind, clip(text.trim(), LIMIT.text));
-        return;
-      case "command":
-        this.insert(ctx, id, seq, ts, kind, commandText(text));
-        return;
-      case "sdk_prompt": {
-        const trimmed = text.trim();
-        const stored = isCommandText(trimmed) ? commandText(trimmed) : clip(trimmed, LIMIT.text);
-        this.insert(ctx, id, seq, ts, kind, stored);
-        return;
-      }
-      case "scheduled":
-      case "interrupt":
-      case "notification":
-        this.insert(ctx, id, seq, ts, kind, clip(text.trim(), LIMIT.short));
-        return;
-      case "peer":
-        this.insert(ctx, id, seq, ts, kind, clip(str(rec(r.origin)?.body) ?? text, LIMIT.short));
-        return;
-      case "tool_result":
-        this.handleToolResults(ctx, r, id, ts, seq);
-        return;
-      // Claude Code's own account of the work so far, with what is pending, for summaries to read
-      case "compact_summary":
-        if (ctx.agentId === null)
-          this.insert(ctx, id, seq, ts, kind, clipEnds(text.trim(), LIMIT.compactSummary), {
-            note: true,
-          });
-        return;
-      // meta is not stored
+    if (kind === "tool_result") {
+      this.handleToolResults(ctx, r, id, ts, seq);
+      return;
     }
+    const text = storedUserText(kind, r, contentText(rec(r.message)?.content));
+    this.insert(ctx, id, seq, ts, kind, text, { note: kind === "compact_summary" });
   }
 
   /** Stores each tool_result block and resolves the commit or PR its tool_use was waiting for. */
