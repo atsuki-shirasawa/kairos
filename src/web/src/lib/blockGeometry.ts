@@ -1,7 +1,6 @@
 // Geometry of the calendar time grid: where a block is drawn in its day column, and in what order.
 import { HOUR } from "@shared/dates.ts";
 import { MIN_BLOCK_MS, type PlacedBlock } from "./layout.ts";
-import { sessionEnd } from "./selection.ts";
 
 /** Y position of a time since midnight, at `hourPx` per hour. */
 export const yOf = (ms: number, hourPx: number): number => (ms / HOUR) * hourPx;
@@ -85,10 +84,10 @@ export function stackOrder({
   return (muted ? 0 : SHOWN_LAYER) + 1 + depth * 2 + (selected ? 1 : 0);
 }
 
-/** Whether this is the session's last work block (only it gets the "in progress" mark). */
-export function isLastSegment(block: PlacedBlock): boolean {
-  return (
-    block.segment.end >= sessionEnd(block.session) &&
-    block.dayStart + block.end >= block.segment.end
-  );
+/**
+ * Whether this day's piece of the block holds its section's end. A section crossing midnight is
+ * drawn on both days, and the in-progress dot goes only where the work is now: the later piece.
+ */
+export function reachesSegmentEnd(block: PlacedBlock): boolean {
+  return block.dayStart + block.end >= block.segment.end;
 }

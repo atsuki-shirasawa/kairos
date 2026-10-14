@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
   blockGeometry,
-  isLastSegment,
   RAISED_LAYER,
+  reachesSegmentEnd,
   stackOrder,
 } from "../../src/web/src/lib/blockGeometry.ts";
 import { layoutDay, type PlacedBlock } from "../../src/web/src/lib/layout.ts";
@@ -50,17 +50,17 @@ describe("blockGeometry", () => {
   });
 });
 
-describe("isLastSegment", () => {
-  test("only the session's last block, on the day it ends", () => {
+describe("reachesSegmentEnd", () => {
+  test("only the day's piece that holds the section's end", () => {
     const s = session("s", [
       [DAY0 + 9 * H, DAY0 + 10 * H],
       [DAY0 + 23 * H, DAY1 + H],
     ]);
     const [first, spanning] = layoutDay([s], DAY0);
     const [next] = layoutDay([s], DAY1);
-    expect(first && isLastSegment(first)).toBe(false);
-    expect(spanning && isLastSegment(spanning)).toBe(false);
-    expect(next && isLastSegment(next)).toBe(true);
+    expect(first && reachesSegmentEnd(first)).toBe(true);
+    expect(spanning && reachesSegmentEnd(spanning)).toBe(false);
+    expect(next && reachesSegmentEnd(next)).toBe(true);
   });
 });
 

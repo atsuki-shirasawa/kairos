@@ -10,8 +10,8 @@ import { momentsSpeech, tooltipFacts } from "@/lib/blockFacts.ts";
 import {
   type BlockGeometry,
   blockGeometry,
-  isLastSegment,
   RAISED_LAYER,
+  reachesSegmentEnd,
   stackOrder,
 } from "@/lib/blockGeometry.ts";
 import { projectColor } from "@/lib/colors.ts";
@@ -24,6 +24,7 @@ import {
   momentMarks,
   momentRows,
 } from "@/lib/moments.ts";
+import { isDim, isWorking } from "@/lib/selection.ts";
 import { cn } from "@/lib/utils.ts";
 import { BlockTooltip, MomentLabel } from "./BlockTooltip.tsx";
 import { CARD_FILL, FADED } from "./blockFills.ts";
@@ -89,11 +90,8 @@ export function Block({
 }) {
   const { session, segment } = block;
   const geo = blockGeometry(block, hourPx);
-  const working = session.active && isLastSegment(block);
-  // Before summarizing, the heading is the raw first prompt ("sorry, meant for another session", etc.),
-  // which is noise next to summarized work. Tone down background and text. In-progress work is
-  // just waiting for its summary, so it is excluded
-  const dim = !segment.summarized && !working;
+  const inProgress = isWorking(block) && reachesSegmentEnd(block);
+  const dim = isDim(block);
   const moments = blockMoments(block, hourPx, geo.filledPx);
   const { meta, lines, body, lane } = blockContent(block, geo, {
     detailed,
@@ -151,7 +149,7 @@ export function Block({
         {lane && (
           <MomentLane rows={momentRows(moments, LANE_ROW_PX, geo.visible)} heightPx={geo.visible} />
         )}
-        {working && <WorkingDot />}
+        {inProgress && <WorkingDot />}
       </div>
       <BlockTooltip {...facts} />
     </Tooltip>

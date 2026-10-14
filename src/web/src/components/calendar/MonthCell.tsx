@@ -9,7 +9,7 @@ import type { SegmentMatch } from "@/lib/filter.ts";
 import type { PlacedBlock } from "@/lib/layout.ts";
 import { blockMoments } from "@/lib/moments.ts";
 import { monthCellFit, splitCellBlocks } from "@/lib/monthGrid.ts";
-import { isSelected, projectOf } from "@/lib/selection.ts";
+import { isDim, isSelected, projectOf } from "@/lib/selection.ts";
 import { dayFigures } from "@/lib/totals.ts";
 import { cn } from "@/lib/utils.ts";
 import { BlockTooltip } from "./BlockTooltip.tsx";
@@ -158,8 +158,7 @@ function blockState(b: PlacedBlock, c: CellContext) {
     project,
     selected: isSelected(b, c.selectedId, c.selectedAt),
     faded: !c.matches(b.session, b.segment),
-    // Work still in progress is only waiting for its summary, so it isn't toned down
-    dim: !b.segment.summarized && !b.session.active,
+    dim: isDim(b),
   };
 }
 
@@ -216,16 +215,20 @@ function CellMark({ runs, ...c }: CellContext & { runs: PlacedBlock[] }) {
   const [first] = runs;
   if (!first) return null;
   const states = runs.map((b) => blockState(b, c));
+  const leadIndex = Math.max(
+    0,
+    states.findIndex((s) => !s.faded),
+  );
   return (
     <Mark
       runs={runs}
       top={null}
       hourPx={MIN_HOUR_PX}
-      lead={runs.find((_, i) => !states[i]?.faded) ?? first}
+      lead={runs[leadIndex] ?? first}
       project={states[0]?.project}
       selected={states.some((s) => s.selected)}
       faded={states.every((s) => s.faded)}
-      dim={states[0]?.dim ?? false}
+      dim={states[leadIndex]?.dim ?? false}
       onSelect={c.onSelect}
     />
   );

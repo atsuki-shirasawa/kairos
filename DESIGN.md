@@ -282,7 +282,7 @@ A work block's fill is the project color mixed into `block-base` in `oklch`:
 - **Month view** is a Sunday-first grid of the month's weeks (padded with the adjacent months'
   days, drawn empty with their dates at 60% `muted-ink`). Time of day doesn't fit there, so each
   block is a 20px line in time order: the block's 3px project edge and fill (dim when
-  unsummarized), its heading on one line, and a node at the end when it made commits (filled for a
+  unsummarized, by the Work block rule below), its heading on one line, and a node at the end when it made commits (filled for a
   PR). The date line holds the date (circled in indigo on today; opens the day), up to six marks
   for short work, and the day's working time. Rows share the height (never below room for two
   lines and "+n more"); what doesn't fit, including marks past six, becomes "+n more", which opens
@@ -338,7 +338,9 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   range in `numeral` follows when there is room, but in the week view only on the selected block:
   the grid already places the block in time, and the tooltip and drawer give the exact range, so
   the space goes to the heading instead. The heading gives up lines to the time range rather than
-  overlapping it. Unsummarized blocks use the dim fill and muted text. A pulsing project-colored
+  overlapping it. Unsummarized blocks use the dim fill and muted text, except the latest block of a
+  session still running, which is only waiting for its summary; the week, day, month and list views
+  use this one rule (`isDim` in `lib/selection.ts`), and a mark's tooltip notes it. A pulsing project-colored
   dot marks work in progress. Selected: a 2px `primary` outline over the normal fill (a deeper
   fill as well said the same thing twice). A headless run (`claude -p` / SDK, shown only when
   turned on in the "⋯" menu) keeps its project's color and fill but gets a dashed left edge: the

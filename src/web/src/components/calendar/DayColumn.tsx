@@ -3,7 +3,7 @@ import { DAY, HOUR } from "@shared/dates.ts";
 import type { SegmentMatch } from "@/lib/filter.ts";
 import type { PlacedBlock } from "@/lib/layout.ts";
 import { markTops, runGroups } from "@/lib/marks.ts";
-import { isSelected, projectOf } from "@/lib/selection.ts";
+import { isDim, isSelected, projectOf } from "@/lib/selection.ts";
 import { cn } from "@/lib/utils.ts";
 import { Block } from "./Block.tsx";
 import { MARK_STRIP_PX, Mark } from "./Mark.tsx";
@@ -72,6 +72,8 @@ export function DayColumn({
       {marks.map((runs, i) => {
         const [b] = runs;
         if (!b) return null;
+        // The tooltip and the click describe the lead, so its summary state is the one to show
+        const lead = runs.find((r) => matches(r.session, r.segment)) ?? b;
         return (
           <Mark
             key={`${b.session.id}-${b.start}`}
@@ -79,10 +81,10 @@ export function DayColumn({
             top={tops[i] ?? 0}
             hourPx={hourPx}
             project={projectOf(projects, b.session.projectId)}
-            lead={runs.find((r) => matches(r.session, r.segment)) ?? b}
+            lead={lead}
             selected={runs.some(selected)}
             faded={!runs.some((r) => matches(r.session, r.segment))}
-            dim={!b.segment.summarized}
+            dim={isDim(lead)}
             onSelect={onSelect}
           />
         );

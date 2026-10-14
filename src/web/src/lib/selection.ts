@@ -1,5 +1,5 @@
 // Rules about a block that every view answers the same way: which project it belongs to, whether
-// it is selected, and whether it is still being worked on.
+// it is selected, whether it is still being worked on, and whether it is toned down.
 import { formatMessages } from "@/i18n/messages/format.ts";
 import type { DayBlock } from "./dayBlocks.ts";
 
@@ -47,4 +47,14 @@ export function sessionEnd(session: Pick<DayBlock["session"], "segments">): numb
 export function isWorking(block: Pick<DayBlock, "session" | "segment">): boolean {
   const { session, segment } = block;
   return session.active && segment.end >= sessionEnd(session);
+}
+
+/**
+ * Whether `block` is toned down. Before it is summarized its heading is only the raw first prompt
+ * ("sorry, meant for another session", etc.), which is noise next to summarized work. Work still
+ * in progress is only waiting for its summary, so it keeps the normal look. Every view (week, day,
+ * month, marks, list) uses this rule.
+ */
+export function isDim(block: Pick<DayBlock, "session" | "segment">): boolean {
+  return !block.segment.summarized && !isWorking(block);
 }

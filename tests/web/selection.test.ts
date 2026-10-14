@@ -3,6 +3,7 @@ import type { CalendarSession } from "../../src/shared/api.ts";
 import { setLocale } from "../../src/web/src/i18n/index.ts";
 import { blocksOfDay } from "../../src/web/src/lib/dayBlocks.ts";
 import {
+  isDim,
   isSelected,
   isWorking,
   projectLabel,
@@ -96,5 +97,44 @@ describe("projectLabel / projectName", () => {
     expect(projectName(projects, null)).toBe("プロジェクト不明");
     expect(projectName(projects, 9)).toBe("プロジェクト不明");
     setLocale("en");
+  });
+});
+
+describe("isDim", () => {
+  /** A session whose sections are all still waiting for a summary. */
+  const unsummarized = (active: boolean): CalendarSession => {
+    const s = session(active);
+    return { ...s, segments: s.segments.map((g) => ({ ...g, summarized: false })) };
+  };
+
+  test("tones down unsummarized work, but not the section still being worked on", () => {
+    const [older, latest] = blocksOfDay([unsummarized(true)], DAY0);
+    expect(older && isDim(older)).toBe(true);
+    expect(latest && isDim(latest)).toBe(false);
+  });
+
+  test("tones down every unsummarized section once the session has ended", () => {
+    const blocks = blocksOfDay([unsummarized(false)], DAY0);
+    expect(blocks.map(isDim)).toEqual([true, true]);
+  });
+
+  test("keeps both days' pieces of a running section that crosses midnight", () => {
+    const s = unsummarized(true);
+    const [early, late] = s.segments;
+    const crossing: CalendarSession = {
+      ...s,
+      segments: [
+        { ...(early ?? late), start: DAY0 + 9 * H, end: DAY0 + 10 * H },
+        { ...(late ?? early), start: DAY0 + 23 * H, end: DAY0 + 25 * H },
+      ] as CalendarSession["segments"],
+    };
+    const [, before] = blocksOfDay([crossing], DAY0);
+    const [after] = blocksOfDay([crossing], DAY0 + 24 * H);
+    expect(before && isDim(before)).toBe(false);
+    expect(after && isDim(after)).toBe(false);
+  });
+
+  test("never tones down summarized work", () => {
+    expect(blocksOfDay([session(true)], DAY0).map(isDim)).toEqual([false, false]);
   });
 });

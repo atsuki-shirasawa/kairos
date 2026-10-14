@@ -5,7 +5,7 @@ import { listMessages } from "@/i18n/messages/list.tsx";
 import { projectColor } from "@/lib/colors.ts";
 import { dateLabel, hhmm, relativeDay } from "@/lib/dates.ts";
 import type { DayBlock } from "@/lib/dayBlocks.ts";
-import { isSelected, isWorking, projectLabel, projectOf } from "@/lib/selection.ts";
+import { isDim, isSelected, isWorking, projectLabel, projectOf } from "@/lib/selection.ts";
 import { totalsOf } from "@/lib/totals.ts";
 import { cn } from "@/lib/utils.ts";
 import { type Column, STICKY_TIME, STICKY_WORK } from "./columns.tsx";
@@ -167,8 +167,7 @@ function WorkCell({
 }) {
   const { session, segment } = block;
   const working = isWorking(block);
-  // Before summarizing, the heading is just the first prompt, so tone it down (same as the calendar)
-  const dim = !segment.summarized && !working;
+  const dim = isDim(block);
   const f = formatMessages();
   return (
     <td className={cn("min-w-0 py-2 pr-2 pl-2", STICKY_WORK)}>
