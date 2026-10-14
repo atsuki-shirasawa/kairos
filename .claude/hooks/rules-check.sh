@@ -16,20 +16,35 @@ bumped() { git diff "$base" -- src/server/ingest | grep -qE "^\+export const $1 
 
 issues=()
 
+# Reminders fire once per distinct diff of their paths, not on every stop: the hash of the last
+# diff we reminded about is kept under .git, so a reviewed or explained, unchanged diff stays quiet.
+reminded_dir="$(git rev-parse --git-dir)/claude-reminders"
+remind_once() {
+  local key=$1 message=$2; shift 2
+  changed "$@" || return 0
+  local untracked fingerprint
+  untracked=$(git ls-files --others --exclude-standard -- "$@")
+  fingerprint=$( { git diff "$base" -- "$@"; [ -n "$untracked" ] && cat $untracked; } | shasum | cut -d' ' -f1)
+  [ "$(cat "$reminded_dir/$key" 2>/dev/null)" = "$fingerprint" ] && return 0
+  mkdir -p "$reminded_dir" && echo "$fingerprint" >"$reminded_dir/$key"
+  issues+=("$message")
+}
+
+
 # Every ingest file counts as interpretation code unless listed here, so a file split out of
 # ingester.ts is covered without editing this hook. List new derived-only files in derived_files.
-derived_files=(src/server/ingest/{segments,project}.ts)
+derived_files=(src/server/ingest/{segments,project,placement,derived}.ts)
 not_stored=(src/server/ingest/watcher.ts)
 parser_files=(src/server/ingest)
 for f in "${derived_files[@]}" "${not_stored[@]}"; do parser_files+=(":(exclude)$f"); done
 
-if changed "${parser_files[@]}" && ! bumped PARSER_VERSION; then
-  issues+=("Interpretation code under src/server/ingest changed but PARSER_VERSION was not bumped.")
-fi
-
-if changed "${derived_files[@]}" && ! bumped DERIVED_VERSION; then
-  issues+=("Work-block / project-assignment code changed (segments/project) but DERIVED_VERSION was not bumped.")
-fi
+# A pure refactor leaves the output unchanged and needs no bump, so these too are said once per diff
+bumped PARSER_VERSION || remind_once parser-version \
+  "Interpretation code under src/server/ingest changed but PARSER_VERSION was not bumped." \
+  "${parser_files[@]}"
+bumped DERIVED_VERSION || remind_once derived-version \
+  "Work-block / project-assignment code changed but DERIVED_VERSION was not bumped." \
+  "${derived_files[@]}"
 
 # Existing MIGRATIONS entries must never change: any removed or modified line between
 # `MIGRATIONS` and `SCHEMA_VERSION` in the base version is a rewrite. Appending is a pure insert.
@@ -47,20 +62,6 @@ if changed "$db"; then
     [ -n "$rewritten" ] && issues+=("An existing MIGRATIONS entry in $db was modified. Revert it and append a new entry instead.")
   fi
 fi
-
-# Reviewer reminders fire once per distinct diff of their paths, not on every stop: the hash of
-# the last diff we reminded about is kept under .git so a reviewed, unchanged diff stays quiet.
-reminded_dir="$(git rev-parse --git-dir)/claude-reminders"
-remind_once() {
-  local agent=$1 message=$2; shift 2
-  changed "$@" || return 0
-  local untracked fingerprint
-  untracked=$(git ls-files --others --exclude-standard -- "$@")
-  fingerprint=$( { git diff "$base" -- "$@"; [ -n "$untracked" ] && cat $untracked; } | shasum | cut -d' ' -f1)
-  [ "$(cat "$reminded_dir/$agent" 2>/dev/null)" = "$fingerprint" ] && return 0
-  mkdir -p "$reminded_dir" && echo "$fingerprint" >"$reminded_dir/$agent"
-  issues+=("$message")
-}
 
 remind_once security-reviewer \
   "API security, summary execution or Markdown rendering changed. Run the security-reviewer agent." \

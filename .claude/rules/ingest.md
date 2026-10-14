@@ -16,8 +16,8 @@ paths:
 ## Versions (`src/server/ingest/ingester.ts`)
 
 - How jsonl is interpreted changes (`classify` / `records` / `reader` / `commits` / `prs`, or record handling in `ingester`) → bump `PARSER_VERSION`. Files whose original logs still exist are re-read
-- Only aggregates, work blocks or project assignment change (`segments` / `project`, computed from the DB) → bump `DERIVED_VERSION`. All sessions are recomputed, even those whose logs are gone
-- The Stop hook (`.claude/hooks/rules-check.sh`) reminds you if a bump looks missing. It treats every file under `src/server/ingest/` as interpretation code except the derived-only files and `watcher.ts` it lists; when you split out a derived-only file, add it to `derived_files` there
+- Only aggregates, work blocks or project assignment change (`segments` / `project` / `placement` / `derived`, computed from the DB) → bump `DERIVED_VERSION`. All sessions are recomputed, even those whose logs are gone
+- The Stop hook (`.claude/hooks/rules-check.sh`) reminds you if a bump looks missing. It treats every file under `src/server/ingest/` as interpretation code except the derived-only files and `watcher.ts` it lists; when you split out a derived-only file, add it to `derived_files` there. Each reminder is said once per distinct diff, so after explaining that a pure refactor needs no bump it stays quiet until the code changes again
 
 ## Fixtures
 
