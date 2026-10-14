@@ -3,9 +3,10 @@
 import type { Database } from "bun:sqlite";
 import { DAY } from "../../shared/dates.ts";
 import { AUTO_SUMMARY_DAYS, isSummarizable, SECTION_IDLE_MS } from "../../shared/sections.ts";
+import type { TaskState } from "../tasks.ts";
 import { DEFAULT_HIDDEN_CWDS, visibleSessionSql } from "../visibility.ts";
 import { buildDigest, DIGEST_KINDS, type DigestMessage } from "./digest.ts";
-import { formatFacts, loadFacts, type TaskState, taskStates } from "./facts.ts";
+import { formatFacts, loadFacts } from "./facts.ts";
 import { refsOf } from "./ledger.ts";
 import type { ParsedSummary, PromptInput } from "./prompt.ts";
 import { type RecapInput, type RecapTarget, recapHash } from "./recap.ts";
@@ -170,7 +171,7 @@ export function loadSectionInput(db: Database, target: SectionRef): SectionInput
       digest,
     },
     refs: refsOf(`${factsText}\n${digest}`),
-    tasks: taskStates(facts.taskCalls, target.start),
+    tasks: facts.tasks,
   };
 }
 

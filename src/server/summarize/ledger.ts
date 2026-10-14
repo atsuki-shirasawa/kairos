@@ -4,7 +4,9 @@
 import type { Database } from "bun:sqlite";
 import { issueClosedNote, prMergedNote, taskCompletedNote } from "../../shared/closeNotes.ts";
 import type { OpenItem, OpenKind } from "../../shared/summaryBody.ts";
-import { closedIssues, completedTask, type FactCall, type TaskState } from "./facts.ts";
+import { completedTask, type TaskState } from "../tasks.ts";
+import type { ToolCall } from "../toolCalls.ts";
+import { closedIssues } from "./facts.ts";
 import type { EarlierOpen } from "./prompt.ts";
 import { type CloseEvent, isClosable, settlementOf } from "./settlement.ts";
 import type { SectionRef } from "./store.ts";
@@ -414,7 +416,7 @@ function callsAfter(
   from: number,
   tool: string,
   like: string,
-): (FactCall & { sessionId: string })[] {
+): (ToolCall & { sessionId: string })[] {
   const [sessions, param] = scopeSql(scope);
   return db
     .query<

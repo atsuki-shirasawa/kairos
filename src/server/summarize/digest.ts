@@ -1,5 +1,5 @@
 // Builds the excerpt of a section that is passed to the LLM.
-import { TEST_RE } from "./facts.ts";
+import { TEST_RE } from "../testRuns.ts";
 
 /** A stored message, reduced to the columns the digest reads. */
 export interface DigestMessage {

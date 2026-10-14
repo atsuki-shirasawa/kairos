@@ -3,88 +3,23 @@ import { buildDigest } from "../../src/server/summarize/digest.ts";
 import {
   compactPending,
   FACTS_LIMIT,
-  type FactCall,
   type FactsInput,
   formatFacts,
   issueOps,
-  lastTestRun,
   questionsOf,
-  runnerCommand,
-  taskStates,
   testSummary,
 } from "../../src/server/summarize/facts.ts";
+import { taskStates } from "../../src/server/tasks.ts";
+import { bash, call } from "./calls.ts";
 
-const call = (c: Partial<FactCall> & Pick<FactCall, "toolName">): FactCall => ({
-  ts: 0,
-  text: "",
-  input: null,
-  result: null,
-  isError: false,
-  ...c,
-});
-const bash = (command: string, result: string, isError = false, ts = 0) =>
-  call({
-    toolName: "Bash",
-    text: command,
-    input: JSON.stringify({ command }),
-    result,
-    isError,
-    ts,
-  });
 const empty: FactsInput = {
   artifacts: [],
   calls: [],
-  taskCalls: [],
-  sectionStart: 0,
+  tasks: [],
   interrupts: 0,
   recaps: [],
   compactSummaries: [],
 };
-
-describe("taskStates", () => {
-  const create = (subject: string, id: string, ts = 0) =>
-    call({
-      toolName: "TaskCreate",
-      ts,
-      input: JSON.stringify({ subject, description: "d" }),
-      result: `Task #${id} created successfully: ${subject}`,
-    });
-  const update = (input: object, ts = 0) =>
-    call({ toolName: "TaskUpdate", ts, input: JSON.stringify(input), result: "Updated task" });
-
-  test("replays creates and updates, reading both key spellings", () => {
-    const tasks = taskStates(
-      [
-        create("A", "1"),
-        create("B", "2"),
-        update({ taskId: "1", status: "completed" }),
-        update({ task_id: "2", state: "in_progress" }),
-      ],
-      0,
-    );
-    expect(tasks.map((t) => [t.id, t.subject, t.status])).toEqual([
-      ["1", "A", "completed"],
-      ["2", "B", "in_progress"],
-    ]);
-  });
-
-  test("marks which tasks the section touched and drops deleted ones", () => {
-    const tasks = taskStates(
-      [
-        create("old", "1", 10),
-        create("gone", "2", 10),
-        update({ taskId: "2", status: "deleted" }, 60),
-      ],
-      50,
-    );
-    expect(tasks).toEqual([{ id: "1", subject: "old", status: "pending", touched: false }]);
-  });
-
-  test("ignores a create that failed and an update to an unknown task", () => {
-    const failed = { ...create("x", "1"), isError: true };
-    expect(taskStates([failed, update({ taskId: "9", status: "completed" })], 0)).toEqual([]);
-  });
-});
 
 describe("questionsOf", () => {
   const ask = (result: string, isError = false) =>
@@ -178,15 +113,6 @@ describe("testSummary", () => {
     expect(testSummary([bash(cmd, "0 fail")])).toStartWith(
       "last run `… bun run format; bun run check` passed",
     );
-    expect(runnerCommand("cd web && bun test")).toBe("cd web && bun test");
-    // Continued lines belong to the runner's command, before and after it
-    expect(runnerCommand("cd web && \\\n  bun test")).toBe("cd web && \\\n  bun test");
-    expect(runnerCommand("echo hi\nbun test \\\n  --coverage")).toBe("… bun test \\\n  --coverage");
-  });
-
-  test("gives the live page the same part of the command", () => {
-    const run = lastTestRun([bash("python3 - <<'EOF'\nx\nEOF\nbun test", "0 fail")]);
-    expect(run).toMatchObject({ command: "… bun test", outcome: "passed" });
   });
 
   test("doesn't call a run passed when a following line hides its exit status", () => {
@@ -271,14 +197,16 @@ describe("formatFacts", () => {
       });
     const text = formatFacts({
       ...empty,
-      sectionStart: 100,
-      taskCalls: [
-        create("old done", "1", 10),
-        done("1", 20),
-        create("old open", "2", 30),
-        create("new", "3", 110),
-        done("3", 120),
-      ],
+      tasks: taskStates(
+        [
+          create("old done", "1", 10),
+          done("1", 20),
+          create("old open", "2", 30),
+          create("new", "3", 110),
+          done("3", 120),
+        ],
+        100,
+      ),
     });
     expect(text).toBe(
       "Tasks at the end of this section:\n- [pending] #2 old open\n- [completed] #3 new",

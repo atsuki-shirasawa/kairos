@@ -3,7 +3,10 @@
 import type { Database } from "bun:sqlite";
 import type { LiveSession, LiveState, LiveTasks, LiveTest } from "../../shared/api.ts";
 import { knownTitle } from "../queries/titles.ts";
-import { type FactCall, lastTestRun, loadCalls, oneLine, taskStates } from "../summarize/facts.ts";
+import { taskStates } from "../tasks.ts";
+import { lastTestRun } from "../testRuns.ts";
+import { oneLine } from "../text.ts";
+import { loadTaskCalls, loadToolCalls, type ToolCall } from "../toolCalls.ts";
 import type { SessionVisibility } from "../visibility.ts";
 import { latestResponse, liveUsage } from "./cost.ts";
 import type { RegistryEntry } from "./registry.ts";
@@ -106,7 +109,7 @@ function latestSection(db: Database, sessionId: string): number | null {
 
 /** The task list's progress, replayed over the whole session (tasks outlive work blocks). */
 function tasksOf(db: Database, sessionId: string, now: number): LiveTasks | null {
-  const tasks = taskStates(loadCalls(db, sessionId, 0, now, { tasks: true }), 0);
+  const tasks = taskStates(loadTaskCalls(db, sessionId, now), 0);
   if (tasks.length === 0) return null;
   return {
     done: tasks.filter((t) => t.status === "completed").length,
@@ -116,7 +119,7 @@ function tasksOf(db: Database, sessionId: string, now: number): LiveTasks | null
 }
 
 /** The last test or check run among the current work block's calls. */
-function testOf(calls: FactCall[]): LiveTest | null {
+function testOf(calls: ToolCall[]): LiveTest | null {
   const run = lastTestRun(calls);
   if (!run) return null;
   return {
@@ -184,7 +187,7 @@ export function liveSessions(
       contextTokens: latest?.context || null,
       usage: latest ? liveUsage(db, e.sessionId, latest, section, now) : null,
       tasks: s ? tasksOf(db, e.sessionId, now) : null,
-      test: s && section !== null ? testOf(loadCalls(db, e.sessionId, section, now)) : null,
+      test: s && section !== null ? testOf(loadToolCalls(db, e.sessionId, section, now)) : null,
       recap: s?.away_summary ? oneLine(s.away_summary, RECAP_CHARS) : null,
     });
   }

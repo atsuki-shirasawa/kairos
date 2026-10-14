@@ -5,6 +5,17 @@ import { prShortRef } from "../../shared/artifacts.ts";
 import { ARTIFACT_GRACE_MS } from "../../shared/constants.ts";
 import { MINUTE } from "../../shared/dates.ts";
 import { titleAfter } from "../ingest/prs.ts";
+import { type TaskState, taskStates } from "../tasks.ts";
+import { isTestRun, lastTestRun } from "../testRuns.ts";
+import { oneLine } from "../text.ts";
+import {
+  commandOf,
+  loadTaskCalls,
+  loadToolCalls,
+  stringField,
+  type ToolCall,
+  toolInput,
+} from "../toolCalls.ts";
 
 /**
  * How long after a section's end its recap may come. Claude Code writes a recap about 3 minutes
@@ -20,29 +31,10 @@ const RECAP_CHARS = 600;
 const PENDING_CHARS = 1_500;
 const CURRENT_CHARS = 800;
 const NEXT_CHARS = 600;
-const LINE_CHARS = 160;
 
-/**
- * Where a command starts in a Bash call: its start or after `&&` / `;` / `|` / `(` / a newline, past
- * `VAR=value` prefixes and runner wrappers (`uv run --locked`, `npx`, `python -m`, `timeout 60`).
- * A runner's name elsewhere (`grep jest`, a commit message) is not a run.
- */
-const COMMAND_START = String.raw`(?:^|[\n;&|(])[ \t]*(?:\w+=\S*[ \t]+)*(?:(?:(?:uv|poetry|pipenv|pdm|hatch) run(?: --?\S+)*|npx|bunx|python3? -m|timeout \S+)[ \t]+)*`;
-
-/** A test or check runner (as seen in real logs) where a command starts. */
-export const TEST_RE = new RegExp(
-  `${COMMAND_START}(?:bun (?:run )?(?:test|check)|(?:npm|pnpm|yarn)(?: run)? test|pytest|tox|vitest|jest|go test|cargo test|make (?:test|check))\\b`,
-);
-/**
- * What hides a runner's exit status after it: a pipe (`| tail`), `|| true`, or another command
- * after `;` or on a following line (not a `\` continuation). The call then succeeds whether or not
- * the tests passed.
- */
-const MASKED_STATUS_RE = /(?<!\|)\|(?!\|)|\|\|\s*(?:true|:)\b|;\s*\S|(?<!\\)\n\s*\S/;
 const ISSUE_CLOSE_RE = /\bgh issue close\s+(?:\S*\/issues\/)?#?(\d+)/g;
 const ISSUE_CREATE_RE = /\bgh\s+issue\s+create\b/;
 const ISSUE_URL_RE = /\/issues\/(\d+)/;
-const TASK_CREATED_RE = /Task #(\S+) created/;
 /** `"question"="answer"` pairs in an AskUserQuestion result. */
 const ANSWER_RE = /"((?:[^"\\]|\\.)*)"="((?:[^"\\]|\\.)*)"/g;
 
@@ -53,57 +45,19 @@ export interface FactArtifact {
   title: string | null;
 }
 
-/** A main-conversation tool call with its result, as the facts read it. */
-export interface FactCall {
-  ts: number;
-  toolName: string;
-  /** One-line summary stored with the call (the Bash command, for example). */
-  text: string;
-  /** The call's input as stored (JSON, possibly cut short). */
-  input: string | null;
-  result: string | null;
-  isError: boolean;
-}
-
 /** Everything the facts block is built from. */
 export interface FactsInput {
   artifacts: FactArtifact[];
   /** Calls made during the section. */
-  calls: FactCall[];
-  /** Task calls in the session up to the section's end, since tasks outlive sections. */
-  taskCalls: FactCall[];
-  /** Start of the section, for telling which tasks it touched. */
-  sectionStart: number;
+  calls: ToolCall[];
+  /**
+   * Tasks in the session at the section's end, replayed from the session's start since tasks
+   * outlive sections; `touched` marks the ones the section created or updated.
+   */
+  tasks: TaskState[];
   interrupts: number;
   recaps: string[];
   compactSummaries: string[];
-}
-
-/** A task's state at the end of the section. */
-export interface TaskState {
-  id: string;
-  subject: string;
-  status: string;
-  /** Whether the section created or updated it. */
-  touched: boolean;
-}
-
-function parseJson(text: string | null): Record<string, unknown> | null {
-  if (!text) return null;
-  try {
-    const v: unknown = JSON.parse(text);
-    return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
-  } catch {
-    return null;
-  }
-}
-
-const strOf = (v: unknown): string | null => (typeof v === "string" && v ? v : null);
-
-/** Text on one line, whitespace collapsed, cut to `limit` characters with an ellipsis. */
-export function oneLine(text: string, limit = LINE_CHARS): string {
-  const t = text.replace(/\s+/g, " ").trim();
-  return t.length <= limit ? t : `${t.slice(0, limit)}…`;
 }
 
 /** The last two non-empty lines of a tool's output, where runners print their totals. */
@@ -118,47 +72,8 @@ function tailLines(text: string | null): string {
   );
 }
 
-/**
- * Each task's subject and latest status, replaying TaskCreate / TaskUpdate in order. The task ID
- * comes from TaskCreate's result ("Task #3 created…"); updates have used both `taskId` / `status`
- * and `task_id` / `state`.
- */
-export function taskStates(calls: FactCall[], sectionStart: number): TaskState[] {
-  const tasks = new Map<string, TaskState>();
-  for (const c of calls) {
-    const input = parseJson(c.input);
-    const touched = c.ts >= sectionStart;
-    if (c.toolName === "TaskCreate") {
-      const id = TASK_CREATED_RE.exec(c.result ?? "")?.[1];
-      if (!id || c.isError) continue;
-      tasks.set(id, {
-        id,
-        subject: oneLine(strOf(input?.subject) ?? c.text),
-        status: "pending",
-        touched,
-      });
-    } else if (c.toolName === "TaskUpdate" && !c.isError) {
-      const id = strOf(input?.taskId) ?? strOf(input?.task_id);
-      const task = id ? tasks.get(id) : undefined;
-      if (!task) continue;
-      task.status = strOf(input?.status) ?? strOf(input?.state) ?? task.status;
-      task.subject = oneLine(strOf(input?.subject) ?? task.subject);
-      task.touched ||= touched;
-    }
-  }
-  return [...tasks.values()].filter((t) => t.status !== "deleted");
-}
-
-/** ID of the task a successful TaskUpdate call marked completed, or null for any other call. */
-export function completedTask(c: FactCall): string | null {
-  if (c.toolName !== "TaskUpdate" || c.isError) return null;
-  const input = parseJson(c.input);
-  const status = strOf(input?.status) ?? strOf(input?.state);
-  return status === "completed" ? (strOf(input?.taskId) ?? strOf(input?.task_id)) : null;
-}
-
 /** Questions Claude asked with AskUserQuestion and the user's answers (or that they declined). */
-export function questionsOf(calls: FactCall[]): string[] {
+export function questionsOf(calls: ToolCall[]): string[] {
   return calls
     .filter((c) => c.toolName === "AskUserQuestion")
     .flatMap((c) => {
@@ -169,25 +84,21 @@ export function questionsOf(calls: FactCall[]): string[] {
     });
 }
 
-function firstQuestion(c: FactCall): string | null {
-  const qs = parseJson(c.input)?.questions;
+/** The first question an AskUserQuestion call asked, for when its answers can't be read. */
+function firstQuestion(c: ToolCall): string | null {
+  const qs = toolInput(c)?.questions;
   const q = Array.isArray(qs) ? (qs[0] as Record<string, unknown> | undefined) : undefined;
-  return strOf(q?.question);
-}
-
-/** The Bash command of a call: the full one from its input when it parses, else the summary. */
-function commandOf(c: FactCall): string {
-  return strOf(parseJson(c.input)?.command) ?? c.text;
+  return stringField(q?.question);
 }
 
 /** Numbers of the issues a successful Bash call closed with `gh issue close`. */
-export function closedIssues(c: FactCall): string[] {
+export function closedIssues(c: ToolCall): string[] {
   if (c.toolName !== "Bash" || c.isError) return [];
   return [...commandOf(c).matchAll(ISSUE_CLOSE_RE)].map(([, num]) => num ?? "").filter(Boolean);
 }
 
 /** Issues closed and filed with `gh issue` during the section. */
-export function issueOps(calls: FactCall[]): string[] {
+export function issueOps(calls: ToolCall[]): string[] {
   const lines: string[] = [];
   for (const c of calls) {
     if (c.toolName !== "Bash" || c.isError) continue;
@@ -202,54 +113,8 @@ export function issueOps(calls: FactCall[]): string[] {
   return lines;
 }
 
-/**
- * How a run ended: failed, passed, or unknown when something after the runner hides its exit
- * status. Only a failure is certain then, since a masked run can't fail the call.
- */
-function outcomeOf(c: FactCall): "FAILED" | "passed" | "ended" {
-  if (c.isError) return "FAILED";
-  const cmd = commandOf(c);
-  const m = TEST_RE.exec(cmd);
-  const rest = m ? cmd.slice(m.index + m[0].length) : "";
-  return MASKED_STATUS_RE.test(rest) ? "ended" : "passed";
-}
-
-/** A Bash call that ran tests in the foreground (a background start returns before they finish). */
-function isTestRun(c: FactCall): boolean {
-  if (c.toolName !== "Bash" || !TEST_RE.test(commandOf(c))) return false;
-  return parseJson(c.input)?.run_in_background !== true;
-}
-
-/**
- * The part of a command that runs the tests: from the start of the runner's line (and of any line
- * it continues with `\`) to the end, so what follows it, such as a pipe that hides its status,
- * stays in view. A multi-line command (a heredoc that edits files, then `bun run check`) would
- * otherwise be shown by its first lines, which aren't the test run; "…" marks the lines left out.
- * A command whose runner is on its first line is kept whole, `cd web && bun test` and all.
- */
-export function runnerCommand(cmd: string): string {
-  const m = TEST_RE.exec(cmd);
-  if (!m) return cmd;
-  // The match may begin with the newline that ends the previous line
-  const at = m.index + (m[0].startsWith("\n") ? 1 : 0);
-  let start = cmd.lastIndexOf("\n", at - 1) + 1;
-  while (start > 1 && cmd[start - 2] === "\\") start = cmd.lastIndexOf("\n", start - 2) + 1;
-  const part = cmd.slice(start).trim();
-  return start > 0 ? `… ${part}` : part;
-}
-
-/** The last foreground test or check run among `calls`, with the part that ran it and its outcome. */
-export function lastTestRun(
-  calls: FactCall[],
-): { call: FactCall; command: string; outcome: "FAILED" | "passed" | "ended" } | null {
-  const last = calls.findLast(isTestRun);
-  return last
-    ? { call: last, command: runnerCommand(commandOf(last)), outcome: outcomeOf(last) }
-    : null;
-}
-
 /** The last test or check run in the section, and how many earlier runs failed. */
-export function testSummary(calls: FactCall[]): string | null {
+export function testSummary(calls: ToolCall[]): string | null {
   const runs = calls.filter(isTestRun);
   const run = lastTestRun(runs);
   if (!run) return null;
@@ -336,7 +201,7 @@ export function formatFacts(f: FactsInput): string {
     ["Commits and PRs", artifactLines(f.artifacts)],
     ["Issues", issueOps(f.calls)],
     ["Tests", [testSummary(f.calls)].filter((t): t is string => t !== null)],
-    ["Tasks at the end of this section", taskLines(taskStates(f.taskCalls, f.sectionStart))],
+    ["Tasks at the end of this section", taskLines(f.tasks)],
     ["Questions Claude asked, with the answers", questionsOf(f.calls).slice(0, MAX_QUESTIONS)],
     ["Interrupted by the user", f.interrupts ? [`${f.interrupts} time(s)`] : []],
     [
@@ -350,84 +215,60 @@ export function formatFacts(f: FactsInput): string {
 
 /** Reads the section's facts from the DB: its main conversation's own, non-scheduled records. */
 export function loadFacts(db: Database, sessionId: string, start: number, end: number): FactsInput {
-  const artifacts = db
+  return {
+    artifacts: loadArtifacts(db, sessionId, start, end),
+    calls: loadToolCalls(db, sessionId, start, end),
+    tasks: taskStates(loadTaskCalls(db, sessionId, end), start),
+    interrupts: countInterrupts(db, sessionId, start, end),
+    // A recap comes after the section's last activity; a compaction happens inside it
+    recaps: loadNotes(db, sessionId, "away_summary", start, end + NOTE_GRACE_MS),
+    compactSummaries: loadNotes(db, sessionId, "compact_summary", start, end),
+  };
+}
+
+/** Commits, PRs and merges of the section, including those recorded just after it ends. */
+function loadArtifacts(
+  db: Database,
+  sessionId: string,
+  start: number,
+  end: number,
+): FactArtifact[] {
+  return db
     .query<FactArtifact, [string, number, number]>(
       `SELECT kind, ref, title FROM artifacts
        WHERE session_id = ? AND is_copy = 0 AND ts BETWEEN ? AND ? ORDER BY ts, kind`,
     )
     .all(sessionId, start, end + ARTIFACT_GRACE_MS);
-  const calls = loadCalls(db, sessionId, start, end);
-  // Copies too: a continued session carries on the tasks the previous one created
-  const taskCalls = loadCalls(db, sessionId, 0, end, { tasks: true });
-  const notes = (kind: string, to: number) =>
-    db
-      .query<{ text: string }, [string, string, number, number]>(
-        `SELECT text FROM messages
-         WHERE session_id = ? AND kind = ? AND agent_id IS NULL AND is_copy = 0 AND is_scheduled = 0
-           AND ts BETWEEN ? AND ?
-         ORDER BY ts`,
-      )
-      .all(sessionId, kind, start, to)
-      .map((r) => r.text);
-  const interrupts =
+}
+
+/** Texts of the main conversation's own messages of one kind in [from, to], in time order. */
+function loadNotes(
+  db: Database,
+  sessionId: string,
+  kind: string,
+  from: number,
+  to: number,
+): string[] {
+  return db
+    .query<{ text: string }, [string, string, number, number]>(
+      `SELECT text FROM messages
+       WHERE session_id = ? AND kind = ? AND agent_id IS NULL AND is_copy = 0 AND is_scheduled = 0
+         AND ts BETWEEN ? AND ?
+       ORDER BY ts`,
+    )
+    .all(sessionId, kind, from, to)
+    .map((r) => r.text);
+}
+
+/** How many times the user interrupted the main conversation during the section. */
+function countInterrupts(db: Database, sessionId: string, start: number, end: number): number {
+  return (
     db
       .query<{ n: number }, [string, number, number]>(
         `SELECT COUNT(*) AS n FROM messages
          WHERE session_id = ? AND kind = 'interrupt' AND agent_id IS NULL AND is_copy = 0
            AND is_scheduled = 0 AND ts BETWEEN ? AND ?`,
       )
-      .get(sessionId, start, end)?.n ?? 0;
-  return {
-    artifacts,
-    calls,
-    taskCalls,
-    sectionStart: start,
-    interrupts,
-    // A recap comes after the section's last activity; a compaction happens inside it
-    recaps: notes("away_summary", end + NOTE_GRACE_MS),
-    compactSummaries: notes("compact_summary", end),
-  };
-}
-
-/**
- * The main conversation's own tool calls in [from, to] with their results. With `tasks`, only task
- * calls, copies from the previous session included.
- */
-export function loadCalls(
-  db: Database,
-  sessionId: string,
-  from: number,
-  to: number,
-  opt: { tasks?: boolean } = {},
-): FactCall[] {
-  const where = opt.tasks ? "AND m.tool_name IN ('TaskCreate', 'TaskUpdate')" : "AND m.is_copy = 0";
-  return db
-    .query<
-      {
-        ts: number;
-        tool_name: string;
-        text: string | null;
-        meta: string | null;
-        result: string | null;
-        is_error: number | null;
-      },
-      [string, number, number]
-    >(
-      `SELECT m.ts, m.tool_name, m.text, m.meta, r.text AS result, r.is_error
-       FROM messages m
-       LEFT JOIN messages r ON r.session_id = m.session_id AND r.kind = 'tool_result'
-         AND r.tool_use_id = m.tool_use_id AND r.agent_id IS NULL
-       WHERE m.session_id = ? AND m.kind = 'tool_use' AND m.agent_id IS NULL
-         AND m.is_scheduled = 0 AND m.ts BETWEEN ? AND ? ${where}
-       ORDER BY m.file_id, m.seq`,
-    )
-    .all(sessionId, from, to)
-    .map((r) => ({
-      ts: r.ts,
-      toolName: r.tool_name,
-      text: r.text ?? "",
-      input: r.meta,
-      result: r.result,
-      isError: r.is_error === 1,
-    }));
+      .get(sessionId, start, end)?.n ?? 0
+  );
 }
