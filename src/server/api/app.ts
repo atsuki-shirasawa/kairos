@@ -129,8 +129,7 @@ export function createApp({ db, events, summarizer, live, now, hiddenCwds }: App
   app.post("/api/sessions/:id/sections/:start/summary", (c) => {
     const id = c.req.param("id");
     const start = Number(c.req.param("start"));
-    const section = q.session(id)?.sections.find((s) => s.start === start);
-    if (!section) return c.json({ error: "section not found" }, 404);
+    if (!q.hasSection(id, start)) return c.json({ error: "section not found" }, 404);
     if (!summarizer) return c.json({ error: "Summaries are disabled" }, 503);
     summarizer.request(id, start);
     return c.json({ queued: true }, 202);
@@ -169,7 +168,7 @@ export function createApp({ db, events, summarizer, live, now, hiddenCwds }: App
 
   app.get("/api/sessions/:id/messages", (c) => {
     const id = c.req.param("id");
-    if (!q.session(id)) return c.json({ error: "session not found" }, 404);
+    if (!q.hasSession(id)) return c.json({ error: "session not found" }, 404);
     const limit = Number(c.req.query("limit") ?? Number.NaN);
     return c.json(
       q.messages(id, {

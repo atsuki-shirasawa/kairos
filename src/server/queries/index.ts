@@ -21,7 +21,7 @@ import { type MessagesOptions, messagesPage } from "./messages.ts";
 import { updateProject, visibleProjects } from "./projects.ts";
 import { projectRecaps } from "./recaps.ts";
 import { SEARCH_LIMIT, type SearchResult, searchBlocks } from "./search.ts";
-import { sessionDetail } from "./sessions.ts";
+import { hasSection, hasSession, sessionDetail } from "./sessions.ts";
 import { NO_SUMMARIES, type SummaryState } from "./summaryState.ts";
 
 /** Read queries behind the API, plus the few writes the UI can make (project settings). */
@@ -91,6 +91,16 @@ export class Queries {
   /** What the session drawer shows (sections, artifacts, subagents, usage); null if absent. */
   session(id: string): SessionDetail | null {
     return sessionDetail(this.db, id, this.now(), this.summaries);
+  }
+
+  /** Whether the session exists, without loading what the drawer shows. */
+  hasSession(id: string): boolean {
+    return hasSession(this.db, id);
+  }
+
+  /** Whether the session exists and has a section starting at `start`. */
+  hasSection(id: string, start: number): boolean {
+    return hasSection(this.db, id, start);
   }
 
   /** Work blocks of visible sessions matching every term, newest first (see `searchBlocks`). */
