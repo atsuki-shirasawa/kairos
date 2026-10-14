@@ -209,7 +209,11 @@ The summary layout: period totals against the previous period, time by day and b
 
 ![Summary view](docs/images/screen-summary.png)
 
-The screenshots are taken from a fictional week (`scripts/screenshots/demo.ts`) with `bun run screenshots`; retake them when the UI changes visibly.
+The page of running sessions: what waits on you, what is working, and idle sessions as single rows:
+
+![Running sessions](docs/images/screen-live.png)
+
+The screenshots are taken from a fictional week (`scripts/screenshots/demo.ts`) with `bun run screenshots`. The sessions shown as running get logs in the few hours before the capture and stand-in processes registered just before the live shot, since the page lists a session only while its PID exists. Retake them when the UI changes visibly.
 
 - Blocks that overlap in time are placed side by side, as in Google Calendar
 - Blocks show the summary headline. If there isn't enough height, only the headline is shown, with the full text on hover. Blocks with commits or PRs carry a small mark
@@ -224,7 +228,7 @@ The screenshots are taken from a fictional week (`scripts/screenshots/demo.ts`) 
 ```
 kairos/
 ├── .claude/            # Claude Code setup: path-scoped rules, hooks, skills, agents
-├── docs/images/        # architecture diagram (rendered PNG and its Archify source)
+├── docs/images/        # architecture diagram (rendered PNG and its Archify source) and screenshots
 ├── ARCHITECTURE.md     # this file
 ├── DESIGN.md           # visual design for agents (DESIGN.md format)
 ├── scripts/            # check-jsdoc.ts; screenshots/ (fictional demo week and the capture)
