@@ -5,10 +5,7 @@ import { startOfDay } from "@shared/dates.ts";
 import type { SegmentMatch } from "./filter.ts";
 import { blocksOfDay, type DayBlock } from "./layout.ts";
 
-/**
- * A sort order: `start` is time order, other keys are column keys. Same shape as the URL state's
- * `ListSort`, declared here so this module stays free of the browser-only hooks.
- */
+/** A sort order: `start` is time order (grouped by day), other keys are column keys. */
 export interface ListSort {
   key: string;
   desc: boolean;

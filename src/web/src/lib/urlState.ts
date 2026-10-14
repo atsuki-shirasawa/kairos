@@ -4,12 +4,7 @@ import { isoDay, startOfDay } from "@shared/dates.ts";
 import { DAY_VIEW, readSessionTarget, UI_PARAMS, writeSessionTarget } from "@shared/uiUrl.ts";
 import { fromISODate, type Layout, type View } from "./dates.ts";
 import { type Filter, readFilter, writeFilter } from "./filter.ts";
-
-/** List sort. `start` is time order (grouped by day); the others are column keys. */
-export interface ListSort {
-  key: string;
-  desc: boolean;
-}
+import type { ListSort } from "./listTable.ts";
 
 /** Time order; left out of the URL. */
 export const DEFAULT_SORT: ListSort = { key: "start", desc: false };

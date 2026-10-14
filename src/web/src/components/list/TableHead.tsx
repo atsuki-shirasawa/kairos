@@ -1,6 +1,6 @@
 import type { Ref } from "react";
 import { listMessages } from "@/i18n/messages/list.tsx";
-import type { ListSort } from "@/lib/urlState.ts";
+import type { ListSort } from "@/lib/listTable.ts";
 import { cn } from "@/lib/utils.ts";
 import { Hint } from "../Hint.tsx";
 import { type Column, STICKY_TIME, STICKY_WORK, TIME_REM } from "./columns.tsx";
