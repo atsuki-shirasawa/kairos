@@ -52,7 +52,7 @@ There is only one process, `kairos serve`, which handles ingest, summaries, the 
 | Launcher | `kairos ensure`: checks `/api/health` and, if there's no response, starts `kairos serve` detached. A PID file prevents double starts | `src/cli` |
 | Watcher | Watches `~/.claude/projects` recursively and hands changed jsonl files to the Ingester. Bursts of changes are coalesced (debounce) | `fs.watch` (recursive) |
 | Ingester | Reads only the appended part from the offset in `ingest_state`. A half-written trailing line is left for next time. Classifies, normalizes and stores records | `src/server/ingest` |
-| Segmenter | Builds work blocks from the activity times of human-initiated turns (split at 15 minutes), dropping blocks with neither a request nor a tool call. Recomputed on every session update | `src/server/ingest/segments.ts` |
+| Segmenter | Builds work blocks from the activity times of human-initiated turns (split at 15 minutes), dropping blocks with neither a request nor a tool call. Recomputed on every session update | `src/server/ingest/segments.ts` (rules), `derived.ts` (recompute) |
 | Summarizer | Queues sessions that need summaries and runs `claude -p` one at a time | `src/server/summarize` |
 | API | REST for the calendar, details, conversations, summaries and project settings, plus SSE for update notifications | Hono |
 | Web UI | Week and day calendar, detail drawer, filters (keyword, outcomes, states, length, branch, projects). English by default, Japanese selectable (`src/web/src/i18n`) | React + Tailwind + shadcn/ui |
@@ -237,9 +237,11 @@ kairos/
 ├── src/
 │   ├── cli/            # the kairos command (ensure / open / status / stop / restart / serve / ingest / summarize / help); daemon.ts, help.ts
 │   ├── server/
-│   │   ├── db/         # schema and migrations
-│   │   ├── ingest/     # watcher → reader → classify / records → ingester → segments; interpret (how a user
-│   │   │               #   record is stored), outcomes (what a tool call awaits), project, commits, prs
+│   │   ├── db/         # schema and migrations; kv (reads and writes of the kv table)
+│   │   ├── ingest/     # watcher → files → reader → classify / records → ingester → derived → segments;
+│   │   │               #   fileState (per-file resume state), placement (session → project rules),
+│   │   │               #   interpret (how a user record is stored), outcomes (what a tool call awaits),
+│   │   │               #   project, commits, prs
 │   │   ├── summarize/  # summarizer (queue), digest (excerpt), prompt, claude (runs claude -p),
 │   │   │               #   ledger and settlement (open items closed by the log)
 │   │   ├── api/        # Hono routes (app), request validation (validate), SSE (sse), security middleware

@@ -20,8 +20,8 @@ Finished work goes to main without a PR: when asked to merge, use `/land` (revie
 ## Layout
 
 - `src/cli/` — the `kairos` command (`ensure` / `open` / `serve` / `ingest` / `summarize` / `report`, etc.). `help.ts` lists each command's options and arguments, and the CLI refuses any it doesn't list, so add new flags there too. `views.ts` renders `report` / `open-items` / `search`, `doctor.ts` the checks, `style.ts` the colors they share, `daemon.ts` handles background start and the PID file (which also keeps the server's options for `restart`)
-- `src/server/ingest/` — incremental read (`reader`) → classify (`classify`) → store (`ingester`) → work blocks (`segments`). `watcher` re-ingests changed files while the server runs
-- `src/server/db/` — schema and `MIGRATIONS`
+- `src/server/ingest/` — find files (`files`) → incremental read (`reader`, resume state in `fileState`) → classify (`classify`) → store (`ingester`, a façade) → derived data (`derived`: aggregates and work blocks from `segments`) and project assignment (`placement`). `watcher` re-ingests changed files while the server runs
+- `src/server/db/` — schema and `MIGRATIONS`; `kv.ts` reads and writes the kv table (settings, the derived version)
 - `src/server/queries/` — read queries behind the API. `index.ts` is the `Queries` façade that only delegates; the domain modules (usage, titles, activity, sessions, messages, projects, search, ...) hold the logic, and other features import helpers from them
 - `src/server/` (top level) — `settings.ts` (settings in the DB's kv table), `events.ts` (SSE broadcast), `pricing.ts` (token → USD, a usage gauge rather than the real bill), `serve.ts` (server startup)
 - `src/server/summarize/` — per-section summaries. Runs `claude -p` with side-effect-free settings. The output language follows the UI language (stored on the server via `PATCH /api/settings`); `--summary-lang <en|ja>` fixes it instead. Existing summaries are kept and can be regenerated from the drawer
