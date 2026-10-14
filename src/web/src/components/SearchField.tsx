@@ -2,6 +2,7 @@ import type { Project, SearchHit } from "@shared/api.ts";
 import { MIN_SEARCH_CHARS } from "@shared/constants.ts";
 import { FileCode, Search, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useRovingFocus } from "@/hooks/useRovingFocus.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { searchMessages } from "@/i18n/messages/search.ts";
 import { projectColor } from "@/lib/colors.ts";
@@ -51,14 +52,12 @@ export function SearchField({
   const m = searchMessages();
   const [focused, setFocused] = useState(false);
   const listRef = useRef<HTMLUListElement>(null);
+  const roving = useRovingFocus(listRef, inputRef);
   const query = value.trim();
-  const marks = highlightTerms(query);
   const open = focused && query !== "";
   useEffect(() => onPanel(open), [open, onPanel]);
   // In a narrow window the field is just its icon until used; the button would stick out
   const showFiles = focused || value !== "" || files;
-  const hits = visibleHits(search.hits, projects);
-  const items = () => [...(listRef.current?.querySelectorAll("button") ?? [])];
 
   const pick = (hit: SearchHit) => {
     onOpen(hit);
@@ -66,6 +65,22 @@ export function SearchField({
     inputRef.current?.blur();
     setFocused(false);
   };
+
+  /**
+   * Esc clears the input, or leaves the field when empty. Enter leaves the field so j / k walk
+   * the period's matches; ↓ goes into the results from every period.
+   */
+  const onFieldKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape") {
+      if (value) onChange("");
+      else e.currentTarget.blur();
+    } else if (e.key === "Enter") e.currentTarget.blur();
+    else if (e.key === "ArrowDown" && open) roving.focusFirst();
+    else return;
+    e.preventDefault();
+  };
+
+  const refocus = () => inputRef.current?.focus();
 
   return (
     <search
@@ -82,17 +97,7 @@ export function SearchField({
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => {
-          // Esc clears the input, or leaves the field when empty. Enter leaves the field so j / k
-          // walk the period's matches; ↓ goes into the results from every period
-          if (e.key === "Escape") {
-            if (value) onChange("");
-            else e.currentTarget.blur();
-          } else if (e.key === "Enter") e.currentTarget.blur();
-          else if (e.key === "ArrowDown" && open) items()[0]?.focus();
-          else return;
-          e.preventDefault();
-        }}
+        onKeyDown={onFieldKeyDown}
         placeholder={files ? m.filePlaceholder : m.placeholder}
         aria-label={m.label(period)}
         className={cn(
@@ -107,113 +112,174 @@ export function SearchField({
         )}
       />
       {showFiles && (
-        <button
-          type="button"
-          className={cn(
-            "absolute flex size-5 items-center justify-center rounded focus-visible:outline-2 focus-visible:outline-ring",
-            value ? "right-7" : "right-1",
-            files
-              ? "bg-primary/15 text-primary"
-              : "text-muted-foreground hover:bg-accent hover:text-foreground",
-            !focused && !value && "max-lg:hidden",
-          )}
-          // Keep the caret in the field, so typing goes on and the results stay open
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => {
+        <FileToggleButton
+          files={files}
+          hasQuery={value !== ""}
+          focused={focused}
+          onToggle={() => {
             onFiles(!files);
-            inputRef.current?.focus();
+            refocus();
           }}
-          aria-pressed={files}
-          aria-label={m.fileToggle}
-          title={m.fileToggle}
-        >
-          <FileCode className="size-3.5" />
-        </button>
+        />
       )}
       {value ? (
-        <button
-          type="button"
-          className="absolute right-1 flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
-          onClick={() => {
+        <ClearButton
+          onClear={() => {
             onChange("");
-            inputRef.current?.focus();
+            refocus();
           }}
-          aria-label={m.clear}
-          title={m.clearTitle}
-        >
-          <X className="size-3.5" />
-        </button>
+        />
       ) : (
-        !showFiles && (
-          <kbd
-            className="pointer-events-none absolute right-1.5 rounded border bg-muted px-1 font-num text-[11px] text-muted-foreground leading-4 max-lg:hidden"
-            aria-hidden
-          >
-            /
-          </kbd>
-        )
+        !showFiles && <SlashHint />
       )}
 
       {open && (
-        // Anchored under the field; in a narrow window the field sits mid-bar, so the results span
-        // the screen instead of running off its left edge
-        <div className="absolute top-10 right-0 z-40 flex max-h-[min(70vh,36rem)] w-[30rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md max-lg:fixed max-lg:inset-x-2 max-lg:top-14 max-lg:w-auto max-lg:max-w-none">
-          <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b px-3 text-xs">
-            <span className="font-medium text-muted-foreground">
-              {m.allPeriods}
-              {hits.length > 0 && (
-                <span className="ml-2 font-num">
-                  {search.more ? m.latest(hits.length) : formatMessages().blocks(hits.length)}
-                </span>
-              )}
-            </span>
-            {hits.length > 0 && <span className="text-muted-foreground">{m.keys}</span>}
-          </div>
-          {[...query].length < MIN_SEARCH_CHARS ? (
-            <Note>
-              {m.tooShort(MIN_SEARCH_CHARS)}
-              {!files && <FileHint />}
-            </Note>
-          ) : search.error ? (
-            <Note className="text-destructive">{m.failed(search.error)}</Note>
-          ) : hits.length === 0 ? (
-            <Note>
-              {search.loading ? m.searching : m.noHits}
-              {!search.loading && !files && <FileHint />}
-            </Note>
-          ) : (
-            <ul
-              ref={listRef}
-              className={cn("min-h-0 overflow-y-auto py-1", search.loading && "opacity-60")}
-              aria-busy={search.loading}
-            >
-              {hits.map((hit) => (
-                <li key={`${hit.sessionId}:${hit.start}`} className="px-1">
-                  <HitRow
-                    hit={hit}
-                    terms={marks}
-                    project={projectOf(projects, hit.projectId)}
-                    onPick={() => pick(hit)}
-                    onKeyDown={(e) => {
-                      const list = items();
-                      const i = list.indexOf(e.currentTarget);
-                      if (e.key === "ArrowDown") list[i + 1]?.focus();
-                      else if (e.key === "ArrowUp")
-                        (i > 0 ? list[i - 1] : inputRef.current)?.focus();
-                      else if (e.key === "Escape") inputRef.current?.focus();
-                      else return;
-                      e.preventDefault();
-                      // Keep Esc from also closing the drawer
-                      e.stopPropagation();
-                    }}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <ResultsPanel
+          query={query}
+          files={files}
+          search={search}
+          projects={projects}
+          listRef={listRef}
+          onPick={pick}
+          onItemKeyDown={roving.onItemKeyDown}
+        />
       )}
     </search>
+  );
+}
+
+/** Restricts the words to edited file paths (the `file:` syntax), at the field's end. */
+function FileToggleButton({
+  files,
+  hasQuery,
+  focused,
+  onToggle,
+}: {
+  files: boolean;
+  hasQuery: boolean;
+  focused: boolean;
+  onToggle: () => void;
+}) {
+  const m = searchMessages();
+  return (
+    <button
+      type="button"
+      className={cn(
+        "absolute flex size-5 items-center justify-center rounded focus-visible:outline-2 focus-visible:outline-ring",
+        hasQuery ? "right-7" : "right-1",
+        files
+          ? "bg-primary/15 text-primary"
+          : "text-muted-foreground hover:bg-accent hover:text-foreground",
+        !focused && !hasQuery && "max-lg:hidden",
+      )}
+      // Keep the caret in the field, so typing goes on and the results stay open
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onToggle}
+      aria-pressed={files}
+      aria-label={m.fileToggle}
+      title={m.fileToggle}
+    >
+      <FileCode className="size-3.5" />
+    </button>
+  );
+}
+
+/** Empties the field, at its end while it holds a query. */
+function ClearButton({ onClear }: { onClear: () => void }) {
+  const m = searchMessages();
+  return (
+    <button
+      type="button"
+      className="absolute right-1 flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+      onClick={onClear}
+      aria-label={m.clear}
+      title={m.clearTitle}
+    >
+      <X className="size-3.5" />
+    </button>
+  );
+}
+
+/** The `/` key cap that says how to reach the empty field from anywhere. */
+function SlashHint() {
+  return (
+    <kbd
+      className="pointer-events-none absolute right-1.5 rounded border bg-muted px-1 font-num text-[11px] text-muted-foreground leading-4 max-lg:hidden"
+      aria-hidden
+    >
+      /
+    </kbd>
+  );
+}
+
+/** The panel under the field listing matching work from every period, or why there is none. */
+function ResultsPanel({
+  query,
+  files,
+  search,
+  projects,
+  listRef,
+  onPick,
+  onItemKeyDown,
+}: {
+  query: string;
+  files: boolean;
+  search: SearchState;
+  projects: Map<number, Project>;
+  listRef: React.RefObject<HTMLUListElement | null>;
+  onPick: (hit: SearchHit) => void;
+  onItemKeyDown: (e: React.KeyboardEvent<HTMLButtonElement>) => void;
+}) {
+  const m = searchMessages();
+  const hits = visibleHits(search.hits, projects);
+  const marks = highlightTerms(query);
+  return (
+    // Anchored under the field; in a narrow window the field sits mid-bar, so the results span
+    // the screen instead of running off its left edge
+    <div className="absolute top-10 right-0 z-40 flex max-h-[min(70vh,36rem)] w-[30rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md max-lg:fixed max-lg:inset-x-2 max-lg:top-14 max-lg:w-auto max-lg:max-w-none">
+      <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b px-3 text-xs">
+        <span className="font-medium text-muted-foreground">
+          {m.allPeriods}
+          {hits.length > 0 && (
+            <span className="ml-2 font-num">
+              {search.more ? m.latest(hits.length) : formatMessages().blocks(hits.length)}
+            </span>
+          )}
+        </span>
+        {hits.length > 0 && <span className="text-muted-foreground">{m.keys}</span>}
+      </div>
+      {[...query].length < MIN_SEARCH_CHARS ? (
+        <Note>
+          {m.tooShort(MIN_SEARCH_CHARS)}
+          {!files && <FileHint />}
+        </Note>
+      ) : search.error ? (
+        <Note className="text-destructive">{m.failed(search.error)}</Note>
+      ) : hits.length === 0 ? (
+        <Note>
+          {search.loading ? m.searching : m.noHits}
+          {!search.loading && !files && <FileHint />}
+        </Note>
+      ) : (
+        <ul
+          ref={listRef}
+          className={cn("min-h-0 overflow-y-auto py-1", search.loading && "opacity-60")}
+          aria-busy={search.loading}
+        >
+          {hits.map((hit) => (
+            <li key={`${hit.sessionId}:${hit.start}`} className="px-1">
+              <HitRow
+                hit={hit}
+                terms={marks}
+                project={projectOf(projects, hit.projectId)}
+                onPick={() => onPick(hit)}
+                onKeyDown={onItemKeyDown}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -233,10 +299,12 @@ function FileHint() {
   return <span className="mt-1 block text-xs">{searchMessages().fileHint}</span>;
 }
 
+/** A line of text in the panel where results would be (too short, failed, nothing found). */
 function Note({ children, className }: { children: React.ReactNode; className?: string }) {
   return <p className={cn("px-3 py-3 text-muted-foreground text-sm", className)}>{children}</p>;
 }
 
+/** One result: its headline, when and where, the field that matched, and a snippet. */
 function HitRow({
   hit,
   terms,
