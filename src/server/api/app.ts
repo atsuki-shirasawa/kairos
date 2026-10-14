@@ -18,6 +18,8 @@ import type {
   SettingsUpdate,
   SpansResponse,
 } from "../../shared/api.ts";
+import { MIN_SEARCH_CHARS } from "../../shared/constants.ts";
+import { DEFAULT_SUMMARY_LANG, isSummaryLang } from "../../shared/summaryLang.ts";
 import type { EventHub } from "../events.ts";
 import { liveSpend } from "../live/cost.ts";
 import type { RegistryEntry } from "../live/registry.ts";
@@ -29,7 +31,6 @@ import {
   storeShowHeadless,
   storeSummaryLang,
 } from "../settings.ts";
-import { DEFAULT_SUMMARY_LANG, isSummaryLang } from "../summarize/prompt.ts";
 import type { Summarizer } from "../summarize/summarizer.ts";
 import { DEFAULT_HIDDEN_CWDS } from "../visibility.ts";
 import { guardHost, guardWrite } from "./security.ts";
@@ -40,8 +41,6 @@ export const MAX_RANGE_MS = 62 * 24 * 60 * 60_000;
 const PALETTE_KEY = /^p[0-7]$/;
 /** How long an idle SSE connection waits before sending a keep-alive comment. */
 const KEEPALIVE_MS = 15_000;
-/** Shortest search query (in characters) that is run; shorter ones match nearly everything. */
-export const MIN_QUERY_CHARS = 2;
 /** Longer queries are cut to this many characters. */
 const MAX_QUERY_CHARS = 200;
 
@@ -104,7 +103,7 @@ export function createApp({ db, events, summarizer, live, now, hiddenCwds }: App
   // Searches every period. Short queries would match nearly everything, so they return nothing
   app.get("/api/search", (c) => {
     const query = (c.req.query("q") ?? "").trim().slice(0, MAX_QUERY_CHARS);
-    if ([...query].length < MIN_QUERY_CHARS)
+    if ([...query].length < MIN_SEARCH_CHARS)
       return c.json<SearchResponse>({ hits: [], more: false });
     return c.json<SearchResponse>(q.search(query));
   });

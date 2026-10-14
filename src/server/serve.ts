@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { serveStatic } from "hono/bun";
 import { removePid, writePid } from "../cli/daemon.ts";
 import { HOST, PORT } from "../shared/constants.ts";
+import type { SummaryLang } from "../shared/summaryLang.ts";
 import { createApp } from "./api/app.ts";
 import { openDb } from "./db/index.ts";
 import { EventHub } from "./events.ts";
@@ -11,7 +12,6 @@ import { watchProjects } from "./ingest/watcher.ts";
 import { LiveTracker } from "./live/tracker.ts";
 import { DEFAULT_CLAUDE_DIR, DEFAULT_DB_PATH, SUMMARIZER_CWD } from "./paths.ts";
 import { type Effort, runClaude } from "./summarize/claude.ts";
-import type { SummaryLang } from "./summarize/prompt.ts";
 import { DEFAULT_MODEL, Summarizer } from "./summarize/summarizer.ts";
 
 const WEB_DIST = join(import.meta.dir, "../../dist/web");

@@ -3,8 +3,9 @@
 // listed as done, a bare number, a vague leftover, the backlog recorded as an open item, a blocker
 // buried in a file list, and "resolved" claimed against the facts. A bad summary found in real use
 // becomes a new case here.
-import type { PromptInput, SummaryLang } from "../../src/server/summarize/prompt.ts";
+import type { PromptInput } from "../../src/server/summarize/prompt.ts";
 import type { OpenKind } from "../../src/shared/summaryBody.ts";
+import type { SummaryLang } from "../../src/shared/summaryLang.ts";
 
 /** An open item the summary must contain. */
 export interface ExpectedOpen {

@@ -12,6 +12,9 @@ export const ARTIFACT_GRACE_MS = 5 * 60_000;
  */
 export const OPEN_ITEM_OLD_WEEKS = 4;
 
+/** Shortest search query (in characters) that is run; shorter ones match nearly everything. */
+export const MIN_SEARCH_CHARS = 2;
+
 /** How far back the live page's per-hour spend looks: long enough to span a few requests. */
 export const LIVE_RATE_WINDOW_MS = 15 * 60_000;
 /** Width of one bar in the live page's spend band. */

@@ -1,5 +1,7 @@
 // Rules for summarizing sections (work blocks). Shared by the server and the web app.
 
+/** A pause longer than this between messages ends a work block (section). */
+export const WORK_BLOCK_GAP_MS = 15 * 60_000;
 /** Only sections at least this long, or with at least this many prompts, are summarized by the LLM. */
 export const SUMMARY_MIN_DURATION_MS = 10 * 60_000;
 /** See `SUMMARY_MIN_DURATION_MS`. */

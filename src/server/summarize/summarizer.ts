@@ -1,15 +1,10 @@
 import type { Database } from "bun:sqlite";
 import { parseSummaryBody } from "../../shared/summaryBody.ts";
+import { DEFAULT_SUMMARY_LANG, type SummaryLang } from "../../shared/summaryLang.ts";
 import { storedSummaryLang } from "../settings.ts";
 import { FailureLog } from "./failures.ts";
 import { labelCandidates, loadCandidates, recordSection, takeClosures } from "./ledger.ts";
-import {
-  buildPrompt,
-  buildTitlePrompt,
-  DEFAULT_SUMMARY_LANG,
-  parseSummary,
-  type SummaryLang,
-} from "./prompt.ts";
+import { buildPrompt, buildTitlePrompt, parseSummary } from "./prompt.ts";
 import {
   buildRecapPrompt,
   loadRecapInput,

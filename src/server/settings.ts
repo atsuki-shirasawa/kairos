@@ -1,7 +1,7 @@
 // Settings kept in the DB's kv table, so they survive restarts from the SessionStart hook
 // (which starts the server without options).
 import type { Database } from "bun:sqlite";
-import { isSummaryLang, type SummaryLang } from "./summarize/prompt.ts";
+import { isSummaryLang, type SummaryLang } from "../shared/summaryLang.ts";
 
 const SUMMARY_LANG = "summary_lang";
 const SHOW_HEADLESS = "show_headless";

@@ -6,8 +6,9 @@ import { prShortRef } from "../../shared/artifacts.ts";
 import { ARTIFACT_GRACE_MS, OPEN_ITEM_OLD_WEEKS } from "../../shared/constants.ts";
 import { isOpenAt } from "../../shared/openItems.ts";
 import { type OpenKind, parseSummaryBody } from "../../shared/summaryBody.ts";
+import { DEFAULT_SUMMARY_LANG, type SummaryLang } from "../../shared/summaryLang.ts";
 import { openItemsIn } from "../openItems.ts";
-import { DEFAULT_SUMMARY_LANG, defuseTags, type SummaryLang } from "./prompt.ts";
+import { defuseTags } from "./prompt.ts";
 
 /** Longest input passed to the LLM. Past it, section bodies are dropped and only headlines remain. */
 export const RECAP_LIMIT = 40_000;

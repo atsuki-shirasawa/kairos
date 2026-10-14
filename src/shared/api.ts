@@ -1,5 +1,6 @@
 // API types shared by the server and the web app. All times are milliseconds since the Unix epoch.
 import type { OpenKind } from "./summaryBody.ts";
+import type { SummaryLang } from "./summaryLang.ts";
 
 /** `GET /api/health`. `name` lets `kairos ensure` tell Kairos from another app on the port. */
 export interface HealthResponse {
@@ -377,7 +378,7 @@ export interface RecapRequest {
 /** Server settings the UI can change. */
 export interface Settings {
   /** Language new summaries and recaps are written in. Follows the UI language. */
-  summaryLang: "en" | "ja";
+  summaryLang: SummaryLang;
   /** Fixed with `kairos serve --summary-lang`; the UI's language doesn't change it. */
   summaryLangFixed: boolean;
   /** Also show automatic runs (headless sessions) on the calendar, in search and in navigation. */
@@ -386,7 +387,7 @@ export interface Settings {
 
 /** `PATCH /api/settings` body: the settings to change (at least one). */
 export interface SettingsUpdate {
-  summaryLang?: "en" | "ja";
+  summaryLang?: SummaryLang;
   showHeadless?: boolean;
 }
 

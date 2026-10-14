@@ -1,8 +1,8 @@
 import type { Project, SearchHit } from "@shared/api.ts";
+import { MIN_SEARCH_CHARS } from "@shared/constants.ts";
 import { isProjectShown } from "@shared/projects.ts";
 import { FileCode, Search, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { MIN_SEARCH_CHARS } from "@/hooks/queries.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { searchMessages } from "@/i18n/messages/search.ts";
 import { projectColor } from "@/lib/colors.ts";

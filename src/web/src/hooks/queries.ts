@@ -1,4 +1,5 @@
 import type { OpenItemUpdate, ProjectUpdate, RecapRequest } from "@shared/api.ts";
+import { MIN_SEARCH_CHARS } from "@shared/constants.ts";
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -12,8 +13,6 @@ import { api } from "@/lib/api.ts";
 
 /** Waits this long after the last keystroke before searching every period. */
 const SEARCH_DEBOUNCE_MS = 200;
-/** The server ignores shorter queries (`MIN_QUERY_CHARS` in the API). */
-export const MIN_SEARCH_CHARS = 2;
 
 /** React Query keys. Everything nested under "calendar" is refetched when sessions change. */
 export const keys = {

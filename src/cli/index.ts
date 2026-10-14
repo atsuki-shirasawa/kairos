@@ -9,6 +9,7 @@ import { EFFORT_LEVELS, isEffort } from "../server/summarize/claude.ts";
 import { HOST, PORT } from "../shared/constants.ts";
 import { isProjectShown } from "../shared/projects.ts";
 import { AUTO_SUMMARY_DAYS } from "../shared/sections.ts";
+import { isSummaryLang } from "../shared/summaryLang.ts";
 import { ensure, health, isAlive, readPid, serverEnv, stop } from "./daemon.ts";
 import { formatTime, parseDay, printable, startOfDay, uiLink } from "./format.ts";
 import { colorFor, styles } from "./style.ts";
@@ -57,7 +58,7 @@ if (values.help || command === "help" || command === undefined) {
 await checkUsage(command);
 
 const summaryLang = values["summary-lang"];
-if (summaryLang !== undefined && summaryLang !== "en" && summaryLang !== "ja") {
+if (summaryLang !== undefined && !isSummaryLang(summaryLang)) {
   console.error(`--summary-lang must be en or ja (got: ${summaryLang})`);
   process.exit(1);
 }
@@ -444,7 +445,7 @@ async function summarize(dbPath: string): Promise<void> {
       model,
       quiet: true,
       // Checked at startup, but the narrowing doesn't reach into this function
-      ...(summaryLang === "en" || summaryLang === "ja" ? { lang: summaryLang } : {}),
+      ...(isSummaryLang(summaryLang) ? { lang: summaryLang } : {}),
     },
   );
   const { formatDuration, StatusBar } = await import("./progress.ts");

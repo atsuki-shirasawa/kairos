@@ -1,12 +1,13 @@
 // How running sessions are shown: which ones want you, in what order, and for the tab title.
 import type { LiveSession, LiveSpend, LiveUsage, Project } from "@shared/api.ts";
 import { isProjectShown } from "@shared/projects.ts";
+import { WORK_BLOCK_GAP_MS } from "@shared/sections.ts";
 
 /**
  * After this long waiting for a prompt, a session is idle: left open rather than waiting on you.
  * The same gap that splits work blocks, so an idle session's next prompt starts a new block.
  */
-export const IDLE_AFTER_MS = 15 * 60_000;
+export const IDLE_AFTER_MS = WORK_BLOCK_GAP_MS;
 
 /** A running session's state as shown: the server's, with long waits turned idle. */
 export type LiveDisplay = "asking" | "waiting" | "working" | "idle";

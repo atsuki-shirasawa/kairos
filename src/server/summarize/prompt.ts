@@ -1,16 +1,6 @@
 // Prompts for section summaries, and parsing of the output.
 import { OPEN_KINDS, type OpenKind, SUMMARY_LABELS } from "../../shared/summaryBody.ts";
-
-/** Language the summaries are written in. Set with `--summary-lang`. */
-export type SummaryLang = "en" | "ja";
-
-/** Summary language when neither `--summary-lang` nor the UI has chosen one. */
-export const DEFAULT_SUMMARY_LANG: SummaryLang = "en";
-
-/** Whether the value is a supported summary language (validates API input and stored settings). */
-export function isSummaryLang(v: unknown): v is SummaryLang {
-  return v === "en" || v === "ja";
-}
+import { DEFAULT_SUMMARY_LANG, type SummaryLang } from "../../shared/summaryLang.ts";
 
 /** What a section summary prompt is built from. */
 export interface PromptInput {

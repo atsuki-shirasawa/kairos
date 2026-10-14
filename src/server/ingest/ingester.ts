@@ -1,6 +1,7 @@
 import type { Database, Statement } from "bun:sqlite";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, join, relative, sep } from "node:path";
+import { WORK_BLOCK_GAP_MS } from "../../shared/sections.ts";
 import { classifyUser, commandText, isCommandText } from "./classify.ts";
 import { extractCommit, GIT_COMMIT_RE } from "./commits.ts";
 import {
@@ -30,7 +31,7 @@ import {
   str,
   toolResultText,
 } from "./records.ts";
-import { DEFAULT_GAP_MS, toSegments } from "./segments.ts";
+import { toSegments } from "./segments.ts";
 import {
   type ActivityRow,
   type AggregateRow,
@@ -133,7 +134,7 @@ export class Ingester {
   constructor(
     private readonly db: Database,
     readonly projectsDir: string,
-    private readonly gapMs = DEFAULT_GAP_MS,
+    private readonly gapMs = WORK_BLOCK_GAP_MS,
     /** How to read the git remote. Tests replace it with one that does not touch real directories. */
     private readonly lookupRemote: RemoteLookup = readGitRemote,
   ) {
