@@ -14,6 +14,7 @@ import { MINUTE } from "../../shared/dates.ts";
 import { sessionCloses } from "../openItems.ts";
 import { blockFacts, SECTION_SELECT, type SectionRow, toSection } from "./blocks.ts";
 import { projectById } from "./projects.ts";
+import { listedArtifactsSql } from "./sql.ts";
 import type { SummaryState } from "./summaryState.ts";
 import { displayBranch, title } from "./titles.ts";
 import { sessionUsage } from "./usage.ts";
@@ -161,7 +162,7 @@ function sessionArtifacts(db: Database, sessionId: string): Artifact[] {
   return db
     .query<Artifact, [string]>(
       `SELECT kind, ref, title, ts FROM artifacts
-       WHERE session_id = ? AND kind IN ('pr', 'commit') AND is_copy = 0 ORDER BY ts`,
+       WHERE session_id = ? AND ${listedArtifactsSql()} ORDER BY ts`,
     )
     .all(sessionId);
 }

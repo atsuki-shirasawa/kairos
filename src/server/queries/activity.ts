@@ -4,6 +4,7 @@ import type { Database } from "bun:sqlite";
 import type { Activity, Artifact } from "../../shared/api.ts";
 import { ARTIFACT_GRACE_MS } from "../../shared/constants.ts";
 import { EDIT_TOOLS } from "./editTools.ts";
+import { OWN_ROWS_IN_RANGE } from "./sql.ts";
 
 /** The part of `Activity` counted from artifacts. */
 type ArtifactCounts = Pick<Activity, "commits" | "prs" | "merges">;
@@ -57,11 +58,11 @@ function artifactsOfKind(
   range: { from: number; to: number },
 ): Artifact[] {
   return db
-    .query<Artifact, [string, string, number, number]>(
+    .query<Artifact, [string, number, number, string]>(
       `SELECT kind, ref, title, ts FROM artifacts
-       WHERE session_id = ? AND kind = ? AND is_copy = 0 AND ts BETWEEN ? AND ? ORDER BY ts`,
+       WHERE ${OWN_ROWS_IN_RANGE} AND kind = ?4 ORDER BY ts`,
     )
-    .all(sessionId, kind, range.from, range.to + ARTIFACT_GRACE_MS);
+    .all(sessionId, range.from, range.to + ARTIFACT_GRACE_MS, kind);
 }
 
 /** The activity counts that come from messages (tool calls, edits, errors, ...). */
@@ -81,7 +82,7 @@ function messageCounts(
               COALESCE(SUM(kind = 'interrupt'), 0) AS interrupts,
               COALESCE(SUM(kind = 'error'), 0) AS apiErrors,
               COALESCE(SUM(kind = 'compact'), 0) AS compactions
-       FROM messages WHERE session_id = ? AND is_copy = 0 AND ts BETWEEN ? AND ?`,
+       FROM messages WHERE ${OWN_ROWS_IN_RANGE}`,
     )
     .get(sessionId, from, to);
 }
@@ -97,7 +98,7 @@ function artifactCounts(
     .query<ArtifactCounts, [string, number, number]>(
       `SELECT COALESCE(SUM(kind = 'commit'), 0) AS commits, COALESCE(SUM(kind = 'pr'), 0) AS prs,
               COALESCE(SUM(kind = 'merge'), 0) AS merges
-       FROM artifacts WHERE session_id = ? AND is_copy = 0 AND ts BETWEEN ? AND ?`,
+       FROM artifacts WHERE ${OWN_ROWS_IN_RANGE}`,
     )
     .get(sessionId, from, to + ARTIFACT_GRACE_MS);
 }
@@ -108,7 +109,7 @@ function claudeMs(db: Database, sessionId: string, from: number, to: number): nu
   return (
     db
       .query<{ ms: number | null }, [string, number, number]>(
-        "SELECT SUM(duration_ms) AS ms FROM turns WHERE session_id = ? AND is_copy = 0 AND ts BETWEEN ? AND ?",
+        `SELECT SUM(duration_ms) AS ms FROM turns WHERE ${OWN_ROWS_IN_RANGE}`,
       )
       .get(sessionId, from, to)?.ms ?? null
   );
@@ -119,7 +120,7 @@ function dominantEffort(db: Database, sessionId: string, from: number, to: numbe
   return (
     db
       .query<{ effort: string }, [string, number, number]>(
-        `SELECT effort FROM usage WHERE session_id = ? AND is_copy = 0 AND effort IS NOT NULL AND ts BETWEEN ? AND ?
+        `SELECT effort FROM usage WHERE ${OWN_ROWS_IN_RANGE} AND effort IS NOT NULL
          GROUP BY effort ORDER BY SUM(output) DESC LIMIT 1`,
       )
       .get(sessionId, from, to)?.effort ?? null

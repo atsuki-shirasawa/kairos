@@ -5,6 +5,7 @@ import type { Database } from "bun:sqlite";
 import type { SearchField, SearchHit } from "../../shared/api.ts";
 import { ARTIFACT_GRACE_MS } from "../../shared/constants.ts";
 import { EDIT_TOOLS } from "./editTools.ts";
+import { listedArtifactsSql } from "./sql.ts";
 import { sectionHeadline, title } from "./titles.ts";
 
 /** Sections returned per search; `more` tells the UI that further ones matched. */
@@ -46,7 +47,7 @@ const SEARCH_SOURCES = `
       SELECT g.session_id, g.start, a.kind, COALESCE(a.title, '') || char(10) || a.ref
         FROM artifacts a JOIN segments g ON g.session_id = a.session_id
          AND a.ts BETWEEN g.start AND g.end + ${ARTIFACT_GRACE_MS}
-       WHERE a.kind IN ('pr', 'commit') AND a.is_copy = 0
+       WHERE ${listedArtifactsSql("a")}
       UNION ALL
       SELECT g.session_id, g.start, CASE m.kind WHEN 'assistant' THEN 'reply' ELSE 'prompt' END, m.text
         FROM messages m JOIN segments g ON g.session_id = m.session_id AND m.ts BETWEEN g.start AND g.end
