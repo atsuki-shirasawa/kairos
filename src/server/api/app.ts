@@ -25,7 +25,7 @@ import {
   storeSummaryLang,
 } from "../settings.ts";
 import type { Summarizer } from "../summarize/summarizer.ts";
-import { DEFAULT_HIDDEN_CWDS } from "../visibility.ts";
+import { currentVisibility } from "../visibility.ts";
 import { guardHost, guardWrite } from "./security.ts";
 import { streamEvents } from "./sse.ts";
 import {
@@ -183,10 +183,7 @@ export function createApp({ db, events, summarizer, live, now, hiddenCwds }: App
 
   // Running sessions. Changes are announced via SSE live.updated (and sessions.updated for the log)
   app.get("/api/live", (c) => {
-    const visibility = {
-      showHeadless: storedShowHeadless(db),
-      hiddenCwds: hiddenCwds ?? DEFAULT_HIDDEN_CWDS,
-    };
+    const visibility = currentVisibility(db, hiddenCwds);
     const at = (now ?? Date.now)();
     return c.json<LiveResponse>({
       available: live?.available ?? false,

@@ -6,8 +6,7 @@ import { LIVE_RATE_WINDOW_MS, SPEND_BUCKET_MS, SPEND_BUCKETS } from "../../share
 import { HOUR, MINUTE } from "../../shared/dates.ts";
 import { costOf, priceOf } from "../pricing.ts";
 import { sessionUsage, toUsage, type UsageRow, usageSums } from "../queries/usage.ts";
-import { visibleSessionSql } from "../visibility.ts";
-import type { LiveVisibility } from "./sessions.ts";
+import { type SessionVisibility, visibleSessionSql } from "../visibility.ts";
 
 const SMALL_WINDOW = 200_000;
 const LARGE_WINDOW = 1_000_000;
@@ -174,15 +173,12 @@ export interface BucketSpend {
  */
 function visibleSpend(
   db: Database,
-  visibility: LiveVisibility,
+  visibility: SessionVisibility,
   from: number,
   to: number,
   bucketMs: number,
 ): BucketSpend[] {
-  const visible = visibleSessionSql({
-    headless: visibility.showHeadless,
-    hiddenCwds: visibility.hiddenCwds,
-  });
+  const visible = visibleSessionSql(visibility);
   const rows = db
     .query<SpendRow, [number, number, number]>(
       `SELECT (u.ts - ?1) / ?2 AS bucket, s.project_id, u.model, u.speed, ${usageSums("u")}
@@ -204,7 +200,7 @@ function visibleSpend(
 }
 
 /** Today's spend, the current rate, and the last three hours by project, as of `now`. */
-export function liveSpend(db: Database, visibility: LiveVisibility, now: number): LiveSpend {
+export function liveSpend(db: Database, visibility: SessionVisibility, now: number): LiveSpend {
   const midnight = new Date(now).setHours(0, 0, 0, 0);
   const today = visibleSpend(db, visibility, midnight, now, now - midnight + 1);
   const recent = visibleSpend(

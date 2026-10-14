@@ -1,6 +1,8 @@
 // Which sessions the calendar, search and summaries look at. Kept in one place so every read
 // query agrees on what a visible session is.
+import type { Database } from "bun:sqlite";
 import { SUMMARIZER_CWD } from "./paths.ts";
+import { storedShowHeadless } from "./settings.ts";
 
 /** What decides whether a session is shown. */
 export interface SessionVisibility {
@@ -12,6 +14,18 @@ export interface SessionVisibility {
 
 /** Directories hidden unless a caller says otherwise: where Kairos itself runs `claude -p`. */
 export const DEFAULT_HIDDEN_CWDS: readonly string[] = [SUMMARIZER_CWD];
+
+/**
+ * The visibility as it applies now: the headless choice stored from the UI, and `hiddenCwds`.
+ * Read per request, so turning headless sessions on or off applies to the next one. The read
+ * queries and the live page both take it from here, so they agree on what is shown.
+ */
+export function currentVisibility(
+  db: Database,
+  hiddenCwds: readonly string[] = DEFAULT_HIDDEN_CWDS,
+): SessionVisibility {
+  return { headless: storedShowHeadless(db), hiddenCwds };
+}
 
 /** A string as an SQL literal. */
 function sqlString(s: string): string {

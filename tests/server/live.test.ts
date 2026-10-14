@@ -17,7 +17,7 @@ import { SPEND_BUCKET_MS, SPEND_BUCKETS } from "../../src/shared/constants.ts";
 import { SID } from "../fixtures/ids.ts";
 import { min, setup } from "./ingest/helpers.ts";
 
-const VISIBLE = { showHeadless: false, hiddenCwds: [] };
+const VISIBLE = { headless: false, hiddenCwds: [] };
 
 /** A registry entry for `sessionId`, as Claude Code writes it, with overrides. */
 function entry(sessionId: string, over: Partial<RegistryEntry> = {}): RegistryEntry {
@@ -329,7 +329,7 @@ describe("liveSessions", () => {
     const all = [headless, sdk, hidden];
     expect(liveSessions(db, all, { ...VISIBLE, hiddenCwds: ["/hidden"] }, 0)).toEqual([]);
     expect(
-      liveSessions(db, all, { showHeadless: true, hiddenCwds: ["/hidden"] }, 0).map((s) => s.id),
+      liveSessions(db, all, { headless: true, hiddenCwds: ["/hidden"] }, 0).map((s) => s.id),
     ).toEqual([headless.sessionId, sdk.sessionId]);
   });
 

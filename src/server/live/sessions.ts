@@ -4,6 +4,7 @@ import type { Database } from "bun:sqlite";
 import type { LiveSession, LiveState, LiveTasks, LiveTest } from "../../shared/api.ts";
 import { knownTitle } from "../queries/titles.ts";
 import { type FactCall, lastTestRun, loadCalls, oneLine, taskStates } from "../summarize/facts.ts";
+import type { SessionVisibility } from "../visibility.ts";
 import { latestResponse, liveUsage } from "./cost.ts";
 import type { RegistryEntry } from "./registry.ts";
 
@@ -21,12 +22,6 @@ const TAIL_MESSAGES = 30;
 const TEXT_CHARS = 160;
 const COMMAND_CHARS = 80;
 const RECAP_CHARS = 600;
-
-/** What decides whether a running session is listed, matching the calendar's visibility. */
-export interface LiveVisibility {
-  showHeadless: boolean;
-  hiddenCwds: readonly string[];
-}
 
 interface SessionRow {
   project_id: number | null;
@@ -144,7 +139,7 @@ function stateOf(entry: RegistryEntry, pending: PendingCall | null): LiveState {
 export function liveSessions(
   db: Database,
   entries: readonly RegistryEntry[],
-  visibility: LiveVisibility,
+  visibility: SessionVisibility,
   now: number,
 ): LiveSession[] {
   const sessionQuery = db.query<SessionRow, [string]>(
@@ -159,7 +154,7 @@ export function liveSessions(
     const s = sessionQuery.get(e.sessionId);
     const headless =
       !PERSONAL_KINDS.has(e.kind) || (s !== null && s.prompt_count === 0 && s.sdk_prompt_count > 0);
-    if (headless && !visibility.showHeadless) continue;
+    if (headless && !visibility.headless) continue;
     if (s?.project_hidden === 1) continue;
     const pending = s ? pendingCall(db, e.sessionId) : null;
     const state = stateOf(e, pending);

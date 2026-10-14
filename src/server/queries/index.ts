@@ -14,9 +14,8 @@ import type {
   Span,
 } from "../../shared/api.ts";
 import { openItemsIn, type UpdateRefusal, updateOpenItem } from "../openItems.ts";
-import { storedShowHeadless } from "../settings.ts";
 import { loadRecapInput, type RecapTarget } from "../summarize/recap.ts";
-import { DEFAULT_HIDDEN_CWDS, visibleSessionSql } from "../visibility.ts";
+import { currentVisibility, DEFAULT_HIDDEN_CWDS, visibleSessionSql } from "../visibility.ts";
 import { calendarSessions, neighbors, spans } from "./calendar.ts";
 import { type MessagesOptions, messagesPage } from "./messages.ts";
 import { updateProject, visibleProjects } from "./projects.ts";
@@ -41,10 +40,7 @@ export class Queries {
    * Read per query, so turning headless sessions on or off applies to the next request.
    */
   private visible(): string {
-    return visibleSessionSql({
-      headless: storedShowHeadless(this.db),
-      hiddenCwds: this.hiddenCwds,
-    });
+    return visibleSessionSql(currentVisibility(this.db, this.hiddenCwds));
   }
 
   /** Projects with visible sessions, for the filter (see `visibleProjects`). */
