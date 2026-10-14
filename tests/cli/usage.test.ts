@@ -27,6 +27,13 @@ test("an option another command takes is refused instead of ignored", () => {
   expect(run("status", "-f").err).toContain("doesn't take --follow");
 });
 
+test("an unknown command is reported before its options are checked", () => {
+  const r = run("sumarize", "--since", "lastweek");
+  expect(r.code).toBe(1);
+  expect(r.err).toStartWith("Unknown command: sumarize\n");
+  expect(r.err).not.toContain("lastweek");
+});
+
 test("arguments are refused by commands that take none", () => {
   const r = run("stop", "now");
   expect(r.code).toBe(1);

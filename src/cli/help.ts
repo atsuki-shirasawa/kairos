@@ -15,7 +15,7 @@ const GROUPS = ["Browse", "Server", "Data", "Troubleshoot"] as const;
 type OptionLine = OptionName | readonly [OptionName, string];
 
 /** One command's help page, and the options and arguments it accepts. */
-export interface CommandHelp {
+interface CommandHelp {
   /** The overview section it's listed under. */
   group: (typeof GROUPS)[number];
   /** One line, shown in the overview. */
@@ -202,9 +202,26 @@ function lineText(line: OptionLine): string {
   return typeof line === "string" ? OPTIONS[line].help : line[1];
 }
 
-/** The options a command takes, by name; any other given to it is refused. */
-export function optionNames(command: CommandHelp): OptionName[] {
-  return (command.options ?? []).map(lineName);
+/** What a command accepts on its command line; anything else given to it is refused. */
+export interface CommandUsage {
+  /** The options it takes, by name. */
+  options: OptionName[];
+  /** Whether it takes arguments after its name. */
+  takesArgs: boolean;
+}
+
+/** What the named command accepts, or null when there is no such command. */
+export function usageOf(name: string): CommandUsage | null {
+  const c = COMMANDS[name];
+  return c ? { options: (c.options ?? []).map(lineName), takesArgs: Boolean(c.args) } : null;
+}
+
+/**
+ * The error for a command that doesn't exist, followed by the overview. A typo in a script should
+ * fail, so `kairos help <typo>` says this too rather than printing the overview alone.
+ */
+export function unknownCommand(name: string, color: boolean, columns?: number): string {
+  return `Unknown command: ${name}\n\n${overview(color, columns)}`;
 }
 
 /** The logo, with the name and version beside it. */

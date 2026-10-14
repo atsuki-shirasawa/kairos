@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { COMMANDS, commandHelp, overview } from "../../src/cli/help.ts";
+import { COMMANDS, commandHelp, overview, unknownCommand, usageOf } from "../../src/cli/help.ts";
 
 test("the overview lists every command with its summary", () => {
   const text = overview(false);
@@ -44,6 +44,17 @@ test("a command's page lists its options and examples; an unknown command has no
   expect(page).toContain("kairos summarize --dry-run");
   expect(commandHelp("stop", false)).toBe("Usage: kairos stop\n\nStop the background server.");
   expect(commandHelp("nope", false)).toBeNull();
+});
+
+test("an unknown command is named above the overview", () => {
+  expect(unknownCommand("nope", false)).toBe(`Unknown command: nope\n\n${overview(false)}`);
+});
+
+test("a command accepts the options its page lists, and arguments only when it shows them", () => {
+  expect(usageOf("logs")).toEqual({ options: ["lines", "follow"], takesArgs: false });
+  expect(usageOf("report")?.takesArgs).toBe(true);
+  expect(usageOf("stop")).toEqual({ options: [], takesArgs: false });
+  expect(usageOf("nope")).toBeNull();
 });
 
 test("help for an unknown command fails like the unknown command itself", () => {
