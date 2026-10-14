@@ -501,8 +501,8 @@ export interface LiveSpend {
   /** Over the last `LIVE_RATE_WINDOW_MS`, as USD per hour. */
   perHourUsd: number;
   /**
-   * Start of the first bucket, on a whole `SPEND_BUCKET_MS`. Buckets are that long, oldest first;
-   * the last is in progress.
+   * Start of the first bucket: local midnight, on a whole `SPEND_BUCKET_MS`. Buckets are that long,
+   * oldest first, up to now; the last is in progress.
    */
   from: number;
   /** When the figures were taken: the end of the last bucket's spend so far. */

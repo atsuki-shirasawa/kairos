@@ -1,6 +1,6 @@
 import type { LiveSpend, Project } from "@shared/api.ts";
 import { SPEND_BUCKET_MS } from "@shared/constants.ts";
-import { HOUR } from "@shared/dates.ts";
+import { MINUTE } from "@shared/dates.ts";
 import { useState } from "react";
 import { liveMessages } from "@/i18n/messages/live.ts";
 import { projectColor } from "@/lib/colors.ts";
@@ -8,26 +8,40 @@ import { hhmm } from "@/lib/dates.ts";
 import { costLabel, costPerHourLabel } from "@/lib/format.ts";
 import { projectOf } from "@/lib/selection.ts";
 import {
-  SPAN_MS,
-  type SpendBar,
-  spendBarHeading,
-  spendBarSpeech,
-  spendBars,
-  visibleTicks,
-} from "@/lib/spendBand.ts";
-import { cn } from "@/lib/utils.ts";
+  axisTicks,
+  type LayerPath,
+  labelPositions,
+  layerPaths,
+  layerSpeech,
+  type SpendChart,
+  slotAtShare,
+  slotBox,
+  slotHeading,
+  slotSpeech,
+  slotSpend,
+  spendChart,
+  spendY,
+} from "@/lib/spendChart.ts";
 
-/** Pixels a bar with any spend keeps, taller than an empty slot's stub so it reads as spent. */
-const MIN_BAR_PX = 4;
+/** The plot's height in px. The SVG stretches to the width, so only the height is fixed. */
+const PLOT_PX = 112;
+/** Room kept above the top edge, so its line and the now dot aren't cut off. */
+const HEADROOM_PX = 8;
+/** The SVG's drawing width; it is scaled to the element, with strokes kept at their own width. */
+const VIEW_W = 1000;
+/** Height the bands are drawn in, below the headroom. */
+const DRAW_PX = PLOT_PX - HEADROOM_PX;
+/** The vertical space one label at the right end needs. */
+const LABEL_PX = 18;
 
 /**
- * The page's money at a glance, above the columns: today's spend and the current rate, then the
- * last three hours as slots of 5 minutes, each a bar stacked in project colors so a spike says
- * whose it was, with the indigo now mark the calendar uses in the slot in progress. Pointing at a
- * slot (or tapping it) puts its time and split by project above the bars; screen readers get the
- * same as a list. It counts every visible session, not only the running ones, and carries the
- * page's one caveat that amounts are list-price estimates. Times come from the data, not the
- * clock, so the axis always matches the bars it labels.
+ * The page's money, above the columns: today's spend and the current rate, then the day so far as
+ * bands of project color rising from the floor, so the height at the right end is today's spend
+ * and the slope is the pace. Each band is named at its end with what it spent; a spike is a steep
+ * climb rather than a bar that dwarfs the rest. Pointing at the chart (or tapping it) names a
+ * 5-minute slot and what each project added in it; screen readers get each project's share. It
+ * counts every visible session, not only the running ones, and carries the page's one caveat that
+ * amounts are list-price estimates.
  */
 export function SpendBand({
   spend,
@@ -37,65 +51,52 @@ export function SpendBand({
   projects: ReadonlyMap<number, Project>;
 }) {
   const m = liveMessages();
-  const bars = spendBars(spend, SPEND_BUCKET_MS);
+  const chart = spendChart(spend);
+  const paths = layerPaths(chart, VIEW_W, DRAW_PX);
   // Keyed by the slot's start: after a refetch the same index can be another slot
   const [pointed, setPointed] = useState<number | null>(null);
-  const bar = bars.find((b) => b.start === pointed);
+  const slot = pointed === null ? -1 : chart.times.indexOf(pointed);
+  const pointSlot = (i: number | null) => setPointed(i === null ? null : (chart.times[i] ?? null));
   const colorOf = (id: number | null) => projectColor(projectOf(projects, id));
   const nameOf = (id: number | null) => projectOf(projects, id)?.name ?? m.spend.noProject;
-  const nowAt = (spend.to - spend.from) / SPAN_MS;
   return (
     <section
-      aria-label={m.spend.chart(hhmm(spend.from), hhmm(spend.to))}
-      className="flex flex-wrap items-stretch gap-x-8 gap-y-3 border-b px-5 py-4 max-lg:px-3"
+      aria-label={m.spend.chart(hhmm(chart.start), hhmm(chart.end))}
+      className="border-b px-5 pt-4 pb-3 max-lg:px-3"
     >
-      <div className="flex flex-col justify-between gap-2">
+      <div className="flex flex-wrap items-end gap-x-8 gap-y-2">
         <dl className="flex gap-x-6">
           <Figure label={m.spend.today} value={costLabel(spend.todayUsd)} />
           <Figure label={m.spend.rate} value={costPerHourLabel(spend.perHourUsd)} />
         </dl>
-        <p className="max-w-64 text-muted-foreground text-xs">
-          {m.spend.note}
-          {spend.unpriced && <span className="block">{m.spend.unpriced}</span>}
+        <p aria-hidden className="mb-0.5 h-4 min-w-0 flex-1 text-xs">
+          {slot >= 0 ? (
+            <SlotDetail chart={chart} slot={slot} colorOf={colorOf} nameOf={nameOf} />
+          ) : (
+            <span className="text-muted-foreground">
+              {chart.total > 0 && m.spend.hint(SPEND_BUCKET_MS / MINUTE)}
+            </span>
+          )}
         </p>
       </div>
-      <figure className="ml-auto flex w-full min-w-60 max-w-3xl flex-1 flex-col">
-        <figcaption aria-hidden className="h-4 text-xs">
-          {bar ? (
-            <BarDetail bar={bar} colorOf={colorOf} nameOf={nameOf} />
-          ) : (
-            <span className="text-muted-foreground">{m.spend.window(SPAN_MS / HOUR)}</span>
-          )}
-        </figcaption>
-        {/* Cleared here rather than per slot, so crossing the gaps between slots doesn't flicker.
-            A touch ends with a leave; a tap toggles instead */}
-        <div
-          aria-hidden
-          onPointerLeave={(e) => {
-            if (e.pointerType !== "touch") setPointed(null);
-          }}
-          className="relative mt-1.5 flex h-12 gap-[3px]"
-        >
-          {bars.map((b) => (
-            <Slot
-              key={b.start}
-              bar={b}
-              pointed={b.start === pointed}
-              onPoint={(toggle) => setPointed((p) => (toggle && p === b.start ? null : b.start))}
-              colorOf={colorOf}
-            />
-          ))}
-          <NowMark at={nowAt} />
-        </div>
-        <Axis from={spend.from} nowAt={nowAt} />
+      <figure className="mt-3 grid grid-cols-[minmax(0,1fr)_minmax(6rem,11rem)] gap-x-3">
+        <Plot chart={chart} paths={paths} pointed={slot} onPoint={pointSlot} colorOf={colorOf} />
+        <EndLabels chart={chart} paths={paths} colorOf={colorOf} nameOf={nameOf} />
+        <Axis chart={chart} />
         <ul className="sr-only">
-          {bars
-            .filter((b) => b.total > 0)
-            .map((b) => (
-              <li key={b.start}>{spendBarSpeech(b, nameOf)}</li>
-            ))}
+          {chart.layers.map((l) => (
+            <li key={l.projectId ?? "none"}>{layerSpeech(l, nameOf)}</li>
+          ))}
+          {chart.slots.map(
+            (parts, i) =>
+              parts.length > 0 && <li key={chart.times[i]}>{slotSpeech(chart, i, nameOf)}</li>,
+          )}
         </ul>
       </figure>
+      <p className="mt-1 text-muted-foreground text-xs">
+        {m.spend.note}
+        {spend.unpriced && <span className="block">{m.spend.unpriced}</span>}
+      </p>
     </section>
   );
 }
@@ -111,100 +112,188 @@ function Figure({ label, value }: { label: string; value: string }) {
 }
 
 /**
- * A 5-minute slot: the spend rising from the floor, one rounded block per project, largest
- * lowest, split by 1px of the surface like stacked work blocks. A slot with no spend is a 2px
- * `line` stub, so the eye goes to the bars; the pointed slot is lit as a `muted` column.
+ * The bands, each a block fill under a line in its project color, over a `line` floor, with the
+ * pointed slot lit as a `muted` column and the indigo now dot on the top edge at the right end.
+ * Pointing picks the slot under the pointer; a tap toggles it, since a touch has no hover to end.
  */
-function Slot({
-  bar,
+function Plot({
+  chart,
+  paths,
   pointed,
   onPoint,
   colorOf,
 }: {
-  bar: SpendBar;
-  pointed: boolean;
-  /** `toggle` for a tap, which has no hover to end it. */
-  onPoint: (toggle: boolean) => void;
+  chart: SpendChart;
+  paths: LayerPath[];
+  pointed: number;
+  onPoint: (slot: number | null) => void;
   colorOf: (projectId: number | null) => string;
 }) {
-  // Each block keeps 1px with 1px between them, so a short bar with many projects still fits
-  const minPx = Math.max(MIN_BAR_PX, bar.segments.length * 2 - 1);
+  const slotAt = (e: React.PointerEvent<HTMLDivElement>): number | null => {
+    const box = e.currentTarget.getBoundingClientRect();
+    return slotAtShare(chart, (e.clientX - box.left) / box.width);
+  };
+  const lit = slotBox(chart, pointed);
   return (
     <div
-      onPointerEnter={(e) => {
-        if (e.pointerType !== "touch") onPoint(false);
+      aria-hidden
+      onPointerMove={(e) => {
+        if (e.pointerType !== "touch") onPoint(slotAt(e));
+      }}
+      onPointerLeave={(e) => {
+        if (e.pointerType !== "touch") onPoint(null);
       }}
       onPointerDown={(e) => {
-        if (e.pointerType === "touch") onPoint(true);
+        if (e.pointerType !== "touch") return;
+        const at = slotAt(e);
+        onPoint(at === pointed ? null : at);
       }}
-      className={cn(
-        "flex flex-1 flex-col justify-end rounded-sm transition-colors motion-reduce:transition-none",
-        pointed && "bg-muted",
-      )}
+      className="relative"
+      style={{ height: PLOT_PX }}
     >
-      {bar.total === 0 ? (
-        <span className="block h-0.5 rounded-full bg-border" />
-      ) : (
-        <div
-          className="flex flex-col-reverse gap-px"
-          style={{ height: `max(${bar.height * 100}%, ${minPx}px)` }}
-        >
-          {bar.segments.map((s) => (
-            <span
-              key={s.projectId ?? "none"}
-              className="block min-h-px rounded-[3px]"
-              style={{ flexGrow: s.share, background: colorOf(s.projectId) }}
-            />
-          ))}
-        </div>
+      {lit && (
+        <span
+          className="absolute inset-y-0 min-w-0.5 rounded-sm bg-muted"
+          style={{ left: `${lit.left * 100}%`, width: `${lit.width * 100}%` }}
+        />
       )}
+      <svg
+        aria-hidden="true"
+        viewBox={`0 0 ${VIEW_W} ${DRAW_PX}`}
+        preserveAspectRatio="none"
+        className="absolute inset-x-0 bottom-0 w-full overflow-visible"
+        style={{ height: DRAW_PX }}
+      >
+        {paths.map((p) => (
+          <Band key={p.projectId ?? "none"} path={p} color={colorOf(p.projectId)} />
+        ))}
+        <line
+          x1={0}
+          x2={VIEW_W}
+          y1={DRAW_PX}
+          y2={DRAW_PX}
+          vectorEffect="non-scaling-stroke"
+          className="stroke-border"
+        />
+      </svg>
+      <NowDot top={HEADROOM_PX + spendY(chart.total, DRAW_PX)(chart.total)} />
     </div>
   );
 }
 
-/** Now, at `at` of the width, as the calendar's indigo line with its dot on top. */
-function NowMark({ at }: { at: number }) {
+/**
+ * A project's band: the block fill (its color mixed into `block-base`, as on the calendar) and a
+ * 1.5px line in the full color along its top, so stacked bands stay apart where fills meet.
+ */
+function Band({ path, color }: { path: LayerPath; color: string }) {
   return (
-    <span
-      className="pointer-events-none absolute -top-1 -bottom-1 w-0.5 -translate-x-1/2 bg-primary"
-      style={{ left: `${at * 100}%` }}
-    >
-      <span className="absolute -top-[3px] -left-[3px] size-2 rounded-full bg-primary" />
-    </span>
+    <g style={{ "--c": color } as React.CSSProperties}>
+      <path
+        d={path.area}
+        className="[fill:color-mix(in_oklch,var(--c)_var(--mix-block),var(--block-base))]"
+      />
+      <path
+        d={path.edge}
+        fill="none"
+        strokeWidth={1.5}
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+        className="stroke-[var(--c)]"
+      />
+    </g>
   );
 }
 
-/** Whole hours under the slots, and "Now" in indigo under the now mark. */
-function Axis({ from, nowAt }: { from: number; nowAt: number }) {
+/** Now, where the top edge meets the right end: the calendar's indigo dot, ringed by the surface. */
+function NowDot({ top }: { top: number }) {
+  return (
+    <span
+      className="pointer-events-none absolute right-0 size-2 translate-x-1/2 -translate-y-1/2 rounded-full bg-primary ring-2 ring-card"
+      style={{ top }}
+    />
+  );
+}
+
+/**
+ * Each band's name and spend beside its end, in its color's swatch, `ink` amount and `muted-ink`
+ * name. Labels are pushed apart where bands are thin; the smallest bands get none when they
+ * don't fit (`labelPositions`).
+ */
+function EndLabels({
+  chart,
+  paths,
+  colorOf,
+  nameOf,
+}: {
+  chart: SpendChart;
+  paths: LayerPath[];
+  colorOf: (projectId: number | null) => string;
+  nameOf: (projectId: number | null) => string;
+}) {
+  const ys = labelPositions(
+    paths.map((p) => p.end),
+    chart.total,
+    DRAW_PX,
+    LABEL_PX,
+  );
+  return (
+    <ul aria-hidden className="relative text-xs" style={{ height: PLOT_PX }}>
+      {paths.map((p, i) => {
+        const y = ys[i];
+        if (y === null || y === undefined) return null;
+        const layer = chart.layers[i];
+        return (
+          <li
+            key={p.projectId ?? "none"}
+            className="absolute inset-x-0 flex -translate-y-1/2 items-center gap-1.5 leading-4"
+            style={{ top: HEADROOM_PX + y }}
+          >
+            <span
+              className="h-2.5 w-1 shrink-0 rounded-full"
+              style={{ background: colorOf(p.projectId) }}
+            />
+            <span className="min-w-0 truncate text-muted-foreground">{nameOf(p.projectId)}</span>
+            <span className="ml-auto font-num">{costLabel(layer?.total ?? 0)}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** Hours under the plot, every 1–6 hours as the span needs, and "Now" in indigo at the right. */
+function Axis({ chart }: { chart: SpendChart }) {
   const m = liveMessages();
   return (
     <div aria-hidden className="relative mt-1.5 h-4 font-num text-muted-foreground text-xs">
-      {visibleTicks(from, nowAt).map(({ t, at }) => (
+      {axisTicks(chart.start, chart.end).map(({ t, at }) => (
         <span key={t} className="absolute -translate-x-1/2" style={{ left: `${at * 100}%` }}>
           {hhmm(t)}
         </span>
       ))}
-      <span className="absolute -translate-x-1/2 text-primary" style={{ left: `${nowAt * 100}%` }}>
-        {m.spend.now}
-      </span>
+      {/* The left end names where the chart starts, which moves with the day's first spend */}
+      <span className="absolute left-0">{hhmm(chart.start)}</span>
+      <span className="absolute right-0 translate-x-1/2 text-primary">{m.spend.now}</span>
     </div>
   );
 }
 
-/** The pointed slot: its time, total, and each project's share with its color. */
-function BarDetail({
-  bar,
+/** The pointed slot: its time and what it added, then each project's share with its color. */
+function SlotDetail({
+  chart,
+  slot,
   colorOf,
   nameOf,
 }: {
-  bar: SpendBar;
+  chart: SpendChart;
+  slot: number;
   colorOf: (projectId: number | null) => string;
   nameOf: (projectId: number | null) => string;
 }) {
   return (
     <span className="flex items-baseline gap-x-3 overflow-hidden whitespace-nowrap">
-      <span className="font-num">{spendBarHeading(bar)}</span>
-      {bar.segments.map((s) => (
+      <span className="font-num">{slotHeading(chart, slot)}</span>
+      {slotSpend(chart, slot).parts.map((s) => (
         <span key={s.projectId ?? "none"} className="flex items-center gap-1 text-muted-foreground">
           <span
             className="size-1.5 shrink-0 rounded-full"

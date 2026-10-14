@@ -2,8 +2,8 @@
 // the spend across visible sessions for the live page's band. Amounts use the API price list.
 import type { Database } from "bun:sqlite";
 import type { LiveCost, LiveSpend, LiveUsage } from "../../shared/api.ts";
-import { LIVE_RATE_WINDOW_MS, SPEND_BUCKET_MS, SPEND_BUCKETS } from "../../shared/constants.ts";
-import { HOUR, MINUTE } from "../../shared/dates.ts";
+import { LIVE_RATE_WINDOW_MS, SPEND_BUCKET_MS } from "../../shared/constants.ts";
+import { HOUR, MINUTE, startOfDay } from "../../shared/dates.ts";
 import { costOf, priceOf } from "../pricing.ts";
 import { sessionUsage, toUsage, type UsageRow, usageSums } from "../queries/usage.ts";
 import { type SessionVisibility, visibleSessionSql } from "../visibility.ts";
@@ -199,10 +199,11 @@ function visibleSpend(
   });
 }
 
-/** Today's spend, the current rate, and the last three hours by project, as of `now`. */
+/** Today's spend, the current rate, and today's spend over time by project, as of `now`. */
 export function liveSpend(db: Database, visibility: SessionVisibility, now: number): LiveSpend {
-  const midnight = new Date(now).setHours(0, 0, 0, 0);
-  const today = visibleSpend(db, visibility, midnight, now, now - midnight + 1);
+  const midnight = startOfDay(now);
+  // One scan of the day gives the buckets and the day's total alike
+  const today = visibleSpend(db, visibility, midnight, now, SPEND_BUCKET_MS);
   const recent = visibleSpend(
     db,
     visibility,
@@ -210,26 +211,23 @@ export function liveSpend(db: Database, visibility: SessionVisibility, now: numb
     now,
     LIVE_RATE_WINDOW_MS + 1,
   );
-  const from = spendWindowStart(now);
   return {
     todayUsd: sum(today),
     perHourUsd: ratePerHour(sum(recent), LIVE_RATE_WINDOW_MS),
-    from,
+    from: midnight,
     to: now,
-    buckets: bucketize(visibleSpend(db, visibility, from, now, SPEND_BUCKET_MS), SPEND_BUCKETS),
+    buckets: bucketize(today, spendBucketCount(midnight, now)),
     unpriced: today.some((b) => b.unpriced),
   };
 }
 
 /**
- * Start of the band's first bucket. Edges fall on whole `SPEND_BUCKET_MS`, so they meet the hour
- * ticks and hold still across refetches; the last of the `SPEND_BUCKETS` is the one in progress
- * and ends at `now`.
+ * Buckets from `from` (local midnight) up to `now`, the last one in progress, and at least one.
+ * Right on an edge the bucket that would start at `now` has nothing yet and is left out; a
+ * response stamped exactly `now` goes in the last bucket (`bucketize` clamps it).
  */
-export function spendWindowStart(now: number): number {
-  return (
-    Math.floor(now / SPEND_BUCKET_MS) * SPEND_BUCKET_MS - (SPEND_BUCKETS - 1) * SPEND_BUCKET_MS
-  );
+export function spendBucketCount(from: number, now: number): number {
+  return Math.max(1, Math.ceil((now - from) / SPEND_BUCKET_MS));
 }
 
 /**

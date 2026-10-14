@@ -431,25 +431,29 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   count beside it in the numeral face at the heading's size (`warn` for a non-empty On you)
   and a 12px `muted-ink` note on what puts a session there; an empty column says "None", and an
   empty On you says "Nothing is waiting on you" and narrows to 13rem, giving its third of the width
-  to the cards. A card keeps a work block's 3px project-colored edge but sits on the neutral `muted`
-  fill (`input` on hover, since `accent` barely differs from `muted` in dark), not the block fill: dim pigment fills on the navy surface read as muddy
+  to the cards. A card keeps a work block's 3px project-colored edge but not the block fill: dim pigment fills on the navy surface read as muddy
   browns, and the project color in the edge alone leaves `warn` the only color that calls for you.
+  Its weight says whose turn it is: a card in On you sits on the neutral `muted` fill (`input` on
+  hover, since `accent` barely differs from `muted` in dark), a Working card is only outlined in
+  `line` (`muted` on hover), and an idle session is a bare row.
   The selected card is outlined in `primary`. An idle session is a single row instead of a card:
   the edge with no fill (`muted` on hover), the dot, the title on one line with how long it has
   idled at its right, and the place under it (and "Not in the log yet" when there is nothing to open); its details are in the drawer. A full card shows a 6px state dot and the title (14px
   medium, two lines at most; `muted-ink` when idle), the project, worktree and branch (12px
-  `muted-ink`, with a "Background" badge styled like the drawer's Headless one), the state word (only
-  in On you, which holds two states; elsewhere the column names it) and how long it has lasted,
-  coarsening to whole hours from 3h and days from 24h, with the start time at the right (`numeral`,
-  with the date when not today), then what it is doing: the
+  `muted-ink`, with a "Background" badge styled like the drawer's Headless one); at the right of the
+  title the state word (only in On you, which holds two states; elsewhere the column names it) and
+  how long it has lasted, coarsening to whole hours from 3h and days from 24h, with the start time
+  under it at the right of the place line (`numeral`, with the date when not today), then what it
+  is doing: the
   question (14px `ink`), the call in flight (tool name in medium, an MCP tool as "server › tool", its summary in `muted-ink`), tasks
   as a 4px bar in the project color on `input` (the card is already `muted`, which `line` barely differs from), the last test (its word in `warn` when it failed),
-  Claude Code's recap while it isn't working (three lines), and the context against the model's
-  window ("Context 148k / 1M") with a 4px bar beside it in `muted-ink` on `input`, `warn` (bar and
-  words) from 80% of the window in On you only, where the next prompt is the time to compact or
-  clear; elsewhere the bar's length says it. Under it, in 12px `muted-ink`: the current block's cost,
-  the model and a "Fast" badge (styled like the Background one) when fast mode multiplies it, with
-  the spend rate at the right while working. A card not working adds the prompt cache: how long it
+  and Claude Code's recap while it isn't working (three lines). Gauges go in a footer under a rule
+  (`line`, `input` on the `muted` fill), all 12px `muted-ink`: the context against the model's
+  window ("Context 148k / 1M") with a short 48px 4px bar after it in `muted-ink` on `input` (short
+  and neutral, so it doesn't read as the tasks' bar), `warn` (bar and words) from 80% of the window
+  in On you only, where the next prompt is the time to compact or clear, with the model and a
+  "Fast" badge (styled like the Background one) at the right when fast mode multiplies it; then the
+  current block's cost, with the spend rate at the right while working. A card not working adds the prompt cache: how long it
   stays warm, with what the next request costs now and once it expires at the right ("Next ≈ $0.01,
   $0.49 once it expires": the gap is the point, a late reply rewrites the whole context), or "Cache
   expired" with what resuming costs. In On you its countdown turns `warn` in the last sixth of the cache's TTL (10 minutes of
@@ -465,22 +469,28 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   content (no pointer, no hover fill). Only a card or row that opens takes a hover fill (`input` on a card, `muted` on an idle row),
   and keyboard focus on its title draws the 2px `ring` outline around the card. The tab title leads
   with the number waiting on you ("(2) Kairos"), so a background tab still says so. Above the
-  columns, a band separated by a `line` rule holds the page's money. At the left, "Today" and
-  "Rate" each as a 12px `muted-ink` label over its amount in the 17px medium numeral face, with the
-  one caveat under them in 12px `muted-ink`: amounts are estimates at API list prices (with a second
-  line when some model has no price and is left out). At the right, at most `max-w-3xl` and
-  right-aligned, the last three hours as 36 five-minute slots on whole 5 minutes, the last one in
-  progress. Each slot is its spend rising from the
-  floor as one block per project in the solid project color (3px radius, largest at the bottom, 1px
-  of the surface between blocks, scaled against the tallest slot, at least 4px so any spend reads as
-  spent); a slot with no spend is a 2px `line` stub, so the eye goes to the bars. Pointing at a slot (a tap on touch
-  screens, which toggles)
-  lights it as a `muted` column and swaps the "Last 3 hours" line above the bars (12px `muted-ink`)
-  for its time range and total in `ink` numerals, then each project's color dot, name and amount in
-  `muted-ink`. Under the bars, whole hours in 12px `numeral` `muted-ink`, left out where they would
-  touch "Now". The current time is marked as in the calendar, within the slot in progress: a
-  2px `primary` line with a dot on top and "Now" under it in `primary`. It counts every visible session, not only the running
-  ones, and the band stays, with the caveat, when nothing runs or the registry can't be read
+  columns, a band separated by a `line` rule holds the page's money. At the top left, "Today" and
+  "Rate" each as a 12px `muted-ink` label over its amount in the 17px medium numeral face; beside
+  them a 12px line that names what pointing shows. Under them, across the page, the day's spend as it climbed: one band per
+  project stacked from the floor (largest at the bottom), each the project's block fill
+  (`--mix-block` into `block-base`, as on the calendar) under a 1.5px line in the full project color
+  along its top, so the height at the right end is today's spend and the slope is the pace. A spike
+  is a steep climb rather than a bar that flattens every other slot, which the 5-minute bars this
+  replaced did. Within a 5-minute slot a band rises in a straight line, since its spend came in over
+  those minutes. The chart starts on the whole hour before the day's first spend, but spans at least
+  the last three hours and never starts before midnight (the figures count from there), on a `line`
+  floor, 112px tall. Where the top edge meets the right end sits the calendar's indigo now dot,
+  ringed by the surface, with "Now" under it in `primary`; the start time is at the left end and
+  hours between in 12px `numeral` `muted-ink`, every 1–6 hours as the span needs. Each band is
+  named at its end, in a column to the right (no legend): a 4×10px swatch in its color, its name in
+  `muted-ink` and what it spent in `ink` numerals, pushed apart where bands are thin, the smallest
+  left unnamed when they don't fit. Pointing at the chart (a tap on touch screens, which toggles)
+  lights the 5-minute slot under it as a `muted` column and swaps the line beside the figures for
+  the slot's time range and what it added in `ink` numerals, then each project's color dot, name
+  and amount in `muted-ink`. Under the chart, the page's one caveat in 12px `muted-ink`: amounts are
+  estimates at API list prices (with a second line when some model has no price and is left out).
+  It counts every visible session, not only the running ones, and the band stays, with the caveat,
+  when nothing runs or the registry can't be read
 - **Mark:** `src/web/public/favicon.svg` — a circle with a dawn → evening → night gradient cut by a
   diagonal blade (Kairos stands on a razor's edge: cutting out a single moment). The background
   shows through the gap, so it reads on light and dark tabs; the gap stays open at 16px. Used for

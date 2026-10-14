@@ -66,15 +66,18 @@ export const liveMessages = defineMessages({
       /** The band's caveat, said once for every amount on the page. */
       note: "Estimated at API list prices, not your bill",
       unpriced: "Models without a price are left out",
-      /** Above the bars while none is pointed at. */
-      window: (hours: number) => (hours === 1 ? "Last hour" : `Last ${hours} hours`),
-      /** Spend of sessions not tied to a project, in a pointed bar's split. */
+      /** Above the chart while nothing is pointed at: what pointing shows. */
+      hint: (minutes: number) => `Point at the chart for a ${minutes}-minute breakdown`,
+      /** A project's share of the chart, for screen readers ("atlas $6.10"). */
+      layer: (name: string, cost: string) => `${name} ${cost}`,
+      /** Spend of sessions not tied to a project, in the chart's labels and a slot's split. */
       noProject: "No project",
-      /** The bars, for screen readers. */
+      /** The chart, for screen readers. */
       chart: (from: string, to: string) => `Spend by project from ${from} to ${to}`,
-      bar: (from: string, to: string, cost: string) => `${from}–${to} ${cost}`,
-      /** A bar with its split by project ("atlas $0.80"), for screen readers. */
-      barSplit: (bar: string, parts: string[]) => `${bar}: ${parts.join(", ")}`,
+      /** A slot of the chart and what it added. */
+      slot: (from: string, to: string, cost: string) => `${from}–${to} +${cost}`,
+      /** A slot with its split by project ("atlas $0.80"), for screen readers. */
+      slotSplit: (slot: string, parts: string[]) => `${slot}: ${parts.join(", ")}`,
     },
   },
   ja: {
@@ -121,11 +124,12 @@ export const liveMessages = defineMessages({
       now: "現在",
       note: "API 定価での推定で、実際の請求額ではありません",
       unpriced: "価格不明のモデルの分は含みません",
-      window: (hours: number) => `直近 ${hours} 時間`,
+      hint: (minutes: number) => `グラフを指すと ${minutes} 分ごとの内訳を表示`,
+      layer: (name: string, cost: string) => `${name} ${cost}`,
       noProject: "プロジェクトなし",
       chart: (from: string, to: string) => `${from}〜${to} のプロジェクト別の支出`,
-      bar: (from: string, to: string, cost: string) => `${from}〜${to} ${cost}`,
-      barSplit: (bar: string, parts: string[]) => `${bar}：${parts.join("、")}`,
+      slot: (from: string, to: string, cost: string) => `${from}〜${to} +${cost}`,
+      slotSplit: (slot: string, parts: string[]) => `${slot}：${parts.join("、")}`,
     },
   },
 });

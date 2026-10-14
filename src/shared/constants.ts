@@ -19,7 +19,5 @@ export const MIN_SEARCH_CHARS = 2;
 
 /** How far back the live page's per-hour spend looks: long enough to span a few requests. */
 export const LIVE_RATE_WINDOW_MS = 15 * MINUTE;
-/** Width of one bar in the live page's spend band. */
+/** Width of one step in the live page's spend chart, which covers today from local midnight. */
 export const SPEND_BUCKET_MS = 5 * MINUTE;
-/** Bars in the spend band: the last three hours. */
-export const SPEND_BUCKETS = 36;

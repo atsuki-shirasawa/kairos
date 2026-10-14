@@ -5,30 +5,22 @@ import {
   type LatestResponse,
   ratePerHour,
   requestCosts,
-  spendWindowStart,
+  spendBucketCount,
 } from "../../../src/server/live/cost.ts";
-import {
-  LIVE_RATE_WINDOW_MS,
-  SPEND_BUCKET_MS,
-  SPEND_BUCKETS,
-} from "../../../src/shared/constants.ts";
+import { LIVE_RATE_WINDOW_MS, SPEND_BUCKET_MS } from "../../../src/shared/constants.ts";
 import { HOUR, MINUTE } from "../../../src/shared/dates.ts";
 
-describe("spendWindowStart", () => {
+describe("spendBucketCount", () => {
   test.each<[string, number, number]>([
-    ["mid-bucket", 10 * HOUR + 7 * MINUTE + 13_000, 10 * HOUR + 5 * MINUTE],
-    ["on a bucket edge", 10 * HOUR, 10 * HOUR],
-    ["one ms before an edge", 10 * HOUR - 1, 10 * HOUR - SPEND_BUCKET_MS],
-  ])("%s: the last bucket starts on the whole bucket at or before now", (_name, now, last) => {
-    expect(spendWindowStart(now)).toBe(last - (SPEND_BUCKETS - 1) * SPEND_BUCKET_MS);
-  });
-
-  test("spans the band, with now inside the last bucket", () => {
-    const now = 1_700_000_123_456;
-    const from = spendWindowStart(now);
-    expect(from % SPEND_BUCKET_MS).toBe(0);
-    expect(now - from).toBeGreaterThanOrEqual((SPEND_BUCKETS - 1) * SPEND_BUCKET_MS);
-    expect(now - from).toBeLessThan(SPEND_BUCKETS * SPEND_BUCKET_MS);
+    ["right at midnight", 0, 1],
+    ["mid-bucket", 10 * HOUR + 7 * MINUTE + 13_000, 122],
+    // The bucket that would start at now holds nothing yet
+    ["on a bucket edge", 10 * HOUR, 120],
+    ["one ms before an edge", 10 * HOUR - 1, 120],
+    ["one ms after an edge", 10 * HOUR + 1, 121],
+  ])("%s: buckets since midnight, the last one in progress", (_name, sinceMidnight, count) => {
+    const midnight = 1_700_000_000_000 - (1_700_000_000_000 % SPEND_BUCKET_MS);
+    expect(spendBucketCount(midnight, midnight + sinceMidnight)).toBe(count);
   });
 });
 

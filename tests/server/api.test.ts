@@ -14,7 +14,8 @@ import type {
   SessionDetail,
   SpansResponse,
 } from "../../src/shared/api.ts";
-import { SPEND_BUCKETS } from "../../src/shared/constants.ts";
+import { SPEND_BUCKET_MS } from "../../src/shared/constants.ts";
+import { DAY } from "../../src/shared/dates.ts";
 import { SID } from "../fixtures/ids.ts";
 import { min, setup } from "./ingest/helpers.ts";
 
@@ -554,7 +555,11 @@ describe("GET /api/live", () => {
     const res = await json<LiveResponse>("/api/live");
     expect(res).toMatchObject({ available: false, sessions: [] });
     // Spend is the logs' and doesn't need the registry
-    expect(res.spend.buckets).toHaveLength(SPEND_BUCKETS);
+    // From midnight up to now in 5-minute buckets
+    expect(res.spend.buckets.length * SPEND_BUCKET_MS).toBeGreaterThanOrEqual(
+      res.spend.to - res.spend.from,
+    );
+    expect(res.spend.buckets.length).toBeLessThanOrEqual(DAY / SPEND_BUCKET_MS + 12);
   });
 
   test("lists the running sessions the calendar would show", async () => {

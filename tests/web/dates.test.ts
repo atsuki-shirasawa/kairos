@@ -13,6 +13,7 @@ import {
   rangeTitle,
   relativeDay,
   shift,
+  startOfHour,
   startOfMonth,
   startOfWeek,
   timeOrDateTime,
@@ -84,6 +85,12 @@ describe("dates", () => {
     expect(addMonths(new Date(2026, 0, 31).getTime(), 1)).toBe(new Date(2026, 1, 28).getTime());
     expect(addMonths(new Date(2026, 0, 15).getTime(), -1)).toBe(new Date(2025, 11, 15).getTime());
     expect(startOfMonth(DAY0 + 15 * 3_600_000)).toBe(new Date(2026, 9, 1).getTime());
+  });
+
+  test("the start of an hour drops its minutes and seconds", () => {
+    expect(startOfHour(new Date(2026, 9, 14, 9, 41, 13).getTime())).toBe(
+      new Date(2026, 9, 14, 9).getTime(),
+    );
   });
 
   test("the month grid starts on Sunday and pads weeks with days of adjacent months", () => {

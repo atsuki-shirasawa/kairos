@@ -18,7 +18,7 @@ import {
 } from "@/lib/live.ts";
 import { projectOf } from "@/lib/selection.ts";
 import { cn } from "@/lib/utils.ts";
-import { CardCost, ContextGauge, RowCache } from "./live/CardUsage.tsx";
+import { CardFooter, RowCache } from "./live/CardUsage.tsx";
 import { SpendBand } from "./live/SpendBand.tsx";
 
 /**
@@ -183,7 +183,7 @@ function LiveCard({
   onSelect: (session: string, at: number) => void;
 }) {
   const m = liveMessages();
-  const { session: s, display, duration, compact } = card;
+  const { session: s, display, compact } = card;
   const section = s.section;
   // A session not in the log yet has no block to open: its card is plain content
   const open = section === null ? null : () => onSelect(s.id, section);
@@ -198,9 +198,8 @@ function LiveCard({
       }}
       className={cn(
         "flex flex-col rounded-r-md rounded-l-[3px] border-l-[3px] border-l-[var(--c)] has-[button:focus-visible]:outline-2 has-[button:focus-visible]:outline-ring",
-        compact ? "px-3 py-1.5" : "gap-2 bg-muted px-3 py-2.5",
-        open && "cursor-pointer",
-        open && (compact ? "hover:bg-muted" : "hover:bg-input"),
+        cardTone(display),
+        open && ["cursor-pointer", cardHover(display)],
         selected && "outline-2 outline-primary",
       )}
       style={{ "--c": projectColor(project) } as React.CSSProperties}
@@ -210,25 +209,28 @@ function LiveCard({
       {compact && section === null && (
         <p className="pl-3.5 text-muted-foreground text-xs">{m.notIngested}</p>
       )}
-      {!compact && (
-        <>
-          <p className="flex items-baseline gap-1 text-xs">
-            {/* Only the waiting column holds two states; elsewhere the column already names it */}
-            {columnOf(display) === "attention" && (
-              <span className={display === "asking" ? "text-warn" : "text-muted-foreground"}>
-                {m.state[display]}
-              </span>
-            )}
-            <span className="font-num text-muted-foreground">{duration}</span>
-            <span className="ml-auto font-num text-muted-foreground">
-              {m.startedAt(timeOrDateTime(s.startedAt, now))}
-            </span>
-          </p>
-          <CardNow session={s} display={display} now={now} />
-        </>
-      )}
+      {!compact && <CardNow session={s} display={display} />}
+      {!compact && <CardFooter session={s} display={display} now={now} />}
     </article>
   );
+}
+
+/**
+ * How much a card weighs, by whose turn it is: a session waiting on you sits on the `muted` fill,
+ * one Claude is working on is only outlined, and an idle one is a bare row.
+ */
+function cardTone(display: LiveDisplay): string {
+  const column = columnOf(display);
+  // A transparent border keeps the inset of an outlined Working card, so text lines up across columns
+  if (column === "attention")
+    return "gap-2.5 border-y border-r border-y-transparent border-r-transparent bg-muted px-3 py-2.5";
+  if (column === "working") return "gap-2.5 border border-l-[3px] px-3 py-2.5";
+  return "px-3 py-1.5";
+}
+
+/** The hover of a card that opens: one step deeper than its tone (`cardTone`). */
+function cardHover(display: LiveDisplay): string {
+  return columnOf(display) === "attention" ? "hover:bg-input" : "hover:bg-muted";
 }
 
 /**
@@ -251,7 +253,7 @@ function CardHeading({
   const { session: s, display, name, description, compact, duration } = card;
   return (
     <div className="min-w-0">
-      <div className="flex items-center gap-2">
+      <div className="flex items-baseline gap-2">
         <StateDot display={display} />
         <h3
           className={cn(
@@ -277,12 +279,19 @@ function CardHeading({
             <Clamped compact={compact}>{name}</Clamped>
           )}
         </h3>
-        {compact && (
-          // The title button's description already says it
-          <span aria-hidden className="ml-auto shrink-0 font-num text-muted-foreground text-xs">
-            {duration}
-          </span>
-        )}
+        {/* The title button's description says it; a card without one has only this */}
+        <span
+          aria-hidden={onOpen !== null}
+          className="ml-auto flex shrink-0 gap-1 self-start pt-0.5 text-xs"
+        >
+          {/* Only the waiting column holds two states; elsewhere the column already names it */}
+          {columnOf(display) === "attention" && (
+            <span className={display === "asking" ? "text-warn" : "text-muted-foreground"}>
+              {m.state[display]}
+            </span>
+          )}
+          <span className="font-num text-muted-foreground">{duration}</span>
+        </span>
       </div>
       <p className="mt-0.5 flex min-w-0 items-center gap-1.5 pl-3.5 text-muted-foreground text-xs">
         <span className="truncate">{card.place}</span>
@@ -290,6 +299,11 @@ function CardHeading({
           <span className="shrink-0 rounded-md border px-1 leading-4">{m.background}</span>
         )}
         {compact && s.section !== null && <RowCache session={s} now={now} />}
+        {!compact && (
+          <span className="ml-auto shrink-0 font-num">
+            {m.startedAt(timeOrDateTime(s.startedAt, now))}
+          </span>
+        )}
       </p>
     </div>
   );
@@ -297,17 +311,9 @@ function CardHeading({
 
 /**
  * What the session is doing now: the question it asks, or the call it runs; then its tasks, the
- * last test, Claude Code's recap while it waits, the context against its window, and the cost.
+ * last test, and Claude Code's recap while it waits. Context and cost go in the footer.
  */
-function CardNow({
-  session: s,
-  display,
-  now,
-}: {
-  session: LiveSession;
-  display: LiveDisplay;
-  now: number;
-}) {
+function CardNow({ session: s, display }: { session: LiveSession; display: LiveDisplay }) {
   const m = liveMessages();
   return (
     <div className="flex flex-col gap-1.5 text-xs">
@@ -331,10 +337,6 @@ function CardNow({
         <p className="line-clamp-3 text-muted-foreground">{s.recap}</p>
       )}
       {s.section === null && <p className="text-muted-foreground">{m.notIngested}</p>}
-      {s.section !== null && s.contextTokens !== null && (
-        <ContextGauge tokens={s.contextTokens} usage={s.usage} display={display} />
-      )}
-      {s.section !== null && s.usage && <CardCost usage={s.usage} display={display} now={now} />}
     </div>
   );
 }

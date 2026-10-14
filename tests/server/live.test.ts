@@ -13,7 +13,7 @@ import {
 import { liveSessions } from "../../src/server/live/sessions.ts";
 import { LiveTracker } from "../../src/server/live/tracker.ts";
 import type { LiveSpend } from "../../src/shared/api.ts";
-import { SPEND_BUCKET_MS, SPEND_BUCKETS } from "../../src/shared/constants.ts";
+import { SPEND_BUCKET_MS } from "../../src/shared/constants.ts";
 import { SID } from "../fixtures/ids.ts";
 import { min, setup } from "./ingest/helpers.ts";
 
@@ -387,7 +387,7 @@ describe("liveSessions", () => {
 });
 
 describe("liveSpend", () => {
-  test("adds up today and the last hours by project, leaving out hidden projects", () => {
+  test("adds up today and its spend over time by project, leaving out hidden projects", () => {
     const s = setup();
     s.ingester.scan();
     const now = min(1705);
@@ -396,12 +396,12 @@ describe("liveSpend", () => {
     appendResponse(s.projectsDir, 1, { input_tokens: 1_000_000 });
     s.ingester.scan();
     const spend = liveSpend(s.db, VISIBLE, now);
-    expect(spend.buckets).toHaveLength(SPEND_BUCKETS);
-    // Edges on whole buckets, the last one in progress up to now
-    expect(spend.from % SPEND_BUCKET_MS).toBe(0);
+    // From local midnight, the last bucket in progress up to now
+    expect(spend.from).toBe(new Date(now).setHours(0, 0, 0, 0));
     expect(spend.to).toBe(now);
-    expect(now - spend.from).toBeGreaterThanOrEqual((SPEND_BUCKETS - 1) * SPEND_BUCKET_MS);
-    expect(now - spend.from).toBeLessThan(SPEND_BUCKETS * SPEND_BUCKET_MS);
+    // Enough buckets to reach now, and no empty one past it
+    expect(spend.buckets.length * SPEND_BUCKET_MS).toBeGreaterThanOrEqual(now - spend.from);
+    expect((spend.buckets.length - 1) * SPEND_BUCKET_MS).toBeLessThan(now - spend.from);
     // $4 of input plus 100 output tokens at $20/M, in the bar that holds min(1701)
     const i = Math.floor((min(1701) - spend.from) / SPEND_BUCKET_MS);
     const total = (b: LiveSpend) => (b.buckets[i] ?? []).reduce((n, p) => n + p.usd, 0);

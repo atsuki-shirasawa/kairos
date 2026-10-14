@@ -132,6 +132,13 @@ export function rangeTitle(
   };
 }
 
+/** The whole local hour at or before `t`. */
+export function startOfHour(t: number): number {
+  const d = new Date(t);
+  d.setMinutes(0, 0, 0);
+  return d.getTime();
+}
+
 /** Midnight on the first of the month. */
 export function startOfMonth(t: number): number {
   const d = new Date(t);
