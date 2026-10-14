@@ -665,14 +665,9 @@ export class Ingester {
 
   /**
    * Where sessions launched in `cwd` belong: the project row and secondary label. `remote` is the
-   * directory's git remote as `lookupRemote` reads it (undefined when the directory is gone). In
-   * order:
-   * 1. the git remote
-   * 2. for a directory gone from this machine (a container's checkout) or a temporary one, the
-   *    repository of the PRs opened from it, when they all point to one
-   * 3. for a Claude Code scratchpad, the project of the session that made it
-   * 4. for a temporary directory, the shared `TEMP_PROJECT`
-   * 5. the directory itself
+   * directory's git remote as `lookupRemote` reads it (undefined when the directory is gone). The
+   * first rule that places it wins, in order: the git remote, the repository of its PRs, the
+   * scratchpad's owner, the shared temporary project, and the directory itself.
    */
   private placeOf(
     cwd: string,
@@ -680,22 +675,46 @@ export class Ingester {
     dirs = this.launchDirProjects(),
   ): Place {
     const own = resolveProject(cwd, () => remote);
-    if (own.repo) return this.placeByDir(own);
     const temp = isTemporary(cwd);
+    return (
+      this.byRemote(own) ??
+      this.byPrRepo(cwd, remote, own, temp) ??
+      byScratchpadOwner(cwd, dirs) ??
+      this.byTemporaryDir(cwd, temp) ??
+      this.placeByDir(own)
+    );
+  }
+
+  /** Placement by the directory's git remote, or null when it has none. */
+  private byRemote(own: ProjectRef): Place | null {
+    return own.repo ? this.placeByDir(own) : null;
+  }
+
+  /**
+   * Placement for a directory gone from this machine (a container's checkout) or a temporary one
+   * (`temp`): the repository of the PRs opened from it, when they all point to one. Null otherwise.
+   */
+  private byPrRepo(
+    cwd: string,
+    remote: string | null | undefined,
+    own: ProjectRef,
+    temp: boolean,
+  ): Place | null {
     // `/tmp` itself is the shared project's path, which a repository must never take over
-    const pr = (remote === undefined || temp) && own.path !== TEMP_PROJECT.path;
-    const repo = pr ? this.prRepoOf(cwd) : null;
+    const eligible = (remote === undefined || temp) && own.path !== TEMP_PROJECT.path;
+    const repo = eligible ? this.prRepoOf(cwd) : null;
+    if (!repo) return null;
     // Resolved as if the PRs' repository were the directory's remote, so it merges the same way
-    if (repo) return this.placeByDir(resolveProject(cwd, () => `https://${repo}`));
-    const owner = scratchpadOwner(cwd);
-    const parent = owner ? dirs.get(owner) : undefined;
-    if (parent !== undefined) return { id: parent, label: runLabel(cwd) };
-    if (temp)
-      return {
-        id: this.projectId({ ...TEMP_PROJECT, label: null, repo: null }),
-        label: runLabel(cwd),
-      };
-    return this.placeByDir(own);
+    return this.placeByDir(resolveProject(cwd, () => `https://${repo}`));
+  }
+
+  /** Placement of a temporary directory (`temp`) in the shared `TEMP_PROJECT`, or null for any other. */
+  private byTemporaryDir(cwd: string, temp: boolean): Place | null {
+    if (!temp) return null;
+    return {
+      id: this.projectId({ ...TEMP_PROJECT, label: null, repo: null }),
+      label: runLabel(cwd),
+    };
   }
 
   /**
@@ -777,9 +796,8 @@ export class Ingester {
     if (waiting.length === 0) return;
     const dirs = this.launchDirProjects();
     for (const { cwd } of waiting) {
-      const owner = scratchpadOwner(cwd);
-      const parent = owner ? dirs.get(owner) : undefined;
-      if (parent !== undefined) this.q.reassignProject.run(parent, runLabel(cwd), cwd);
+      const place = byScratchpadOwner(cwd, dirs);
+      if (place) this.q.reassignProject.run(place.id, place.label, cwd);
     }
     this.q.deleteOrphanProjects.run();
   }
@@ -893,6 +911,16 @@ export class Ingester {
       )
       .run(String(DERIVED_VERSION));
   }
+}
+
+/**
+ * Placement of a Claude Code scratchpad with the project of the session that made it (`dirs` from
+ * `launchDirProjects`), or null when it isn't one or its owner isn't placed yet.
+ */
+function byScratchpadOwner(cwd: string, dirs: Map<string, number>): Place | null {
+  const owner = scratchpadOwner(cwd);
+  const parent = owner ? dirs.get(owner) : undefined;
+  return parent !== undefined ? { id: parent, label: runLabel(cwd) } : null;
 }
 
 /**
