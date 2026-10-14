@@ -1,11 +1,11 @@
-import type { LiveSpend, Project } from "@shared/api.ts";
-import { SPEND_BUCKET_MS } from "@shared/constants.ts";
+import type { LiveTokens, Project } from "@shared/api.ts";
+import { TOKEN_BUCKET_MS } from "@shared/constants.ts";
 import { MINUTE } from "@shared/dates.ts";
 import { useState } from "react";
 import { liveMessages } from "@/i18n/messages/live.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { hhmm } from "@/lib/dates.ts";
-import { costLabel, costPerHourLabel } from "@/lib/format.ts";
+import { tokensLabel, tokensPerHourLabel } from "@/lib/format.ts";
 import { projectOf } from "@/lib/selection.ts";
 import {
   axisTicks,
@@ -13,15 +13,15 @@ import {
   labelPositions,
   layerPaths,
   layerSpeech,
-  type SpendChart,
   slotAtShare,
   slotBox,
   slotHeading,
   slotSpeech,
-  slotSpend,
-  spendChart,
-  spendY,
-} from "@/lib/spendChart.ts";
+  slotTokens,
+  type TokenChart,
+  tokenChart,
+  tokenY,
+} from "@/lib/tokenChart.ts";
 
 /** The plot's height in px. The SVG stretches to the width, so only the height is fixed. */
 const PLOT_PX = 112;
@@ -35,46 +35,46 @@ const DRAW_PX = PLOT_PX - HEADROOM_PX;
 const LABEL_PX = 18;
 
 /**
- * The page's money, above the columns: today's spend and the current rate, then the day so far as
- * bands of project color rising from the floor, so the height at the right end is today's spend
- * and the slope is the pace. Each band is named at its end with what it spent; a spike is a steep
+ * The page's tokens, above the columns: today's total and the current rate, then the day so far as
+ * bands of project color rising from the floor, so the height at the right end is today's total
+ * and the slope is the pace. Each band is named at its end with what it used; a spike is a steep
  * climb rather than a bar that dwarfs the rest. Pointing at the chart (or tapping it) names a
  * 5-minute slot and what each project added in it; screen readers get each project's share. It
- * counts every visible session, not only the running ones, and carries the page's one caveat that
- * amounts are list-price estimates.
+ * counts every visible session, not only the running ones, and notes that cache reads are counted,
+ * since they make up most of a total that would otherwise look implausibly large.
  */
-export function SpendBand({
-  spend,
+export function TokenBand({
+  tokens,
   projects,
 }: {
-  spend: LiveSpend;
+  tokens: LiveTokens;
   projects: ReadonlyMap<number, Project>;
 }) {
   const m = liveMessages();
-  const chart = spendChart(spend);
+  const chart = tokenChart(tokens);
   const paths = layerPaths(chart, VIEW_W, DRAW_PX);
   // Keyed by the slot's start: after a refetch the same index can be another slot
   const [pointed, setPointed] = useState<number | null>(null);
   const slot = pointed === null ? -1 : chart.times.indexOf(pointed);
   const pointSlot = (i: number | null) => setPointed(i === null ? null : (chart.times[i] ?? null));
   const colorOf = (id: number | null) => projectColor(projectOf(projects, id));
-  const nameOf = (id: number | null) => projectOf(projects, id)?.name ?? m.spend.noProject;
+  const nameOf = (id: number | null) => projectOf(projects, id)?.name ?? m.tokens.noProject;
   return (
     <section
-      aria-label={m.spend.chart(hhmm(chart.start), hhmm(chart.end))}
+      aria-label={m.tokens.chart(hhmm(chart.start), hhmm(chart.end))}
       className="border-b px-5 pt-4 pb-3 max-lg:px-3"
     >
       <div className="flex flex-wrap items-end gap-x-8 gap-y-2">
         <dl className="flex gap-x-6">
-          <Figure label={m.spend.today} value={costLabel(spend.todayUsd)} />
-          <Figure label={m.spend.rate} value={costPerHourLabel(spend.perHourUsd)} />
+          <Figure label={m.tokens.today} value={tokensLabel(tokens.today)} />
+          <Figure label={m.tokens.rate} value={tokensPerHourLabel(tokens.perHour)} />
         </dl>
         <p aria-hidden className="mb-0.5 h-4 min-w-0 flex-1 text-xs">
           {slot >= 0 ? (
             <SlotDetail chart={chart} slot={slot} colorOf={colorOf} nameOf={nameOf} />
           ) : (
             <span className="text-muted-foreground">
-              {chart.total > 0 && m.spend.hint(SPEND_BUCKET_MS / MINUTE)}
+              {chart.total > 0 && m.tokens.hint(TOKEN_BUCKET_MS / MINUTE)}
             </span>
           )}
         </p>
@@ -93,10 +93,7 @@ export function SpendBand({
           )}
         </ul>
       </figure>
-      <p className="mt-1 text-muted-foreground text-xs">
-        {m.spend.note}
-        {spend.unpriced && <span className="block">{m.spend.unpriced}</span>}
-      </p>
+      <p className="mt-1 text-muted-foreground text-xs">{m.tokens.note}</p>
     </section>
   );
 }
@@ -123,7 +120,7 @@ function Plot({
   onPoint,
   colorOf,
 }: {
-  chart: SpendChart;
+  chart: TokenChart;
   paths: LayerPath[];
   pointed: number;
   onPoint: (slot: number | null) => void;
@@ -176,7 +173,7 @@ function Plot({
           className="stroke-border"
         />
       </svg>
-      <NowDot top={HEADROOM_PX + spendY(chart.total, DRAW_PX)(chart.total)} />
+      <NowDot top={HEADROOM_PX + tokenY(chart.total, DRAW_PX)(chart.total)} />
     </div>
   );
 }
@@ -215,7 +212,7 @@ function NowDot({ top }: { top: number }) {
 }
 
 /**
- * Each band's name and spend beside its end, in its color's swatch, `ink` amount and `muted-ink`
+ * Each band's name and tokens beside its end, in its color's swatch, `ink` amount and `muted-ink`
  * name. Labels are pushed apart where bands are thin; the smallest bands get none when they
  * don't fit (`labelPositions`).
  */
@@ -225,7 +222,7 @@ function EndLabels({
   colorOf,
   nameOf,
 }: {
-  chart: SpendChart;
+  chart: TokenChart;
   paths: LayerPath[];
   colorOf: (projectId: number | null) => string;
   nameOf: (projectId: number | null) => string;
@@ -253,7 +250,7 @@ function EndLabels({
               style={{ background: colorOf(p.projectId) }}
             />
             <span className="min-w-0 truncate text-muted-foreground">{nameOf(p.projectId)}</span>
-            <span className="ml-auto font-num">{costLabel(layer?.total ?? 0)}</span>
+            <span className="ml-auto font-num">{tokensLabel(layer?.total ?? 0)}</span>
           </li>
         );
       })}
@@ -262,7 +259,7 @@ function EndLabels({
 }
 
 /** Hours under the plot, every 1–6 hours as the span needs, and "Now" in indigo at the right. */
-function Axis({ chart }: { chart: SpendChart }) {
+function Axis({ chart }: { chart: TokenChart }) {
   const m = liveMessages();
   return (
     <div aria-hidden className="relative mt-1.5 h-4 font-num text-muted-foreground text-xs">
@@ -271,9 +268,9 @@ function Axis({ chart }: { chart: SpendChart }) {
           {hhmm(t)}
         </span>
       ))}
-      {/* The left end names where the chart starts, which moves with the day's first spend */}
+      {/* The left end names where the chart starts, which moves with the day's first use */}
       <span className="absolute left-0">{hhmm(chart.start)}</span>
-      <span className="absolute right-0 translate-x-1/2 text-primary">{m.spend.now}</span>
+      <span className="absolute right-0 translate-x-1/2 text-primary">{m.tokens.now}</span>
     </div>
   );
 }
@@ -285,7 +282,7 @@ function SlotDetail({
   colorOf,
   nameOf,
 }: {
-  chart: SpendChart;
+  chart: TokenChart;
   slot: number;
   colorOf: (projectId: number | null) => string;
   nameOf: (projectId: number | null) => string;
@@ -293,14 +290,14 @@ function SlotDetail({
   return (
     <span className="flex items-baseline gap-x-3 overflow-hidden whitespace-nowrap">
       <span className="font-num">{slotHeading(chart, slot)}</span>
-      {slotSpend(chart, slot).parts.map((s) => (
+      {slotTokens(chart, slot).parts.map((s) => (
         <span key={s.projectId ?? "none"} className="flex items-center gap-1 text-muted-foreground">
           <span
             className="size-1.5 shrink-0 rounded-full"
             style={{ background: colorOf(s.projectId) }}
           />
           {nameOf(s.projectId)}
-          <span className="font-num">{costLabel(s.usd)}</span>
+          <span className="font-num">{tokensLabel(s.tokens)}</span>
         </span>
       ))}
     </span>

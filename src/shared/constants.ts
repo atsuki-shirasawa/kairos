@@ -17,7 +17,7 @@ export const OPEN_ITEM_OLD_WEEKS = 4;
 /** Shortest search query (in characters) that is run; shorter ones match nearly everything. */
 export const MIN_SEARCH_CHARS = 2;
 
-/** How far back the live page's per-hour spend looks: long enough to span a few requests. */
+/** How far back the live page's per-hour rates look: long enough to span a few requests. */
 export const LIVE_RATE_WINDOW_MS = 15 * MINUTE;
-/** Width of one step in the live page's spend chart, which covers today from local midnight. */
-export const SPEND_BUCKET_MS = 5 * MINUTE;
+/** Width of one step in the live page's token chart, which covers today from local midnight. */
+export const TOKEN_BUCKET_MS = 5 * MINUTE;

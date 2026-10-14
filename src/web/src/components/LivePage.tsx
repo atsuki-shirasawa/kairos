@@ -19,13 +19,13 @@ import {
 import { projectOf } from "@/lib/selection.ts";
 import { cn } from "@/lib/utils.ts";
 import { CardFooter, RowCache } from "./live/CardUsage.tsx";
-import { SpendBand } from "./live/SpendBand.tsx";
+import { TokenBand } from "./live/TokenBand.tsx";
 
 /**
  * The page of Claude Code sessions running now, in three columns: what waits on you, what is
  * working, and what was left idle. Each card is a small work block with what the log says about
- * the session's current state and cost; clicking it opens the latest work block in the drawer.
- * A band above the columns shows what all sessions spend.
+ * the session's current state and tokens; clicking it opens the latest work block in the drawer.
+ * A band above the columns shows the tokens all sessions use.
  */
 export function LivePage({
   live,
@@ -47,8 +47,8 @@ export function LivePage({
   // Loading, or the server is gone (the app's disconnected notice says so): claiming that
   // nothing runs would be wrong either way
   if (!live) return <div className="min-h-0 flex-1 bg-card" />;
-  // Spend comes from the logs, so the band stays when the registry can't be read
-  const band = <SpendBand spend={live.spend} projects={projects} />;
+  // Tokens come from the logs, so the band stays when the registry can't be read
+  const band = <TokenBand tokens={live.tokens} projects={projects} />;
   if (!live.available) return <PageNote band={band}>{m.unavailable}</PageNote>;
   if (sessions.length === 0) return <PageNote band={band}>{m.nothingRunning}</PageNote>;
   const byColumn = groupByColumn(sessions, now);
@@ -148,7 +148,7 @@ function ColumnHeader({ column, count }: { column: LiveColumnId; count: number }
 
 /**
  * A message in place of the columns (nothing running, or the registry can't be read), under the
- * spend band.
+ * token band.
  */
 function PageNote({ band, children }: { band: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -311,7 +311,7 @@ function CardHeading({
 
 /**
  * What the session is doing now: the question it asks, or the call it runs; then its tasks, the
- * last test, and Claude Code's recap while it waits. Context and cost go in the footer.
+ * last test, and Claude Code's recap while it waits. Context and tokens go in the footer.
  */
 function CardNow({ session: s, display }: { session: LiveSession; display: LiveDisplay }) {
   const m = liveMessages();

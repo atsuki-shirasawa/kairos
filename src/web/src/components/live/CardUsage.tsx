@@ -2,7 +2,7 @@ import type { LiveSession, LiveUsage } from "@shared/api.ts";
 import { MINUTE } from "@shared/dates.ts";
 import { liveMessages } from "@/i18n/messages/live.ts";
 import { durationLabel } from "@/lib/dates.ts";
-import { costLabel, costPerHourLabel, modelLabel, tokensLabel, windowLabel } from "@/lib/format.ts";
+import { modelLabel, tokensLabel, tokensPerHourLabel, windowLabel } from "@/lib/format.ts";
 import {
   CONTEXT_FULL_SHARE,
   cacheState,
@@ -13,8 +13,8 @@ import {
 import { cn } from "@/lib/utils.ts";
 
 /**
- * The card's footer, under a rule: the context against its window and the model, then what the
- * current block cost with the rate at the right while working, then the prompt cache when not.
+ * The card's footer, under a rule: the context against its window and the model, then the current
+ * block's tokens, with the rate at the right while working and the prompt cache's state when not.
  * These are a gauge rather than the news, so they sit apart from what the session is doing.
  * Nothing when there is nothing to gauge yet.
  */
@@ -29,7 +29,6 @@ export function CardFooter({
 }) {
   const m = liveMessages();
   const usage = s.usage;
-  const cost = usage?.cost;
   // A session not in the log yet says so in the card's body instead
   if (s.section === null || (!usage && s.contextTokens === null)) return null;
   return (
@@ -47,15 +46,16 @@ export function CardFooter({
         {usage && <span className="ml-auto">{modelLabel(usage.model)}</span>}
         {usage?.fast && <span className="rounded-md border px-1 leading-4">{m.fast}</span>}
       </p>
-      {cost && (
+      {usage && (
         <p className="flex items-baseline gap-x-1.5">
-          <span className="font-num">{m.blockCost(costLabel(cost.blockUsd))}</span>
-          {display === "working" && (
-            <span className="ml-auto font-num">{costPerHourLabel(cost.perHourUsd)}</span>
+          <span className="font-num">{m.blockTokens(tokensLabel(usage.blockTokens))}</span>
+          {display === "working" ? (
+            <span className="ml-auto font-num">{tokensPerHourLabel(usage.perHourTokens)}</span>
+          ) : (
+            <CacheState usage={usage} warnSoon={columnOf(display) === "attention"} now={now} />
           )}
         </p>
       )}
-      {usage && display !== "working" && <CacheLine usage={usage} display={display} now={now} />}
     </div>
   );
 }
@@ -96,62 +96,38 @@ function ContextGauge({
 }
 
 /**
- * The prompt cache of a session not working: how long it stays warm and what the next request
- * costs before and after, or that it lapsed and what resuming costs. Its countdown turns `warn`
- * in On you when little is left: answering now is the cheap way.
+ * The prompt cache of a session not working, at the right of its line: how long it stays warm, or
+ * that it lapsed, when a reply rewrites the whole context. With `warnSoon` (On you) its countdown
+ * turns `warn` when little is left: answering now is when the cache still holds. Nothing when the
+ * log holds no cache write.
  */
-function CacheLine({
+function CacheState({
   usage,
-  display,
+  warnSoon,
   now,
 }: {
   usage: LiveUsage;
-  display: LiveDisplay;
+  warnSoon: boolean;
   now: number;
 }) {
   const m = liveMessages();
   const cache = cacheState(usage, now);
-  const cost = usage.cost;
   if (!cache) return null;
-  if (!cache.warm)
-    return (
-      <p className="flex flex-wrap items-baseline gap-x-1.5">
-        <span>{m.cacheExpired}</span>
-        {cost && (
-          <span className="ml-auto font-num">{m.resumeCost(costLabel(cost.coldRequestUsd))}</span>
-        )}
-      </p>
-    );
-  const soon = columnOf(display) === "attention" && cache.soon;
   return (
-    <p className="flex flex-wrap items-baseline gap-x-1.5">
-      <span className={cn("font-num", soon && "text-warn")}>
-        {m.cacheLeft(cacheLeftLabel(cache.leftMs))}
-      </span>
-      {cost && (
-        <span className="ml-auto font-num">
-          {m.nextCost(costLabel(cost.warmRequestUsd), costLabel(cost.coldRequestUsd))}
-        </span>
+    <span
+      className={cn(
+        "ml-auto shrink-0 font-num",
+        warnSoon && cache.warm && cache.soon && "text-warn",
       )}
-    </p>
+    >
+      {cache.warm ? m.cacheLeft(cacheLeftLabel(cache.leftMs)) : m.cacheExpired}
+    </span>
   );
 }
 
-/**
- * The cache's state for an idle row, at the right of its place line: how long it stays warm, or
- * what resuming costs once it lapsed. Nothing when the log holds no cache write.
- */
+/** The cache's state for an idle row, at the right of its place line, never in `warn`. */
 export function RowCache({ session: s, now }: { session: LiveSession; now: number }) {
-  const m = liveMessages();
-  const cache = s.usage && cacheState(s.usage, now);
-  if (!cache) return null;
-  const cold = s.usage?.cost?.coldRequestUsd;
-  const text = cache.warm
-    ? m.cacheLeft(cacheLeftLabel(cache.leftMs))
-    : cold === undefined
-      ? m.cacheExpired
-      : m.resumeCost(costLabel(cold));
-  return <span className="ml-auto shrink-0 font-num">{text}</span>;
+  return s.usage ? <CacheState usage={s.usage} warnSoon={false} now={now} /> : null;
 }
 
 /** Time left on the cache, rounded up to the minute so the last seconds don't read "0m". */

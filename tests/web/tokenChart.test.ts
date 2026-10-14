@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { SPEND_BUCKET_MS } from "../../src/shared/constants.ts";
+import { TOKEN_BUCKET_MS } from "../../src/shared/constants.ts";
 import {
   axisTicks,
   labelPositions,
@@ -9,29 +9,29 @@ import {
   slotBox,
   slotHeading,
   slotSpeech,
-  spendChart,
-  spendY,
-} from "../../src/web/src/lib/spendChart.ts";
+  tokenChart,
+  tokenY,
+} from "../../src/web/src/lib/tokenChart.ts";
 
 const at = (h: number, min = 0) => new Date(2026, 9, 14, h, min).getTime();
 const MIDNIGHT = at(0);
 
-/** Buckets from midnight up to `now`, with `spent` placed in the buckets holding those times. */
-function buckets(now: number, spent: [number, number | null, number][]) {
-  const list: { projectId: number | null; usd: number }[][] = Array.from(
-    { length: Math.max(1, Math.ceil((now - MIDNIGHT) / SPEND_BUCKET_MS)) },
+/** Buckets from midnight up to `now`, with `used` placed in the buckets holding those times. */
+function buckets(now: number, used: [number, number | null, number][]) {
+  const list: { projectId: number | null; tokens: number }[][] = Array.from(
+    { length: Math.max(1, Math.ceil((now - MIDNIGHT) / TOKEN_BUCKET_MS)) },
     () => [],
   );
-  for (const [t, projectId, usd] of spent) {
-    list[Math.floor((t - MIDNIGHT) / SPEND_BUCKET_MS)]?.push({ projectId, usd });
+  for (const [t, projectId, tokens] of used) {
+    list[Math.floor((t - MIDNIGHT) / TOKEN_BUCKET_MS)]?.push({ projectId, tokens });
   }
   return { from: MIDNIGHT, to: now, buckets: list };
 }
 
-describe("spendChart", () => {
-  test("starts on the hour of the day's first spend and adds up each project", () => {
+describe("tokenChart", () => {
+  test("starts on the hour of the day's first use and adds up each project", () => {
     const now = at(15, 12);
-    const chart = spendChart(
+    const chart = tokenChart(
       buckets(now, [
         [at(9, 41), 1, 1],
         [at(11, 2), 2, 3],
@@ -55,9 +55,9 @@ describe("spendChart", () => {
 
   test("spans at least the last three hours, but not before midnight", () => {
     const earliest = new Date(at(15, 12) - MIN_SPAN_MS).setMinutes(0, 0, 0);
-    expect(spendChart(buckets(at(15, 12), [[at(14, 0), 1, 1]])).start).toBe(earliest);
-    expect(spendChart(buckets(at(15, 12), [])).start).toBe(earliest);
-    expect(spendChart(buckets(at(1, 20), [])).start).toBe(MIDNIGHT);
+    expect(tokenChart(buckets(at(15, 12), [[at(14, 0), 1, 1]])).start).toBe(earliest);
+    expect(tokenChart(buckets(at(15, 12), [])).start).toBe(earliest);
+    expect(tokenChart(buckets(at(1, 20), [])).start).toBe(MIDNIGHT);
   });
 });
 
@@ -115,7 +115,7 @@ describe("labelPositions", () => {
 
 describe("layerPaths", () => {
   test("stacks each band on the ones below it and ends at the chart's total", () => {
-    const chart = spendChart(
+    const chart = tokenChart(
       buckets(at(15, 0), [
         [at(13, 0), 1, 2],
         [at(14, 0), 2, 2],
@@ -128,8 +128,8 @@ describe("layerPaths", () => {
     expect(second?.edge.endsWith("100.00,0.00")).toBe(true);
   });
 
-  test("draws nothing spent on the floor", () => {
-    const chart = spendChart(buckets(at(15, 0), []));
+  test("draws nothing used on the floor", () => {
+    const chart = tokenChart(buckets(at(15, 0), []));
     expect(layerPaths(chart, 100, 100)).toEqual([]);
     expect(chart.total).toBe(0);
   });
@@ -137,24 +137,22 @@ describe("layerPaths", () => {
 
 describe("slots", () => {
   const now = at(15, 7);
-  const chart = spendChart(
+  const chart = tokenChart(
     buckets(now, [
-      [at(13, 2), 1, 0.5],
+      [at(13, 2), 1, 50_000],
       // Largest first within a slot, as the server sends it
-      [at(15, 6), 2, 0.5],
-      [at(15, 6), 1, 0.25],
+      [at(15, 6), 2, 500_000],
+      [at(15, 6), 1, 250_000],
     ]),
   );
 
   test("a slot reads its time range and what it added, the one in progress ending now", () => {
     const first = slotAtShare(chart, 0);
     if (first === null) throw new Error("no slot");
-    expect(slotHeading(chart, chart.times.indexOf(at(13)))).toBe("13:00–13:05 +$0.50");
+    expect(slotHeading(chart, chart.times.indexOf(at(13)))).toBe("13:00–13:05 +50.0k");
     const last = chart.times.length - 2;
-    expect(slotHeading(chart, last)).toBe("15:05–15:07 +$0.75");
-    expect(slotSpeech(chart, last, (id) => `p${id}`)).toBe(
-      "15:05–15:07 +$0.75: p2 $0.50, p1 $0.25",
-    );
+    expect(slotHeading(chart, last)).toBe("15:05–15:07 +750k");
+    expect(slotSpeech(chart, last, (id) => `p${id}`)).toBe("15:05–15:07 +750k: p2 500k, p1 250k");
   });
 
   test("a point on the chart picks the slot under it, the right end the slot in progress", () => {
@@ -165,14 +163,14 @@ describe("slots", () => {
 
   test("a slot's box spans its share of the width", () => {
     const span = chart.end - chart.start;
-    expect(slotBox(chart, 0)).toEqual({ left: 0, width: SPEND_BUCKET_MS / span });
+    expect(slotBox(chart, 0)).toEqual({ left: 0, width: TOKEN_BUCKET_MS / span });
     expect(slotBox(chart, chart.times.length - 1)).toBeNull();
     expect(slotBox(chart, -1)).toBeNull();
   });
 });
 
-test("spend maps onto the height, with nothing spent on the floor", () => {
-  expect(spendY(4, 100)(1)).toBe(75);
-  expect(spendY(4, 100)(4)).toBe(0);
-  expect(spendY(0, 100)(0)).toBe(100);
+test("tokens map onto the height, with nothing used on the floor", () => {
+  expect(tokenY(4, 100)(1)).toBe(75);
+  expect(tokenY(4, 100)(4)).toBe(0);
+  expect(tokenY(0, 100)(0)).toBe(100);
 });

@@ -242,7 +242,7 @@ A work block's fill is the project color mixed into `block-base` in `oklch`:
   exceptions are the section summary's Resolved, Open and Next, its "Settled from earlier", or an
   older body's Outcome (15px, relaxed leading, because that is where you read; its Goal takes the 17px title size at
   regular weight), the
-  summary's totals (their three tiers), the live band's two amounts (17px medium), the wordmark, and count
+  summary's totals (their three tiers), the live band's two figures (17px medium), the wordmark, and count
   badges too small for 11px
 - **Two tones:** `ink` and `muted-ink`. Don't step between them with `text-foreground/80` and the
   like; if something needs to stand out from muted text, set it in `ink`. `muted-ink` at 60% is
@@ -453,14 +453,13 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   and neutral, so it doesn't read as the tasks' bar), `warn` (bar and words) from 80% of the window
   in On you only, where the next prompt is the time to compact or clear, with the model and a
   "Fast" badge (styled like the Background one) at the right when fast mode multiplies it; then the
-  current block's cost, with the spend rate at the right while working. A card not working adds the prompt cache: how long it
-  stays warm, with what the next request costs now and once it expires at the right ("Next ≈ $0.01,
-  $0.49 once it expires": the gap is the point, a late reply rewrites the whole context), or "Cache
-  expired" with what resuming costs. In On you its countdown turns `warn` in the last sixth of the cache's TTL (10 minutes of
-  an hour), the one
-  moment the cost asks something of you; elsewhere it stays `muted-ink`, or a column of idle
-  sessions would all call for you. An idle row ends its place line with the same, shortened
-  ("Cache 8m left" / "Resume ≈ $0.35"). Working pulses the
+  current block's tokens ("This block 2.1M"), with the rate in tokens per hour at the right while
+  working, or the prompt cache while not: how long it stays warm ("Cache 57m left"), or "Cache
+  expired", when a reply rewrites the whole context. In On you its countdown turns `warn` in the
+  last sixth of the cache's TTL (10 minutes of an hour), the one moment the cache asks something of
+  you; elsewhere it stays `muted-ink`, or a column of idle sessions would all call for you. An idle
+  row ends its place line with the same. The page shows tokens rather than cost: they are what the
+  logs record, without a price list's estimate in between. Working pulses the
   dot in the project color, asking is a solid `warn` dot with its state word in `warn`, waiting and
   idle are a `muted-ink` ring. No opacity: cards stay readable. The title is the card's button;
   clicking anywhere else on the card does the same unless it ends a text selection, so a question or
@@ -469,28 +468,30 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   content (no pointer, no hover fill). Only a card or row that opens takes a hover fill (`input` on a card, `muted` on an idle row),
   and keyboard focus on its title draws the 2px `ring` outline around the card. The tab title leads
   with the number waiting on you ("(2) Kairos"), so a background tab still says so. Above the
-  columns, a band separated by a `line` rule holds the page's money. At the top left, "Today" and
-  "Rate" each as a 12px `muted-ink` label over its amount in the 17px medium numeral face; beside
-  them a 12px line that names what pointing shows. Under them, across the page, the day's spend as it climbed: one band per
+  columns, a band separated by a `line` rule holds the page's tokens. At the top left, "Tokens
+  today" and "Rate" (per hour) each as a 12px `muted-ink` label over its figure in the 17px medium
+  numeral face; beside them a 12px line that names what pointing shows. Under them, across the
+  page, the day's tokens as they climbed: one band per
   project stacked from the floor (largest at the bottom), each the project's block fill
   (`--mix-block` into `block-base`, as on the calendar) under a 1.5px line in the full project color
-  along its top, so the height at the right end is today's spend and the slope is the pace. A spike
+  along its top, so the height at the right end is today's total and the slope is the pace. A spike
   is a steep climb rather than a bar that flattens every other slot, which the 5-minute bars this
-  replaced did. Within a 5-minute slot a band rises in a straight line, since its spend came in over
-  those minutes. The chart starts on the whole hour before the day's first spend, but spans at least
+  replaced did. Within a 5-minute slot a band rises in a straight line, since its tokens came in over
+  those minutes. The chart starts on the whole hour before the day's first use, but spans at least
   the last three hours and never starts before midnight (the figures count from there), on a `line`
   floor, 112px tall. Where the top edge meets the right end sits the calendar's indigo now dot,
   ringed by the surface, with "Now" under it in `primary`; the start time is at the left end and
   hours between in 12px `numeral` `muted-ink`, every 1–6 hours as the span needs. Each band is
   named at its end, in a column to the right (no legend): a 4×10px swatch in its color, its name in
-  `muted-ink` and what it spent in `ink` numerals, pushed apart where bands are thin, the smallest
+  `muted-ink` and its tokens in `ink` numerals, pushed apart where bands are thin, the smallest
   left unnamed when they don't fit. Pointing at the chart (a tap on touch screens, which toggles)
   lights the 5-minute slot under it as a `muted` column and swaps the line beside the figures for
   the slot's time range and what it added in `ink` numerals, then each project's color dot, name
-  and amount in `muted-ink`. Under the chart, the page's one caveat in 12px `muted-ink`: amounts are
-  estimates at API list prices (with a second line when some model has no price and is left out).
-  It counts every visible session, not only the running ones, and the band stays, with the caveat,
-  when nothing runs or the registry can't be read
+  and tokens in `muted-ink`. Under the chart, one note in 12px `muted-ink`: cache reads are counted
+  and usually make up most of the total, which would otherwise look implausibly large. Tokens are
+  every token column, as the drawer's "Tokens" counts them. It counts every visible session, not
+  only the running ones, and the band stays, with its note, when nothing runs or the registry can't
+  be read
 - **Mark:** `src/web/public/favicon.svg` — a circle with a dawn → evening → night gradient cut by a
   diagonal blade (Kairos stands on a razor's edge: cutting out a single moment). The background
   shows through the gap, so it reads on light and dark tabs; the gap stays open at 16px. Used for

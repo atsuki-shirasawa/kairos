@@ -48,35 +48,30 @@ export const liveMessages = defineMessages({
     contextOf: (tokens: string, window: string) => `Context ${tokens} / ${window}`,
     startedAt: (time: string) => `Started ${time}`,
     notIngested: "Not in the log yet",
-    /** What the current work block has cost so far. */
-    blockCost: (cost: string) => `This block ${cost}`,
+    /** The tokens of the current work block so far. */
+    blockTokens: (tokens: string) => `This block ${tokens}`,
     fast: "Fast",
     cacheLeft: (left: string) => `Cache ${left} left`,
     cacheExpired: "Cache expired",
-    /** What a reply costs now, and what it costs once the cache has lapsed. */
-    nextCost: (warm: string, cold: string) => `Next ≈ ${warm}, ${cold} once it expires`,
-    /** The first request after the cache lapsed: it writes the whole context again. */
-    resumeCost: (cost: string) => `Resume ≈ ${cost}`,
-    spend: {
-      today: "Today",
-      /** The spend rate over the last minutes. */
+    tokens: {
+      today: "Tokens today",
+      /** Tokens per hour over the last minutes. */
       rate: "Rate",
       /** The chart's right end, the current time. */
       now: "Now",
-      /** The band's caveat, said once for every amount on the page. */
-      note: "Estimated at API list prices, not your bill",
-      unpriced: "Models without a price are left out",
+      /** The band's one note: why the totals run so large. */
+      note: "Cache reads included, usually most of the total",
       /** Above the chart while nothing is pointed at: what pointing shows. */
       hint: (minutes: number) => `Point at the chart for a ${minutes}-minute breakdown`,
-      /** A project's share of the chart, for screen readers ("atlas $6.10"). */
-      layer: (name: string, cost: string) => `${name} ${cost}`,
-      /** Spend of sessions not tied to a project, in the chart's labels and a slot's split. */
+      /** A project's share of the chart, for screen readers ("atlas 210M"). */
+      layer: (name: string, tokens: string) => `${name} ${tokens}`,
+      /** Tokens of sessions not tied to a project, in the chart's labels and a slot's split. */
       noProject: "No project",
       /** The chart, for screen readers. */
-      chart: (from: string, to: string) => `Spend by project from ${from} to ${to}`,
+      chart: (from: string, to: string) => `Tokens by project from ${from} to ${to}`,
       /** A slot of the chart and what it added. */
-      slot: (from: string, to: string, cost: string) => `${from}–${to} +${cost}`,
-      /** A slot with its split by project ("atlas $0.80"), for screen readers. */
+      slot: (from: string, to: string, tokens: string) => `${from}–${to} +${tokens}`,
+      /** A slot with its split by project ("atlas 1.2M"), for screen readers. */
       slotSplit: (slot: string, parts: string[]) => `${slot}: ${parts.join(", ")}`,
     },
   },
@@ -112,23 +107,20 @@ export const liveMessages = defineMessages({
     contextOf: (tokens: string, window: string) => `コンテキスト ${tokens} / ${window}`,
     startedAt: (time: string) => `${time} 開始`,
     notIngested: "まだログに記録されていません",
-    blockCost: (cost: string) => `このブロック ${cost}`,
+    blockTokens: (tokens: string) => `このブロック ${tokens}`,
     fast: "Fast",
     cacheLeft: (left: string) => `キャッシュ残り ${left}`,
     cacheExpired: "キャッシュ切れ",
-    nextCost: (warm: string, cold: string) => `次 ≈ ${warm}、切れた後は ${cold}`,
-    resumeCost: (cost: string) => `再開 ≈ ${cost}`,
-    spend: {
-      today: "今日",
+    tokens: {
+      today: "今日のトークン",
       rate: "ペース",
       now: "現在",
-      note: "API 定価での推定で、実際の請求額ではありません",
-      unpriced: "価格不明のモデルの分は含みません",
+      note: "キャッシュ読み込みを含みます（多くの場合、合計の大半）",
       hint: (minutes: number) => `グラフを指すと ${minutes} 分ごとの内訳を表示`,
-      layer: (name: string, cost: string) => `${name} ${cost}`,
+      layer: (name: string, tokens: string) => `${name} ${tokens}`,
       noProject: "プロジェクトなし",
-      chart: (from: string, to: string) => `${from}〜${to} のプロジェクト別の支出`,
-      slot: (from: string, to: string, cost: string) => `${from}〜${to} +${cost}`,
+      chart: (from: string, to: string) => `${from}〜${to} のプロジェクト別のトークン`,
+      slot: (from: string, to: string, tokens: string) => `${from}〜${to} +${tokens}`,
       slotSplit: (slot: string, parts: string[]) => `${slot}：${parts.join("、")}`,
     },
   },

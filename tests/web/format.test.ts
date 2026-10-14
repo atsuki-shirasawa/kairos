@@ -11,6 +11,7 @@ import {
   sumActivity,
   sumUsage,
   tokensLabel,
+  tokensPerHourLabel,
   troubleCount,
   troubleDetail,
   windowLabel,
@@ -23,7 +24,28 @@ describe("windowLabel", () => {
   });
 });
 
+describe("tokensPerHourLabel", () => {
+  test("rounds a fractional rate before abbreviating it", () => {
+    expect([0, 999.6, 1234.6, 38_000_000].map(tokensPerHourLabel)).toEqual([
+      "0/h",
+      "1.0k/h",
+      "1.2k/h",
+      "38.0M/h",
+    ]);
+  });
+});
+
 describe("tokensLabel", () => {
+  test("steps up where the rounded value would reach the next unit", () => {
+    expect([99_949, 99_950, 999_499, 999_700, 999_960_000].map(tokensLabel)).toEqual([
+      "99.9k",
+      "100k",
+      "999k",
+      "1.0M",
+      "1.00B",
+    ]);
+  });
+
   test("abbreviates to k, M, and B by magnitude", () => {
     expect([950, 24_800, 893_300, 6_000_000, 1_548_800_000].map(tokensLabel)).toEqual([
       "950",

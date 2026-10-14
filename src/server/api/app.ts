@@ -14,9 +14,9 @@ import type {
 } from "../../shared/api.ts";
 import { DEFAULT_SUMMARY_LANG } from "../../shared/summaryLang.ts";
 import type { EventHub } from "../events.ts";
-import { liveSpend } from "../live/cost.ts";
 import type { RegistryEntry } from "../live/registry.ts";
 import { liveSessions } from "../live/sessions.ts";
+import { liveTokens } from "../live/usage.ts";
 import { Queries } from "../queries/index.ts";
 import {
   storedShowHeadless,
@@ -187,7 +187,7 @@ export function createApp({ db, events, summarizer, live, now, hiddenCwds }: App
     return c.json<LiveResponse>({
       available: live?.available ?? false,
       sessions: live ? liveSessions(db, live.entries(), visibility, at) : [],
-      spend: liveSpend(db, visibility, at),
+      tokens: liveTokens(db, visibility, at),
     });
   });
 

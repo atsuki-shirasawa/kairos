@@ -52,14 +52,14 @@ export function useCalendar(from: number, to: number, enabled = true) {
 }
 
 /**
- * How often the live data is refetched with no event: the spend band's rate and bars are as of the
+ * How often the live data is refetched with no event: the token band's rate and chart are as of the
  * fetch, so a quiet hour would otherwise keep showing the last busy minutes as "now".
  */
 const LIVE_REFRESH_MS = MINUTE;
 
 /**
- * Claude Code sessions running now and what they spend. Refetched on live.updated and
- * sessions.updated, and every minute so the spend band moves on while nothing happens.
+ * Claude Code sessions running now and the tokens they use. Refetched on live.updated and
+ * sessions.updated, and every minute so the token band moves on while nothing happens.
  */
 export function useLive() {
   return useQuery({ queryKey: keys.live, queryFn: api.live, refetchInterval: LIVE_REFRESH_MS });
@@ -172,7 +172,7 @@ export function useShowHeadless(): [
     onSuccess: (settings) => {
       client.setQueryData(keys.settings, settings);
       void client.invalidateQueries({ queryKey: keys.allCalendar });
-      // The live page lists sessions and counts spend by the same visibility
+      // The live page lists sessions and counts tokens by the same visibility
       void client.invalidateQueries({ queryKey: keys.live });
     },
   });
@@ -218,7 +218,7 @@ export function useUpdateProject() {
     onSuccess: () =>
       Promise.all([
         client.invalidateQueries({ queryKey: keys.allCalendar }),
-        // The spend band leaves hidden projects out on the server
+        // The token band leaves hidden projects out on the server
         client.invalidateQueries({ queryKey: keys.live }),
       ]),
   });

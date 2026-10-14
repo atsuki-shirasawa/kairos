@@ -1,6 +1,6 @@
 // Token usage and its cost: the per-model totals the usage table is summed into, and how they
-// become the API's `Usage`. The drawer's blocks and the live page both read it from here, so their
-// costs agree.
+// become the API's `Usage`. The live page's SQL counts tokens and context with `tokensSql` and
+// `contextSql` from here, so its totals agree with the drawer's.
 import type { Database } from "bun:sqlite";
 import type { Usage } from "../../shared/api.ts";
 import { costOf } from "../pricing.ts";
@@ -30,8 +30,35 @@ const USAGE_COLUMNS = [
  * column of the same name, so every usage query yields the `UsageRow` shape.
  */
 export function usageSums(alias?: string): string {
-  const column = (c: string) => (alias ? `${alias}.${c}` : c);
-  return USAGE_COLUMNS.map((c) => `SUM(${column(c)}) AS ${c}`).join(", ");
+  return USAGE_COLUMNS.map((c) => `SUM(${qualified(alias, c)}) AS ${c}`).join(", ");
+}
+
+/**
+ * SQL expression for a usage row's tokens: every token column added up, the same total
+ * `toUsage` counts as `tokens`.
+ */
+export function tokensSql(alias?: string): string {
+  return USAGE_COLUMNS.map((c) => qualified(alias, c)).join(" + ");
+}
+
+/**
+ * SQL expression for a response's context size: every token it read, which is all the columns but
+ * `output` (what it wrote).
+ */
+export function contextSql(alias?: string): string {
+  return USAGE_COLUMNS.filter((c) => c !== "output")
+    .map((c) => qualified(alias, c))
+    .join(" + ");
+}
+
+/** A row's tokens: every token column, as `tokensSql` adds them up in SQL. */
+function rowTokens(r: UsageRow): number {
+  return USAGE_COLUMNS.reduce((n, c) => n + r[c], 0);
+}
+
+/** A token column under the table alias, if any. */
+function qualified(alias: string | undefined, column: string): string {
+  return alias ? `${alias}.${column}` : column;
 }
 
 /** Combines per-model, per-speed totals into one and converts them to cost. */
@@ -54,7 +81,7 @@ export function toUsage(rows: UsageRow[]): Usage | null {
     u.output += r.output;
     u.cacheRead += r.cache_read;
     u.cacheWrite += cacheWrite;
-    u.tokens += r.input + r.output + r.cache_read + cacheWrite;
+    u.tokens += rowTokens(r);
     const cost = costOf(
       r.model,
       {

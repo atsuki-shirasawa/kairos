@@ -478,44 +478,35 @@ export interface LiveUsage {
   cacheExpiresAt: number | null;
   /** That TTL in milliseconds; null with no cache writes. */
   cacheTtlMs: number | null;
-  /** null when the model has no price. */
-  cost: LiveCost | null;
+  /** Tokens of the current work block so far, including subagents. */
+  blockTokens: number;
+  /** Tokens over the last `LIVE_RATE_WINDOW_MS`, as tokens per hour. */
+  perHourTokens: number;
 }
 
-/** What a running session has cost and what its next request will. */
-export interface LiveCost {
-  /** The current work block so far, including subagents. */
-  blockUsd: number;
-  /** Spend over the last `LIVE_RATE_WINDOW_MS`, as USD per hour. */
-  perHourUsd: number;
-  /** Reading the current context from a warm cache: the least each request pays. */
-  warmRequestUsd: number;
-  /** Writing the current context to the cache again, as the first request after it lapsed does. */
-  coldRequestUsd: number;
-}
-
-/** Spend across visible sessions, running or not, for the band above the live page's columns. */
-export interface LiveSpend {
+/**
+ * Tokens across visible sessions, running or not, for the band above the live page's columns.
+ * Tokens count every token column, cache reads included, as `Usage.tokens` does.
+ */
+export interface LiveTokens {
   /** Since local midnight. */
-  todayUsd: number;
-  /** Over the last `LIVE_RATE_WINDOW_MS`, as USD per hour. */
-  perHourUsd: number;
+  today: number;
+  /** Over the last `LIVE_RATE_WINDOW_MS`, as tokens per hour. */
+  perHour: number;
   /**
-   * Start of the first bucket: local midnight, on a whole `SPEND_BUCKET_MS`. Buckets are that long,
+   * Start of the first bucket: local midnight, on a whole `TOKEN_BUCKET_MS`. Buckets are that long,
    * oldest first, up to now; the last is in progress.
    */
   from: number;
-  /** When the figures were taken: the end of the last bucket's spend so far. */
+  /** When the figures were taken: the end of the last bucket so far. */
   to: number;
-  /** Each bucket's spend by project (null for sessions without one), largest first. */
-  buckets: { projectId: number | null; usd: number }[][];
-  /** Some usage was by a model with no price and is left out. */
-  unpriced: boolean;
+  /** Each bucket's tokens by project (null for sessions without one), largest first. */
+  buckets: { projectId: number | null; tokens: number }[][];
 }
 
 /** `GET /api/live`. `available` is false when Claude Code's session registry can't be read. */
 export interface LiveResponse {
   available: boolean;
   sessions: LiveSession[];
-  spend: LiveSpend;
+  tokens: LiveTokens;
 }

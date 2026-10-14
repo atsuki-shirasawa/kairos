@@ -6,10 +6,11 @@ import { formatMessages } from "@/i18n/messages/format.ts";
 
 /** 950 / 24.8k / 893k / 6.0M / 1.55B. Fits large numbers into a table cell ("1548.8M" is hard to read). */
 export function tokensLabel(n: number): string {
+  // Each step is chosen by the value as it will be shown, so 999,700 reads "1.0M", not "1000k"
   if (n < 1_000) return String(n);
-  if (n < 100_000) return `${(n / 1_000).toFixed(1)}k`;
-  if (n < 1_000_000) return `${Math.round(n / 1_000)}k`;
-  if (n < 1_000_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (Number((n / 1_000).toFixed(1)) < 100) return `${(n / 1_000).toFixed(1)}k`;
+  if (Math.round(n / 1_000) < 1_000) return `${Math.round(n / 1_000)}k`;
+  if (Number((n / 1_000_000).toFixed(1)) < 1_000) return `${(n / 1_000_000).toFixed(1)}M`;
   return `${(n / 1_000_000_000).toFixed(2)}B`;
 }
 
@@ -36,9 +37,9 @@ export function approxCostLabel(u: Pick<Usage, "costUsd" | "unpriced">): string 
   return `${u.unpriced ? "~" : ""}${costLabel(u.costUsd)}`;
 }
 
-/** "$6.20/h": a rate of spend. */
-export function costPerHourLabel(usd: number): string {
-  return `${costLabel(usd)}/h`;
+/** "38M/h": tokens per hour. */
+export function tokensPerHourLabel(tokens: number): string {
+  return `${tokensLabel(Math.round(tokens))}/h`;
 }
 
 /** Model aliases `--model` accepts. Only these are capitalized; other names pass through. */

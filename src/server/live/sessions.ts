@@ -8,8 +8,8 @@ import { lastTestRun } from "../testRuns.ts";
 import { oneLine } from "../text.ts";
 import { loadTaskCalls, loadToolCalls, type ToolCall } from "../toolCalls.ts";
 import type { SessionVisibility } from "../visibility.ts";
-import { latestResponse, liveUsage } from "./cost.ts";
 import type { RegistryEntry } from "./registry.ts";
+import { latestResponse, liveUsage } from "./usage.ts";
 
 /** Registry kinds of sessions a person runs; anything else (SDK runs) counts as headless. */
 const PERSONAL_KINDS = new Set(["interactive", "bg"]);
