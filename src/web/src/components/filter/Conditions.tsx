@@ -13,18 +13,14 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import { filterMessages } from "@/i18n/messages/filter.ts";
 import {
-  type BlockState,
   conditionCount,
   type Filter,
-  hasOutcome,
-  inState,
   MIN_LENGTHS,
   OUTCOMES,
-  type Outcome,
   STATES,
   withoutConditions,
 } from "@/lib/filter.ts";
-import { branchOptions, countBlocks } from "@/lib/filterMenu.ts";
+import { branchOptions, conditionCounts } from "@/lib/filterMenu.ts";
 import { BRIEF_PROMPTS } from "@/lib/projectVisibility.ts";
 
 /** Select value for "any branch". `*` can't appear in a git branch name, so it never collides. */
@@ -51,17 +47,7 @@ export function Conditions({
   onFilter: (filter: Filter) => void;
 }) {
   const m = filterMessages();
-  const counts = useMemo(
-    () => ({
-      outcome: Object.fromEntries(
-        OUTCOMES.map((o) => [o, countBlocks(sessions, (_, g) => hasOutcome(g, [o]))]),
-      ) as Record<Outcome, number>,
-      state: Object.fromEntries(
-        STATES.map((st) => [st, countBlocks(sessions, (s, g) => inState(s, g, st))]),
-      ) as Record<BlockState, number>,
-    }),
-    [sessions],
-  );
+  const counts = useMemo(() => conditionCounts(sessions), [sessions]);
   const branches = useMemo(() => branchOptions(sessions, filter.branch), [sessions, filter.branch]);
   const set = (patch: Partial<Filter>) => onFilter({ ...filter, ...patch });
 
