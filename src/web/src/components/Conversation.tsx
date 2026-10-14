@@ -3,7 +3,13 @@ import { ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import { useMessages } from "@/hooks/queries.ts";
 import { conversationMessages } from "@/i18n/messages/conversation.ts";
-import { dateLabel, hhmm, isSameDay } from "@/lib/dates.ts";
+import {
+  firstLine,
+  notificationSummary,
+  toolResultsById,
+  withDaySeparators,
+} from "@/lib/conversation.ts";
+import { dateLabel, hhmm } from "@/lib/dates.ts";
 import { cn } from "@/lib/utils.ts";
 import { Markdown } from "./Markdown.tsx";
 
@@ -24,11 +30,8 @@ export function Conversation({
   const t = conversationMessages();
   const query = useMessages(sessionId, agent);
   const messages = useMemo(() => query.data?.pages.flatMap((p) => p.messages) ?? [], [query.data]);
-  const results = useMemo(() => {
-    const map = new Map<string, Message>();
-    for (const m of messages) if (m.kind === "tool_result" && m.toolUseId) map.set(m.toolUseId, m);
-    return map;
-  }, [messages]);
+  const results = useMemo(() => toolResultsById(messages), [messages]);
+  const rows = useMemo(() => withDaySeparators(messages), [messages]);
 
   const sentinel = useRef<HTMLDivElement>(null);
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = query;
@@ -65,20 +68,16 @@ export function Conversation({
     return <p className="text-destructive text-sm">{t.loadFailed(query.error.message)}</p>;
   if (messages.length === 0) return <p className="text-muted-foreground text-sm">{t.empty}</p>;
 
-  // Entries show only the time, so mark where the date changes. Sessions often run over several days
-  let day: number | null = null;
   return (
     <ol className="space-y-3">
-      {messages.map((m) => {
-        if (m.kind === "tool_result") return null;
-        const newDay = m.ts !== null && (day === null || !isSameDay(day, m.ts));
-        if (newDay) day = m.ts;
-        return [
-          newDay && m.ts !== null && <DaySeparator key={`day-${m.id}`} ts={m.ts} />,
+      {rows.map((row) => {
+        if (row.type === "day") return <DaySeparator key={`day-${row.id}`} ts={row.ts} />;
+        const m = row.message;
+        return (
           <li key={m.id} id={`msg-${m.id}`} className="scroll-mt-4">
             <Entry message={m} result={m.toolUseId ? results.get(m.toolUseId) : undefined} />
-          </li>,
-        ];
+          </li>
+        );
       })}
       <div ref={sentinel} />
       {hasNextPage && (
@@ -209,13 +208,4 @@ function Pre({ children, className }: { children: string; className?: string }) 
       {children}
     </pre>
   );
-}
-
-function firstLine(text: string | null): string {
-  return (text ?? "").replace(/^#+\s*/, "").split("\n")[0] ?? "";
-}
-
-function notificationSummary(text: string | null): string {
-  const summary = /<summary>([\s\S]*?)<\/summary>/.exec(text ?? "")?.[1];
-  return summary?.trim() || firstLine(text);
 }
