@@ -1,63 +1,14 @@
-import { isoDay, startOfDay } from "@shared/dates.ts";
-import { useCallback, useEffect, useState } from "react";
-import { fromISODate, type Layout, type View } from "@/lib/dates.ts";
-import { type Filter, readFilter, writeFilter } from "@/lib/filter.ts";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { parseUrlState, serializeUrlState, type UrlState } from "@/lib/urlState.ts";
 
-/** List sort. `start` is time order (grouped by day); the others are column keys. */
-export interface ListSort {
-  key: string;
-  desc: boolean;
+/** The view state of the current location. */
+function readLocation(): UrlState {
+  return parseUrlState(new URLSearchParams(location.search), Date.now());
 }
 
-/** Time order; left out of the URL. */
-export const DEFAULT_SORT: ListSort = { key: "start", desc: false };
-
-/** View state. Synced with the URL (?view=&layout=&date=&session=&sort=&q=&in=&outcome=&state=&len=&branch=&brief=), so it survives reloads and the back button. */
-export interface UrlState {
-  view: View;
-  /** Whether the period is drawn as a calendar, listed, or summed up. */
-  layout: Layout;
-  /** The shown day (midnight). Week and month views show the week or month containing it. */
-  anchor: number;
-  session: string | null;
-  /** Start of the selected section. null means the whole session. */
-  at: number | null;
-  sort: ListSort;
-  filter: Filter;
-}
-
-/** `-cost` is descending, `cost` ascending. */
-function readSort(v: string | null): ListSort {
-  const m = /^(-?)([a-z]+)$/.exec(v ?? "");
-  if (!m?.[2] || m[2] === "start") return DEFAULT_SORT;
-  return { key: m[2], desc: m[1] === "-" };
-}
-
-function read(): UrlState {
-  const q = new URLSearchParams(location.search);
-  const v = q.get("view");
-  const view = v === "month" || v === "day" ? v : "week";
-  const layout = q.get("layout");
-  return {
-    view,
-    layout: layout === "list" || layout === "summary" || layout === "live" ? layout : "calendar",
-    anchor: fromISODate(q.get("date")) ?? startOfDay(Date.now()),
-    session: q.get("session"),
-    at: Number(q.get("at")) || null,
-    sort: readSort(q.get("sort")),
-    filter: readFilter(q),
-  };
-}
-
-function write(s: UrlState, push: boolean): void {
-  const q = new URLSearchParams();
-  if (s.view !== "week") q.set("view", s.view);
-  if (s.layout !== "calendar") q.set("layout", s.layout);
-  if (startOfDay(s.anchor) !== startOfDay(Date.now())) q.set("date", isoDay(s.anchor));
-  if (s.session) q.set("session", s.session);
-  if (s.session && s.at) q.set("at", String(s.at));
-  if (s.sort.key !== "start") q.set("sort", `${s.sort.desc ? "-" : ""}${s.sort.key}`);
-  writeFilter(s.filter, q);
+/** Rewrites the URL for the state; does nothing when it is already there, so no duplicate entry. */
+function writeLocation(s: UrlState, push: boolean): void {
+  const q = serializeUrlState(s, Date.now());
   const url = `${location.pathname}${q.size ? `?${q}` : ""}`;
   if (url === `${location.pathname}${location.search}`) return;
   if (push) history.pushState(null, "", url);
@@ -72,20 +23,25 @@ export type UrlStateUpdate = (patch: Partial<UrlState>, opts?: { push?: boolean 
  * Pass `push: true` for steps the back button should undo (opening a block, a search hit).
  */
 export function useUrlState(): [UrlState, UrlStateUpdate] {
-  const [state, setState] = useState(read);
+  const [state, setState] = useState(readLocation);
+  // The latest state, including patches not rendered yet, so successive patches in one event build
+  // on each other. The URL write needs it outside a setState updater, which React may run twice.
+  const latest = useRef(state);
 
   useEffect(() => {
-    const onPop = () => setState(read());
+    const onPop = () => {
+      latest.current = readLocation();
+      setState(latest.current);
+    };
     addEventListener("popstate", onPop);
     return () => removeEventListener("popstate", onPop);
   }, []);
 
   const update = useCallback((patch: Partial<UrlState>, opts: { push?: boolean } = {}) => {
-    setState((prev) => {
-      const next = { ...prev, ...patch };
-      write(next, opts.push ?? false);
-      return next;
-    });
+    const next = { ...latest.current, ...patch };
+    latest.current = next;
+    writeLocation(next, opts.push ?? false);
+    setState(next);
   }, []);
 
   return [state, update];

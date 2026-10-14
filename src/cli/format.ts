@@ -1,5 +1,6 @@
 // Small text and date helpers shared by the CLI commands. Times are in local time, like the UI's.
 import { hhmm, isoDay, startOfDay } from "../shared/dates.ts";
+import { type UiLinkTarget, uiLinkQuery } from "../shared/uiUrl.ts";
 
 /**
  * Drops control characters. Headlines are LLM output over log text, so a prompt injection could
@@ -36,16 +37,7 @@ export function parseDay(value: string, now = Date.now()): number | null {
 }
 
 /** Where the UI shows a day (in the day view), optionally with a session's drawer open. */
-export function uiLink(
-  base: string,
-  at: { day?: number; session?: string; start?: number } = {},
-): string {
-  const q = new URLSearchParams();
-  if (at.day !== undefined) {
-    q.set("view", "day");
-    q.set("date", isoDay(at.day));
-  }
-  if (at.session) q.set("session", at.session);
-  if (at.session && at.start) q.set("at", String(at.start));
+export function uiLink(base: string, at: UiLinkTarget = {}): string {
+  const q = uiLinkQuery(at);
   return q.size ? `${base}?${q}` : base;
 }

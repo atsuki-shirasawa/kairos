@@ -1,10 +1,10 @@
 import type { CalendarSession, Project } from "@shared/api.ts";
 import { useMemo } from "react";
-import { DEFAULT_SORT, type ListSort } from "@/hooks/useUrlState.ts";
 import { isSameDay, type View } from "@/lib/dates.ts";
 import type { SegmentMatch } from "@/lib/filter.ts";
 import type { DayBlock } from "@/lib/layout.ts";
 import { type DayGroup, dayGroups, nextSort, sortBlocks, visibleSort } from "@/lib/listTable.ts";
+import { DEFAULT_SORT, type ListSort } from "@/lib/urlState.ts";
 import { ColumnPicker } from "./list/ColumnPicker.tsx";
 import { COLUMNS, tableMinRem } from "./list/columns.tsx";
 import { PeriodSummary } from "./list/PeriodSummary.tsx";

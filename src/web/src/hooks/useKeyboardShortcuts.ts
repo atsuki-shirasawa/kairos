@@ -3,9 +3,10 @@
 import { startOfDay } from "@shared/dates.ts";
 import { useEffect, useEffectEvent } from "react";
 import type { BlockStepping } from "@/hooks/useBlockNavigation.ts";
-import type { UrlState, UrlStateUpdate } from "@/hooks/useUrlState.ts";
+import type { UrlStateUpdate } from "@/hooks/useUrlState.ts";
 import { shift } from "@/lib/dates.ts";
 import { type Shortcut, shortcutFor } from "@/lib/shortcuts.ts";
+import type { UrlState } from "@/lib/urlState.ts";
 
 /** What the shortcuts read and act on. */
 export interface ShortcutTargets extends BlockStepping {
