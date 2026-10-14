@@ -38,7 +38,7 @@ Finished work goes to main without a PR: when asked to merge, use `/land` (revie
 ## Rules
 
 - **Original logs are read-only.** Never write under `~/.claude/projects` (a hook blocks edits to `*.jsonl`)
-- Area-specific rules live in `.claude/rules/` and load when you touch those files: `ingest.md` (fixtures, `PARSER_VERSION` / `DERIVED_VERSION`), `db.md` (`MIGRATIONS` is append-only), `api.md` (`guardHost` / `guardWrite`, `claude -p` flags), `web.md` (i18n, Markdown rendering). Skills for recurring changes: `/add-migration`, `/add-fixture-scenario`, `/add-api-route`, `/add-model-price`
+- Area-specific rules live in `.claude/rules/` and load when you touch those files: `code-structure.md` (all of `src/`), `ingest.md` (fixtures, `PARSER_VERSION` / `DERIVED_VERSION`), `db.md` (`MIGRATIONS` is append-only), `api.md` (`guardHost` / `guardWrite`, `claude -p` flags), `web.md` (i18n, Markdown rendering). Skills for recurring changes: `/add-migration`, `/add-fixture-scenario`, `/add-api-route`, `/add-model-price`
 - A Stop hook (`.claude/hooks/rules-check.sh`) runs `bun run check` when code is uncommitted, flags a missing version bump or a rewritten migration, and asks for `security-reviewer` / `i18n-reviewer` / `design-reviewer` when their areas change (once per distinct diff)
 - **Don't loosen API security** (Host validation, write protection, `127.0.0.1` only, no raw HTML or images from conversation Markdown). When you change any of it, check with the `security-reviewer` agent
 
@@ -46,7 +46,7 @@ Finished work goes to main without a PR: when asked to merge, use `/land` (revie
 
 - Comments, docs, test names and commit messages are in English. Comments explain *why*
 - **Every export has a JSDoc** (functions, components, hooks, types, constants, and public members of exported classes). `bun run jsdoc` (`scripts/check-jsdoc.ts`, part of `check`) fails on a missing one. Say what it is and why it exists, not the signature again
-- If a step inside a function needs a comment to explain *what* it does, the function is likely doing too much: extract that step into a named, documented function instead. Inline comments are for *why* (a constraint, a log-format quirk, a trade-off)
+- If a step inside a function needs a comment to explain *what* it does, the function is likely doing too much: extract that step into a named, documented function instead. Inline comments are for *why* (a constraint, a log-format quirk, a trade-off). The full structure rules (single responsibility, signals to split, where logic lives per layer, how to refactor) are in `.claude/rules/code-structure.md`
 - UI copy is never hard-coded; it goes in the `en` / `ja` dictionaries (see `.claude/rules/web.md`)
 - Server and CLI output is in English
 - Follow the Biome config (double quotes, semicolons, 100-column lines). Edited files are auto-formatted by a hook
