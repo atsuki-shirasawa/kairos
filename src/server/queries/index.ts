@@ -22,7 +22,6 @@ import { MINUTE } from "../../shared/dates.ts";
 import { isSummarizable } from "../../shared/sections.ts";
 import { notNote } from "../db/notes.ts";
 import { openItemsIn, sessionCloses, type UpdateRefusal, updateOpenItem } from "../openItems.ts";
-import { costOf } from "../pricing.ts";
 import { storedShowHeadless } from "../settings.ts";
 import { loadRecapInput, type RecapTarget, recapHash } from "../summarize/recap.ts";
 import { DEFAULT_HIDDEN_CWDS, visibleSessionSql } from "../visibility.ts";
@@ -35,6 +34,8 @@ import {
   searchTerms,
   toSearchHit,
 } from "./search.ts";
+import { displayBranch, sectionHeadline, summaryBody, title } from "./titles.ts";
+import { sessionUsage } from "./usage.ts";
 
 /** Within this long after the last activity, a session counts as in progress. */
 export const ACTIVE_WINDOW_MS = 5 * MINUTE;
@@ -107,119 +108,10 @@ const SECTION_SELECT = `SELECT g.start, g.end, g.prompt_count, g.fallback_title,
          sm.headline, sm.body, sm.model, sm.covered_until, sm.created_at
   FROM segments g LEFT JOIN summaries sm ON sm.session_id = g.session_id AND sm.start = g.start`;
 
-/** Token totals for one model and speed, as the usage queries group them. */
-export interface UsageRow {
-  model: string;
-  speed: string | null;
-  input: number;
-  output: number;
-  cache_read: number;
-  cache_write_5m: number;
-  cache_write_1h: number;
-}
-
-/** Combines per-model, per-speed totals into one and converts them to cost. */
-export function toUsage(rows: UsageRow[]): Usage | null {
-  if (rows.length === 0) return null;
-  const u: Usage = {
-    tokens: 0,
-    input: 0,
-    output: 0,
-    cacheRead: 0,
-    cacheWrite: 0,
-    costUsd: 0,
-    unpriced: false,
-    model: null,
-  };
-  const outputByModel = new Map<string, number>();
-  for (const r of rows) {
-    const cacheWrite = r.cache_write_5m + r.cache_write_1h;
-    u.input += r.input;
-    u.output += r.output;
-    u.cacheRead += r.cache_read;
-    u.cacheWrite += cacheWrite;
-    u.tokens += r.input + r.output + r.cache_read + cacheWrite;
-    const cost = costOf(
-      r.model,
-      {
-        input: r.input,
-        output: r.output,
-        cacheRead: r.cache_read,
-        cacheWrite5m: r.cache_write_5m,
-        cacheWrite1h: r.cache_write_1h,
-      },
-      r.speed,
-    );
-    if (cost === null) u.unpriced = true;
-    else u.costUsd += cost;
-    outputByModel.set(r.model, (outputByModel.get(r.model) ?? 0) + r.output);
-  }
-  u.model = [...outputByModel].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
-  return u.tokens > 0 ? u : null;
-}
-
-/**
- * A session's token usage within a time range, subagents included and copies from a continued
- * session left out. Shared by the drawer's blocks and the live page, so their costs agree.
- */
-export function sessionUsage(
-  db: Database,
-  sessionId: string,
-  from: number,
-  to: number,
-): Usage | null {
-  return toUsage(
-    db
-      .query<UsageRow, [string, number, number]>(
-        `SELECT model, speed, SUM(input) AS input, SUM(output) AS output, SUM(cache_read) AS cache_read,
-                SUM(cache_write_5m) AS cache_write_5m, SUM(cache_write_1h) AS cache_write_1h
-         FROM usage WHERE session_id = ? AND is_copy = 0 AND COALESCE(ts, 0) BETWEEN ? AND ?
-         GROUP BY model, speed`,
-      )
-      .all(sessionId, from, to),
-  );
-}
-
 /** The part of `Activity` counted from artifacts. */
 type ArtifactCounts = Pick<Activity, "commits" | "prs" | "merges">;
 /** The part of `Activity` counted from messages. */
 type MessageCounts = Omit<Activity, keyof ArtifactCounts | "claudeMs" | "effort">;
-
-/** The columns a session's title is made from. */
-interface TitleSource {
-  custom_title: string | null;
-  agent_name: string | null;
-  ai_title: string | null;
-  first_prompt: string | null;
-}
-
-/**
- * Title: `/rename` name > agent name > Claude Code's automatic title > first line of the first
- * prompt, or null when there is none of these.
- */
-export function knownTitle(r: TitleSource): string | null {
-  const first = r.first_prompt?.trim().split("\n")[0]?.slice(0, 120);
-  return r.custom_title || r.agent_name || r.ai_title || first || null;
-}
-
-/** The title, or a placeholder where something must be shown. */
-export function title(r: TitleSource): string {
-  return knownTitle(r) ?? "(Untitled session)";
-}
-
-/** A section's headline: its summary's, else the block's own title, else the session's. */
-function sectionHeadline(
-  g: { headline: string | null; fallback_title: string | null },
-  sessionTitle: string,
-): string {
-  return g.headline ?? g.fallback_title ?? sessionTitle;
-}
-
-/** A section's summary body, or null when it has none yet. */
-function summaryBody(g: { body: string | null }): string | null {
-  // A headline-only section has an empty body; treat it as not summarized yet
-  return g.body || null;
-}
 
 /** Whether a session that last did something at `endedAt` still counts as in progress. */
 function isActive(endedAt: number | null, now: number): boolean {
@@ -384,7 +276,7 @@ export class Queries {
         id: r.id,
         projectId: r.project_id,
         label: r.label,
-        branch: r.branch === "HEAD" ? null : r.branch,
+        branch: displayBranch(r.branch),
         title: fallback,
         startedAt: r.started_at ?? 0,
         endedAt: r.ended_at ?? 0,

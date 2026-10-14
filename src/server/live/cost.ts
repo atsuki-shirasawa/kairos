@@ -5,7 +5,7 @@ import type { LiveCost, LiveSpend, LiveUsage } from "../../shared/api.ts";
 import { LIVE_RATE_WINDOW_MS, SPEND_BUCKET_MS, SPEND_BUCKETS } from "../../shared/constants.ts";
 import { HOUR, MINUTE } from "../../shared/dates.ts";
 import { costOf, priceOf } from "../pricing.ts";
-import { sessionUsage, toUsage, type UsageRow } from "../queries/index.ts";
+import { sessionUsage, toUsage, type UsageRow, usageSums } from "../queries/usage.ts";
 import { visibleSessionSql } from "../visibility.ts";
 import type { LiveVisibility } from "./sessions.ts";
 
@@ -185,9 +185,7 @@ function visibleSpend(
   });
   const rows = db
     .query<SpendRow, [number, number, number]>(
-      `SELECT (u.ts - ?1) / ?2 AS bucket, s.project_id, u.model, u.speed,
-              SUM(u.input) AS input, SUM(u.output) AS output, SUM(u.cache_read) AS cache_read,
-              SUM(u.cache_write_5m) AS cache_write_5m, SUM(u.cache_write_1h) AS cache_write_1h
+      `SELECT (u.ts - ?1) / ?2 AS bucket, s.project_id, u.model, u.speed, ${usageSums("u")}
        FROM usage u JOIN sessions s ON s.id = u.session_id
        LEFT JOIN projects p ON p.id = s.project_id
        WHERE u.is_copy = 0 AND u.ts BETWEEN ?1 AND ?3 AND COALESCE(p.hidden, 0) = 0 AND ${visible}

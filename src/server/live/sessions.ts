@@ -2,7 +2,7 @@
 // the project and title, the tool call in flight, the task list, the last test run and the cost.
 import type { Database } from "bun:sqlite";
 import type { LiveSession, LiveState, LiveTasks, LiveTest } from "../../shared/api.ts";
-import { knownTitle } from "../queries/index.ts";
+import { knownTitle } from "../queries/titles.ts";
 import { type FactCall, lastTestRun, loadCalls, oneLine, taskStates } from "../summarize/facts.ts";
 import { latestResponse, liveUsage } from "./cost.ts";
 import type { RegistryEntry } from "./registry.ts";
