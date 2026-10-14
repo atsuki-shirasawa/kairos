@@ -1,8 +1,10 @@
 // Pure decisions behind the session drawer: which section is selected, which periods the flow
 // shows, and how outcomes, subagents and summary failures are grouped. Kept free of React and
 // messages so they can be tested on their own.
-import type { Artifact, Section, Subagent } from "@shared/api.ts";
+import type { Artifact, Section, SessionDetail, Subagent } from "@shared/api.ts";
 import { ARTIFACT_GRACE_MS } from "@shared/constants.ts";
+import type { SummaryParts } from "@shared/summaryBody.ts";
+import { type OutcomeNode, outcomeNode } from "./artifacts.ts";
 import { isSameDay } from "./dates.ts";
 
 /** The section starting at `at`, falling back to the last one (also when `at` is null). */
@@ -87,4 +89,17 @@ export function splitSubagents(
     here: subagents.filter((a) => ranDuring(a, section)),
     others: subagents.filter((a) => !ranDuring(a, section)),
   };
+}
+
+/**
+ * The node beside a structured summary's outcome: what the outcome (or, in the newer format, the
+ * Resolved points) names among the PRs and commits made during the section.
+ */
+export function summaryOutcomeNode(
+  parts: SummaryParts,
+  session: Pick<SessionDetail, "prs" | "commits">,
+  section: Section,
+): OutcomeNode {
+  const outcome = parts.outcome ?? parts.resolved.join("\n");
+  return outcomeNode(outcome, splitOutcomes(session.prs, session.commits, section).here);
 }

@@ -29,12 +29,15 @@ export function shortSha(a: Artifact): string | null {
   return a.ref.startsWith("subject:") ? null : a.ref.slice(0, 7);
 }
 
+/** The node set beside a summary's outcome: a PR's, a commit's, or none. */
+export type OutcomeNode = "pr" | "commit" | null;
+
 /**
  * The node to set beside a summary's Outcome: a PR when it names one of the section's PRs by
  * number, a commit when it names one of its commits by SHA, otherwise none. Only outcomes the
  * section really has count, so a "#12" meaning an issue doesn't grow a node.
  */
-export function outcomeNode(outcome: string, here: Artifact[]): "pr" | "commit" | null {
+export function outcomeNode(outcome: string, here: Artifact[]): OutcomeNode {
   const numbers = new Set(outcome.match(/#\d+/g) ?? []);
   if (here.some((a) => a.kind === "pr" && numbers.has(artifactRef(a) ?? ""))) return "pr";
   const hexes = outcome.match(/\b[0-9a-f]{7,40}\b/g) ?? [];

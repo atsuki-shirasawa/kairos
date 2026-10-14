@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Activity, Artifact, Section, Subagent } from "../../src/shared/api.ts";
 import { ARTIFACT_GRACE_MS } from "../../src/shared/constants.ts";
+import type { SummaryParts } from "../../src/shared/summaryBody.ts";
 import {
   flowWindow,
   ranDuring,
@@ -8,6 +9,7 @@ import {
   spansDays,
   splitOutcomes,
   splitSubagents,
+  summaryOutcomeNode,
 } from "../../src/web/src/lib/drawer.ts";
 
 const DAY0 = new Date(2026, 9, 5).getTime(); // 2026-10-05 00:00
@@ -131,5 +133,33 @@ describe("splitSubagents", () => {
 
   test("without a section, none ran during it", () => {
     expect(ranDuring(subagent(DAY0, DAY0 + 1), null)).toBe(false);
+  });
+});
+
+describe("summaryOutcomeNode", () => {
+  const s = section(DAY0, DAY0 + H);
+  const pr: Artifact = { kind: "pr", ref: "https://github.com/o/r/pull/30", title: null, ts: DAY0 };
+  const commit: Artifact = { kind: "commit", ref: "2023692abcdef", title: "fix", ts: DAY0 };
+  const parts = (outcome: string | null, resolved: string[] = []): SummaryParts => ({
+    goal: "g",
+    done: ["d"],
+    resolved,
+    open: [],
+    next: null,
+    outcome,
+  });
+
+  test("reads an older body's Outcome", () => {
+    expect(summaryOutcomeNode(parts("Merged #30"), { prs: [pr], commits: [] }, s)).toBe("pr");
+  });
+
+  test("reads the Resolved points when there is no Outcome", () => {
+    const p = parts(null, ["Tests pass", "main is at 2023692"]);
+    expect(summaryOutcomeNode(p, { prs: [], commits: [commit] }, s)).toBe("commit");
+  });
+
+  test("ignores PRs and commits made outside the section", () => {
+    const later = { ...pr, ts: DAY0 + 5 * H };
+    expect(summaryOutcomeNode(parts("Merged #30"), { prs: [later], commits: [] }, s)).toBeNull();
   });
 });
