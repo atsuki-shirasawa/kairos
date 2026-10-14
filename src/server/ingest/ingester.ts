@@ -53,6 +53,21 @@ interface Ctx {
   branchKnown: boolean;
 }
 
+/** A message a record handler stores; the file being read supplies its session, agent and file. */
+interface NewMessage {
+  id: string;
+  seq: number;
+  ts: number | null;
+  kind: string;
+  text: string | null;
+  toolName?: string;
+  toolUseId?: string | null;
+  isError?: boolean;
+  meta?: string | null;
+  /** A note about the session, never part of an automatic run's turn. */
+  note?: boolean;
+}
+
 /** Outcome of one scan: files seen, files that changed, touched session IDs, and elapsed ms. */
 export interface ScanStats {
   files: number;
@@ -304,7 +319,7 @@ export class Ingester {
       return;
     }
     const text = storedUserText(kind, r, contentText(rec(r.message)?.content));
-    this.insert(ctx, id, seq, ts, kind, text, { note: kind === "compact_summary" });
+    this.insert(ctx, { id, seq, ts, kind, text, note: kind === "compact_summary" });
   }
 
   /** Stores each tool_result block and resolves the commit or PR its tool_use was waiting for. */
@@ -318,18 +333,15 @@ export class Ingester {
       const isError = block.is_error === true;
       const output = toolResultText(block.content);
       // Runners and errors print their totals and the reason last, so keep the end as well
-      this.insert(
-        ctx,
-        `${id}:${i}`,
-        seq + i,
+      this.insert(ctx, {
+        id: `${id}:${i}`,
+        seq: seq + i,
         ts,
-        "tool_result",
-        clipEnds(output, LIMIT.toolResult),
-        {
-          toolUseId,
-          isError,
-        },
-      );
+        kind: "tool_result",
+        text: clipEnds(output, LIMIT.toolResult),
+        toolUseId,
+        isError,
+      });
       if (!toolUseId) return;
       const failed = isError || interrupted;
       this.attachPrTitle(ctx, toolUseId, result, output, failed, ts);
@@ -404,7 +416,13 @@ export class Ingester {
     const msg = rec(r.message) ?? {};
     const id = recordId(r, ctx.fileId, seq);
     if (msg.model === "<synthetic>" || r.isApiErrorMessage) {
-      this.insert(ctx, id, seq, ts, "error", clip(contentText(msg.content), LIMIT.short));
+      this.insert(ctx, {
+        id,
+        seq,
+        ts,
+        kind: "error",
+        text: clip(contentText(msg.content), LIMIT.short),
+      });
       return;
     }
     this.recordUsage(ctx, msg, str(r.effort) ?? null, ts);
@@ -413,7 +431,14 @@ export class Ingester {
       if (!block) return;
       if (block.type === "text") {
         const text = (str(block.text) ?? "").trim();
-        if (text) this.insert(ctx, `${id}:${i}`, seq + i, ts, "assistant", clip(text, LIMIT.text));
+        if (!text) return;
+        this.insert(ctx, {
+          id: `${id}:${i}`,
+          seq: seq + i,
+          ts,
+          kind: "assistant",
+          text: clip(text, LIMIT.text),
+        });
       } else if (block.type === "tool_use") {
         this.handleToolUse(ctx, block, `${id}:${i}`, seq + i, ts);
       }
@@ -426,7 +451,12 @@ export class Ingester {
     const name = str(block.name) ?? "";
     const input = rec(block.input) ?? {};
     const toolUseId = str(block.id) ?? null;
-    this.insert(ctx, id, seq, ts, "tool_use", inputSummary(input), {
+    this.insert(ctx, {
+      id,
+      seq,
+      ts,
+      kind: "tool_use",
+      text: inputSummary(input),
       toolName: name,
       toolUseId,
       meta: clip(JSON.stringify(input, null, 2), LIMIT.toolInput),
@@ -445,21 +475,17 @@ export class Ingester {
     const model = str(msg.model);
     if (!u || !messageId || !model) return;
     const c = usageCounts(u);
-    this.q.upsertUsage.run(
-      ctx.sessionId,
+    this.q.upsertUsage.run({
+      sessionId: ctx.sessionId,
       messageId,
-      ctx.agentId,
-      ctx.fileId,
+      agentId: ctx.agentId,
+      fileId: ctx.fileId,
       ts,
       model,
-      str(u.speed) ?? null,
+      speed: str(u.speed) ?? null,
       effort,
-      c.input,
-      c.output,
-      c.cacheRead,
-      c.cacheWrite5m,
-      c.cacheWrite1h,
-    );
+      ...c,
+    });
   }
 
   /** Stores compactions, turn durations and away summaries (recaps); other system records are ignored. */
@@ -467,7 +493,12 @@ export class Ingester {
     const id = recordId(r, ctx.fileId, seq);
     if (r.subtype === "compact_boundary") {
       const meta = rec(r.compactMetadata);
-      this.insert(ctx, id, seq, ts, "compact", "Conversation compacted", {
+      this.insert(ctx, {
+        id,
+        seq,
+        ts,
+        kind: "compact",
+        text: "Conversation compacted",
         meta: meta ? JSON.stringify(meta) : null,
       });
     } else if (r.subtype === "turn_duration" && ctx.agentId === null) {
@@ -478,44 +509,36 @@ export class Ingester {
       this.set(ctx, "away_summary", text);
       // Every recap, not just the last, says where the work stood at that moment
       if (text)
-        this.insert(ctx, id, seq, ts, "away_summary", clip(text, LIMIT.short), { note: true });
+        this.insert(ctx, {
+          id,
+          seq,
+          ts,
+          kind: "away_summary",
+          text: clip(text, LIMIT.short),
+          note: true,
+        });
     }
   }
 
   // ---------------------------------------------------------------- writing
 
   /** Inserts one message row (ignored if its ID was already stored). */
-  private insert(
-    ctx: Ctx,
-    id: string,
-    seq: number,
-    ts: number | null,
-    kind: string,
-    text: string | null,
-    opt: {
-      toolName?: string;
-      toolUseId?: string | null;
-      isError?: boolean;
-      meta?: string | null;
-      /** A note about the session, never part of an automatic run's turn. */
-      note?: boolean;
-    } = {},
-  ): void {
-    this.q.insertMessage.run(
-      id,
-      ctx.sessionId,
-      ctx.agentId,
-      ctx.fileId,
-      seq,
-      ts,
-      kind,
-      text,
-      opt.toolName ?? null,
-      opt.toolUseId ?? null,
-      opt.isError ? 1 : 0,
-      ctx.state.autoTurn && !opt.note ? 1 : 0,
-      opt.meta ?? null,
-    );
+  private insert(ctx: Ctx, m: NewMessage): void {
+    this.q.insertMessage.run({
+      id: m.id,
+      sessionId: ctx.sessionId,
+      agentId: ctx.agentId,
+      fileId: ctx.fileId,
+      seq: m.seq,
+      ts: m.ts,
+      kind: m.kind,
+      text: m.text,
+      toolName: m.toolName ?? null,
+      toolUseId: m.toolUseId ?? null,
+      isError: m.isError ? 1 : 0,
+      isScheduled: ctx.state.autoTurn && !m.note ? 1 : 0,
+      meta: m.meta ?? null,
+    });
   }
 
   /** Writes a session column from a meta record; empty values leave it unchanged. */

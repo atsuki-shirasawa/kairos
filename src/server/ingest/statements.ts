@@ -26,6 +26,51 @@ export interface AggregateRow {
   sdk: number;
 }
 
+/**
+ * A messages row as the ingester inserts it, bound by name. A type alias rather than an interface
+ * so it fits bun:sqlite's record of bindings.
+ */
+export type MessageRow = {
+  id: string;
+  sessionId: string;
+  agentId: string | null;
+  fileId: number;
+  seq: number;
+  ts: number | null;
+  kind: string;
+  text: string | null;
+  toolName: string | null;
+  toolUseId: string | null;
+  isError: 0 | 1;
+  isScheduled: 0 | 1;
+  meta: string | null;
+};
+
+/** A usage row as the ingester upserts it, bound by name (see `MessageRow` for the type alias). */
+export type UsageRow = {
+  sessionId: string;
+  messageId: string;
+  agentId: string | null;
+  fileId: number;
+  ts: number | null;
+  model: string;
+  speed: string | null;
+  effort: string | null;
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite5m: number;
+  cacheWrite1h: number;
+};
+
+/**
+ * A session's recomputed aggregates and first prompt, bound by name to update its row. The mapped
+ * type copies `AggregateRow` (an interface) into a shape that fits bun:sqlite's record of bindings.
+ */
+export type AggregateUpdate = {
+  [K in keyof AggregateRow]: AggregateRow[K];
+} & { firstPrompt: string | null; id: string };
+
 /** A main-thread message used to compute work blocks and their fallback titles. */
 export interface ActivityRow {
   ts: number;
@@ -108,10 +153,11 @@ export function prepareStatements(db: Database) {
       "UPDATE sessions SET launch_cwd = ?, project_id = ?, label = COALESCE(label, ?) WHERE id = ? AND launch_cwd IS NULL",
     ),
     setBranch: p("UPDATE sessions SET branch = ? WHERE id = ? AND branch IS NULL"),
-    insertMessage: p(
+    insertMessage: db.prepare<null, MessageRow>(
       `INSERT OR IGNORE INTO messages
          (id, session_id, agent_id, file_id, seq, ts, kind, text, tool_name, tool_use_id, is_error, is_scheduled, meta)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES ($id, $sessionId, $agentId, $fileId, $seq, $ts, $kind, $text, $toolName, $toolUseId,
+                 $isError, $isScheduled, $meta)`,
     ),
     upsertPrTitle: p(
       `INSERT INTO artifacts (session_id, kind, ref, title, ts, file_id) VALUES (?, 'pr', ?, ?, ?, ?)
@@ -120,10 +166,11 @@ export function prepareStatements(db: Database) {
     insertArtifact: p(
       "INSERT OR IGNORE INTO artifacts (session_id, kind, ref, title, ts, file_id) VALUES (?, ?, ?, ?, ?, ?)",
     ),
-    upsertUsage: p(
+    upsertUsage: db.prepare<null, UsageRow>(
       `INSERT INTO usage (session_id, message_id, agent_id, file_id, ts, model, speed, effort,
                           input, output, cache_read, cache_write_5m, cache_write_1h)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         VALUES ($sessionId, $messageId, $agentId, $fileId, $ts, $model, $speed, $effort,
+                 $input, $output, $cacheRead, $cacheWrite5m, $cacheWrite1h)
        ON CONFLICT(session_id, message_id) DO UPDATE SET output = MAX(output, excluded.output)`,
     ),
     upsertSubagent: p(
@@ -177,8 +224,10 @@ export function prepareStatements(db: Database) {
       `SELECT text FROM messages WHERE session_id = ? AND agent_id IS NULL AND is_copy = 0 AND kind IN ('prompt', 'sdk_prompt')
        ORDER BY kind = 'prompt' DESC, file_id, seq LIMIT 1`,
     ),
-    updateAggregate: p(
-      "UPDATE sessions SET started_at = ?, ended_at = ?, prompt_count = ?, scheduled_runs = ?, sdk_prompt_count = ?, first_prompt = ? WHERE id = ?",
+    updateAggregate: db.prepare<null, AggregateUpdate>(
+      `UPDATE sessions SET started_at = $started, ended_at = $ended, prompt_count = $prompts,
+         scheduled_runs = $scheduled, sdk_prompt_count = $sdk, first_prompt = $firstPrompt
+       WHERE id = $id`,
     ),
     // Activity used to compute work blocks. For headlines, also take the start of prompt and reply text
     activity: p(

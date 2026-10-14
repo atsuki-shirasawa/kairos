@@ -56,15 +56,7 @@ export class DerivedData {
   private updateAggregates(sessionId: string): void {
     const agg = this.q.aggregate.get(sessionId) as AggregateRow;
     const first = this.q.firstPrompt.get(sessionId) as { text: string } | null;
-    this.q.updateAggregate.run(
-      agg.started,
-      agg.ended,
-      agg.prompts,
-      agg.scheduled,
-      agg.sdk,
-      first?.text ?? null,
-      sessionId,
-    );
+    this.q.updateAggregate.run({ ...agg, firstPrompt: first?.text ?? null, id: sessionId });
   }
 
   /** Replaces the session's work blocks with ones recomputed from its activity. */
