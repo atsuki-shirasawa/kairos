@@ -5,7 +5,7 @@ import type { LiveCost, LiveSpend, LiveUsage } from "../../shared/api.ts";
 import { LIVE_RATE_WINDOW_MS, SPEND_BUCKET_MS, SPEND_BUCKETS } from "../../shared/constants.ts";
 import { HOUR, MINUTE } from "../../shared/dates.ts";
 import { costOf, priceOf } from "../pricing.ts";
-import { sessionUsage, toUsage, type UsageRow } from "../queries.ts";
+import { sessionUsage, toUsage, type UsageRow } from "../queries/index.ts";
 import { visibleSessionSql } from "../visibility.ts";
 import type { LiveVisibility } from "./sessions.ts";
 

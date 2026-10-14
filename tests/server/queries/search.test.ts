@@ -8,7 +8,7 @@ import {
   searchSql,
   searchTerms,
   toSearchHit,
-} from "../../src/server/search.ts";
+} from "../../../src/server/queries/search.ts";
 
 describe("searchTerms", () => {
   test.each<[string, string, SearchTerm[]]>([

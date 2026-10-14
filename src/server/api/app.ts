@@ -17,7 +17,7 @@ import type { EventHub } from "../events.ts";
 import { liveSpend } from "../live/cost.ts";
 import type { RegistryEntry } from "../live/registry.ts";
 import { liveSessions } from "../live/sessions.ts";
-import { Queries } from "../queries.ts";
+import { Queries } from "../queries/index.ts";
 import {
   storedShowHeadless,
   storedSummaryLang,

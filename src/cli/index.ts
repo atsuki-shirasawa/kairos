@@ -494,7 +494,7 @@ async function catchUp(db: import("bun:sqlite").Database, serverRunning: boolean
 /** Opens the DB for a read-only command, after catching up on the logs if needed. */
 async function openForRead() {
   const { openDb } = await import("../server/db/index.ts");
-  const { Queries } = await import("../server/queries.ts");
+  const { Queries } = await import("../server/queries/index.ts");
   const db = openDb(values.db);
   await catchUp(db, (await health(port)) !== null);
   return { db, q: new Queries(db) };

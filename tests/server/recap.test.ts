@@ -6,7 +6,7 @@ import type { Hono } from "hono";
 import { createApp } from "../../src/server/api/app.ts";
 import { MIGRATIONS, openDb, SCHEMA_VERSION } from "../../src/server/db/index.ts";
 import { EventHub } from "../../src/server/events.ts";
-import { Queries } from "../../src/server/queries.ts";
+import { Queries } from "../../src/server/queries/index.ts";
 import {
   buildRecapPrompt,
   loadRecapInput,

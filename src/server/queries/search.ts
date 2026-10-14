@@ -1,8 +1,8 @@
 // Search across work blocks: splitting the query into terms, the LIKE scan's SQL, and turning a
 // matching row into an API hit. `Queries.search` runs it against the database.
 
-import type { SearchField, SearchHit } from "../shared/api.ts";
-import { ARTIFACT_GRACE_MS } from "../shared/constants.ts";
+import type { SearchField, SearchHit } from "../../shared/api.ts";
+import { ARTIFACT_GRACE_MS } from "../../shared/constants.ts";
 import { EDIT_TOOLS } from "./editTools.ts";
 
 /** Sections returned per search; `more` tells the UI that further ones matched. */

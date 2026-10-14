@@ -12,7 +12,7 @@ import {
 } from "../../src/server/live/registry.ts";
 import { liveSessions } from "../../src/server/live/sessions.ts";
 import { LiveTracker } from "../../src/server/live/tracker.ts";
-import { knownTitle } from "../../src/server/queries.ts";
+import { knownTitle } from "../../src/server/queries/index.ts";
 import type { LiveSpend } from "../../src/shared/api.ts";
 import { SPEND_BUCKET_MS, SPEND_BUCKETS } from "../../src/shared/constants.ts";
 import { SID } from "../fixtures/ids.ts";

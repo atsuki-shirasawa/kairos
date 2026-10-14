@@ -16,14 +16,17 @@ import type {
   Span,
   Subagent,
   Usage,
-} from "../shared/api.ts";
-import { ARTIFACT_GRACE_MS } from "../shared/constants.ts";
-import { MINUTE } from "../shared/dates.ts";
-import { isSummarizable } from "../shared/sections.ts";
-import { notNote } from "./db/notes.ts";
+} from "../../shared/api.ts";
+import { ARTIFACT_GRACE_MS } from "../../shared/constants.ts";
+import { MINUTE } from "../../shared/dates.ts";
+import { isSummarizable } from "../../shared/sections.ts";
+import { notNote } from "../db/notes.ts";
+import { openItemsIn, sessionCloses, type UpdateRefusal, updateOpenItem } from "../openItems.ts";
+import { costOf } from "../pricing.ts";
+import { storedShowHeadless } from "../settings.ts";
+import { loadRecapInput, type RecapTarget, recapHash } from "../summarize/recap.ts";
+import { DEFAULT_HIDDEN_CWDS, visibleSessionSql } from "../visibility.ts";
 import { EDIT_TOOLS } from "./editTools.ts";
-import { openItemsIn, sessionCloses, type UpdateRefusal, updateOpenItem } from "./openItems.ts";
-import { costOf } from "./pricing.ts";
 import {
   likePattern,
   SEARCH_LIMIT,
@@ -32,9 +35,6 @@ import {
   searchTerms,
   toSearchHit,
 } from "./search.ts";
-import { storedShowHeadless } from "./settings.ts";
-import { loadRecapInput, type RecapTarget, recapHash } from "./summarize/recap.ts";
-import { DEFAULT_HIDDEN_CWDS, visibleSessionSql } from "./visibility.ts";
 
 /** Within this long after the last activity, a session counts as in progress. */
 export const ACTIVE_WINDOW_MS = 5 * MINUTE;
