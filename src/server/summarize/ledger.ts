@@ -2,6 +2,12 @@
 // sessions until the log or a later summary shows it settled. State kept in rows rather than
 // re-summarized text, so it doesn't drift as summaries build on summaries.
 import type { Database } from "bun:sqlite";
+import {
+  issueClosedNote,
+  joinCloseNotes,
+  prMergedNote,
+  taskCompletedNote,
+} from "../../shared/closeNotes.ts";
 import type { OpenItem, OpenKind } from "../../shared/summaryBody.ts";
 import { closedIssues, completedTask, type FactCall, type TaskState } from "./facts.ts";
 import type { EarlierOpen } from "./prompt.ts";
@@ -335,8 +341,7 @@ export function recordSection(db: Database, target: SectionRef, update: LedgerUp
 
 /**
  * Something in the log that settles a ref: an issue closed, a PR merged, a task completed. Its
- * note is a fixed English phrase the UI recognizes and words in its language (`logCloses`), so
- * change both together.
+ * note is one of the phrases in `shared/closeNotes.ts`, which the UI reads back.
  */
 interface CloseEvent {
   ref: string;
@@ -407,7 +412,7 @@ export function closeByRefs(db: Database, sessionId: string): void {
       last.ts,
       last.sessionId,
       sectionAt(db, last.sessionId, last.ts),
-      (settled as CloseEvent[]).map((e) => e.note).join("; "),
+      joinCloseNotes((settled as CloseEvent[]).map((e) => e.note)),
       item.id,
     );
   }
@@ -478,7 +483,7 @@ function issueEvents(db: Database, scope: Scope, from: number): CloseEvent[] {
       ref: `#${num}`,
       ts: c.ts,
       sessionId: c.sessionId,
-      note: `closed #${num}`,
+      note: issueClosedNote(`#${num}`),
     })),
   );
 }
@@ -492,7 +497,7 @@ function mergeEvents(db: Database, scope: Scope, from: number): CloseEvent[] {
          AND ref LIKE '#%' AND ts > ?`,
     )
     .all(param, from)
-    .map((r) => ({ ref: r.ref, ts: r.ts, sessionId: r.session_id, note: `merged PR ${r.ref}` }));
+    .map((r) => ({ ref: r.ref, ts: r.ts, sessionId: r.session_id, note: prMergedNote(r.ref) }));
 }
 
 /** Tasks completed in a session chain; task IDs only mean something within one. */
@@ -500,7 +505,7 @@ function taskEvents(db: Database, chain: string[], from: number): CloseEvent[] {
   return callsAfter(db, { sessions: chain }, from, "TaskUpdate", "%completed%").flatMap((c) => {
     const id = completedTask(c);
     return id
-      ? [{ ref: `task:${id}`, ts: c.ts, sessionId: c.sessionId, note: `task #${id} completed` }]
+      ? [{ ref: `task:${id}`, ts: c.ts, sessionId: c.sessionId, note: taskCompletedNote(id) }]
       : [];
   });
 }

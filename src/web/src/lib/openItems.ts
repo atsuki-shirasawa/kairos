@@ -1,6 +1,7 @@
 // How the summary view groups a period's open items per project: what is open at the period's
 // end (recent ones apart from old ones), and what was closed during it.
 import type { LedgerEntry } from "@shared/api.ts";
+import { type CloseNotePart, parseCloseNote } from "@shared/closeNotes.ts";
 import { OPEN_ITEM_OLD_WEEKS } from "@shared/constants.ts";
 import { WEEK } from "@shared/dates.ts";
 import { isOpenAt } from "@shared/openItems.ts";
@@ -86,21 +87,25 @@ export function groupOpenItems(
 }
 
 /**
- * What the log showed for an item closed by refs, in the UI language. The server writes the note
- * in fixed English phrases joined by "; " (`closeByRefs` in `summarize/ledger.ts`); each known
- * phrase is put into words here, and an unknown one is kept as written. null without a note.
+ * What the log showed for an item closed by refs, in the UI language. Each phrase the server
+ * stored (`shared/closeNotes.ts`) is put into words; an unknown one is kept as written. null
+ * without a note.
  */
 export function logCloses(note: string | null): string | null {
   if (!note) return null;
+  return summaryMessages().logList(parseCloseNote(note).map(closeNotePartText));
+}
+
+function closeNotePartText(part: CloseNotePart): string {
   const m = summaryMessages();
-  const parts = note.split("; ").map((part) => {
-    const issue = /^closed (#\d+)$/.exec(part);
-    if (issue?.[1]) return m.logClosedIssue(issue[1]);
-    const merge = /^merged PR (#\d+)$/.exec(part);
-    if (merge?.[1]) return m.logMerged(merge[1]);
-    const task = /^task (#\S+) completed$/.exec(part);
-    if (task?.[1]) return m.logTaskDone(task[1]);
-    return part;
-  });
-  return m.logList(parts);
+  switch (part.kind) {
+    case "issueClosed":
+      return m.logClosedIssue(part.ref);
+    case "prMerged":
+      return m.logMerged(part.ref);
+    case "taskCompleted":
+      return m.logTaskDone(part.ref);
+    case "unknown":
+      return part.text;
+  }
 }
