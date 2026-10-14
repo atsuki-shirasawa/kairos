@@ -7,6 +7,7 @@ import { parseArgs } from "node:util";
 import { DEFAULT_CLAUDE_DIR, DEFAULT_DB_PATH, LOG_PATH, SUMMARIZER_CWD } from "../server/paths.ts";
 import { EFFORT_LEVELS, isEffort } from "../server/summarize/claude.ts";
 import { HOST, PORT } from "../shared/constants.ts";
+import { isProjectShown } from "../shared/projects.ts";
 import { AUTO_SUMMARY_DAYS } from "../shared/sections.ts";
 import { ensure, health, isAlive, readPid, serverEnv, stop } from "./daemon.ts";
 import { formatTime, parseDay, printable, startOfDay, uiLink } from "./format.ts";
@@ -550,7 +551,7 @@ async function openItems(): Promise<void> {
     .filter((i) => i.closedAt === null && (!project || i.projectId === project.id));
   db.close();
   if (values.json) {
-    const shown = items.filter((i) => i.projectId === null || !projects.get(i.projectId)?.hidden);
+    const shown = items.filter((i) => isProjectShown(projects, i.projectId));
     console.log(JSON.stringify(shown, null, 2));
   } else console.log(renderOpenItems(items, projects));
 }
@@ -565,7 +566,7 @@ async function search(): Promise<void> {
   const projects = new Map(q.projects().map((p) => [p.id, p]));
   const { hits, more } = q.search(query, limit);
   db.close();
-  const shown = hits.filter((h) => h.projectId === null || !projects.get(h.projectId)?.hidden);
+  const shown = hits.filter((h) => isProjectShown(projects, h.projectId));
   console.log(
     values.json
       ? JSON.stringify({ hits: shown, more }, null, 2)

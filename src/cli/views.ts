@@ -2,6 +2,8 @@
 // Kept free of I/O so the output can be tested on plain objects.
 import type { CalendarSession, LedgerEntry, Project, SearchHit } from "../shared/api.ts";
 import { prMarkdownLink } from "../shared/artifacts.ts";
+import { isOpenAt } from "../shared/openItems.ts";
+import { isProjectShown } from "../shared/projects.ts";
 import { formatTime, hhmm, isoDay, oneLine, printable, startOfDay, uiLink } from "./format.ts";
 import { styles } from "./style.ts";
 
@@ -50,11 +52,6 @@ function projectName(projects: ReadonlyMap<number, Project>, id: number | null):
   return (id !== null ? projects.get(id)?.name : undefined) ?? NO_PROJECT;
 }
 
-/** Whether a project's work counts in the CLI's lists: hidden projects are left out, as in the UI. */
-function shown(projects: ReadonlyMap<number, Project>, projectId: number | null): boolean {
-  return projectId === null || projects.get(projectId)?.hidden !== true;
-}
-
 /** Days [from, to) as local midnights. */
 function daysIn(from: number, to: number): number[] {
   const days: number[] = [];
@@ -75,7 +72,7 @@ export function buildReport(
 ): Report {
   const blocks = sessions
     // Headless runs come back only while the UI shows them, so the report follows that setting
-    .filter((s) => shown(projects, s.projectId))
+    .filter((s) => isProjectShown(projects, s.projectId))
     .flatMap((s) =>
       s.segments
         .filter((g) => g.start >= from && g.start < to)
@@ -115,7 +112,7 @@ export function buildReport(
     to,
     days,
     openItems: openItems
-      .filter((i) => i.closedAt === null || i.closedAt >= to)
+      .filter((i) => isOpenAt(i, to))
       .map((i) => ({
         project: projectName(projects, i.projectId),
         kind: i.kind,
@@ -173,7 +170,7 @@ export function renderOpenItems(
   items: LedgerEntry[],
   projects: ReadonlyMap<number, Project>,
 ): string {
-  const visible = items.filter((i) => shown(projects, i.projectId));
+  const visible = items.filter((i) => isProjectShown(projects, i.projectId));
   if (visible.length === 0) return "No open items.";
   const out: string[] = [];
   for (const [name, list] of Map.groupBy(visible, (i) => projectName(projects, i.projectId))) {

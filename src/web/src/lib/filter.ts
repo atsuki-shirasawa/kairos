@@ -1,6 +1,7 @@
 // Filtering the blocks in a period. Separate from hiding projects (saved in the DB, for things
 // you never want to see), these are "just for now" conditions kept in the URL.
 import type { CalendarSegment, CalendarSession, Project } from "@shared/api.ts";
+import { isProjectShown } from "@shared/projects.ts";
 import { openItemsOf } from "@shared/summaryBody.ts";
 
 /** Outcomes a block can be narrowed to. A block passes when it has any of the chosen ones. */
@@ -180,9 +181,7 @@ export function hideSessions(
   filter: Filter,
 ): CalendarSession[] {
   return sessions.filter(
-    (s) =>
-      (s.projectId === null || !projects.get(s.projectId)?.hidden) &&
-      !(filter.hideBrief && isBrief(s)),
+    (s) => isProjectShown(projects, s.projectId) && !(filter.hideBrief && isBrief(s)),
   );
 }
 

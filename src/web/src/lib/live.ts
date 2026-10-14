@@ -1,5 +1,6 @@
 // How running sessions are shown: which ones want you, in what order, and for the tab title.
 import type { LiveSession, LiveSpend, LiveUsage, Project } from "@shared/api.ts";
+import { isProjectShown } from "@shared/projects.ts";
 
 /**
  * After this long waiting for a prompt, a session is idle: left open rather than waiting on you.
@@ -39,7 +40,7 @@ export function visibleLive(
   now: number,
 ): LiveSession[] {
   return sessions
-    .filter((s) => s.projectId === null || !projects.get(s.projectId)?.hidden)
+    .filter((s) => isProjectShown(projects, s.projectId))
     .map((s) => ({ s, d: liveDisplay(s, now) }))
     .sort((a, b) => ORDER[a.d] - ORDER[b.d] || b.s.since - a.s.since)
     .map(({ s }) => s);

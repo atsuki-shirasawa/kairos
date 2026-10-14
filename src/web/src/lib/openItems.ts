@@ -2,6 +2,7 @@
 // end (recent ones apart from old ones), and what was closed during it.
 import type { LedgerEntry } from "@shared/api.ts";
 import { OPEN_ITEM_OLD_WEEKS } from "@shared/constants.ts";
+import { isOpenAt } from "@shared/openItems.ts";
 import type { OpenKind } from "@shared/summaryBody.ts";
 import { summaryMessages } from "@/i18n/messages/summary.ts";
 import { DAY } from "./dates.ts";
@@ -75,8 +76,7 @@ export function groupOpenItems(
     if (isClosedIn(item, from, to)) {
       g.closed.push(item);
       if ((item.closedAt ?? to) < to) g.closedIn++;
-    } else if (item.closedAt === null || item.closedAt >= to)
-      (weekOpen(item, at) > OLD_WEEKS ? g.old : g.open).push(item);
+    } else if (isOpenAt(item, to)) (weekOpen(item, at) > OLD_WEEKS ? g.old : g.open).push(item);
   }
   for (const g of groups.values()) {
     g.open.sort(byKindThenNewest);

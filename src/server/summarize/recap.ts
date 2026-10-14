@@ -4,6 +4,7 @@
 import type { Database } from "bun:sqlite";
 import { prShortRef } from "../../shared/artifacts.ts";
 import { ARTIFACT_GRACE_MS, OPEN_ITEM_OLD_WEEKS } from "../../shared/constants.ts";
+import { isOpenAt } from "../../shared/openItems.ts";
 import { type OpenKind, parseSummaryBody } from "../../shared/summaryBody.ts";
 import { openItemsIn } from "../openItems.ts";
 import { DEFAULT_SUMMARY_LANG, defuseTags, type SummaryLang } from "./prompt.ts";
@@ -121,7 +122,7 @@ function loadLedger(db: Database, t: RecapTarget): RecapLedger {
     // A hand close has no note of its own; say so, or the model can't tell it from an open item
     const note = e.closedBy === "user" ? "marked done by hand" : e.closedNote;
     const item = { kind: e.kind, text: e.text, openedAt: e.openedAt, note };
-    if (e.closedAt === null || e.closedAt >= t.to) ledger.open.push({ ...item, note: null });
+    if (isOpenAt(e, t.to)) ledger.open.push({ ...item, note: null });
     else if (e.closedBy !== "dismissed") ledger.settled.push(item);
   }
   return ledger;

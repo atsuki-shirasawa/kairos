@@ -1,4 +1,5 @@
 import type { Project, SearchHit } from "@shared/api.ts";
+import { isProjectShown } from "@shared/projects.ts";
 import { FileCode, Search, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { MIN_SEARCH_CHARS } from "@/hooks/queries.ts";
@@ -56,9 +57,7 @@ export function SearchField({
   // In a narrow window the field is just its icon until used; the button would stick out
   const showFiles = focused || value !== "" || files;
   // Hidden projects stay hidden here too
-  const hits = search.hits.filter(
-    (h) => h.projectId === null || !projects.get(h.projectId)?.hidden,
-  );
+  const hits = search.hits.filter((h) => isProjectShown(projects, h.projectId));
   const items = () => [...(listRef.current?.querySelectorAll("button") ?? [])];
 
   const pick = (hit: SearchHit) => {
