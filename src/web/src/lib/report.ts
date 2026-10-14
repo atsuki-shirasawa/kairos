@@ -3,7 +3,7 @@ import type { CalendarSession, Project } from "@shared/api.ts";
 import { prMarkdownLink } from "@shared/artifacts.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { dateLabel, hhmm } from "./dates.ts";
-import { blocksOfDay } from "./layout.ts";
+import { blocksOfDay, type DayBlock } from "./layout.ts";
 import { projectName } from "./selection.ts";
 import { counted } from "./totals.ts";
 
@@ -20,8 +20,6 @@ export function buildReport(
   projects: Map<number, Project>,
   recaps: ReadonlyMap<number, string> = new Map(),
 ): string {
-  const f = formatMessages();
-  const out: string[] = [];
   const shown = new Set(
     days.flatMap((day) =>
       blocksOfDay(sessions, day)
@@ -29,14 +27,7 @@ export function buildReport(
         .map((b) => b.session.projectId),
     ),
   );
-  const summary = [...shown].flatMap((id) => {
-    const body = id !== null ? recaps.get(id)?.trim() : undefined;
-    return id !== null && body ? [[projectName(projects, id), body]] : [];
-  });
-  if (summary.length) {
-    out.push(`## ${f.reportSummary}`, "");
-    for (const [name, body] of summary) out.push(`### ${name}`, "", body ?? "", "");
-  }
+  const out = recapSection([...shown], projects, recaps);
   for (const day of days) {
     const blocks = blocksOfDay(sessions, day).filter(counted);
     if (blocks.length === 0) continue;
@@ -44,14 +35,37 @@ export function buildReport(
     out.push(`## ${dateLabel(day)}`, "");
     for (const [name, list] of byProject) {
       out.push(`### ${name}`, "");
-      for (const b of list) {
-        const prs = b.segment.prs.map((a) => prMarkdownLink(a.ref));
-        const time = `${hhmm(b.dayStart + b.start)}–${hhmm(b.segment.end)}`;
-        const headline = b.segment.headline.replace(/\s+/g, " ").trim();
-        out.push(`- ${time} ${headline}${prs.length ? ` (${prs.join(", ")})` : ""}`);
-      }
+      for (const b of list) out.push(blockLine(b));
       out.push("");
     }
   }
   return out.join("\n").trim();
+}
+
+/**
+ * The report's opening section: each shown project's written recap under its name, in the order
+ * given. No lines at all when none of them has a recap.
+ */
+export function recapSection(
+  projectIds: (number | null)[],
+  projects: Map<number, Project>,
+  recaps: ReadonlyMap<number, string>,
+): string[] {
+  const f = formatMessages();
+  const summary = projectIds.flatMap((id) => {
+    const body = id !== null ? recaps.get(id)?.trim() : undefined;
+    return id !== null && body ? [[projectName(projects, id), body]] : [];
+  });
+  if (summary.length === 0) return [];
+  const out = [`## ${f.reportSummary}`, ""];
+  for (const [name, body] of summary) out.push(`### ${name}`, "", body ?? "", "");
+  return out;
+}
+
+/** One block as a list item: its time, its headline on one line, then links to the PRs it opened. */
+export function blockLine(b: DayBlock): string {
+  const prs = b.segment.prs.map((a) => prMarkdownLink(a.ref));
+  const time = `${hhmm(b.dayStart + b.start)}–${hhmm(b.segment.end)}`;
+  const headline = b.segment.headline.replace(/\s+/g, " ").trim();
+  return `- ${time} ${headline}${prs.length ? ` (${prs.join(", ")})` : ""}`;
 }

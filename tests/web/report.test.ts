@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import type { Artifact, CalendarSession, Project } from "../../src/shared/api.ts";
 import { setLocale } from "../../src/web/src/i18n/index.ts";
-import { buildReport } from "../../src/web/src/lib/report.ts";
+import { blocksOfDay } from "../../src/web/src/lib/layout.ts";
+import { blockLine, buildReport, recapSection } from "../../src/web/src/lib/report.ts";
 
 const DAY0 = new Date(2026, 9, 5).getTime(); // 2026-10-05 (Mon) 00:00
 const DAY1 = new Date(2026, 9, 6).getTime();
@@ -144,5 +145,47 @@ describe("buildReport", () => {
     setLocale("ja");
     const sessions = [session("a", null, { start: at(9), end: at(10), headline: "調査" })];
     expect(buildReport([DAY0], sessions, projects)).toMatch(/^## 10\/5（月）\n/);
+  });
+});
+
+describe("recapSection", () => {
+  test("lists recaps under their project, in the given order, skipping blank ones", () => {
+    const recaps = new Map([
+      [1, " Built the login. "],
+      [2, "Wrote a post."],
+      [3, "  "],
+    ]);
+    expect(recapSection([2, null, 3, 1], projects, recaps)).toEqual([
+      "## Summary",
+      "",
+      "### blog",
+      "",
+      "Wrote a post.",
+      "",
+      "### app",
+      "",
+      "Built the login.",
+      "",
+    ]);
+  });
+
+  test("has no lines without a recap", () => {
+    expect(recapSection([1, null], projects, new Map())).toEqual([]);
+  });
+});
+
+describe("blockLine", () => {
+  test("time, the headline on one line, then the PR links", () => {
+    const s = session("a", 1, {
+      start: at(9),
+      end: at(10, 30),
+      headline: " Add\n  login ",
+      prs: [pr(42), pr(43)],
+    });
+    const [block] = blocksOfDay([s], DAY0);
+    if (!block) throw new Error("no block");
+    expect(blockLine(block)).toBe(
+      "- 9:00–10:30 Add login ([#42](https://github.com/me/app/pull/42), [#43](https://github.com/me/app/pull/43))",
+    );
   });
 });

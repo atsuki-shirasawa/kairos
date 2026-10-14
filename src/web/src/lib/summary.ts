@@ -75,20 +75,9 @@ export function summarize(
   const first = clipped.filter(counted);
   const activity = sumActivity(first.map(activityOf));
 
-  const projects: ProjectSummary[] = [
-    ...Map.groupBy(clipped, (b) => b.session.projectId).entries(),
-  ].map(([projectId, list]) => {
-    const own = list.filter(counted);
-    return {
-      projectId,
-      busyMs: busyByDay(list),
-      blocks: own.sort((a, b) => a.segment.start - b.segment.start),
-      clipped: list,
-      prs: uniquePrs(own),
-      commits: own.reduce((n, b) => n + b.segment.activity.commits, 0),
-      usage: sumUsage(own.map(usageOf)),
-    };
-  });
+  const projects = [...Map.groupBy(clipped, (b) => b.session.projectId).entries()].map(
+    ([projectId, list]) => projectSummary(projectId, list),
+  );
   projects.sort((a, b) => b.busyMs - a.busyMs);
 
   return {
@@ -98,17 +87,46 @@ export function summarize(
     prs: uniquePrs(first),
     commits: activity?.commits ?? 0,
     usage: sumUsage(first.map(usageOf)),
-    days: perDay.map(({ day, blocks }) => ({
-      day,
-      busyMs: busyMs(blocks),
-      projects: projects
-        .map((p) => ({
-          projectId: p.projectId,
-          busyMs: busyMs(blocks.filter((b) => b.session.projectId === p.projectId)),
-        }))
-        .filter((p) => p.busyMs > 0),
-    })),
+    days: perDay.map(({ day, blocks }) => daySummary(day, blocks, projects)),
     projects,
+  };
+}
+
+/**
+ * One project's share, from its blocks clipped per day. Its own blocks (counted once, on the day
+ * they started) give the list, PRs, commits and usage; the clipped ones give the time.
+ */
+export function projectSummary(projectId: number | null, clipped: DayBlock[]): ProjectSummary {
+  const own = clipped.filter(counted);
+  return {
+    projectId,
+    busyMs: busyByDay(clipped),
+    blocks: own.sort((a, b) => a.segment.start - b.segment.start),
+    clipped,
+    prs: uniquePrs(own),
+    commits: own.reduce((n, b) => n + b.segment.activity.commits, 0),
+    usage: sumUsage(own.map(usageOf)),
+  };
+}
+
+/**
+ * One day's working time, in total and per project in the order of `projects`. Projects with no
+ * time on the day are left out.
+ */
+export function daySummary(
+  day: number,
+  blocks: DayBlock[],
+  projects: { projectId: number | null }[],
+): DaySummary {
+  return {
+    day,
+    busyMs: busyMs(blocks),
+    projects: projects
+      .map((p) => ({
+        projectId: p.projectId,
+        busyMs: busyMs(blocks.filter((b) => b.session.projectId === p.projectId)),
+      }))
+      .filter((p) => p.busyMs > 0),
   };
 }
 

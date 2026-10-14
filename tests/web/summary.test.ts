@@ -1,7 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import type { Artifact, CalendarSession, Usage } from "../../src/shared/api.ts";
 import { addDays } from "../../src/web/src/lib/dates.ts";
-import { sessionsUntil, summarize } from "../../src/web/src/lib/summary.ts";
+import { blocksOfDay } from "../../src/web/src/lib/layout.ts";
+import {
+  daySummary,
+  projectSummary,
+  sessionsUntil,
+  summarize,
+} from "../../src/web/src/lib/summary.ts";
 
 const DAY0 = new Date(2026, 9, 5).getTime(); // 2026-10-05 (Mon) 00:00
 const DAYS = Array.from({ length: 7 }, (_, i) => addDays(DAY0, i));
@@ -146,6 +152,52 @@ describe("summarize", () => {
     const s = summarize(DAYS, []);
     expect(s).toMatchObject({ blocks: 0, busyMs: 0, claudeMs: null, usage: null, prs: [] });
     expect(s.projects).toEqual([]);
+  });
+});
+
+/** The period's blocks clipped per day, as `summarize` sees them. */
+const clippedBlocks = (sessions: CalendarSession[]) =>
+  DAYS.flatMap((day) => blocksOfDay(sessions, day));
+
+describe("projectSummary", () => {
+  test("times the clipped blocks and counts each block, PR and commit once", () => {
+    const sessions = [
+      session(
+        "a",
+        1,
+        { start: at(1, 9), end: at(1, 10), commits: 1, usage: usage(100, 1) },
+        // Crosses midnight: clipped into two, counted once
+        { start: at(0, 23), end: at(1, 1), commits: 2, prs: [pr(7, 1)], usage: usage(50, 0.5) },
+      ),
+    ];
+    const p = projectSummary(1, clippedBlocks(sessions));
+    expect(p.projectId).toBe(1);
+    expect(p.busyMs).toBe(3 * H);
+    expect(p.clipped).toHaveLength(3);
+    // In time order, though the session lists them otherwise
+    expect(p.blocks.map((b) => b.segment.start)).toEqual([at(0, 23), at(1, 9)]);
+    expect(p.prs).toHaveLength(1);
+    expect(p.commits).toBe(3);
+    expect(p.usage?.tokens).toBe(150);
+  });
+});
+
+describe("daySummary", () => {
+  test("gives the day's time in total and per project, in the given order, without idle ones", () => {
+    const sessions = [
+      session("a", 1, { start: at(0, 9), end: at(0, 11) }),
+      session("b", 2, { start: at(0, 10), end: at(0, 11) }),
+    ];
+    const blocks = blocksOfDay(sessions, DAY0);
+    const d = daySummary(DAY0, blocks, [{ projectId: 2 }, { projectId: 3 }, { projectId: 1 }]);
+    expect(d).toEqual({
+      day: DAY0,
+      busyMs: 2 * H,
+      projects: [
+        { projectId: 2, busyMs: H },
+        { projectId: 1, busyMs: 2 * H },
+      ],
+    });
   });
 });
 
