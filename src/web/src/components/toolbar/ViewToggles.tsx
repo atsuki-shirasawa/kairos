@@ -8,8 +8,8 @@ import {
 } from "@/components/ui/select.tsx";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import { toolbarMessages } from "@/i18n/messages/toolbar.ts";
-import type { Layout, View } from "@/lib/dates.ts";
 import { keyCap } from "@/lib/shortcuts.ts";
+import type { Layout, View } from "@/lib/view.ts";
 import { SEGMENT, SEGMENTED } from "./segmented.ts";
 
 /** The periods in the dropdown, largest first, with their labels and shortcut keys. */

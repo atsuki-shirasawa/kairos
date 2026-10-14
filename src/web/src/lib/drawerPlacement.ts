@@ -1,6 +1,6 @@
 // How the session drawer sits beside each layout: floating over it or taking its own column, and
 // which ways of stepping between blocks it offers there.
-import type { Layout, View } from "./dates.ts";
+import type { Layout, View } from "./view.ts";
 
 /**
  * Whether the drawer floats over the body instead of taking a column beside it. The day view's

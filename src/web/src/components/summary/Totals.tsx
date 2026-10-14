@@ -1,12 +1,12 @@
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { listMessages } from "@/i18n/messages/list.tsx";
 import { summaryMessages } from "@/i18n/messages/summary.ts";
-import type { View } from "@/lib/dates.ts";
 import { durationLabel } from "@/lib/dates.ts";
 import { costLabel, numberLabel, tokensLabel } from "@/lib/format.ts";
 import { type Comparable, comparable, signed } from "@/lib/periodChange.ts";
 import type { PeriodSummary } from "@/lib/summary.ts";
 import { cn } from "@/lib/utils.ts";
+import type { View } from "@/lib/view.ts";
 import { Hint } from "../Hint.tsx";
 import { MomentNode } from "../MomentNode.tsx";
 import { costText } from "./shared.tsx";

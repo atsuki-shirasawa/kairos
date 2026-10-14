@@ -19,12 +19,12 @@ import {
   rangeOf,
   rangeTitle,
   startOfMonth,
-  type View,
   weekdayHeaders,
   weekNumber,
 } from "@/lib/dates.ts";
 import { recordedDays } from "@/lib/dayBlocks.ts";
 import { cn } from "@/lib/utils.ts";
+import type { View } from "@/lib/view.ts";
 
 /**
  * A date picker that doubles as the period heading. Clicking opens a month calendar and jumps to

@@ -8,6 +8,7 @@ import {
   elapsedLabel,
   isoWeek,
   monthWeeks,
+  periodStart,
   rangeOf,
   rangeTitle,
   relativeDay,
@@ -16,8 +17,11 @@ import {
   startOfWeek,
   timeOrDateTime,
   weekNumber,
+  yearUnlessCurrent,
 } from "../../src/web/src/lib/dates.ts";
 import { DAY0 } from "./helpers.ts";
+
+const DAY = 86_400_000;
 
 describe("dates", () => {
   test("weeks start on Sunday", () => {
@@ -152,5 +156,42 @@ describe("dates", () => {
       expect(timeOrDateTime(DAY0, addDays(DAY0, 1))).toBe("10/5 0:00");
       expect(timeOrDateTime(DAY0, addDays(DAY0, 120))).toBe("2026/10/5 0:00");
     });
+  });
+});
+
+describe("isoWeek", () => {
+  /** The arithmetic isoWeek used before it was split into named steps. */
+  function reference(t: number): number {
+    const d = new Date(new Date(t).setHours(0, 0, 0, 0));
+    d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+    const jan4 = new Date(d.getFullYear(), 0, 4);
+    return (
+      1 + Math.round(((d.getTime() - jan4.getTime()) / DAY - 3 + ((jan4.getDay() + 6) % 7)) / 7)
+    );
+  }
+
+  test("numbers every day of several years as before", () => {
+    for (
+      let t = new Date(2023, 11, 1).getTime();
+      t < new Date(2028, 1, 1).getTime();
+      t = addDays(t, 1)
+    )
+      expect(isoWeek(t)).toBe(reference(t));
+  });
+});
+
+describe("periodStart", () => {
+  test("starts a month on the 1st, a week on Sunday and a day at midnight", () => {
+    const t = new Date(2026, 9, 7, 15).getTime(); // Wed
+    expect(periodStart("month", t)).toBe(new Date(2026, 9, 1).getTime());
+    expect(periodStart("week", t)).toBe(addDays(DAY0, -1));
+    expect(periodStart("day", t)).toBe(new Date(2026, 9, 7).getTime());
+  });
+});
+
+describe("yearUnlessCurrent", () => {
+  test("leaves the current year out", () => {
+    expect(yearUnlessCurrent(DAY0, addDays(DAY0, 30))).toBeNull();
+    expect(yearUnlessCurrent(DAY0, addDays(DAY0, 120))).toBe(2026);
   });
 });

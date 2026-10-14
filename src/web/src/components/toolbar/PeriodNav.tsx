@@ -1,8 +1,8 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { toolbarMessages } from "@/i18n/messages/toolbar.ts";
-import type { View } from "@/lib/dates.ts";
 import { keyCap } from "@/lib/shortcuts.ts";
+import type { View } from "@/lib/view.ts";
 
 /**
  * Previous / today / next, kept together by spacing rather than a shared frame. It sits left of

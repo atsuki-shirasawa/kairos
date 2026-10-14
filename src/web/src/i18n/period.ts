@@ -1,6 +1,6 @@
 // How each message dictionary names the shown period. Kept in one place so a new view is added
 // once, not in every area that mentions "this week".
-import type { View } from "@/lib/dates.ts";
+import type { View } from "@/lib/view.ts";
 
 /** The period's unit: "Previous month". */
 export const UNIT_EN: Record<View, string> = { month: "month", week: "week", day: "day" };

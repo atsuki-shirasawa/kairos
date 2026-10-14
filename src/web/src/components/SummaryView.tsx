@@ -1,9 +1,9 @@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import type { PreviousPeriod } from "@/hooks/usePeriodSessions.ts";
 import { summaryMessages } from "@/i18n/messages/summary.ts";
-import type { View } from "@/lib/dates.ts";
 import type { PeriodBodyProps } from "@/lib/periodBody.ts";
 import { keyCap } from "@/lib/shortcuts.ts";
+import type { View } from "@/lib/view.ts";
 import { ByDay } from "./summary/ByDay.tsx";
 import { ByProject } from "./summary/ByProject.tsx";
 import { Done } from "./summary/Done.tsx";

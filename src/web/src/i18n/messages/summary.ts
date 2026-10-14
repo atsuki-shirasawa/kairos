@@ -1,4 +1,4 @@
-import type { View } from "@/lib/dates.ts";
+import type { View } from "@/lib/view.ts";
 import { defineMessages } from "../index.ts";
 import { THIS_EN, THIS_JA, UNIT_EN } from "../period.ts";
 

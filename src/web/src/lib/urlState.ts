@@ -2,10 +2,11 @@
 // left-out values) can be tested without a browser. The hook only wires them to history.
 import { isoDay, startOfDay } from "@shared/dates.ts";
 import { DAY_VIEW, readSessionTarget, UI_PARAMS, writeSessionTarget } from "@shared/uiUrl.ts";
-import { fromISODate, type Layout, type View } from "./dates.ts";
+import { fromISODate } from "./dates.ts";
 import type { Filter } from "./filter.ts";
 import { readFilter, writeFilter } from "./filterUrl.ts";
 import type { ListSort } from "./listTable.ts";
+import type { Layout, View } from "./view.ts";
 
 /** Time order; left out of the URL. */
 export const DEFAULT_SORT: ListSort = { key: "start", desc: false };

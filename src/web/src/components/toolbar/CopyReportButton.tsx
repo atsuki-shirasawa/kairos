@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button.tsx";
 import { useCopy } from "@/hooks/useCopy.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { toolbarMessages } from "@/i18n/messages/toolbar.ts";
-import type { View } from "@/lib/dates.ts";
 import { cn } from "@/lib/utils.ts";
+import type { View } from "@/lib/view.ts";
 
 /**
  * Copies the shown period's work as Markdown, for a stand-up note or a weekly report.

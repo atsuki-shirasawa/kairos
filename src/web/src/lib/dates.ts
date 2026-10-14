@@ -1,14 +1,7 @@
 // Date arithmetic and labels. Times are in the browser's local time zone.
 import { DAY, HOUR, MINUTE, startOfDay } from "@shared/dates.ts";
 import { dateMessages } from "@/i18n/messages/dates.ts";
-
-/** Length of the shown period. */
-export type View = "month" | "week" | "day";
-/**
- * `list` is the summary's table tab (kept under its old name so existing URLs still open it).
- * `live` is the page of sessions running now, which has no period.
- */
-export type Layout = "calendar" | "list" | "summary" | "live";
+import type { View } from "./view.ts";
 
 /** Adds days. Uses Date's calendar arithmetic rather than fixed 24h steps, so DST shifts are safe. */
 export function addDays(t: number, n: number): number {
@@ -23,14 +16,16 @@ export function startOfWeek(t: number): number {
   return addDays(d.getTime(), -d.getDay());
 }
 
+/** Midnight on the first day of the `view` period holding `anchor`. */
+export function periodStart(view: View, anchor: number): number {
+  if (view === "month") return startOfMonth(anchor);
+  if (view === "week") return startOfWeek(anchor);
+  return startOfDay(anchor);
+}
+
 /** The displayed period [from, to) and the midnight of each day in it. */
 export function rangeOf(view: View, anchor: number): { from: number; to: number; days: number[] } {
-  const from =
-    view === "month"
-      ? startOfMonth(anchor)
-      : view === "week"
-        ? startOfWeek(anchor)
-        : startOfDay(anchor);
+  const from = periodStart(view, anchor);
   const to = view === "month" ? addMonths(from, 1) : addDays(from, view === "week" ? 7 : 1);
   const days: number[] = [];
   for (let d = from; d < to; d = addDays(d, 1)) days.push(d);
@@ -76,17 +71,25 @@ export function hhmm(t: number): string {
   return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
+/** Days since the Monday that starts the ISO week: 0 for Monday through 6 for Sunday. */
+const daysSinceMonday = (d: Date) => (d.getDay() + 6) % 7;
+
+/**
+ * The Thursday of the ISO week (Monday to Sunday) holding `t`, at midnight. Its year is the week's
+ * year, so a week straddling New Year belongs to whichever year has its Thursday.
+ */
+function thursdayOfWeek(t: number): Date {
+  const d = new Date(startOfDay(t));
+  d.setDate(d.getDate() + 3 - daysSinceMonday(d));
+  return d;
+}
+
 /** ISO 8601 week number (weeks start Monday; week 1 contains the year's first Thursday). */
 export function isoWeek(t: number): number {
-  const d = new Date(startOfDay(t));
-  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
-  const firstThursday = new Date(d.getFullYear(), 0, 4);
-  return (
-    1 +
-    Math.round(
-      ((d.getTime() - firstThursday.getTime()) / DAY - 3 + ((firstThursday.getDay() + 6) % 7)) / 7,
-    )
-  );
+  const thursday = thursdayOfWeek(t);
+  // January 4th always falls in week 1, so its week's Thursday is the year's first
+  const firstThursday = thursdayOfWeek(new Date(thursday.getFullYear(), 0, 4).getTime());
+  return 1 + Math.round((thursday.getTime() - firstThursday.getTime()) / DAY / 7);
 }
 
 /**
@@ -159,14 +162,19 @@ export function monthWeeks(month: number): number[][] {
   return weeks;
 }
 
+/** The year of `t`, or null when it is the year of `now` (labels leave the current year out). */
+export function yearUnlessCurrent(t: number, now: number): number | null {
+  const year = new Date(t).getFullYear();
+  return year === new Date(now).getFullYear() ? null : year;
+}
+
 /**
  * Short date: "Mon, Oct 5" / "10/5（月）". Adds the year when it isn't the current one
  * ("Sun, Oct 5, 2025" / "2025/10/5（日）").
  */
 export function dateLabel(t: number, now = Date.now()): string {
   const d = new Date(t);
-  const year = d.getFullYear() === new Date(now).getFullYear() ? null : d.getFullYear();
-  return dateMessages().dateLabel(weekday(t), d.getMonth(), d.getDate(), year);
+  return dateMessages().dateLabel(weekday(t), d.getMonth(), d.getDate(), yearUnlessCurrent(t, now));
 }
 
 /** "Today" or "Yesterday" when it applies, otherwise null. */
@@ -204,8 +212,7 @@ export function elapsedLabel(ms: number): string {
 export function timeOrDateTime(t: number, now = Date.now()): string {
   if (isSameDay(t, now)) return hhmm(t);
   const d = new Date(t);
-  const year = d.getFullYear() === new Date(now).getFullYear() ? null : d.getFullYear();
-  return dateMessages().monthDayTime(d.getMonth(), d.getDate(), year, hhmm(t));
+  return dateMessages().monthDayTime(d.getMonth(), d.getDate(), yearUnlessCurrent(t, now), hhmm(t));
 }
 
 /** Local midnight of a URL date (YYYY-MM-DD), or null when it isn't one. */

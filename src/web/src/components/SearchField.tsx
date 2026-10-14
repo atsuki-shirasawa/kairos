@@ -6,10 +6,11 @@ import { useRovingFocus } from "@/hooks/useRovingFocus.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { searchMessages } from "@/i18n/messages/search.ts";
 import { projectColor } from "@/lib/colors.ts";
-import { dateLabel, hhmm, type View } from "@/lib/dates.ts";
+import { dateLabel, hhmm } from "@/lib/dates.ts";
 import { highlightTerms, splitHighlights, visibleHits } from "@/lib/search.ts";
 import { projectLabel, projectOf } from "@/lib/selection.ts";
 import { cn } from "@/lib/utils.ts";
+import type { View } from "@/lib/view.ts";
 
 /** Cross-period search results as the search panel shows them (owned by App's search query). */
 export interface SearchState {

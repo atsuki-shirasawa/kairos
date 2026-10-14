@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { Layout, View } from "../../src/web/src/lib/dates.ts";
 import { drawerOverlay, drawerStepping } from "../../src/web/src/lib/drawerPlacement.ts";
+import type { Layout, View } from "../../src/web/src/lib/view.ts";
 
 describe("drawerOverlay", () => {
   test.each([

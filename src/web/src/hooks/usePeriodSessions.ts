@@ -3,7 +3,7 @@
 import type { CalendarSession, Project } from "@shared/api.ts";
 import { useMemo } from "react";
 import { useCalendar, useRecaps, useSearch } from "@/hooks/queries.ts";
-import { rangeOf, shift, type View } from "@/lib/dates.ts";
+import { rangeOf, shift } from "@/lib/dates.ts";
 import {
   type Filter,
   hitKey,
@@ -13,6 +13,7 @@ import {
   segmentMatcher,
 } from "@/lib/filter.ts";
 import { hideSessions, withProjects } from "@/lib/projectVisibility.ts";
+import type { View } from "@/lib/view.ts";
 
 /** The period's sessions as each part of the screen needs them. */
 export interface FilteredSessions {
