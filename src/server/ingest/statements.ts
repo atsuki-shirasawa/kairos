@@ -96,6 +96,7 @@ export function prepareStatements(db: Database) {
        WHERE p.path = ? AND s.launch_cwd IS NOT NULL`,
     ),
     projectByPath: p("SELECT id FROM projects WHERE path = ?"),
+    launchCwds: p("SELECT DISTINCT launch_cwd AS cwd FROM sessions WHERE launch_cwd IS NOT NULL"),
     adoptRepo: p("UPDATE projects SET repo = ?, name = ? WHERE id = ?"),
     reassignProject: p(
       "UPDATE sessions SET project_id = ?, label = COALESCE(label, ?) WHERE launch_cwd = ?",

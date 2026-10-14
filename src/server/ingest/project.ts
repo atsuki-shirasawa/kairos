@@ -13,10 +13,21 @@ export interface ProjectRef {
 }
 
 /**
- * Returns the URL of the directory's git remote (origin): null if there is no remote,
+ * A directory's git remote (origin) as read from disk: its URL, null if there is no remote, or
  * undefined if the directory itself is gone and it cannot be told.
  */
-export type RemoteLookup = (dir: string) => string | null | undefined;
+export type RemoteReading = string | null | undefined;
+
+/** Returns the reading of the directory's git remote (see `RemoteReading`). */
+export type RemoteLookup = (dir: string) => RemoteReading;
+
+/**
+ * Whether a remote reading says the directory is gone from this machine (a container's checkout,
+ * a deleted clone), so its remote can't be told, as opposed to a directory without a remote.
+ */
+export function isGoneDir(remote: RemoteReading): remote is undefined {
+  return remote === undefined;
+}
 
 const WORKTREE_RE = /^(.+?)\/\.claude\/worktrees\/([^/]+)/;
 
@@ -139,7 +150,7 @@ export function parseRemote(url: string): { key: string; name: string } | null {
  * Reads the origin URL from `<dir>/.git/config`. Does not run git (to stay read-only).
  * Also handles the `.git` file (`gitdir: …`) of worktrees and submodules.
  */
-export function readGitRemote(dir: string): string | null | undefined {
+export function readGitRemote(dir: string): RemoteReading {
   if (!existsSync(dir)) return undefined;
   try {
     const dotGit = join(dir, ".git");
