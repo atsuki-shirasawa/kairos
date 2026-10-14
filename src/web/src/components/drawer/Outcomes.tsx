@@ -2,8 +2,9 @@ import type { Artifact, Section, SessionDetail } from "@shared/api.ts";
 import { ExternalLink } from "lucide-react";
 import { MomentNode } from "@/components/MomentNode.tsx";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
+import { prLinkParts, shortSha } from "@/lib/artifacts.ts";
 import { hhmm } from "@/lib/dates.ts";
-import { prLinkParts, shortSha, splitOutcomes } from "@/lib/drawer.ts";
+import { splitOutcomes } from "@/lib/drawer.ts";
 import { Block } from "./Block.tsx";
 
 /** Show this many outcomes for the period up front and collapse the rest, to keep the conversation close. */

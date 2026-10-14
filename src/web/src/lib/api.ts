@@ -38,6 +38,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
+/**
+ * The request options for sending `body` as JSON. The server's write guard accepts only JSON
+ * bodies, so every write goes through here, even one with nothing to send.
+ */
+function sendJson(method: "POST" | "PATCH", body: unknown): RequestInit {
+  return {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  };
+}
+
 const query = (params: Record<string, string | number | boolean | null | undefined>) => {
   const q = new URLSearchParams();
   for (const [k, v] of Object.entries(params))
@@ -64,47 +76,30 @@ export const api = {
   settings: () => request<Settings>("/api/settings"),
 
   updateSettings: (update: SettingsUpdate) =>
-    request<Settings>("/api/settings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(update),
-    }),
+    request<Settings>("/api/settings", sendJson("PATCH", update)),
 
   updateProject: (id: number, update: ProjectUpdate) =>
-    request<Project>(`/api/projects/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(update),
-    }),
+    request<Project>(`/api/projects/${id}`, sendJson("PATCH", update)),
 
   session: (id: string) => request<SessionDetail>(`/api/sessions/${encodeURIComponent(id)}`),
 
   requestSummary: (id: string, start: number) =>
-    request<{ queued: true }>(`/api/sessions/${encodeURIComponent(id)}/sections/${start}/summary`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "{}",
-    }),
+    request<{ queued: true }>(
+      `/api/sessions/${encodeURIComponent(id)}/sections/${start}/summary`,
+      sendJson("POST", {}),
+    ),
 
   recaps: (from: number, to: number) =>
     request<RecapsResponse>(`/api/recaps${query({ from, to })}`),
 
   requestRecap: (target: RecapRequest) =>
-    request<{ queued: true }>("/api/recaps", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(target),
-    }),
+    request<{ queued: true }>("/api/recaps", sendJson("POST", target)),
 
   openItems: (from: number, to: number) =>
     request<OpenItemsResponse>(`/api/open-items${query({ from, to })}`),
 
   updateOpenItem: (id: number, update: OpenItemUpdate) =>
-    request<LedgerEntry>(`/api/open-items/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(update),
-    }),
+    request<LedgerEntry>(`/api/open-items/${id}`, sendJson("PATCH", update)),
 
   messages: (
     id: string,

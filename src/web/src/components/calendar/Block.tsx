@@ -6,6 +6,7 @@ import { MomentNode } from "@/components/MomentNode.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip.tsx";
 import { calendarMessages } from "@/i18n/messages/calendar.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
+import { artifactRef } from "@/lib/artifacts.ts";
 import {
   type BlockGeometry,
   blockGeometry,
@@ -21,7 +22,6 @@ import {
 } from "@/lib/calendarGrid.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { dateLabel, durationLabel, hhmm } from "@/lib/dates.ts";
-import { artifactRef } from "@/lib/drawer.ts";
 import { openItemsLine } from "@/lib/format.ts";
 import type { PlacedBlock } from "@/lib/layout.ts";
 import { projectLabel } from "@/lib/selection.ts";
