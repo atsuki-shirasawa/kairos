@@ -4,7 +4,7 @@
 import { existsSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { DEFAULT_CLAUDE_DIR, DEFAULT_DB_PATH, LOG_PATH, SUMMARIZER_CWD } from "../server/paths.ts";
+import { LOG_PATH, SUMMARIZER_CWD } from "../server/paths.ts";
 import { EFFORT_LEVELS, isEffort } from "../server/summarize/claude.ts";
 import { HOST, PORT } from "../shared/constants.ts";
 import { DAY, startOfDay } from "../shared/dates.ts";
@@ -13,42 +13,13 @@ import { AUTO_SUMMARY_DAYS } from "../shared/sections.ts";
 import { isSummaryLang } from "../shared/summaryLang.ts";
 import { ensure, health, isAlive, readPid, serverEnv, stop } from "./daemon.ts";
 import { formatTime, parseDay, printable, uiLink } from "./format.ts";
+import {
+  KEPT_SERVER_OPTIONS,
+  OPTIONS,
+  type OptionName,
+  serveArgs as serverArgs,
+} from "./options.ts";
 import { colorFor, styles } from "./style.ts";
-
-/** Every option any command takes; which command takes which is listed in `help.ts`. */
-const OPTIONS = {
-  "claude-dir": { type: "string", default: DEFAULT_CLAUDE_DIR },
-  db: { type: "string", default: DEFAULT_DB_PATH },
-  port: { type: "string" },
-  "summary-model": { type: "string" },
-  "summary-lang": { type: "string" },
-  "summary-effort": { type: "string" },
-  "no-auto-summary": { type: "boolean" },
-  since: { type: "string" },
-  until: { type: "string" },
-  limit: { type: "string" },
-  "dry-run": { type: "boolean" },
-  full: { type: "boolean" },
-  json: { type: "boolean" },
-  project: { type: "string" },
-  session: { type: "string" },
-  follow: { type: "boolean", short: "f" },
-  lines: { type: "string", short: "n" },
-  help: { type: "boolean", short: "h" },
-} as const;
-
-/**
- * The options that choose how the server runs; given to `restart`, they replace the kept ones.
- * `--port` isn't one: it is never kept, only says where the server is (see `withoutPort`).
- */
-const SERVER_FLAGS = new Set([
-  "claude-dir",
-  "db",
-  "summary-model",
-  "summary-lang",
-  "summary-effort",
-  "no-auto-summary",
-]);
 
 const { positionals, values, tokens } = parseCommandLine();
 const [command, ...rest] = positionals;
@@ -103,12 +74,10 @@ function usageError(reason: string, name: string | undefined): never {
 async function checkUsage(name: string): Promise<void> {
   const flags = tokens.flatMap((t) => (t.kind === "option" ? [t.name] : []));
   if (flags.length === 0 && rest.length === 0) return;
-  const { COMMANDS } = await import("./help.ts");
+  const { COMMANDS, optionNames } = await import("./help.ts");
   const spec = COMMANDS[name];
   if (!spec) return; // Reported as an unknown command below
-  const taken = new Set(
-    (spec.options ?? []).flatMap(([flag]) => /--([\w-]+)/.exec(flag)?.slice(1) ?? []),
-  );
+  const taken = new Set<string>(optionNames(spec));
   const extra = flags.find((f) => f !== "help" && !taken.has(f));
   if (extra) usageError(`\`kairos ${name}\` doesn't take --${extra}`, name);
   if (rest.length > 0 && !spec.args) usageError(`\`kairos ${name}\` takes no arguments`, name);
@@ -131,17 +100,7 @@ function urlOf(p: number): string {
 
 /** Options handed on to the background server. */
 function serveArgs(): string[] {
-  const args: string[] = [];
-  // Absolute, since `restart` may replay them later from another working directory
-  if (values["claude-dir"] !== DEFAULT_CLAUDE_DIR)
-    args.push("--claude-dir", resolve(values["claude-dir"]));
-  if (values.db !== DEFAULT_DB_PATH) args.push("--db", resolve(values.db));
-  if (values.port) args.push("--port", values.port);
-  if (values["summary-model"]) args.push("--summary-model", values["summary-model"]);
-  if (summaryLang) args.push("--summary-lang", summaryLang);
-  if (summaryEffort) args.push("--summary-effort", summaryEffort);
-  if (values["no-auto-summary"]) args.push("--no-auto-summary");
-  return args;
+  return serverArgs(values);
 }
 
 async function waitHealthy(p = port, timeoutMs = 15_000): Promise<boolean> {
@@ -254,7 +213,9 @@ async function printHelp(name: string | undefined): Promise<void> {
  * PID file), so a plain `kairos restart` doesn't quietly drop e.g. `--summary-model`.
  */
 async function restart(): Promise<void> {
-  const explicit = tokens.some((t) => t.kind === "option" && SERVER_FLAGS.has(t.name));
+  const explicit = tokens.some(
+    (t) => t.kind === "option" && KEPT_SERVER_OPTIONS.has(t.name as OptionName),
+  );
   const kept = explicit ? null : withoutPort(readPid()?.args ?? []);
   const args = kept ? [...kept, ...(values.port ? ["--port", values.port] : [])] : serveArgs();
   const wasRunning = await stop();

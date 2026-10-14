@@ -2,13 +2,20 @@
 import { version } from "../../package.json";
 import { MAX_WIDTH, optionText, styleFlag, twoColumns } from "./layout.ts";
 import { logoLines } from "./logo.ts";
+import { flagLabel, OPTIONS, type OptionName } from "./options.ts";
 import { styles, wrapWords } from "./style.ts";
 
 /** The overview's sections, in the order it shows them. */
 const GROUPS = ["Browse", "Server", "Data", "Troubleshoot"] as const;
 
-/** One command's help page. */
-interface CommandHelp {
+/**
+ * An option a command takes: its name, with the explanation from `OPTIONS`, or the name and an
+ * explanation of its own when the option means something narrower for this command.
+ */
+type OptionLine = OptionName | readonly [OptionName, string];
+
+/** One command's help page, and the options and arguments it accepts. */
+export interface CommandHelp {
   /** The overview section it's listed under. */
   group: (typeof GROUPS)[number];
   /** One line, shown in the overview. */
@@ -17,31 +24,34 @@ interface CommandHelp {
   description?: string;
   /** The arguments it takes, as the usage line shows them (`[day]`); it takes none when absent. */
   args?: string;
-  /** Option lines (`--flag <arg>`, explanation) that apply to this command; any other is refused. */
-  options?: [string, string][];
+  /** The options that apply to this command, in the order its page lists them; any other is refused. */
+  options?: readonly OptionLine[];
   examples?: string[];
 }
 
 /** Options shared by the commands that start a server, so they're listed once. */
-const SERVER_OPTIONS: [string, string][] = [
-  ["--claude-dir <path>", "Claude Code config directory (default: ~/.claude)"],
-  ["--db <path>", "DB file (default: under the data directory)"],
-  ["--port <n>", "port to listen on (default: 4319)"],
-  ["--summary-model <m>", "model used for summaries (default: haiku)"],
-  ["--summary-effort <e>", "effort for summaries: low, medium, high, xhigh or max (default: low)"],
-  ["--summary-lang <l>", "language of summaries: en or ja (default: the UI's language)"],
-  ["--no-auto-summary", "do not summarize automatically (only when requested from the drawer)"],
+const SERVER_OPTIONS: readonly OptionLine[] = [
+  "claude-dir",
+  "db",
+  "port",
+  "summary-model",
+  "summary-effort",
+  "summary-lang",
+  "no-auto-summary",
+];
+
+/** `--claude-dir` for the commands that read the DB: only read when no server keeps it current. */
+const READ_CLAUDE_DIR: OptionLine = [
+  "claude-dir",
+  "Claude Code config directory, read when the server is not running (default: ~/.claude)",
 ];
 
 /** Options of the commands that read the DB, catching up on the logs first when the server is down. */
-const READ_OPTIONS: [string, string][] = [
-  ["--json", "print JSON instead of text"],
-  ["--db <path>", "DB file (default: under the data directory)"],
-  [
-    "--claude-dir <path>",
-    "Claude Code config directory, read when the server is not running (default: ~/.claude)",
-  ],
-  ["--port <n>", "port of the server, for links (default: 4319)"],
+const READ_OPTIONS: readonly OptionLine[] = [
+  "json",
+  "db",
+  READ_CLAUDE_DIR,
+  ["port", "port of the server, for links (default: 4319)"],
 ];
 
 /** Every command; the overview lists them by group, in this order within each. */
@@ -53,13 +63,13 @@ export const COMMANDS: Record<string, CommandHelp> = {
       "Start the server if it is not running and open it in the browser: this week, or the day\n" +
       "given (YYYY-MM-DD, today or yesterday).",
     args: "[day]",
-    options: [["--session <id>", "open this session's drawer"], ...SERVER_OPTIONS],
+    options: ["session", ...SERVER_OPTIONS],
     examples: ["kairos open", "kairos open yesterday", "kairos open 2026-10-01"],
   },
   status: {
     group: "Server",
     summary: "show the server status",
-    options: [["--port <n>", "port to check"]],
+    options: [["port", "port to check"]],
   },
   stop: { group: "Server", summary: "stop the background server" },
   restart: {
@@ -95,7 +105,7 @@ export const COMMANDS: Record<string, CommandHelp> = {
   ingest: {
     group: "Data",
     summary: "import session logs into the DB (incremental after the first run)",
-    options: SERVER_OPTIONS.slice(0, 2),
+    options: ["claude-dir", "db"],
   },
   summarize: {
     group: "Data",
@@ -108,22 +118,16 @@ export const COMMANDS: Record<string, CommandHelp> = {
       "Each summary is saved as soon as it is written, so stopping with Ctrl+C loses nothing\n" +
       "and running it again picks up the rest.",
     options: [
-      ["--since <day>", "only blocks that started on or after this day (YYYY-MM-DD)"],
-      ["--until <day>", "only blocks that started on or before this day"],
-      ["--limit <n>", "at most n blocks (the newest)"],
-      ["--dry-run", "show how many blocks would be summarized, without running claude"],
-      ["--summary-model <m>", "model used for summaries (default: haiku)"],
-      [
-        "--summary-effort <e>",
-        "effort for summaries: low, medium, high, xhigh or max (default: low)",
-      ],
-      ["--summary-lang <l>", "language of summaries: en or ja (default: the UI's language)"],
-      ["--db <path>", "DB file (default: under the data directory)"],
-      [
-        "--claude-dir <path>",
-        "Claude Code config directory, read when the server is not running (default: ~/.claude)",
-      ],
-      ["--port <n>", "port of the running server, whose recent blocks are left to it"],
+      ["since", "only blocks that started on or after this day (YYYY-MM-DD)"],
+      ["until", "only blocks that started on or before this day"],
+      ["limit", "at most n blocks (the newest)"],
+      "dry-run",
+      "summary-model",
+      "summary-effort",
+      "summary-lang",
+      "db",
+      READ_CLAUDE_DIR,
+      ["port", "port of the running server, whose recent blocks are left to it"],
     ],
     examples: [
       "kairos summarize --dry-run",
@@ -139,12 +143,7 @@ export const COMMANDS: Record<string, CommandHelp> = {
       "day and project, like the report the UI copies, followed by what was still open at the\n" +
       "end. Paste it into a stand-up note, Slack or a ticket.",
     args: "[day]",
-    options: [
-      ["--since <day>", "first day of the period (YYYY-MM-DD, today or yesterday)"],
-      ["--until <day>", "last day of the period (default: today)"],
-      ["--full", "include each block's summary under its line"],
-      ...READ_OPTIONS,
-    ],
+    options: ["since", "until", "full", ...READ_OPTIONS],
     examples: [
       "kairos report",
       "kairos report yesterday --full",
@@ -157,10 +156,7 @@ export const COMMANDS: Record<string, CommandHelp> = {
     description:
       "List the open items (todos, issues, questions, waits) that summaries left and nothing has\n" +
       "closed yet, grouped by project.",
-    options: [
-      ["--project <p>", "only this project: a path inside it (. for here) or its name"],
-      ...READ_OPTIONS,
-    ],
+    options: ["project", ...READ_OPTIONS],
     examples: ["kairos open-items", "kairos open-items --project ."],
   },
   search: {
@@ -171,7 +167,7 @@ export const COMMANDS: Record<string, CommandHelp> = {
       "branches, PR and commit titles, and the conversation. `file:<path>` matches files edited\n" +
       "in the block. Each hit comes with a link that opens it in Kairos.",
     args: "<terms...>",
-    options: [["--limit <n>", "at most n hits"], ...READ_OPTIONS],
+    options: ["limit", ...READ_OPTIONS],
     examples: ["kairos search migration", "kairos search file:src/cli/index.ts"],
   },
   doctor: {
@@ -182,19 +178,12 @@ export const COMMANDS: Record<string, CommandHelp> = {
       "`claude` command, the web build, the server (and who holds the port if it isn't Kairos),\n" +
       "the DB, the SessionStart hook, and Claude Code's record of running sessions. Exits 1 when\n" +
       "something is broken.",
-    options: [
-      ["--port <n>", "port to check (default: 4319)"],
-      ["--db <path>", "DB file (default: under the data directory)"],
-      ["--claude-dir <path>", "Claude Code config directory (default: ~/.claude)"],
-    ],
+    options: [["port", "port to check (default: 4319)"], "db", "claude-dir"],
   },
   logs: {
     group: "Troubleshoot",
     summary: "show the end of the server log",
-    options: [
-      ["-n, --lines <n>", "how many lines (default: 50)"],
-      ["-f, --follow", "keep printing as the log grows"],
-    ],
+    options: ["lines", "follow"],
   },
   help: {
     group: "Troubleshoot",
@@ -202,6 +191,21 @@ export const COMMANDS: Record<string, CommandHelp> = {
     args: "[command]",
   },
 };
+
+/** An option line's name. */
+function lineName(line: OptionLine): OptionName {
+  return typeof line === "string" ? line : line[0];
+}
+
+/** An option line's explanation: the command's own, or the option's. */
+function lineText(line: OptionLine): string {
+  return typeof line === "string" ? OPTIONS[line].help : line[1];
+}
+
+/** The options a command takes, by name; any other given to it is refused. */
+export function optionNames(command: CommandHelp): OptionName[] {
+  return (command.options ?? []).map(lineName);
+}
 
 /** The logo, with the name and version beside it. */
 function banner(color: boolean): string {
@@ -271,7 +275,10 @@ export function commandHelp(name: string, color: boolean, columns = MAX_WIDTH): 
       "",
       s.heading("Options:"),
       twoColumns(
-        c.options.map(([flag, text]) => ({ name: flag, styled: styleFlag(flag, s), text })),
+        c.options.map((line) => {
+          const flag = flagLabel(lineName(line));
+          return { name: flag, styled: styleFlag(flag, s), text: lineText(line) };
+        }),
         columns,
         (text, width) => optionText(text, width, s),
       ),
