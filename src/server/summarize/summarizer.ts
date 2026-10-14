@@ -4,8 +4,9 @@ import { parseSummaryBody } from "../../shared/summaryBody.ts";
 import { DEFAULT_SUMMARY_LANG, type SummaryLang } from "../../shared/summaryLang.ts";
 import { storedSummaryLang } from "../settings.ts";
 import { FailureLog } from "./failures.ts";
-import { labelCandidates, loadCandidates, recordSection, takeClosures } from "./ledger.ts";
-import { buildPrompt, buildTitlePrompt, parseSummary } from "./prompt.ts";
+import { labelCandidates, loadCandidates } from "./ledger/candidates.ts";
+import { recordSection } from "./ledger/record.ts";
+import { buildPrompt, buildTitlePrompt, parseSummary, takeClosures } from "./prompt.ts";
 import {
   buildRecapPrompt,
   loadRecapInput,
@@ -13,15 +14,8 @@ import {
   type RecapTarget,
   recapKey,
 } from "./recap.ts";
-import {
-  findAutoTargets,
-  loadSectionInput,
-  type Mode,
-  type SectionRef,
-  saveRecap,
-  saveSummary,
-  type Target,
-} from "./store.ts";
+import { findAutoTargets, loadSectionInput, saveRecap, saveSummary } from "./store.ts";
+import type { Mode, SectionRef, Target } from "./target.ts";
 
 /** Model used for summaries unless `--summary-model` is given; cheap suffices for excerpts. */
 export const DEFAULT_MODEL = "haiku";

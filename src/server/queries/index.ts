@@ -13,7 +13,7 @@ import type {
   SessionDetail,
   Span,
 } from "../../shared/api.ts";
-import { openItemsIn, type UpdateRefusal, updateOpenItem } from "../openItems.ts";
+import { openItemsIn, type UpdateRefusal, updateOpenItem } from "../summarize/ledger/openItems.ts";
 import { loadRecapInput, type RecapTarget } from "../summarize/recap.ts";
 import { currentVisibility, DEFAULT_HIDDEN_CWDS, visibleSessionSql } from "../visibility.ts";
 import { calendarSessions, neighbors, spans } from "./calendar.ts";

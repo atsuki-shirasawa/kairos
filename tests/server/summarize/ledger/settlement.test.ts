@@ -1,27 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import {
   type CloseEvent,
-  isClosable,
   settlementOf,
-} from "../../src/server/summarize/settlement.ts";
-import { joinCloseNotes } from "../../src/shared/closeNotes.ts";
+} from "../../../../src/server/summarize/ledger/settlement.ts";
+import { joinCloseNotes } from "../../../../src/shared/closeNotes.ts";
 
 const ev = (ref: string, ts: number, sessionId = "s1"): CloseEvent => ({
   ref,
   ts,
   sessionId,
   note: `${ref}@${ts}`,
-});
-
-describe("isClosable", () => {
-  test.each([
-    ["#12", true],
-    ["task:3", true],
-    ["PROJ-7", false],
-    ["12", false],
-  ])("%s → %p", (ref, closable) => {
-    expect(isClosable(ref)).toBe(closable);
-  });
 });
 
 describe("settlementOf", () => {

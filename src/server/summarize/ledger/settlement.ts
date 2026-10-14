@@ -1,6 +1,7 @@
 // Whether the log settles an open item: matching an item's refs against the events that close
 // them. Pure, so the matching can be tested without a DB; the ledger finds the events.
-import { joinCloseNotes } from "../../shared/closeNotes.ts";
+import { joinCloseNotes } from "../../../shared/closeNotes.ts";
+import { isClosable } from "./refs.ts";
 
 /**
  * Something in the log that settles a ref: an issue closed, a PR merged, a task completed. Its
@@ -18,9 +19,6 @@ export interface Settlement {
   last: CloseEvent;
   note: string;
 }
-
-/** Whether the log can show a ref settled: issue / PR numbers and task IDs. */
-export const isClosable = (ref: string): boolean => ref.startsWith("#") || ref.startsWith("task:");
 
 /**
  * How `events` settle an item opened at `openedAt` with `refs`, or null while any closable ref is

@@ -8,7 +8,7 @@ import { hhmm, isoDay, WEEK } from "../../shared/dates.ts";
 import { isOpenAt } from "../../shared/openItems.ts";
 import { type OpenKind, parseSummaryBody } from "../../shared/summaryBody.ts";
 import { DEFAULT_SUMMARY_LANG, type SummaryLang } from "../../shared/summaryLang.ts";
-import { openItemsIn } from "../openItems.ts";
+import { openItemsIn } from "./ledger/openItems.ts";
 import { defuseTags } from "./prompt.ts";
 
 /** Longest input passed to the LLM. Past it, section bodies are dropped and only headlines remain. */

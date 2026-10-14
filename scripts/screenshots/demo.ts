@@ -4,7 +4,7 @@
 import type { Database } from "bun:sqlite";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { recordSection } from "../../src/server/summarize/ledger.ts";
+import { recordSection } from "../../src/server/summarize/ledger/record.ts";
 import { loadRecapInput } from "../../src/server/summarize/recap.ts";
 import { saveRecap, saveSummary } from "../../src/server/summarize/store.ts";
 import { parseSummaryBody } from "../../src/shared/summaryBody.ts";

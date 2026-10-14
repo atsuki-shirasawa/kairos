@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MIGRATIONS, openDb, SCHEMA_VERSION } from "../../src/server/db/index.ts";
-import { refsOf, takeClosures } from "../../src/server/summarize/ledger.ts";
 import { Summarizer } from "../../src/server/summarize/summarizer.ts";
 import { SID } from "../fixtures/ids.ts";
 import { min, setup } from "./ingest/helpers.ts";
@@ -69,60 +68,6 @@ const bodyAt = (minute: number) =>
 
 const summarize = (sessionId: string, minute: number, mode: "summary" | "title" = "summary") =>
   summarizer.summarize({ sessionId, start: min(minute), mode });
-
-describe("refsOf", () => {
-  test("reads issue and PR numbers, URLs, Jira keys and tasks", () => {
-    expect(
-      refsOf(
-        "Review of #42 (https://github.com/me/app/pull/43, /issues/44), APP-31, task #3, タスク #4",
-      ).sort(),
-    ).toEqual(["#42", "#43", "#44", "APP-31", "task:3", "task:4"]);
-  });
-
-  test("leaves out encodings, anchors and HTML entities", () => {
-    expect(refsOf("UTF-8 and ISO-8601, see README#2 and &#39;")).toEqual([]);
-  });
-});
-
-describe("takeClosures", () => {
-  test("splits the Closed item off the body, with each label's evidence", () => {
-    const body =
-      "- Goal: g\n- Done: d\n- Closed:\n  - [O1] merged in PR #9\n  - O3: the user chose not to\n";
-    expect(takeClosures(body)).toEqual({
-      body: "- Goal: g\n- Done: d",
-      closures: [
-        { label: "O1", note: "merged in PR #9" },
-        { label: "O3", note: "the user chose not to" },
-      ],
-    });
-  });
-
-  test("reads an inline list of labels and keeps items after the Closed one", () => {
-    expect(takeClosures("- Goal: g\n- **Closed:** O1, O2\n- Done: d")).toEqual({
-      body: "- Goal: g\n- Done: d",
-      closures: [
-        { label: "O1", note: "" },
-        { label: "O2", note: "" },
-      ],
-    });
-  });
-});
-
-test("reads a label with words before its colon, and several closures on one line", () => {
-  expect(takeClosures("- Goal: g\n- Closed items: O1 and O3\n- Done: d")).toEqual({
-    body: "- Goal: g\n- Done: d",
-    closures: [
-      { label: "O1", note: "" },
-      { label: "O3", note: "" },
-    ],
-  });
-  expect(
-    takeClosures("- Closed (from open_items): [O1] merged #40; [O2] issue closed").closures,
-  ).toEqual([
-    { label: "O1", note: "merged #40" },
-    { label: "O2", note: "issue closed" },
-  ]);
-});
 
 describe("open items ledger", () => {
   test("records a section's open items with their refs, and closes those the log shows settled later", async () => {

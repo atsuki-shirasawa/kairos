@@ -11,7 +11,7 @@ import type {
   Subagent,
 } from "../../shared/api.ts";
 import { MINUTE } from "../../shared/dates.ts";
-import { sessionCloses } from "../openItems.ts";
+import { sessionCloses } from "../summarize/ledger/openItems.ts";
 import { blockFacts, SECTION_SELECT, type SectionRow, toSection } from "./blocks.ts";
 import { projectById } from "./projects.ts";
 import { listedArtifactsSql } from "./sql.ts";

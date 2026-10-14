@@ -1,4 +1,4 @@
-// Prompts for section summaries, and parsing of the output.
+// Prompts for section summaries, and parsing of the output (headline, body and closures).
 import { OPEN_KINDS, type OpenKind, SUMMARY_LABELS } from "../../shared/summaryBody.ts";
 import { DEFAULT_SUMMARY_LANG, type SummaryLang } from "../../shared/summaryLang.ts";
 
@@ -279,4 +279,62 @@ export function parseSummary(output: string): ParsedSummary | null {
     .slice(0, 80);
   const body = tightenList((fenced ? dropClosingFence(rest) : rest).join("\n").trim());
   return headline ? { headline, body } : null;
+}
+
+/** Cap on a model's note on how an item was closed. */
+const NOTE_CHARS = 300;
+
+/** An earlier item the model said the section settled, by its label, with the evidence it gave. */
+export interface Closure {
+  label: string;
+  note: string;
+}
+
+/**
+ * A top-level "Closed" item, written in English in either summary language. The model sometimes
+ * adds words before the colon ("Closed items:", "Closed (from open_items):"); left in the body, the
+ * line would cost the summary its structured view.
+ */
+const CLOSED_LINE = /^[-*+]\s+\**closed\b[^:：\n]*[:：]\**\s*(.*)$/i;
+/** A label as the model writes it: "O2" or "[O2]". */
+const LABEL = /\[?\b(O\d+)\b\]?/g;
+
+/**
+ * The closures one line names. A line may name several ("O1, O3", "O1 and O3",
+ * "[O1] merged #40; [O2] issue closed"); each label's note is the text up to the next label.
+ */
+function closuresIn(line: string): Closure[] {
+  const found = [...line.matchAll(LABEL)];
+  return found.map((m, n) => {
+    const end = (m.index ?? 0) + m[0].length;
+    const note = line
+      .slice(end, found[n + 1]?.index ?? line.length)
+      .replace(/^[\s:：\-–—]+/, "")
+      .replace(/(?:[\s,;、]|\band\b|と)+$/i, "")
+      .trim();
+    return { label: m[1] ?? "", note: note.slice(0, NOTE_CHARS) };
+  });
+}
+
+/**
+ * Splits the "Closed:" item off a summary body: the earlier items the model said this section
+ * settled. The item isn't part of the body's format, so it is never saved with the summary.
+ */
+export function takeClosures(body: string): { body: string; closures: Closure[] } {
+  const kept: string[] = [];
+  const lines: string[] = [];
+  let inside = false;
+  for (const line of body.split("\n")) {
+    const head = CLOSED_LINE.exec(line);
+    if (head) {
+      inside = true;
+      lines.push(head[1] ?? "");
+    } else if (inside && (line.trim() === "" || /^\s/.test(line))) {
+      lines.push(line.trim().replace(/^[-*+]\s+/, ""));
+    } else {
+      inside = false;
+      kept.push(line);
+    }
+  }
+  return { body: kept.join("\n").trim(), closures: lines.flatMap(closuresIn) };
 }
