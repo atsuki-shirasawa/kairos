@@ -101,11 +101,22 @@ export function cacheState(
   return { warm: true, leftMs, soon: leftMs < (usage.cacheTtlMs ?? 0) * CACHE_WARN_SHARE };
 }
 
+/** Whole hours after `from` and before `to`, for the spend band's axis. */
+export function hourTicks(from: number, to: number): number[] {
+  const first = new Date(from);
+  first.setMinutes(0, 0, 0);
+  const ticks: number[] = [];
+  for (let t = first.getTime() + 3_600_000; t < to; t += 3_600_000) ticks.push(t);
+  return ticks;
+}
+
 /** A spend bar's segments, as fractions of the band's height (the tallest bar fills it). */
 export interface SpendBar {
   /** Start of the bar's span. */
   start: number;
   total: number;
+  /** Height as a share of the band's: the bar's total against the tallest. */
+  height: number;
   segments: { projectId: number | null; usd: number; share: number }[];
 }
 
@@ -119,6 +130,7 @@ export function spendBars(
   return spend.buckets.map((b, i) => ({
     start: spend.from + i * bucketMs,
     total: totals[i] ?? 0,
+    height: max > 0 ? (totals[i] ?? 0) / max : 0,
     segments: b.map((p) => ({ ...p, share: max > 0 ? p.usd / max : 0 })),
   }));
 }

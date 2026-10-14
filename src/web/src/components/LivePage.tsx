@@ -44,7 +44,7 @@ export function LivePage({
   // nothing runs would be wrong either way
   if (!live) return <div className="min-h-0 flex-1 bg-card" />;
   // Spend comes from the logs, so the band stays when the registry can't be read
-  const band = <SpendBand spend={live.spend} projects={projects} now={now} />;
+  const band = <SpendBand spend={live.spend} projects={projects} />;
   if (!live.available) return <PageNote band={band}>{m.unavailable}</PageNote>;
   if (sessions.length === 0) return <PageNote band={band}>{m.nothingRunning}</PageNote>;
   const byColumn = new Map<LiveColumn, { s: LiveSession; display: LiveDisplay }[]>(

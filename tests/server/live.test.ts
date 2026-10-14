@@ -398,7 +398,11 @@ describe("liveSpend", () => {
     s.ingester.scan();
     const spend = liveSpend(s.db, VISIBLE, now);
     expect(spend.buckets).toHaveLength(SPEND_BUCKETS);
-    expect(spend.from).toBe(now - SPEND_BUCKETS * SPEND_BUCKET_MS);
+    // Edges on whole buckets, the last one in progress up to now
+    expect(spend.from % SPEND_BUCKET_MS).toBe(0);
+    expect(spend.to).toBe(now);
+    expect(now - spend.from).toBeGreaterThanOrEqual((SPEND_BUCKETS - 1) * SPEND_BUCKET_MS);
+    expect(now - spend.from).toBeLessThan(SPEND_BUCKETS * SPEND_BUCKET_MS);
     // $4 of input plus 100 output tokens at $20/M, in the bar that holds min(1701)
     const i = Math.floor((min(1701) - spend.from) / SPEND_BUCKET_MS);
     const total = (b: LiveSpend) => (b.buckets[i] ?? []).reduce((n, p) => n + p.usd, 0);

@@ -59,13 +59,22 @@ export const liveMessages = defineMessages({
     resumeCost: (cost: string) => `Resume ≈ ${cost}`,
     spend: {
       today: "Today",
+      /** The spend rate over the last minutes. */
+      rate: "Rate",
+      /** The chart's right end, the current time. */
       now: "Now",
       /** The band's caveat, said once for every amount on the page. */
       note: "Estimated at API list prices, not your bill",
       unpriced: "Models without a price are left out",
+      /** Above the bars while none is pointed at. */
+      window: (hours: number) => (hours === 1 ? "Last hour" : `Last ${hours} hours`),
+      /** Spend of sessions not tied to a project, in a pointed bar's split. */
+      noProject: "No project",
       /** The bars, for screen readers. */
       chart: (from: string, to: string) => `Spend by project from ${from} to ${to}`,
       bar: (from: string, to: string, cost: string) => `${from}–${to} ${cost}`,
+      /** A bar with its split by project ("atlas $0.80"), for screen readers. */
+      barSplit: (bar: string, parts: string[]) => `${bar}: ${parts.join(", ")}`,
     },
   },
   ja: {
@@ -108,11 +117,15 @@ export const liveMessages = defineMessages({
     resumeCost: (cost: string) => `再開 ≈ ${cost}`,
     spend: {
       today: "今日",
-      now: "いま",
+      rate: "ペース",
+      now: "現在",
       note: "API 定価での推定で、実際の請求額ではありません",
       unpriced: "価格不明のモデルの分は含みません",
+      window: (hours: number) => `直近 ${hours} 時間`,
+      noProject: "プロジェクトなし",
       chart: (from: string, to: string) => `${from}〜${to} のプロジェクト別の支出`,
       bar: (from: string, to: string, cost: string) => `${from}〜${to} ${cost}`,
+      barSplit: (bar: string, parts: string[]) => `${bar}：${parts.join("、")}`,
     },
   },
 });

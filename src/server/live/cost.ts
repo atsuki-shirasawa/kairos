@@ -189,13 +189,16 @@ export function liveSpend(db: Database, visibility: LiveVisibility, now: number)
     now,
     LIVE_RATE_WINDOW_MS + 1,
   );
-  const from = now - SPEND_BUCKETS * SPEND_BUCKET_MS;
+  // Edges on whole 5 minutes, so they meet the hour ticks and hold still across refetches; the
+  // last bucket is the one in progress and ends at `now`
+  const from =
+    Math.floor(now / SPEND_BUCKET_MS) * SPEND_BUCKET_MS - (SPEND_BUCKETS - 1) * SPEND_BUCKET_MS;
   const buckets: Map<number | null, number>[] = Array.from(
     { length: SPEND_BUCKETS },
     () => new Map(),
   );
   for (const b of visibleSpend(db, visibility, from, now, SPEND_BUCKET_MS)) {
-    // A response at exactly `now` falls one past the last bucket
+    // Every response falls within the last bucket at the latest; the clamp is a guard
     const bucket = buckets[Math.min(b.bucket, SPEND_BUCKETS - 1)];
     bucket?.set(b.projectId, (bucket.get(b.projectId) ?? 0) + b.usd);
   }
@@ -203,6 +206,7 @@ export function liveSpend(db: Database, visibility: LiveVisibility, now: number)
     todayUsd: sum(today),
     perHourUsd: (sum(recent) * HOUR) / LIVE_RATE_WINDOW_MS,
     from,
+    to: now,
     buckets: buckets.map((m) =>
       [...m]
         .filter(([, usd]) => usd > 0)

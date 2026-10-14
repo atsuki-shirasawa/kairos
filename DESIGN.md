@@ -195,7 +195,7 @@ Tokens map to CSS variables in `src/web/src/index.css` (shadcn/ui names): `surfa
 swaps every value for its `-dark` token under `.dark`.
 
 - **Primary (indigo `#2e4c8c` / `#8da8e8`):** selection (including the selected block's outline),
-  the current-time line, focus rings and links. Not for headings or surfaces. The exception is a
+  the current-time line (and the live band's now mark), focus rings and links. Not for headings or surfaces. The exception is a
   list row's trailing link to a block (an open item's age, how it closed): it stays `muted-ink`
   until hovered, since it doubles as the row's date and a link color on every row would outshout
   the items
@@ -242,7 +242,8 @@ A work block's fill is the project color mixed into `block-base` in `oklch`:
   exceptions are the section summary's Resolved, Open and Next, its "Settled from earlier", or an
   older body's Outcome (15px, relaxed leading, because that is where you read; its Goal takes the 17px title size at
   regular weight), the
-  summary's totals (their three tiers), the wordmark, and count badges too small for 11px
+  summary's totals (their three tiers), the live band's two amounts (17px medium), the wordmark, and count
+  badges too small for 11px
 - **Two tones:** `ink` and `muted-ink`. Don't step between them with `text-foreground/80` and the
   like; if something needs to stand out from muted text, set it in `ink`. `muted-ink` at 60% is
   kept for what is absent (days outside the month, "—" in empty cells). Tooltips invert the theme,
@@ -462,13 +463,22 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   content (no pointer, no hover fill). Only a card or row that opens takes a hover fill (`input` on a card, `muted` on an idle row),
   and keyboard focus on its title draws the 2px `ring` outline around the card. The tab title leads
   with the number waiting on you ("(2) Kairos"), so a background tab still says so. Above the
-  columns, a band separated by a `line` rule holds the page's money: "Today" and "Now" in 14px
-  `muted-ink` with their amounts in the 14px medium numeral face, then the last three hours as 10-minute
-  bars stacked in project colors (largest at the bottom, scaled against the tallest bar, on a `line`
-  baseline, with the first and last times under it in 12px `numeral` `muted-ink`), and at the end
-  the page's one caveat that amounts are estimates at API list prices (with a second line when some
-  model has no price and is left out). It counts every visible session, not only the running ones,
-  and the band stays, above the note, when nothing runs or the registry can't be read
+  columns, a band separated by a `line` rule holds the page's money. At the left, "Today" and
+  "Rate" each as a 12px `muted-ink` label over its amount in the 17px medium numeral face, with the
+  one caveat under them in 12px `muted-ink`: amounts are estimates at API list prices (with a second
+  line when some model has no price and is left out). At the right, at most `max-w-3xl` and
+  right-aligned, the last three hours as 36 five-minute slots on whole 5 minutes, the last one in
+  progress. Each slot is its spend rising from the
+  floor as one block per project in the solid project color (3px radius, largest at the bottom, 1px
+  of the surface between blocks, scaled against the tallest slot, at least 4px so any spend reads as
+  spent); a slot with no spend is a 2px `line` stub, so the eye goes to the bars. Pointing at a slot (a tap on touch
+  screens, which toggles)
+  lights it as a `muted` column and swaps the "Last 3 hours" line above the bars (12px `muted-ink`)
+  for its time range and total in `ink` numerals, then each project's color dot, name and amount in
+  `muted-ink`. Under the bars, whole hours in 12px `numeral` `muted-ink`, left out where they would
+  touch "Now". The current time is marked as in the calendar, within the slot in progress: a
+  2px `primary` line with a dot on top and "Now" under it in `primary`. It counts every visible session, not only the running
+  ones, and the band stays, with the caveat, when nothing runs or the registry can't be read
 - **Mark:** `src/web/public/favicon.svg` — a circle with a dawn → evening → night gradient cut by a
   diagonal blade (Kairos stands on a razor's edge: cutting out a single moment). The background
   shows through the gap, so it reads on light and dark tabs; the gap stays open at 16px. Used for

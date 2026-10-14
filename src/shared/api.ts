@@ -499,8 +499,13 @@ export interface LiveSpend {
   todayUsd: number;
   /** Over the last `LIVE_RATE_WINDOW_MS`, as USD per hour. */
   perHourUsd: number;
-  /** Start of the first bucket. Buckets are `SPEND_BUCKET_MS` long, oldest first, ending now. */
+  /**
+   * Start of the first bucket, on a whole `SPEND_BUCKET_MS`. Buckets are that long, oldest first;
+   * the last is in progress.
+   */
   from: number;
+  /** When the figures were taken: the end of the last bucket's spend so far. */
+  to: number;
   /** Each bucket's spend by project (null for sessions without one), largest first. */
   buckets: { projectId: number | null; usd: number }[][];
   /** Some usage was by a model with no price and is left out. */

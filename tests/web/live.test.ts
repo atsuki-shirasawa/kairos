@@ -7,6 +7,7 @@ import {
   contextShare,
   dirName,
   documentTitle,
+  hourTicks,
   IDLE_AFTER_MS,
   liveDisplay,
   spendBars,
@@ -147,6 +148,12 @@ describe("cost", () => {
     expect(at(20 * 60_000, 60 * 60_000)).toMatchObject({ soon: false });
   });
 
+  test("hour ticks fall on whole hours strictly inside the span", () => {
+    const at = (h: number, min = 0) => new Date(2026, 9, 14, h, min).getTime();
+    expect(hourTicks(at(8, 53), at(11, 53))).toEqual([at(9), at(10), at(11)]);
+    expect(hourTicks(at(9), at(12))).toEqual([at(10), at(11)]);
+  });
+
   test("spend bars are scaled against the tallest, with empty bars kept in place", () => {
     const bars = spendBars(
       {
@@ -164,6 +171,7 @@ describe("cost", () => {
     );
     expect(bars.map((b) => b.start)).toEqual([NOW, NOW + 600_000, NOW + 1_200_000]);
     expect(bars.map((b) => b.total)).toEqual([4, 0, 2]);
+    expect(bars.map((b) => b.height)).toEqual([1, 0, 0.5]);
     expect(bars[0]?.segments.map((x) => x.share)).toEqual([0.75, 0.25]);
     expect(bars[2]?.segments[0]?.share).toBe(0.5);
     // Nothing spent: no bar divides by zero
