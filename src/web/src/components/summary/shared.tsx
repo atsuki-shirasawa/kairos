@@ -1,7 +1,7 @@
 // Small pieces shared by the summary's sections.
 import type { Project, Usage } from "@shared/api.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
-import { costLabel } from "@/lib/format.ts";
+import { approxCostLabel } from "@/lib/format.ts";
 
 /** A section heading of the summary. */
 export function Heading({ children }: { children: React.ReactNode }) {
@@ -17,5 +17,4 @@ export const projectName = (projects: Map<number, Project>, id: number | null) =
   projectOf(projects, id)?.name ?? formatMessages().unknownProject;
 
 /** Estimated cost, marked "~" when some models had no known price. */
-export const costText = (u: Usage | null) =>
-  u ? `${u.unpriced ? "~" : ""}${costLabel(u.costUsd)}` : formatMessages().none;
+export const costText = (u: Usage | null) => (u ? approxCostLabel(u) : formatMessages().none);

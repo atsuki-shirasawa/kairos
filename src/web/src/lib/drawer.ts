@@ -1,11 +1,10 @@
 // Pure decisions behind the session drawer: which section is selected, which periods the flow
 // shows, and how outcomes, subagents and summary failures are grouped. Kept free of React and
 // messages so they can be tested on their own.
-import type { Artifact, Section, Subagent, Usage } from "@shared/api.ts";
+import type { Artifact, Section, Subagent } from "@shared/api.ts";
 import { prNumber } from "@shared/artifacts.ts";
 import { ARTIFACT_GRACE_MS } from "@shared/constants.ts";
 import { isSameDay } from "./dates.ts";
-import { costLabel } from "./format.ts";
 
 /** The section starting at `at`, falling back to the last one (also when `at` is null). */
 export function selectedSection(sections: Section[], at: number | null): Section | null {
@@ -115,11 +114,6 @@ export function artifactRef(a: Artifact): string | null {
 /** The short SHA of a commit, or null for commits known only by their subject. */
 export function shortSha(a: Artifact): string | null {
   return a.ref.startsWith("subject:") ? null : a.ref.slice(0, 7);
-}
-
-/** Cost with a leading "~" when part of the usage had no known price. */
-export function approxCostLabel(u: Usage): string {
-  return `${u.unpriced ? "~" : ""}${costLabel(u.costUsd)}`;
 }
 
 /**

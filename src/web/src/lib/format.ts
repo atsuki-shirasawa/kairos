@@ -31,6 +31,11 @@ export function costLabel(usd: number): string {
   return `$${Math.round(usd).toLocaleString("en-US")}`;
 }
 
+/** Cost with a leading "~" when part of the usage had no known price. */
+export function approxCostLabel(u: Pick<Usage, "costUsd" | "unpriced">): string {
+  return `${u.unpriced ? "~" : ""}${costLabel(u.costUsd)}`;
+}
+
 /** "$6.20/h": a rate of spend. */
 export function costPerHourLabel(usd: number): string {
   return `${costLabel(usd)}/h`;

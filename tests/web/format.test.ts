@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { setLocale } from "../../src/web/src/i18n/index.ts";
 import {
+  approxCostLabel,
   cacheRate,
   costLabel,
   modelLabel,
@@ -142,5 +143,12 @@ describe("activity totals and snags", () => {
     });
     expect(sumActivity([a])?.claudeMs).toBeNull();
     expect(sumActivity([null])).toBeNull();
+  });
+});
+
+describe("approxCostLabel", () => {
+  test("marks unpriced usage with ~", () => {
+    expect(approxCostLabel({ costUsd: 1.5, unpriced: false })).toBe("$1.50");
+    expect(approxCostLabel({ costUsd: 1.5, unpriced: true })).toBe("~$1.50");
   });
 });

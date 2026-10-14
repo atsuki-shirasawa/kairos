@@ -2,7 +2,7 @@ import type { Activity, Section, SessionDetail, Usage } from "@shared/api.ts";
 import { OutcomeTally } from "@/components/MomentNode.tsx";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import { dateLabel, durationLabel, hhmm, isSameDay, relativeDay } from "@/lib/dates.ts";
-import { costLabel, tokensLabel, troubleCount, troubleDetail } from "@/lib/format.ts";
+import { approxCostLabel, tokensLabel, troubleCount, troubleDetail } from "@/lib/format.ts";
 import { Hint } from "../Hint.tsx";
 
 /**
@@ -67,8 +67,7 @@ function KeyFigures({ usage: u, activity: a }: { usage: Usage | null; activity: 
       {u && <span className="whitespace-nowrap">{t.tokens(tokensLabel(u.tokens))}</span>}
       {u && (
         <Hint text={u.unpriced ? t.costNoteUnpriced : t.costNote} className="whitespace-nowrap">
-          {u.unpriced ? "~" : ""}
-          {costLabel(u.costUsd)}
+          {approxCostLabel(u)}
         </Hint>
       )}
       {a.commits + a.prs > 0 && <OutcomeTally commits={a.commits} prs={a.prs} />}

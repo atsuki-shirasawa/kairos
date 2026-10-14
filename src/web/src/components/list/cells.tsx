@@ -3,8 +3,8 @@ import type { Activity, Usage } from "@shared/api.ts";
 import { OutcomeTally } from "@/components/MomentNode.tsx";
 import { listMessages } from "@/i18n/messages/list.tsx";
 import {
+  approxCostLabel,
   cacheRate,
-  costLabel,
   modelLabel,
   numberLabel,
   tokensLabel,
@@ -32,12 +32,7 @@ export function TokensCell({ usage: u }: { usage: Usage | null }) {
 export function CostCell({ usage: u }: { usage: Usage | null }) {
   if (!u) return dash;
   const m = listMessages();
-  return (
-    <Hint text={u.unpriced ? m.costNoteUnpriced : m.costNote}>
-      {u.unpriced ? "~" : ""}
-      {costLabel(u.costUsd)}
-    </Hint>
-  );
+  return <Hint text={u.unpriced ? m.costNoteUnpriced : m.costNote}>{approxCostLabel(u)}</Hint>;
 }
 
 /** Share of input read from the cache. */

@@ -1,6 +1,6 @@
 import { listMessages } from "@/i18n/messages/list.tsx";
 import { durationLabel, type View } from "@/lib/dates.ts";
-import { costLabel, tokensLabel } from "@/lib/format.ts";
+import { approxCostLabel, tokensLabel } from "@/lib/format.ts";
 import type { DayBlock } from "@/lib/layout.ts";
 import { busyByDay } from "@/lib/summary.ts";
 import { totalsOf } from "@/lib/totals.ts";
@@ -40,10 +40,7 @@ export function PeriodSummary({
         <Hint text={m.costNote}>
           {m.tokensCost(
             <Strong>{tokensLabel(usage.tokens)}</Strong>,
-            <Strong>
-              {usage.unpriced ? "~" : ""}
-              {costLabel(usage.costUsd)}
-            </Strong>,
+            <Strong>{approxCostLabel(usage)}</Strong>,
           )}
         </Hint>
       )}

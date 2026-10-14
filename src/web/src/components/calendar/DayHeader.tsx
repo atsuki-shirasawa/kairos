@@ -7,7 +7,7 @@ import { dateMessages } from "@/i18n/messages/dates.ts";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { dateLabel, durationLabel, weekday } from "@/lib/dates.ts";
-import { costLabel, tokensLabel, troubleCount, troubleDetail } from "@/lib/format.ts";
+import { approxCostLabel, tokensLabel, troubleCount, troubleDetail } from "@/lib/format.ts";
 import { busyMs, type PlacedBlock } from "@/lib/layout.ts";
 import { counted, totalsOf } from "@/lib/totals.ts";
 import { cn } from "@/lib/utils.ts";
@@ -46,10 +46,7 @@ export function dayFigures(blocks: PlacedBlock[]): DayFigures {
 
 /** Tokens and cost, with "~" on the cost when some of it couldn't be priced. */
 function usageText(usage: Usage): string {
-  return calendarMessages().tokensCost(
-    tokensLabel(usage.tokens),
-    `${usage.unpriced ? "~" : ""}${costLabel(usage.costUsd)}`,
-  );
+  return calendarMessages().tokensCost(tokensLabel(usage.tokens), approxCostLabel(usage));
 }
 
 /**

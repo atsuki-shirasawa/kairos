@@ -2,10 +2,9 @@ import type { Activity, Section, SessionDetail, Usage } from "@shared/api.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import { durationLabel } from "@/lib/dates.ts";
-import { approxCostLabel } from "@/lib/drawer.ts";
 import {
+  approxCostLabel,
   cacheRate,
-  costLabel,
   modelLabel,
   tokensLabel,
   troubleCount,
@@ -143,8 +142,7 @@ function SessionTotal({ session: s, usage }: { session: SessionDetail; usage: Us
       <span className="font-medium font-num text-foreground">{tokensLabel(usage.tokens)}</span>
       {t.sessionTotalTokens}
       <Hint className="font-medium font-num text-foreground" text={t.costNote}>
-        {usage.unpriced ? "~" : ""}
-        {costLabel(usage.costUsd)}
+        {approxCostLabel(usage)}
       </Hint>
     </p>
   );

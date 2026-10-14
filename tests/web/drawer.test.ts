@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import type { Activity, Artifact, Section, Subagent } from "../../src/shared/api.ts";
 import { ARTIFACT_GRACE_MS } from "../../src/shared/constants.ts";
 import {
-  approxCostLabel,
   flowWindow,
   outcomeNode,
   prLinkParts,
@@ -160,14 +159,6 @@ describe("shortSha", () => {
       "0123456",
     );
     expect(shortSha({ kind: "commit", ref: "subject:Fix it", title: null, ts: null })).toBeNull();
-  });
-});
-
-describe("approxCostLabel", () => {
-  test("marks unpriced usage with ~", () => {
-    const u = { costUsd: 1.5, unpriced: false } as Parameters<typeof approxCostLabel>[0];
-    expect(approxCostLabel(u)).not.toStartWith("~");
-    expect(approxCostLabel({ ...u, unpriced: true })).toStartWith("~");
   });
 });
 
