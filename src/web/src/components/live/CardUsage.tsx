@@ -1,4 +1,5 @@
 import type { LiveSession, LiveUsage } from "@shared/api.ts";
+import { MINUTE } from "@shared/dates.ts";
 import { liveMessages } from "@/i18n/messages/live.ts";
 import { durationLabel } from "@/lib/dates.ts";
 import { costLabel, costPerHourLabel, modelLabel, tokensLabel, windowLabel } from "@/lib/format.ts";
@@ -139,5 +140,5 @@ export function RowCache({ session: s, now }: { session: LiveSession; now: numbe
 
 /** Time left on the cache, rounded up to the minute so the last seconds don't read "0m". */
 function cacheLeftLabel(ms: number): string {
-  return durationLabel(Math.ceil(ms / 60_000) * 60_000);
+  return durationLabel(Math.ceil(ms / MINUTE) * MINUTE);
 }

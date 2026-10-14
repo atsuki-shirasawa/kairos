@@ -1,4 +1,5 @@
 import type { Project } from "@shared/api.ts";
+import { startOfDay } from "@shared/dates.ts";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button.tsx";
@@ -12,7 +13,6 @@ import {
   monthWeeks,
   rangeOf,
   rangeTitle,
-  startOfDay,
   startOfMonth,
   type View,
   weekdayHeaders,

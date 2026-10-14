@@ -1,6 +1,6 @@
 // Walks blocks in time order (j / k and the drawer's ‹ ›). Calendar and list use the same order.
 import type { CalendarSegment, CalendarSession } from "@shared/api.ts";
-import { startOfDay } from "./dates.ts";
+import { startOfDay } from "@shared/dates.ts";
 import { isMark, runGroups } from "./layout.ts";
 
 /** How a block is addressed. Matches `session` and `at` in the URL. */

@@ -2,14 +2,13 @@
 // end (recent ones apart from old ones), and what was closed during it.
 import type { LedgerEntry } from "@shared/api.ts";
 import { OPEN_ITEM_OLD_WEEKS } from "@shared/constants.ts";
+import { WEEK } from "@shared/dates.ts";
 import { isOpenAt } from "@shared/openItems.ts";
 import type { OpenKind } from "@shared/summaryBody.ts";
 import { summaryMessages } from "@/i18n/messages/summary.ts";
-import { DAY } from "./dates.ts";
 
 /** An item open this many weeks or more counts as old: faded and folded away. */
 export const OLD_WEEKS = OPEN_ITEM_OLD_WEEKS;
-const WEEK = 7 * DAY;
 
 /** One project's open items for the period. */
 export interface ProjectOpenItems {

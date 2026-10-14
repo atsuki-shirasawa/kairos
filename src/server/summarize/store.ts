@@ -1,6 +1,7 @@
 // DB reads and writes for the summarizer: what a section summary is built from, which sections are
 // due for an automatic summary, and saving summaries and recaps.
 import type { Database } from "bun:sqlite";
+import { DAY } from "../../shared/dates.ts";
 import { AUTO_SUMMARY_DAYS, isSummarizable, SECTION_IDLE_MS } from "../../shared/sections.ts";
 import { DEFAULT_HIDDEN_CWDS, visibleSessionSql } from "../visibility.ts";
 import { buildDigest, DIGEST_KINDS, type DigestMessage } from "./digest.ts";
@@ -49,7 +50,7 @@ const PREVIOUS_HEADLINES = 8;
  */
 export function findAutoTargets(db: Database, now: number): Target[] {
   return findTargets(db, now, {
-    endedAfter: now - AUTO_SUMMARY_DAYS * 24 * 60 * 60_000,
+    endedAfter: now - AUTO_SUMMARY_DAYS * DAY,
     limit: AUTO_BATCH,
   }).map(({ project: _, ...t }) => t);
 }

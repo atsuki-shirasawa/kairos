@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { oneLine, parseDay, startOfDay, uiLink } from "../../src/cli/format.ts";
+import { oneLine, parseDay, uiLink } from "../../src/cli/format.ts";
 
 const NOW = new Date(2026, 9, 13, 15, 30).getTime();
 
@@ -9,11 +9,6 @@ test("parseDay reads today, yesterday and real calendar dates only", () => {
   expect(parseDay("2026-01-31")).toBe(new Date(2026, 0, 31).getTime());
   for (const bad of ["2026-02-30", "2026-13-01", "2026-1-5", "tomorrow", ""])
     expect(parseDay(bad, NOW)).toBeNull();
-});
-
-test("startOfDay moves by calendar days, across month ends", () => {
-  expect(startOfDay(NOW, 1)).toBe(new Date(2026, 9, 14).getTime());
-  expect(startOfDay(new Date(2026, 0, 31, 23).getTime(), 1)).toBe(new Date(2026, 1, 1).getTime());
 });
 
 test("uiLink opens a day in the day view, and a session's drawer at a block", () => {

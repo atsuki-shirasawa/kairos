@@ -1,5 +1,6 @@
 import type { LiveSpend, Project } from "@shared/api.ts";
 import { SPEND_BUCKET_MS, SPEND_BUCKETS } from "@shared/constants.ts";
+import { HOUR } from "@shared/dates.ts";
 import { useState } from "react";
 import { liveMessages } from "@/i18n/messages/live.ts";
 import { projectColor } from "@/lib/colors.ts";
@@ -60,7 +61,7 @@ export function SpendBand({
           {bar ? (
             <BarDetail bar={bar} colorOf={colorOf} nameOf={nameOf} />
           ) : (
-            <span className="text-muted-foreground">{m.spend.window(SPAN_MS / 3_600_000)}</span>
+            <span className="text-muted-foreground">{m.spend.window(SPAN_MS / HOUR)}</span>
           )}
         </figcaption>
         {/* Cleared here rather than per slot, so crossing the gaps between slots doesn't flicker.

@@ -1,12 +1,6 @@
 // Date arithmetic and labels. Times are in the browser's local time zone.
+import { DAY, HOUR, MINUTE, startOfDay } from "@shared/dates.ts";
 import { dateMessages } from "@/i18n/messages/dates.ts";
-
-/** One minute in ms. */
-export const MINUTE = 60_000;
-/** One hour in ms. */
-export const HOUR = 60 * MINUTE;
-/** 24 hours in ms. A calendar day can differ across DST; use `addDays` to step days. */
-export const DAY = 24 * HOUR;
 
 /** Length of the shown period. */
 export type View = "month" | "week" | "day";
@@ -15,13 +9,6 @@ export type View = "month" | "week" | "day";
  * `live` is the page of sessions running now, which has no period.
  */
 export type Layout = "calendar" | "list" | "summary" | "live";
-
-/** Local midnight of the day containing `t`. */
-export function startOfDay(t: number): number {
-  const d = new Date(t);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
 
 /** Adds days. Uses Date's calendar arithmetic rather than fixed 24h steps, so DST shifts are safe. */
 export function addDays(t: number, n: number): number {
@@ -219,12 +206,6 @@ export function timeOrDateTime(t: number, now = Date.now()): string {
   const d = new Date(t);
   const year = d.getFullYear() === new Date(now).getFullYear() ? null : d.getFullYear();
   return dateMessages().monthDayTime(d.getMonth(), d.getDate(), year, hhmm(t));
-}
-
-/** Date for the URL (YYYY-MM-DD). */
-export function toISODate(t: number): string {
-  const d = new Date(t);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 /** Local midnight of a URL date (YYYY-MM-DD), or null when it isn't one. */

@@ -1,8 +1,9 @@
 import type { Project } from "@shared/api.ts";
+import { HOUR } from "@shared/dates.ts";
 import { summaryMessages } from "@/i18n/messages/summary.ts";
 import { type HourAxis, hourAxis } from "@/lib/charts.ts";
 import { projectColor } from "@/lib/colors.ts";
-import { HOUR, hhmm } from "@/lib/dates.ts";
+import { hhmm } from "@/lib/dates.ts";
 import type { DayBlock } from "@/lib/layout.ts";
 import type { PeriodSummary } from "@/lib/summary.ts";
 import { Heading, projectName, projectOf } from "./shared.tsx";

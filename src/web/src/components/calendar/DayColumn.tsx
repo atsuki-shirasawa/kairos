@@ -1,6 +1,6 @@
 import type { Project } from "@shared/api.ts";
+import { DAY, HOUR } from "@shared/dates.ts";
 import { markTops } from "@/lib/calendarGrid.ts";
-import { DAY, HOUR } from "@/lib/dates.ts";
 import type { SegmentMatch } from "@/lib/filter.ts";
 import { type PlacedBlock, runGroups } from "@/lib/layout.ts";
 import { cn } from "@/lib/utils.ts";

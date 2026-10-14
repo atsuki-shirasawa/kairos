@@ -1,3 +1,4 @@
+import { MINUTE } from "@shared/dates.ts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -11,7 +12,7 @@ if (!root) throw new Error("#root not found");
 
 // The server is local, so keep retries short; updates arrive over SSE
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 60_000 } },
+  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: MINUTE } },
 });
 
 /** Re-mounts the app when the language changes. View state lives in the URL, so nothing is lost. */

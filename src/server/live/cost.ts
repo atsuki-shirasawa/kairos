@@ -3,6 +3,7 @@
 import type { Database } from "bun:sqlite";
 import type { LiveCost, LiveSpend, LiveUsage } from "../../shared/api.ts";
 import { LIVE_RATE_WINDOW_MS, SPEND_BUCKET_MS, SPEND_BUCKETS } from "../../shared/constants.ts";
+import { HOUR, MINUTE } from "../../shared/dates.ts";
 import { costOf, priceOf } from "../pricing.ts";
 import { sessionUsage, toUsage, type UsageRow } from "../queries.ts";
 import { visibleSessionSql } from "../visibility.ts";
@@ -10,9 +11,8 @@ import type { LiveVisibility } from "./sessions.ts";
 
 const SMALL_WINDOW = 200_000;
 const LARGE_WINDOW = 1_000_000;
-const CACHE_TTL_LONG = 60 * 60_000;
-const CACHE_TTL_SHORT = 5 * 60_000;
-const HOUR = 60 * 60_000;
+const CACHE_TTL_LONG = HOUR;
+const CACHE_TTL_SHORT = 5 * MINUTE;
 
 /** The latest main-thread response: what the next request starts from. */
 export interface LatestResponse {

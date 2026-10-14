@@ -1,10 +1,11 @@
 import { type FSWatcher, watch } from "node:fs";
 import { join } from "node:path";
+import { MINUTE } from "../../shared/dates.ts";
 import type { Ingester } from "./ingester.ts";
 
 const DEBOUNCE_MS = 300;
 /** In case watch events are missed, rescan everything at this interval (instant when nothing changed). */
-const RESCAN_MS = 60_000;
+const RESCAN_MS = MINUTE;
 
 /**
  * Watches the projects directory and ingests changed files.

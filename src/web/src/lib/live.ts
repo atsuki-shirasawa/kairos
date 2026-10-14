@@ -1,5 +1,6 @@
 // How running sessions are shown: which ones want you, in what order, and for the tab title.
 import type { LiveSession, LiveSpend, LiveUsage, Project } from "@shared/api.ts";
+import { HOUR } from "@shared/dates.ts";
 import { isProjectShown } from "@shared/projects.ts";
 import { WORK_BLOCK_GAP_MS } from "@shared/sections.ts";
 
@@ -108,7 +109,7 @@ export function hourTicks(from: number, to: number): number[] {
   const first = new Date(from);
   first.setMinutes(0, 0, 0);
   const ticks: number[] = [];
-  for (let t = first.getTime() + 3_600_000; t < to; t += 3_600_000) ticks.push(t);
+  for (let t = first.getTime() + HOUR; t < to; t += HOUR) ticks.push(t);
   return ticks;
 }
 

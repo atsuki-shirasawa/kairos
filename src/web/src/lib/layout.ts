@@ -3,7 +3,7 @@
 // column with a small offset; only blocks starting almost together (headings would collide) go side
 // by side. Splitting into columns more often would make them too narrow in the week view.
 import type { CalendarSegment, CalendarSession, Span } from "@shared/api.ts";
-import { DAY, MINUTE } from "./dates.ts";
+import { DAY, MINUTE } from "@shared/dates.ts";
 
 /**
  * Minimum drawn length, so even very short blocks show one line of heading.

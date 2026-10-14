@@ -1,4 +1,6 @@
 // Comparing a period's totals with the period before, as the summary's figures show them.
+
+import { MINUTE } from "@shared/dates.ts";
 import type { PeriodSummary } from "./summary.ts";
 
 /** "+2h 10m" / "−3". The minus is U+2212 so it lines up with the plus in tabular figures. */
@@ -22,7 +24,7 @@ export interface Comparable {
  */
 export function comparable(s: PeriodSummary): Comparable {
   return {
-    busyMs: Math.round(s.busyMs / 60_000) * 60_000,
+    busyMs: Math.round(s.busyMs / MINUTE) * MINUTE,
     prs: s.prs.length,
     commits: s.commits,
     tokens: s.usage?.tokens ?? 0,
@@ -36,5 +38,5 @@ export function comparable(s: PeriodSummary): Comparable {
  * ticks.
  */
 export function elapsedInPeriod(now: number, from: number, to: number): number | null {
-  return now >= from && now < to ? Math.floor((now - from) / 60_000) * 60_000 : null;
+  return now >= from && now < to ? Math.floor((now - from) / MINUTE) * MINUTE : null;
 }

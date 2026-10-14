@@ -1,4 +1,5 @@
 import type { Project } from "@shared/api.ts";
+import { MINUTE } from "@shared/dates.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { summaryMessages } from "@/i18n/messages/summary.ts";
 import { scaleToMax } from "@/lib/charts.ts";
@@ -18,7 +19,7 @@ export function ByProject({
   const m = summaryMessages();
   const width = scaleToMax(summary.projects.map((p) => p.busyMs));
   // Rows count parallel work once per project, the total once overall. Say so when they differ
-  const overlap = summary.projects.reduce((n, p) => n + p.busyMs, 0) - summary.busyMs >= 60_000;
+  const overlap = summary.projects.reduce((n, p) => n + p.busyMs, 0) - summary.busyMs >= MINUTE;
   return (
     <div>
       <Heading>{m.byProject}</Heading>

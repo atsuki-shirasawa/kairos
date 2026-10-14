@@ -1,6 +1,7 @@
 // Geometry of the calendar time grid: where blocks are drawn, and which ones are scrolled out of view.
 import type { Artifact, CalendarSession } from "@shared/api.ts";
-import { HOUR, isSameDay } from "./dates.ts";
+import { HOUR } from "@shared/dates.ts";
+import { isSameDay } from "./dates.ts";
 import { MIN_BLOCK_MS, type PlacedBlock } from "./layout.ts";
 import { selectedSegment } from "./navigation.ts";
 

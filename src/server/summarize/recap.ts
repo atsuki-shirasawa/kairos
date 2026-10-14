@@ -4,6 +4,7 @@
 import type { Database } from "bun:sqlite";
 import { prShortRef } from "../../shared/artifacts.ts";
 import { ARTIFACT_GRACE_MS, OPEN_ITEM_OLD_WEEKS } from "../../shared/constants.ts";
+import { hhmm, isoDay, WEEK } from "../../shared/dates.ts";
 import { isOpenAt } from "../../shared/openItems.ts";
 import { type OpenKind, parseSummaryBody } from "../../shared/summaryBody.ts";
 import { DEFAULT_SUMMARY_LANG, type SummaryLang } from "../../shared/summaryLang.ts";
@@ -163,22 +164,15 @@ export function recapHash(input: RecapInput): string {
   return Bun.hash(JSON.stringify(empty ? rest : input)).toString(16);
 }
 
-const pad = (n: number) => String(n).padStart(2, "0");
-const date = (t: number) => {
-  const d = new Date(t);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-};
-const time = (t: number) => {
-  const d = new Date(t);
-  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
+/** `MM-DD HH:MM` in local time. */
+const time = (t: number) => `${isoDay(t).slice(5)} ${hhmm(t)}`;
 const clip = (s: string, n: number) => (s.length <= n ? s : `${s.slice(0, n)}…`);
 
 function periodOf(input: RecapInput): string {
   const last = input.to - 1;
-  return date(input.from) === date(last)
-    ? `on ${date(input.from)}`
-    : `from ${date(input.from)} to ${date(last)}`;
+  return isoDay(input.from) === isoDay(last)
+    ? `on ${isoDay(input.from)}`
+    : `from ${isoDay(input.from)} to ${isoDay(last)}`;
 }
 
 /**
@@ -237,8 +231,6 @@ const RULES: Record<SummaryLang, LangRules> = {
   ja: { name: "Japanese", style: "簡潔な常体（〜した、〜を追加）", open: "未完了" },
 };
 
-const WEEK = 7 * 24 * 60 * 60_000;
-
 /**
  * Where the closing "Open:" bullet comes from. With items in the ledger, from it alone: it carries
  * items across sections and sessions and knows which were closed later, where the sections' own
@@ -255,7 +247,7 @@ function openRule(input: RecapInput, r: LangRules): string {
 function itemLine(i: RecapItem, to: number): string {
   const kind = i.kind ? `[${i.kind}] ` : "";
   const weeks = Math.floor((to - i.openedAt) / WEEK);
-  const age = `left open ${date(i.openedAt)}${weeks >= 1 ? `, ${weeks} week(s) ago` : ""}`;
+  const age = `left open ${isoDay(i.openedAt)}${weeks >= 1 ? `, ${weeks} week(s) ago` : ""}`;
   return `- ${kind}${oneLine(i.text)} (${i.note ? oneLine(i.note) : age})`;
 }
 

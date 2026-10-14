@@ -1,4 +1,5 @@
 import type { Database } from "bun:sqlite";
+import { MINUTE } from "../../shared/dates.ts";
 import { parseSummaryBody } from "../../shared/summaryBody.ts";
 import { DEFAULT_SUMMARY_LANG, type SummaryLang } from "../../shared/summaryLang.ts";
 import { storedSummaryLang } from "../settings.ts";
@@ -25,7 +26,7 @@ import {
 /** Model used for summaries unless `--summary-model` is given; cheap suffices for excerpts. */
 export const DEFAULT_MODEL = "haiku";
 /** How often the idle loop looks for new automatic targets without being poked. */
-const POLL_MS = 60_000;
+const POLL_MS = MINUTE;
 /** More than a week of projects; past it, a request is refused rather than queued behind the rest. */
 export const MAX_RECAP_QUEUE = 20;
 

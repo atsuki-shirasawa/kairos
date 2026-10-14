@@ -1,8 +1,10 @@
 // The app-wide keyboard shortcuts. Which key does what is in lib/shortcuts.ts.
+
+import { startOfDay } from "@shared/dates.ts";
 import { useEffect, useEffectEvent } from "react";
 import type { BlockStepping } from "@/hooks/useBlockNavigation.ts";
 import type { UrlState, UrlStateUpdate } from "@/hooks/useUrlState.ts";
-import { shift, startOfDay } from "@/lib/dates.ts";
+import { shift } from "@/lib/dates.ts";
 import { type Shortcut, shortcutFor } from "@/lib/shortcuts.ts";
 
 /** What the shortcuts read and act on. */

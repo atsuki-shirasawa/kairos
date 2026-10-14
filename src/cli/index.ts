@@ -7,11 +7,12 @@ import { parseArgs } from "node:util";
 import { DEFAULT_CLAUDE_DIR, DEFAULT_DB_PATH, LOG_PATH, SUMMARIZER_CWD } from "../server/paths.ts";
 import { EFFORT_LEVELS, isEffort } from "../server/summarize/claude.ts";
 import { HOST, PORT } from "../shared/constants.ts";
+import { DAY, startOfDay } from "../shared/dates.ts";
 import { isProjectShown } from "../shared/projects.ts";
 import { AUTO_SUMMARY_DAYS } from "../shared/sections.ts";
 import { isSummaryLang } from "../shared/summaryLang.ts";
 import { ensure, health, isAlive, readPid, serverEnv, stop } from "./daemon.ts";
-import { formatTime, parseDay, printable, startOfDay, uiLink } from "./format.ts";
+import { formatTime, parseDay, printable, uiLink } from "./format.ts";
 import { colorFor, styles } from "./style.ts";
 
 /** Every option any command takes; which command takes which is listed in `help.ts`. */
@@ -398,7 +399,7 @@ async function summarize(dbPath: string): Promise<void> {
   await catchUp(db, server !== null);
   const now = Date.now();
   // The running server is summarizing these itself; taking them too would run claude -p twice
-  const leftToServer = server?.autoSummary ? now - AUTO_SUMMARY_DAYS * 24 * 60 * 60_000 : undefined;
+  const leftToServer = server?.autoSummary ? now - AUTO_SUMMARY_DAYS * DAY : undefined;
   const targets = findTargets(db, now, {
     ...filter,
     ...(leftToServer !== undefined ? { endedBefore: leftToServer } : {}),

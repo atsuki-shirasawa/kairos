@@ -1,7 +1,9 @@
+import { MINUTE } from "../../shared/dates.ts";
+
 /** Automatic runs give up on a section after this many failed attempts; a request still retries it. */
 const MAX_ATTEMPTS = 3;
 /** Wait before the first retry; it doubles with each further failure. */
-const RETRY_BASE_MS = 60_000;
+const RETRY_BASE_MS = MINUTE;
 
 interface Failure {
   attempts: number;

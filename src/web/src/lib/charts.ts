@@ -1,5 +1,5 @@
 // Scaling for the summary's bar charts and day timeline, as percentages for inline styles.
-import { HOUR } from "./dates.ts";
+import { HOUR } from "@shared/dates.ts";
 
 /**
  * Percent of the largest of `values`, for bars scaled to the longest. The largest counts as at

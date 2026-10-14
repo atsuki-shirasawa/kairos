@@ -1,5 +1,6 @@
+import { isoDay, startOfDay } from "@shared/dates.ts";
 import { useCallback, useEffect, useState } from "react";
-import { fromISODate, type Layout, startOfDay, toISODate, type View } from "@/lib/dates.ts";
+import { fromISODate, type Layout, type View } from "@/lib/dates.ts";
 import { type Filter, readFilter, writeFilter } from "@/lib/filter.ts";
 
 /** List sort. `start` is time order (grouped by day); the others are column keys. */
@@ -52,7 +53,7 @@ function write(s: UrlState, push: boolean): void {
   const q = new URLSearchParams();
   if (s.view !== "week") q.set("view", s.view);
   if (s.layout !== "calendar") q.set("layout", s.layout);
-  if (startOfDay(s.anchor) !== startOfDay(Date.now())) q.set("date", toISODate(s.anchor));
+  if (startOfDay(s.anchor) !== startOfDay(Date.now())) q.set("date", isoDay(s.anchor));
   if (s.session) q.set("session", s.session);
   if (s.session && s.at) q.set("at", String(s.at));
   if (s.sort.key !== "start") q.set("sort", `${s.sort.desc ? "-" : ""}${s.sort.key}`);

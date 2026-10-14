@@ -1,7 +1,7 @@
 // The summary's table (session list): which blocks it shows, how it sorts them, and which optional
 // columns it keeps. Pure, so the rules can be tested without rendering the table.
 import type { CalendarSession } from "@shared/api.ts";
-import { startOfDay } from "./dates.ts";
+import { startOfDay } from "@shared/dates.ts";
 import type { SegmentMatch } from "./filter.ts";
 import { blocksOfDay, type DayBlock } from "./layout.ts";
 

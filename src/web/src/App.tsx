@@ -1,3 +1,4 @@
+import { startOfDay } from "@shared/dates.ts";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { CalendarGrid } from "@/components/CalendarGrid.tsx";
@@ -24,7 +25,7 @@ import { useTheme } from "@/hooks/useTheme.ts";
 import { useUrlState } from "@/hooks/useUrlState.ts";
 import { useLocale } from "@/i18n/index.ts";
 import { appMessages } from "@/i18n/messages/app.tsx";
-import { dateLabel, rangeOf, shift, startOfDay, type View } from "@/lib/dates.ts";
+import { dateLabel, rangeOf, shift, type View } from "@/lib/dates.ts";
 import { type Filter, hiddenReason, isFocused, withoutConditions } from "@/lib/filter.ts";
 import { attentionCount, liveDisplay, visibleLive } from "@/lib/live.ts";
 import { buildReport } from "@/lib/report.ts";

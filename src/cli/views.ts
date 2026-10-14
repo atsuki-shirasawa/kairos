@@ -2,9 +2,10 @@
 // Kept free of I/O so the output can be tested on plain objects.
 import type { CalendarSession, LedgerEntry, Project, SearchHit } from "../shared/api.ts";
 import { prMarkdownLink } from "../shared/artifacts.ts";
+import { hhmm, isoDay, startOfDay } from "../shared/dates.ts";
 import { isOpenAt } from "../shared/openItems.ts";
 import { isProjectShown } from "../shared/projects.ts";
-import { formatTime, hhmm, isoDay, oneLine, printable, startOfDay, uiLink } from "./format.ts";
+import { formatTime, oneLine, printable, uiLink } from "./format.ts";
 import { styles } from "./style.ts";
 
 /** Shown for work outside any project, where the UI says "unknown project". */

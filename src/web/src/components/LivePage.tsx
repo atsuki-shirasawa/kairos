@@ -1,4 +1,5 @@
 import type { LiveResponse, LiveSession, Project } from "@shared/api.ts";
+import { MINUTE } from "@shared/dates.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { liveMessages } from "@/i18n/messages/live.ts";
 import { projectColor } from "@/lib/colors.ts";
@@ -114,7 +115,7 @@ function ColumnHeader({ column, count }: { column: LiveColumn; count: number }) 
         </span>
       </h2>
       <p className="text-muted-foreground text-xs">
-        {column === "idle" ? m.columnNote.idle(IDLE_AFTER_MS / 60_000) : m.columnNote[column]}
+        {column === "idle" ? m.columnNote.idle(IDLE_AFTER_MS / MINUTE) : m.columnNote[column]}
       </p>
     </header>
   );

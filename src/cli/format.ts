@@ -1,4 +1,5 @@
 // Small text and date helpers shared by the CLI commands. Times are in local time, like the UI's.
+import { hhmm, isoDay, startOfDay } from "../shared/dates.ts";
 
 /**
  * Drops control characters. Headlines are LLM output over log text, so a prompt injection could
@@ -16,29 +17,9 @@ export function oneLine(text: string): string {
   return printable(text).replace(/\s+/g, " ").trim();
 }
 
-const pad = (n: number) => String(n).padStart(2, "0");
-
-/** `YYYY-MM-DD` in local time, as the UI's `?date=` takes it. */
-export function isoDay(ms: number): string {
-  const d = new Date(ms);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-/** `HH:MM` in local time. */
-export function hhmm(ms: number): string {
-  const d = new Date(ms);
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 /** `YYYY-MM-DD HH:MM` in local time, for progress lines. */
 export function formatTime(ms: number): string {
   return `${isoDay(ms)} ${hhmm(ms)}`;
-}
-
-/** Local midnight of the day containing `ms`, moved by `days` (DST-safe, unlike adding 24h). */
-export function startOfDay(ms: number, days = 0): number {
-  const d = new Date(ms);
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + days).getTime();
 }
 
 /**

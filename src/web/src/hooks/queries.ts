@@ -1,5 +1,6 @@
 import type { OpenItemUpdate, ProjectUpdate, RecapRequest } from "@shared/api.ts";
 import { MIN_SEARCH_CHARS } from "@shared/constants.ts";
+import { MINUTE } from "@shared/dates.ts";
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -46,7 +47,7 @@ export function useCalendar(from: number, to: number, enabled = true) {
  * How often the live data is refetched with no event: the spend band's rate and bars are as of the
  * fetch, so a quiet hour would otherwise keep showing the last busy minutes as "now".
  */
-const LIVE_REFRESH_MS = 60_000;
+const LIVE_REFRESH_MS = MINUTE;
 
 /**
  * Claude Code sessions running now and what they spend. Refetched on live.updated and

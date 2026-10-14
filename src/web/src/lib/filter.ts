@@ -1,6 +1,7 @@
 // Filtering the blocks in a period. Separate from hiding projects (saved in the DB, for things
 // you never want to see), these are "just for now" conditions kept in the URL.
 import type { CalendarSegment, CalendarSession, Project } from "@shared/api.ts";
+import { MINUTE } from "@shared/dates.ts";
 import { isProjectShown } from "@shared/projects.ts";
 import { openItemsOf } from "@shared/summaryBody.ts";
 
@@ -128,7 +129,7 @@ export function meetsConditions(
 ): boolean {
   if (filter.outcomes.length > 0 && !hasOutcome(segment, filter.outcomes)) return false;
   if (!filter.states.every((s) => inState(session, segment, s))) return false;
-  if (segment.end - segment.start < filter.minMinutes * 60_000) return false;
+  if (segment.end - segment.start < filter.minMinutes * MINUTE) return false;
   return filter.branch === null || session.branch === filter.branch;
 }
 

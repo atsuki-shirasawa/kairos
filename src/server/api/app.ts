@@ -19,6 +19,7 @@ import type {
   SpansResponse,
 } from "../../shared/api.ts";
 import { MIN_SEARCH_CHARS } from "../../shared/constants.ts";
+import { DAY } from "../../shared/dates.ts";
 import { DEFAULT_SUMMARY_LANG, isSummaryLang } from "../../shared/summaryLang.ts";
 import type { EventHub } from "../events.ts";
 import { liveSpend } from "../live/cost.ts";
@@ -36,7 +37,7 @@ import { DEFAULT_HIDDEN_CWDS } from "../visibility.ts";
 import { guardHost, guardWrite } from "./security.ts";
 
 /** Longest range the calendar can fetch at once (a month view plus margins). */
-export const MAX_RANGE_MS = 62 * 24 * 60 * 60_000;
+export const MAX_RANGE_MS = 62 * DAY;
 /** Project colors are stored as palette keys (p0–p7). The actual colors are set per theme by the web app. */
 const PALETTE_KEY = /^p[0-7]$/;
 /** How long an idle SSE connection waits before sending a keep-alive comment. */

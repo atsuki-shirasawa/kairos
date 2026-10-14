@@ -3,6 +3,7 @@
 import type { Database } from "bun:sqlite";
 import { prShortRef } from "../../shared/artifacts.ts";
 import { ARTIFACT_GRACE_MS } from "../../shared/constants.ts";
+import { MINUTE } from "../../shared/dates.ts";
 import { titleAfter } from "../ingest/prs.ts";
 
 /**
@@ -10,7 +11,7 @@ import { titleAfter } from "../ingest/prs.ts";
  * (at most about 6) after the last activity; work blocks are split by gaps of 15, so this never
  * reaches the next block.
  */
-export const NOTE_GRACE_MS = 10 * 60_000;
+export const NOTE_GRACE_MS = 10 * MINUTE;
 /** Cap on the facts block. It comes before the transcript; past the cap, whole lines are dropped. */
 export const FACTS_LIMIT = 8_000;
 const MAX_TASKS = 20;
