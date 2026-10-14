@@ -3,9 +3,10 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, join, relative, sep } from "node:path";
 import { WORK_BLOCK_GAP_MS } from "../../shared/sections.ts";
 import { classifyUser } from "./classify.ts";
-import { extractCommit, GIT_COMMIT_RE } from "./commits.ts";
+import { extractCommit } from "./commits.ts";
 import { nextAutoTurn, storedUserKind, storedUserText } from "./interpret.ts";
 import { LIMIT } from "./limits.ts";
+import { type PendingOutcomes, pendingOutcomes } from "./outcomes.ts";
 import {
   encodeDir,
   isTemporary,
@@ -19,7 +20,7 @@ import {
   TEMP_PROJECT,
   worktreeName,
 } from "./project.ts";
-import { GH_PR_CREATE_RE, prMergeOf, prTitleOf, prUrlIn } from "./prs.ts";
+import { prUrlIn } from "./prs.ts";
 import { type Line, type ReadResult, readNewLines } from "./reader.ts";
 import {
   clip,
@@ -563,17 +564,8 @@ export class Ingester {
       toolUseId,
       meta: clip(JSON.stringify(input, null, 2), LIMIT.toolInput),
     });
-    const command = str(input.command) ?? "";
-    if (name === "Bash" && toolUseId && GIT_COMMIT_RE.test(command)) {
-      ctx.state.pendingCommits[toolUseId] = command.slice(0, LIMIT.short);
-    }
-    const prTitle = name === "Bash" && GH_PR_CREATE_RE.test(command) && prTitleOf(command);
-    if (toolUseId && prTitle) ctx.state.pendingPrs[toolUseId] = prTitle.slice(0, LIMIT.short);
-    const merge = name === "Bash" ? prMergeOf(command) : undefined;
-    if (toolUseId && merge) {
-      ctx.state.pendingMerges ??= {};
-      ctx.state.pendingMerges[toolUseId] = merge.number;
-    }
+    if (toolUseId)
+      awaitOutcomes(ctx.state, toolUseId, pendingOutcomes(name, str(input.command) ?? ""));
   }
 
   /**
@@ -927,6 +919,16 @@ function lineSeq(offset: number): number {
 /** A record's message ID: its uuid, or the file and position when it has none. */
 function recordId(r: Rec, fileId: number, seq: number): string {
   return str(r.uuid) ?? `${fileId}:${seq}`;
+}
+
+/** Remembers what a tool call awaits under its ID, until its result arrives. */
+function awaitOutcomes(state: FileState, toolUseId: string, outcomes: PendingOutcomes): void {
+  if (outcomes.commit !== undefined) state.pendingCommits[toolUseId] = outcomes.commit;
+  if (outcomes.prTitle !== undefined) state.pendingPrs[toolUseId] = outcomes.prTitle;
+  if (outcomes.merge) {
+    state.pendingMerges ??= {};
+    state.pendingMerges[toolUseId] = outcomes.merge.number;
+  }
 }
 
 /** Fills in the elapsed time of a scan started at `started`. */
