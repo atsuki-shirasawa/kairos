@@ -18,7 +18,7 @@ import {
   weekdayHeaders,
   weekNumber,
 } from "@/lib/dates.ts";
-import { recordedDays } from "@/lib/layout.ts";
+import { recordedDays } from "@/lib/dayBlocks.ts";
 import { cn } from "@/lib/utils.ts";
 
 /** Days moved by the arrow keys. PageUp / PageDown move by a month. */

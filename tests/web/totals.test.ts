@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Activity, CalendarSegment, CalendarSession, Usage } from "../../src/shared/api.ts";
-import type { DayBlock } from "../../src/web/src/lib/layout.ts";
+import type { DayBlock } from "../../src/web/src/lib/dayBlocks.ts";
 import { dayFigures } from "../../src/web/src/lib/totals.ts";
 
 const H = 3_600_000;

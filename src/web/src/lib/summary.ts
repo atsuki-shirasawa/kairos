@@ -1,9 +1,9 @@
 // Period totals for the summary view: what was done, where the time went, and what came out of it.
 // Everything is derived from the calendar response, so the summary agrees with the calendar and list.
 import type { Artifact, CalendarSession, Usage } from "@shared/api.ts";
+import { blocksOfDay, busyMs, type DayBlock } from "./dayBlocks.ts";
 import type { SegmentMatch } from "./filter.ts";
 import { sumActivity, sumUsage } from "./format.ts";
-import { blocksOfDay, busyMs, type DayBlock } from "./layout.ts";
 import { activityOf, counted, usageOf } from "./totals.ts";
 
 /** One project's share of the period, for the summary view's project cards. */

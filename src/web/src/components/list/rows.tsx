@@ -4,7 +4,7 @@ import { formatMessages } from "@/i18n/messages/format.ts";
 import { listMessages } from "@/i18n/messages/list.tsx";
 import { projectColor } from "@/lib/colors.ts";
 import { dateLabel, hhmm, relativeDay } from "@/lib/dates.ts";
-import type { DayBlock } from "@/lib/layout.ts";
+import type { DayBlock } from "@/lib/dayBlocks.ts";
 import { isSelected, isWorking, projectLabel, projectOf } from "@/lib/selection.ts";
 import { totalsOf } from "@/lib/totals.ts";
 import { cn } from "@/lib/utils.ts";

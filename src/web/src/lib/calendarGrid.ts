@@ -2,8 +2,11 @@
 import type { Artifact, CalendarSession } from "@shared/api.ts";
 import { HOUR } from "@shared/dates.ts";
 import { isSameDay } from "./dates.ts";
-import { type DayBlock, MIN_BLOCK_MS, type PlacedBlock, runGroups } from "./layout.ts";
+import type { DayBlock } from "./dayBlocks.ts";
+import { MIN_BLOCK_MS, type PlacedBlock } from "./layout.ts";
+import { runGroups } from "./marks.ts";
 import { selectedSegment } from "./navigation.ts";
+import { sessionEnd } from "./selection.ts";
 
 /** Hint for blocks scrolled out of view (above or below). */
 export interface Edge {
@@ -173,8 +176,10 @@ export function focusDayIndex(
 
 /** Whether this is the session's last work block (only it gets the "in progress" mark). */
 export function isLastSegment(block: PlacedBlock): boolean {
-  const last = Math.max(...block.session.segments.map((g) => g.end));
-  return block.segment.end >= last && block.dayStart + block.end >= block.segment.end;
+  return (
+    block.segment.end >= sessionEnd(block.session) &&
+    block.dayStart + block.end >= block.segment.end
+  );
 }
 
 /** Radius of a commit or PR node drawn on a block, in px. */

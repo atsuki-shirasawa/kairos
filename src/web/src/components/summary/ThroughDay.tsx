@@ -4,7 +4,7 @@ import { summaryMessages } from "@/i18n/messages/summary.ts";
 import { type HourAxis, hourAxis } from "@/lib/charts.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { hhmm } from "@/lib/dates.ts";
-import type { DayBlock } from "@/lib/layout.ts";
+import type { DayBlock } from "@/lib/dayBlocks.ts";
 import { projectName, projectOf } from "@/lib/selection.ts";
 import type { PeriodSummary } from "@/lib/summary.ts";
 import { Heading } from "./shared.tsx";

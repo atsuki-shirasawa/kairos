@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Artifact, CalendarSession, Usage } from "../../src/shared/api.ts";
 import { addDays } from "../../src/web/src/lib/dates.ts";
-import { blocksOfDay } from "../../src/web/src/lib/layout.ts";
+import { blocksOfDay } from "../../src/web/src/lib/dayBlocks.ts";
 import {
   daySummary,
   projectSummary,

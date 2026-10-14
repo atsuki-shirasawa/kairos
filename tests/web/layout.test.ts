@@ -1,78 +1,12 @@
-import { afterEach, describe, expect, test } from "bun:test";
-import type { CalendarSession } from "../../src/shared/api.ts";
-import { setLocale } from "../../src/web/src/i18n/index.ts";
+import { describe, expect, test } from "bun:test";
 import {
-  addDays,
-  addMonths,
-  dateLabel,
-  durationLabel,
-  elapsedLabel,
-  isoWeek,
-  monthWeeks,
-  rangeOf,
-  rangeTitle,
-  relativeDay,
-  shift,
-  startOfMonth,
-  startOfWeek,
-  timeOrDateTime,
-  weekNumber,
-} from "../../src/web/src/lib/dates.ts";
-import {
-  blocksOfDay,
-  busyMs,
-  columnTracks,
-  isMark,
+  finishCluster,
   layoutDay,
-  recordedDays,
-  runGroups,
+  type PlacedBlock,
+  pickColumn,
+  spanInto,
 } from "../../src/web/src/lib/layout.ts";
-
-const DAY0 = new Date(2026, 9, 5).getTime(); // 2026-10-05 (Mon) 00:00
-const at = (h: number) => DAY0 + h * 3_600_000;
-
-function session(id: string, ...spans: [number, number][]): CalendarSession {
-  const segments = spans.map(([start, end]) => ({
-    start,
-    end,
-    headline: id,
-    summarized: false,
-    body: null,
-    prs: [],
-    commits: [],
-    promptCount: 1,
-    usage: null,
-    activity: {
-      commits: 0,
-      prs: 0,
-      merges: 0,
-      filesEdited: 0,
-      toolCalls: 0,
-      subagents: 0,
-      toolErrors: 0,
-      interrupts: 0,
-      apiErrors: 0,
-      compactions: 0,
-      claudeMs: null,
-      effort: null,
-    },
-  }));
-  return {
-    id,
-    projectId: 1,
-    label: null,
-    branch: null,
-    scheduledRuns: 0,
-    headless: false,
-    continued: false,
-    title: id,
-    startedAt: segments[0]?.start ?? 0,
-    endedAt: segments.at(-1)?.end ?? 0,
-    promptCount: 1,
-    active: false,
-    segments,
-  };
-}
+import { at, DAY0, session } from "./helpers.ts";
 
 /** Per block: [column, column count, span, stacking depth]. */
 const placement = (blocks: ReturnType<typeof layoutDay>) =>
@@ -189,319 +123,52 @@ describe("layoutDay", () => {
   });
 });
 
-describe("recordedDays", () => {
-  const days = [0, 1, 2].map((i) => addDays(DAY0, i));
+/** A card placed in `col` from hour `from` to hour `to` on DAY0, for the cluster steps. */
+const card = (id: string, col: number, from: number, to: number): PlacedBlock => {
+  const [block] = layoutDay([session(id, [at(from), at(to)])], DAY0);
+  if (!block) throw new Error("no block laid out");
+  return { ...block, col };
+};
 
-  test("blocks spanning midnight count on both days, and like the calendar, one ending exactly at midnight counts on the next day", () => {
-    const spans = [
-      { start: at(23), end: at(25), projectId: 1 },
-      { start: at(40), end: at(48), projectId: 1 },
-    ];
-    expect([...recordedDays(spans, days)]).toEqual(days);
-    expect(blocksOfDay([session("a", [at(40), at(48)])], addDays(DAY0, 2))).toHaveLength(1);
+describe("pickColumn", () => {
+  test("a block starting a heading line after a column's last block stacks there", () => {
+    expect(pickColumn([[card("a", 0, 9, 12)]], at(10) - DAY0)).toEqual({ col: 0, depth: 1 });
   });
 
-  test("blocks of hidden projects don't count", () => {
-    const spans = [
-      { start: at(1), end: at(2), projectId: 1 },
-      { start: at(25), end: at(26), projectId: 2 },
-      { start: at(49), end: at(50), projectId: null },
-    ];
-    expect([...recordedDays(spans, days, new Set([2]))]).toEqual([DAY0, addDays(DAY0, 2)]);
-  });
-});
-
-describe("dates", () => {
-  test("weeks start on Sunday", () => {
-    const sunday = addDays(DAY0, -1);
-    const saturday = new Date(2026, 9, 10, 15).getTime();
-    expect(startOfWeek(saturday)).toBe(sunday);
-    expect(startOfWeek(sunday)).toBe(sunday);
-    expect(rangeOf("week", saturday)).toMatchObject({ from: sunday, to: addDays(sunday, 7) });
-    expect(rangeOf("week", saturday).days).toHaveLength(7);
+  test("no column has room for a block starting almost together with the last", () => {
+    expect(pickColumn([[card("a", 0, 9, 12)]], at(9.1) - DAY0).col).toBe(-1);
   });
 
-  test("a Sunday-first week is numbered by its Monday's ISO week", () => {
-    // 2027-01-03 (Sun) starts the week of 2027-01-04, ISO week 1; the Sunday alone is in week 53
-    expect(weekNumber(new Date(2027, 0, 3).getTime())).toBe(1);
-    expect(weekNumber(addDays(DAY0, -1))).toBe(41);
-  });
-
-  test("a month runs from the 1st to the 1st of the next, a day per date", () => {
-    const { from, to, days } = rangeOf("month", new Date(2026, 1, 14, 9).getTime());
-    expect(from).toBe(new Date(2026, 1, 1).getTime());
-    expect(to).toBe(new Date(2026, 2, 1).getTime());
-    expect(days).toHaveLength(28);
-    expect(days.at(-1)).toBe(new Date(2026, 1, 28).getTime());
-  });
-
-  test("stepping a month keeps the day of the month, clamped at its end", () => {
-    expect(shift("month", new Date(2026, 0, 31).getTime(), 1)).toBe(
-      new Date(2026, 1, 28).getTime(),
-    );
-    expect(shift("month", DAY0, -1)).toBe(new Date(2026, 8, 5).getTime());
-    expect(shift("week", DAY0, 1)).toBe(addDays(DAY0, 7));
-  });
-
-  test("the period heading names the period and adds the year when it isn't the current one", () => {
-    expect(rangeTitle("week", DAY0, DAY0)).toEqual({
-      title: "Oct 4 – 10",
-      sub: null,
-      year: null,
-      week: "W41",
-    });
-    expect(rangeTitle("week", new Date(2026, 8, 30).getTime(), DAY0).title).toBe("Sep 27 – Oct 3");
-    expect(rangeTitle("week", DAY0, new Date(2027, 0, 1).getTime()).year).toBe("2026");
-    expect(rangeTitle("week", new Date(2026, 11, 30).getTime(), DAY0).year).toBe("2026 – 2027");
-    expect(rangeTitle("month", addDays(DAY0, 20), DAY0)).toEqual({
-      title: "October",
-      sub: null,
-      year: null,
-      week: null,
-    });
-    expect(rangeTitle("month", DAY0, new Date(2027, 0, 1).getTime()).year).toBe("2026");
-    expect(rangeTitle("day", DAY0, DAY0)).toEqual({
-      title: "Oct 5",
-      sub: "Monday",
-      year: null,
-      week: null,
-    });
-  });
-
-  test("adding months clamps to the end of the target month", () => {
-    expect(addMonths(new Date(2026, 0, 31).getTime(), 1)).toBe(new Date(2026, 1, 28).getTime());
-    expect(addMonths(new Date(2026, 0, 15).getTime(), -1)).toBe(new Date(2025, 11, 15).getTime());
-    expect(startOfMonth(DAY0 + 15 * 3_600_000)).toBe(new Date(2026, 9, 1).getTime());
-  });
-
-  test("the month grid starts on Sunday and pads weeks with days of adjacent months", () => {
-    const weeks = monthWeeks(DAY0);
-    // October 2026 starts on a Thursday and ends on a Saturday: 5 weeks from 9/27 (Sun) to 10/31 (Sat)
-    expect(weeks).toHaveLength(5);
-    expect(weeks[0]?.[0]).toBe(new Date(2026, 8, 27).getTime());
-    expect(weeks.at(-1)?.at(-1)).toBe(new Date(2026, 9, 31).getTime());
-    expect(weeks.every((w) => w.length === 7)).toBe(true);
-    // February 2026 starts on a Sunday and has 28 days: exactly 4 weeks, no padding
-    expect(monthWeeks(new Date(2026, 1, 10).getTime())).toHaveLength(4);
-    // August 2026 starts on a Saturday: 6 weeks from 7/26 to 9/5
-    expect(monthWeeks(new Date(2026, 7, 10).getTime())).toHaveLength(6);
-  });
-
-  test("ISO week numbers handle weeks across the year boundary", () => {
-    expect(isoWeek(new Date(2026, 0, 1).getTime())).toBe(1);
-    expect(isoWeek(new Date(2027, 0, 1).getTime())).toBe(53);
-    expect(isoWeek(new Date(2024, 11, 30).getTime())).toBe(1);
-  });
-
-  test("dates are short, with the year only when it isn't the current one", () => {
-    expect(dateLabel(DAY0, DAY0)).toBe("Mon, Oct 5");
-    expect(dateLabel(new Date(2025, 9, 5).getTime(), DAY0)).toBe("Sun, Oct 5, 2025");
-    expect(relativeDay(DAY0 + 3_600_000, DAY0 + 5 * 3_600_000)).toBe("Today");
-    expect(relativeDay(addDays(DAY0, -1), DAY0)).toBe("Yesterday");
-    expect(relativeDay(addDays(DAY0, -2), DAY0)).toBeNull();
-  });
-
-  test("durations use hours and minutes", () => {
-    expect(durationLabel(20_000)).toBe("1m");
-    expect(durationLabel(45 * 60_000)).toBe("45m");
-    expect(durationLabel(120 * 60_000)).toBe("2h");
-    expect(durationLabel(125 * 60_000)).toBe("2h 5m");
-  });
-
-  test("elapsed time coarsens to whole hours from 3h and whole days from 24h", () => {
-    expect(elapsedLabel(104 * 60_000)).toBe("1h 44m");
-    expect(elapsedLabel(3 * 60 * 60_000 - 29_000)).toBe("2h 59m");
-    expect(elapsedLabel(3 * 60 * 60_000 + 50 * 60_000)).toBe("3h");
-    expect(elapsedLabel((218 * 60 + 28) * 60_000)).toBe("9d");
-  });
-
-  test("a time on another day carries its date", () => {
-    const morning = DAY0 + (8 * 60 + 43) * 60_000;
-    expect(timeOrDateTime(morning, DAY0 + 12 * 60 * 60_000)).toBe("8:43");
-    expect(timeOrDateTime(morning, addDays(DAY0, 9))).toBe("Oct 5 8:43");
-    expect(timeOrDateTime(morning, addDays(DAY0, 120))).toBe("Oct 5, 2026 8:43");
-  });
-
-  describe("in Japanese", () => {
-    afterEach(() => setLocale("en"));
-
-    test("headings, dates, and durations use Japanese notation", () => {
-      setLocale("ja");
-      expect(rangeTitle("week", DAY0, DAY0).title).toBe("10月4日 – 10日");
-      expect(rangeTitle("week", new Date(2026, 8, 30).getTime(), DAY0).title).toBe(
-        "9月27日 – 10月3日",
-      );
-      expect(rangeTitle("day", DAY0, DAY0)).toMatchObject({ title: "10月5日", sub: "月曜日" });
-      expect(rangeTitle("month", DAY0, DAY0).title).toBe("10月");
-      expect(dateLabel(DAY0, DAY0)).toBe("10/5（月）");
-      expect(dateLabel(new Date(2025, 9, 5).getTime(), DAY0)).toBe("2025/10/5（日）");
-      expect(relativeDay(DAY0, DAY0)).toBe("今日");
-      expect(relativeDay(addDays(DAY0, -1), DAY0)).toBe("昨日");
-      expect(durationLabel(125 * 60_000)).toBe("2時間5分");
-      expect(durationLabel(120 * 60_000)).toBe("2時間");
-      expect(durationLabel(45 * 60_000)).toBe("45分");
-      expect(elapsedLabel(2 * 24 * 60 * 60_000)).toBe("2日");
-      expect(timeOrDateTime(DAY0, addDays(DAY0, 1))).toBe("10/5 0:00");
-      expect(timeOrDateTime(DAY0, addDays(DAY0, 120))).toBe("2026/10/5 0:00");
-    });
+  test("of the columns with room, the one with the fewest blocks still underneath wins", () => {
+    const columns = [[card("a", 0, 9, 12)], [card("b", 1, 9, 9.5)]];
+    expect(pickColumn(columns, at(10) - DAY0)).toEqual({ col: 1, depth: 0 });
   });
 });
 
-describe("blocksOfDay", () => {
-  test("blocks spanning midnight are clipped per day and marked as continuing", () => {
-    const s = session("a", [at(22), at(26)]);
-    const [today] = blocksOfDay([s], DAY0);
-    const [tomorrow] = blocksOfDay([s], addDays(DAY0, 1));
-    expect([today?.start, today?.end, today?.continuesBefore, today?.continuesAfter]).toEqual([
-      22 * 3_600_000,
-      24 * 3_600_000,
-      false,
-      true,
+describe("spanInto", () => {
+  test("widens over columns to the right that are free where it is drawn", () => {
+    const a = card("a", 0, 9, 9.5);
+    const columns = [[a], [card("b", 1, 11, 12)]];
+    expect(spanInto(a, columns)).toBe(2);
+  });
+
+  test("stops at a column holding a block it overlaps", () => {
+    const a = card("a", 0, 9, 12);
+    const columns = [[a], [card("b", 1, 9.1, 10)]];
+    expect(spanInto(a, columns)).toBe(1);
+  });
+});
+
+describe("finishCluster", () => {
+  test("gives each block the cluster's column count and its span, column by column", () => {
+    const a = card("a", 0, 9, 12);
+    const b = card("b", 1, 9.1, 10);
+    const c = card("c", 0, 10, 11);
+    const all = finishCluster([[a, c], [b]]);
+    expect(all.map((x) => [x.session.id, x.cols, x.span])).toEqual([
+      ["a", 2, 1],
+      ["c", 2, 2],
+      ["b", 2, 1],
     ]);
-    expect([tomorrow?.start, tomorrow?.end, tomorrow?.continuesBefore]).toEqual([
-      0,
-      2 * 3_600_000,
-      true,
-    ]);
-  });
-
-  test("blocks are sorted by start across sessions", () => {
-    const blocks = blocksOfDay(
-      [session("a", [at(9), at(10)], [at(14), at(15)]), session("b", [at(11), at(12)])],
-      DAY0,
-    );
-    expect(blocks.map((b) => `${b.session.id}@${b.start / 3_600_000}`)).toEqual([
-      "a@9",
-      "b@11",
-      "a@14",
-    ]);
-  });
-});
-
-describe("busyMs", () => {
-  test("overlaps between parallel blocks count once", () => {
-    const h = 3_600_000;
-    expect(
-      busyMs([
-        { start: 9 * h, end: 11 * h },
-        { start: 10 * h, end: 12 * h },
-        { start: 14 * h, end: 15 * h },
-      ]),
-    ).toBe(4 * h);
-  });
-
-  test("zero without blocks", () => {
-    expect(busyMs([])).toBe(0);
-  });
-});
-
-describe("columnTracks", () => {
-  const fr = (track: string) => Number(/([\d.]+)fr\)$/.exec(track)?.[1]);
-
-  test("all days even when there is no work", () => {
-    expect(columnTracks([0, 0, 0], 700, -1)).toEqual(Array(3).fill("minmax(0, 1fr)"));
-  });
-
-  test("days with parallel work get more width; days without work stay narrow", () => {
-    const tracks = columnTracks([1, 4, 0], 2000, -1);
-    expect(fr(tracks[1] ?? "")).toBeGreaterThan(fr(tracks[0] ?? ""));
-    expect(tracks[2]).toBe("minmax(2.5rem, 0.15fr)");
-  });
-
-  test("with lanes too narrow, the selected day and its neighbors keep their width", () => {
-    const wide = columnTracks([2, 4, 2, 1, 1, 1, 1], 3000, 1);
-    expect(wide.every((t) => t.startsWith("minmax(0,"))).toBe(true);
-    const narrow = columnTracks([2, 4, 2, 1, 1, 1, 1], 900, 1);
-    expect(narrow[1]).toBe("minmax(0, 2.5fr)");
-    expect(fr(narrow[0] ?? "")).toBeLessThan(fr(wide[0] ?? ""));
-    expect(narrow.slice(3)).toEqual(Array(4).fill("minmax(2.5rem, 0.25fr)"));
-  });
-
-  test("without a selection, narrow lanes leave the weights as they are", () => {
-    expect(columnTracks([2, 4, 2, 1, 1, 1, 1], 900, -1)).toEqual(
-      columnTracks([2, 4, 2, 1, 1, 1, 1], 3000, -1),
-    );
-  });
-});
-
-describe("isMark", () => {
-  const DAY = 86_400_000;
-  const block = (s: CalendarSession, i = 0) => ({
-    session: s,
-    segment: s.segments[i] ?? s.segments[0]!,
-  });
-
-  test("short work is a mark; ten minutes or more is a card", () => {
-    expect(isMark(block(session("q", [at(9), at(9.15)])))).toBe(true);
-    expect(isMark(block(session("w", [at(9), at(9 + 10 / 60)])))).toBe(false);
-  });
-
-  test("judges a block crossing midnight by its whole length", () => {
-    const s = session("late", [at(23.9), at(24.5)]);
-    expect(isMark(block(s))).toBe(false);
-    expect(layoutDay([s], DAY0 + DAY)[0]?.mark).toBe(false);
-  });
-
-  test("the work in progress stays a card while it is still short", () => {
-    const s = { ...session("now", [at(8), at(9)], [at(10), at(10.05)]), active: true };
-    expect(isMark(block(s, 1))).toBe(false);
-    // Its earlier short block, if any, would still be a mark; here the first is an hour long
-    expect(isMark(block(s, 0))).toBe(false);
-  });
-});
-
-describe("runGroups", () => {
-  const sec = (h: number, m: number, s = 0) => at(h + m / 60 + s / 3600);
-  const mark = (s: CalendarSession) => {
-    const [segment] = s.segments;
-    if (!segment) throw new Error("a session without blocks");
-    return { session: s, segment };
-  };
-  /** A headless run of `project` lasting five seconds from `start`. */
-  const run = (id: string, start: number, projectId: number | null = 1) => {
-    const s = { ...session(id, [start, start + 5_000]), headless: true, projectId };
-    return mark(s);
-  };
-  const ids = (groups: ReturnType<typeof runGroups<ReturnType<typeof run>>>) =>
-    groups.map((g) => g.map((m) => m.session.id));
-
-  test("runs of a project seconds apart become one group", () => {
-    const marks = [run("a", sec(10, 25)), run("b", sec(10, 25, 20)), run("c", sec(10, 26))];
-    expect(ids(runGroups(marks))).toEqual([["a", "b", "c"]]);
-  });
-
-  test("a pause longer than five minutes starts a new group", () => {
-    const marks = [run("a", sec(10, 25)), run("b", sec(10, 31)), run("c", sec(10, 35))];
-    expect(ids(runGroups(marks))).toEqual([["a"], ["b", "c"]]);
-  });
-
-  test("a burst ends fifteen minutes after its first run, however close the runs", () => {
-    const marks = [0, 4, 8, 12, 16, 20].map((m, i) => run(`r${i}`, sec(9, m)));
-    expect(ids(runGroups(marks))).toEqual([
-      ["r0", "r1", "r2", "r3"],
-      ["r4", "r5"],
-    ]);
-  });
-
-  test("measures the pause from the run that ends last, not the one that started last", () => {
-    const long = { ...session("long", [sec(10, 0), sec(10, 4)]), headless: true };
-    const marks = [mark(long), run("short", sec(10, 0, 10)), run("next", sec(10, 8))];
-    expect(ids(runGroups(marks))).toEqual([["long", "short", "next"]]);
-  });
-
-  test("runs with no project are never grouped", () => {
-    const marks = [run("a", sec(10, 25), null), run("b", sec(10, 25, 20), null)];
-    expect(ids(runGroups(marks))).toEqual([["a"], ["b"]]);
-  });
-
-  test("other projects and prompted work stay on their own without breaking a burst", () => {
-    const asked = session("asked", [sec(10, 25, 30), sec(10, 26)]);
-    const marks = [
-      run("a", sec(10, 25)),
-      mark(asked),
-      run("other", sec(10, 25, 40), 2),
-      run("b", sec(10, 26, 10)),
-    ];
-    expect(ids(runGroups(marks))).toEqual([["a", "b"], ["asked"], ["other"]]);
   });
 });

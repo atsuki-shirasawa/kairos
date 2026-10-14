@@ -2,8 +2,8 @@
 
 import type { ColumnKey } from "@/i18n/messages/list.tsx";
 import { durationLabel } from "@/lib/dates.ts";
+import { busyMs, type DayBlock } from "@/lib/dayBlocks.ts";
 import { cacheRate, troubleCount } from "@/lib/format.ts";
-import { busyMs, type DayBlock } from "@/lib/layout.ts";
 import { activityOf, counted, type Totals, usageOf } from "@/lib/totals.ts";
 import {
   CacheCell,

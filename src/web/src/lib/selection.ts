@@ -1,7 +1,7 @@
 // Rules about a block that every view answers the same way: which project it belongs to, whether
 // it is selected, and whether it is still being worked on.
 import { formatMessages } from "@/i18n/messages/format.ts";
-import type { DayBlock } from "./layout.ts";
+import type { DayBlock } from "./dayBlocks.ts";
 
 /** The project with `id`, if known. Sessions outside any project have no id. */
 export function projectOf<P>(projects: ReadonlyMap<number, P>, id: number | null): P | undefined {
@@ -35,8 +35,16 @@ export function isSelected(
   );
 }
 
+/**
+ * When a session's work ends so far: the latest end among its sections. Whether a section is the
+ * one still being worked on is judged against it.
+ */
+export function sessionEnd(session: Pick<DayBlock["session"], "segments">): number {
+  return Math.max(...session.segments.map((g) => g.end));
+}
+
 /** Whether `block` is the latest section of a session that is still running. */
-export function isWorking(block: DayBlock): boolean {
+export function isWorking(block: Pick<DayBlock, "session" | "segment">): boolean {
   const { session, segment } = block;
-  return session.active && segment.end >= Math.max(...session.segments.map((g) => g.end));
+  return session.active && segment.end >= sessionEnd(session);
 }

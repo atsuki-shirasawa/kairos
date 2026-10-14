@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import type { Artifact, CalendarSession, Project } from "../../src/shared/api.ts";
 import { setLocale } from "../../src/web/src/i18n/index.ts";
-import { blocksOfDay } from "../../src/web/src/lib/layout.ts";
+import { blocksOfDay } from "../../src/web/src/lib/dayBlocks.ts";
 import { blockLine, buildReport, recapSection } from "../../src/web/src/lib/report.ts";
 
 const DAY0 = new Date(2026, 9, 5).getTime(); // 2026-10-05 (Mon) 00:00

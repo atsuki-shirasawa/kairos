@@ -1,7 +1,8 @@
 // Walks blocks in time order (j / k and the drawer's ‹ ›). Calendar and list use the same order.
 import type { CalendarSegment, CalendarSession } from "@shared/api.ts";
 import { startOfDay } from "@shared/dates.ts";
-import { isMark, runGroups } from "./layout.ts";
+import { overlaps } from "./dayBlocks.ts";
+import { isMark, runGroups } from "./marks.ts";
 
 /** How a block is addressed. Matches `session` and `at` in the URL. */
 export interface BlockRef {
@@ -15,7 +16,7 @@ export function orderedBlocks(sessions: CalendarSession[], from: number, to: num
     .flatMap((s) =>
       s.segments
         // Same test as blocksOfDay, so only blocks on screen are visited
-        .filter((g) => g.end >= from && g.start < to)
+        .filter((g) => overlaps(g, from, to))
         .map((g) => ({ id: s.id, at: g.start })),
     )
     .sort((a, b) => a.at - b.at || a.id.localeCompare(b.id));

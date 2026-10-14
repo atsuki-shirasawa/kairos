@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Artifact, Recap } from "../../src/shared/api.ts";
-import type { DayBlock } from "../../src/web/src/lib/layout.ts";
+import type { DayBlock } from "../../src/web/src/lib/dayBlocks.ts";
 import type { ProjectSummary } from "../../src/web/src/lib/summary.ts";
 import { prLabel, startsNewDay, unwrittenRecaps } from "../../src/web/src/lib/summaryDone.ts";
 

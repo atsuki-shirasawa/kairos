@@ -1,7 +1,7 @@
 // Day and period totals. The calendar day header and the list total rows count the same way.
 import type { Activity, Usage } from "@shared/api.ts";
+import { busyMs, type DayBlock } from "./dayBlocks.ts";
 import { sumActivity, sumUsage, troubleCount, troubleDetail } from "./format.ts";
-import { busyMs, type DayBlock } from "./layout.ts";
 
 /**
  * Blocks spanning midnight are split per day, but their numbers count only on the first day (so

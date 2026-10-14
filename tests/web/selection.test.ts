@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { CalendarSession } from "../../src/shared/api.ts";
 import { setLocale } from "../../src/web/src/i18n/index.ts";
-import { blocksOfDay } from "../../src/web/src/lib/layout.ts";
+import { blocksOfDay } from "../../src/web/src/lib/dayBlocks.ts";
 import {
   isSelected,
   isWorking,

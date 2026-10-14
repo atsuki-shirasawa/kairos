@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { isSameDay, type View } from "@/lib/dates.ts";
-import type { DayBlock } from "@/lib/layout.ts";
+import type { DayBlock } from "@/lib/dayBlocks.ts";
 import type { ListSort } from "@/lib/listTable.ts";
 import { type DayGroup, dayGroups, nextSort, sortBlocks, visibleSort } from "@/lib/listTable.ts";
 import type { PeriodBodyProps } from "@/lib/periodBody.ts";

@@ -2,7 +2,7 @@
 import type { Artifact, Recap } from "@shared/api.ts";
 import { prNumber } from "@shared/artifacts.ts";
 import { isSameDay } from "./dates.ts";
-import type { DayBlock } from "./layout.ts";
+import type { DayBlock } from "./dayBlocks.ts";
 import type { ProjectSummary } from "./summary.ts";
 
 /** Projects whose recap is missing or out of date (and not being written), in the order given. */

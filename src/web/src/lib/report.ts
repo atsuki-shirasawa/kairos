@@ -3,7 +3,7 @@ import type { CalendarSession, Project } from "@shared/api.ts";
 import { prMarkdownLink } from "@shared/artifacts.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { dateLabel, hhmm } from "./dates.ts";
-import { blocksOfDay, type DayBlock } from "./layout.ts";
+import { blocksOfDay, type DayBlock } from "./dayBlocks.ts";
 import { projectName } from "./selection.ts";
 import { counted } from "./totals.ts";
 

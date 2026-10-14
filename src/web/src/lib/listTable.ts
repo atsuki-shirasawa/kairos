@@ -2,8 +2,8 @@
 // columns it keeps. Pure, so the rules can be tested without rendering the table.
 import type { CalendarSession } from "@shared/api.ts";
 import { startOfDay } from "@shared/dates.ts";
+import { blocksOfDay, type DayBlock } from "./dayBlocks.ts";
 import type { SegmentMatch } from "./filter.ts";
-import { blocksOfDay, type DayBlock } from "./layout.ts";
 
 /** A sort order: `start` is time order (grouped by day), other keys are column keys. */
 export interface ListSort {
