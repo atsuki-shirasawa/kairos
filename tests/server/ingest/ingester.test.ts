@@ -2,7 +2,7 @@ import type { Database } from "bun:sqlite";
 import { beforeEach, describe, expect, test } from "bun:test";
 import { appendFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { classifyPath, Ingester } from "../../../src/server/ingest/ingester.ts";
+import { Ingester } from "../../../src/server/ingest/ingester.ts";
 import { SID } from "../../fixtures/ids.ts";
 import { min, noRemotes, setup } from "./helpers.ts";
 
@@ -665,20 +665,4 @@ describe("incremental ingest", () => {
     expect(count("SELECT COUNT(*) AS n FROM messages WHERE session_id = ?", SID.blog)).toBe(before);
     expect(session(SID.blog).prompt_count).toBe(1);
   });
-});
-
-test("classifyPath", () => {
-  const p = "/x/projects";
-  expect(classifyPath(p, `${p}/-a/s1.jsonl`)).toEqual({ kind: "session", sessionId: "s1" });
-  expect(classifyPath(p, `${p}/-a/s1/subagents/agent-ab12.jsonl`)).toEqual({
-    kind: "subagent",
-    sessionId: "s1",
-    agentId: "ab12",
-  });
-  expect(classifyPath(p, `${p}/-a/s1/subagents/agent-ab12.meta.json`)).toEqual({
-    kind: "subagent-meta",
-    sessionId: "s1",
-    agentId: "ab12",
-  });
-  expect(classifyPath(p, `${p}/-a/memory/notes.md`)).toBeNull();
 });

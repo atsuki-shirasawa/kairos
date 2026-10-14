@@ -1,10 +1,11 @@
 import type { Database, Statement } from "bun:sqlite";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { basename, join, relative, sep } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { basename } from "node:path";
 import { WORK_BLOCK_GAP_MS } from "../../shared/sections.ts";
 import { readKv, writeKv } from "../db/kv.ts";
 import { classifyUser } from "./classify.ts";
 import { extractCommit } from "./commits.ts";
+import { classifyPath, listFiles } from "./files.ts";
 import { nextAutoTurn, storedUserKind, storedUserText } from "./interpret.ts";
 import { LIMIT } from "./limits.ts";
 import { type PendingOutcomes, pendingOutcomes } from "./outcomes.ts";
@@ -65,28 +66,6 @@ const RECAP_SUFFIX = /\s*\(disable recaps in \/config\)\s*$/;
 interface Place {
   id: number;
   label: string | null;
-}
-
-/** Kind of a file under the projects directory, with the IDs its path encodes. */
-export type LogFile =
-  | { kind: "session"; sessionId: string }
-  | { kind: "subagent"; sessionId: string; agentId: string }
-  | { kind: "subagent-meta"; sessionId: string; agentId: string };
-
-/** Determines the file kind from its path relative to the projects directory. */
-export function classifyPath(projectsDir: string, path: string): LogFile | null {
-  const parts = relative(projectsDir, path).split(sep);
-  if (parts.length === 2 && parts[1]?.endsWith(".jsonl")) {
-    return { kind: "session", sessionId: parts[1].slice(0, -".jsonl".length) };
-  }
-  if (parts.length === 4 && parts[2] === "subagents" && parts[1]) {
-    const m = /^agent-(.+?)(\.jsonl|\.meta\.json)$/.exec(parts[3] ?? "");
-    if (m?.[1]) {
-      const kind = m[2] === ".jsonl" ? "subagent" : "subagent-meta";
-      return { kind, sessionId: parts[1], agentId: m[1] };
-    }
-  }
-  return null;
 }
 
 /** Interpretation state carried across files. Saved as JSON in ingest_state.state. */
@@ -194,23 +173,7 @@ export class Ingester {
 
   /** Log files to ingest: main session files first, then subagent logs and their meta files. */
   listFiles(): string[] {
-    if (!existsSync(this.projectsDir)) return [];
-    const main: string[] = [];
-    const sub: string[] = [];
-    for (const proj of readdirSync(this.projectsDir, { withFileTypes: true })) {
-      if (!proj.isDirectory()) continue;
-      const projDir = join(this.projectsDir, proj.name);
-      for (const entry of readdirSync(projDir, { withFileTypes: true })) {
-        if (entry.isFile() && entry.name.endsWith(".jsonl")) main.push(join(projDir, entry.name));
-        if (!entry.isDirectory()) continue;
-        const subDir = join(projDir, entry.name, "subagents");
-        if (!existsSync(subDir)) continue;
-        for (const f of readdirSync(subDir)) {
-          if (f.endsWith(".jsonl") || f.endsWith(".meta.json")) sub.push(join(subDir, f));
-        }
-      }
-    }
-    return [...main.sort(), ...sub.sort()];
+    return listFiles(this.projectsDir);
   }
 
   // ---------------------------------------------------------------- one file
