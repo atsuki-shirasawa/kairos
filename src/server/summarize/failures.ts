@@ -1,6 +1,6 @@
 import { MINUTE } from "../../shared/dates.ts";
 
-/** Automatic runs give up on a section after this many failed attempts; a request still retries it. */
+/** Automatic runs give up on a job after this many failed attempts; a request still retries it. */
 const MAX_ATTEMPTS = 3;
 /** Wait before the first retry; it doubles with each further failure. */
 const RETRY_BASE_MS = MINUTE;
@@ -11,7 +11,10 @@ interface Failure {
   message: string;
 }
 
-/** Failed section summaries by key, with exponential backoff before an automatic retry. */
+/**
+ * Failed jobs by key, with exponential backoff before an automatic retry. Section summaries use the
+ * whole schedule; recaps are only ever requested, so for them only the message is read.
+ */
 export class FailureLog {
   private readonly failures = new Map<string, Failure>();
 

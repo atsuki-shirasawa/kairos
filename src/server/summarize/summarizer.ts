@@ -2,7 +2,7 @@ import type { Database } from "bun:sqlite";
 import { MINUTE } from "../../shared/dates.ts";
 import { DEFAULT_SUMMARY_LANG, type SummaryLang } from "../../shared/summaryLang.ts";
 import { storedSummaryLang } from "../settings.ts";
-import { FailureLog } from "./failures.ts";
+import { JobTracker } from "./jobs.ts";
 import { loadRecapInput, type RecapTarget, recapKey } from "./recap.ts";
 import { buildRecapPrompt, parseRecap } from "./recapPrompt.ts";
 import { interpretSection, prepareSection } from "./section.ts";
@@ -34,18 +34,21 @@ export type SummarizeResult =
 /** String key for a section, for queue and failure lookups. */
 const key = (t: SectionRef) => `${t.sessionId}:${t.start}`;
 
+/** A job for the loop: a section to summarize or a recap to write. */
+export type Job = { kind: "section"; target: Target } | { kind: "recap"; target: RecapTarget };
+
 /**
  * Summarizes finished sections one at a time. Short sections get only a headline.
  * Only recent sections are summarized automatically; older ones are done when asked via `request`.
  */
 export class Summarizer {
-  private readonly queue: Target[] = [];
-  private readonly failures = new FailureLog();
-  private current: string | null = null;
-  /** Recaps are only ever requested, so they need no retry schedule: a failure waits for the next request. */
-  private readonly recaps: RecapTarget[] = [];
-  private readonly recapErrors = new Map<string, string>();
-  private currentRecap: string | null = null;
+  /** Requested sections; automatic ones are found when the queue is empty. */
+  private readonly sections = new JobTracker<Target, SectionRef>(key);
+  /**
+   * Recaps are only ever requested, so nothing reads their failures' retry schedule (only the
+   * message, for `recapErrorOf`): a failure waits for the next request.
+   */
+  private readonly recaps = new JobTracker<RecapTarget>(recapKey);
   private running = false;
   private wake: (() => void) | null = null;
 
@@ -95,32 +98,30 @@ export class Summarizer {
 
   /** Whether the section is queued or being summarized now. */
   isPending(sessionId: string, start: number): boolean {
-    const k = key({ sessionId, start });
-    return this.current === k || this.queue.some((t) => key(t) === k);
+    return this.sections.isPending({ sessionId, start });
   }
 
   /** Message of the section's last failed attempt; null once it succeeds or is requested again. */
   errorOf(sessionId: string, start: number): string | null {
-    return this.failures.messageOf(key({ sessionId, start }));
+    return this.sections.errorOf({ sessionId, start });
   }
 
   /** Summarizes this section ahead of others (including regenerating). A request writes a body even for a short section. */
   request(sessionId: string, start: number): void {
     const target: Target = { sessionId, start, mode: "summary" };
-    this.failures.clear(key(target));
-    if (!this.isPending(sessionId, start)) this.queue.unshift(target);
+    this.sections.clearFailure(target);
+    if (!this.isPending(sessionId, start)) this.sections.pushFront(target);
     this.poke();
   }
 
   /** Whether the recap is queued or being written now. */
   isRecapPending(t: RecapTarget): boolean {
-    const k = recapKey(t);
-    return this.currentRecap === k || this.recaps.some((r) => recapKey(r) === k);
+    return this.recaps.isPending(t);
   }
 
   /** Message of the recap's latest failed attempt; null once it succeeds or is requested again. */
   recapErrorOf(t: RecapTarget): string | null {
-    return this.recapErrors.get(recapKey(t)) ?? null;
+    return this.recaps.errorOf(t);
   }
 
   /**
@@ -130,8 +131,8 @@ export class Summarizer {
   requestRecap(t: RecapTarget): boolean {
     if (this.isRecapPending(t)) return true;
     if (this.recaps.length >= MAX_RECAP_QUEUE) return false;
-    this.recapErrors.delete(recapKey(t));
-    this.recaps.push(t);
+    this.recaps.clearFailure(t);
+    this.recaps.pushBack(t);
     this.poke();
     return true;
   }
@@ -154,28 +155,34 @@ export class Summarizer {
     this.poke();
   }
 
-  /** The next section to summarize: requested ones first, then automatic targets (newest first). */
-  next(): Target | null {
-    const requested = this.queue.shift();
-    if (requested) return requested;
+  /** The newest automatic target not waiting on a retry, or null when automatic runs are off. */
+  private nextAuto(): Target | null {
     if (this.opts.auto === false) return null;
     const now = this.now();
-    return findAutoTargets(this.db, now).find((t) => !this.failures.isBlocked(key(t), now)) ?? null;
+    return findAutoTargets(this.db, now).find((t) => !this.sections.isBlocked(t, now)) ?? null;
+  }
+
+  /**
+   * The next job of either kind. A requested section summary goes first: someone is waiting on it
+   * in the drawer, and a recap written after it can use it. Recaps go before automatic summaries
+   * for the same reason. Automatic targets come newest first. The loop runs what this returns.
+   */
+  nextJob(): Job | null {
+    const requested = this.sections.take();
+    if (requested) return { kind: "section", target: requested };
+    const recap = this.recaps.take();
+    if (recap) return { kind: "recap", target: recap };
+    const auto = this.nextAuto();
+    return auto ? { kind: "section", target: auto } : null;
   }
 
   /** Runs one job at a time until stopped, idling when there is nothing to do. */
   private async loop(): Promise<void> {
     while (this.running) {
-      // A requested section summary goes first: someone is waiting on it in the drawer, and a recap
-      // written after it can use it. Recaps go before automatic summaries for the same reason
-      const requested = this.queue.length === 0 ? this.recaps.shift() : undefined;
-      if (requested) {
-        await this.recap(requested);
-        continue;
-      }
-      const target = this.next();
-      if (target) await this.summarize(target);
-      else await this.idle();
+      const job = this.nextJob();
+      if (!job) await this.idle();
+      else if (job.kind === "recap") await this.recap(job.target);
+      else await this.summarize(job.target);
     }
   }
 
@@ -196,54 +203,61 @@ export class Summarizer {
    * to summarize is skipped for good; other failures are recorded and retried later.
    */
   async summarize(target: Omit<Target, "mode"> & { mode?: Mode }): Promise<SummarizeResult> {
-    const k = key(target);
-    this.current = k;
     try {
-      const prepared = prepareSection(
-        this.db,
-        { ...target, mode: target.mode ?? "summary" },
-        this.lang,
+      return await this.sections.track(target, () =>
+        this.summarizeSection({ ...target, mode: target.mode ?? "summary" }),
       );
+    } finally {
+      this.opts.onUpdated?.(target);
+    }
+  }
+
+  /** Runs the model on one section and saves the result, recording a failure for `errorOf`. */
+  private async summarizeSection(target: Target): Promise<SummarizeResult> {
+    try {
+      const prepared = prepareSection(this.db, target, this.lang);
       if (prepared === "no-conversation") {
         // Retrying gives the same result, so skip it for good
-        this.failures.giveUp(k, NO_CONVERSATION);
+        this.sections.giveUp(target, NO_CONVERSATION);
         return { status: "skipped", error: NO_CONVERSATION };
       }
       const result = interpretSection(await this.run(prepared.prompt), prepared);
       if (!result) throw new Error("Could not parse the summary output");
       saveSection(this.db, target, result, { model: this.model, createdAt: this.now() });
-      this.failures.clear(k);
+      this.sections.clearFailure(target);
       return { status: "saved" };
     } catch (e) {
-      const attempts = this.failures.record(k, e, this.now());
+      const attempts = this.sections.recordFailure(target, e, this.now());
+      // Unlike recaps, section failures honour `quiet`: `kairos summarize` prints its own lines
       if (!this.opts.quiet)
-        console.error(`kairos: summary failed for ${k} (attempt ${attempts}):`, e);
-      return { status: "failed", error: this.failures.messageOf(k) ?? String(e) };
-    } finally {
-      this.current = null;
-      this.opts.onUpdated?.(target);
+        console.error(`kairos: summary failed for ${key(target)} (attempt ${attempts}):`, e);
+      return { status: "failed", error: this.sections.errorOf(target) ?? String(e) };
     }
   }
 
   /** Writes and saves one recap. A failure is kept to show in the summary view until the next request. */
   async recap(t: RecapTarget): Promise<boolean> {
-    const k = recapKey(t);
-    this.currentRecap = k;
+    try {
+      return await this.recaps.track(t, () => this.writeRecap(t));
+    } finally {
+      this.opts.onRecapUpdated?.(t);
+    }
+  }
+
+  /** Runs the model on one recap and saves it, recording a failure for `recapErrorOf`. */
+  private async writeRecap(t: RecapTarget): Promise<boolean> {
     try {
       const input = loadRecapInput(this.db, t);
       if (!input) throw new Error("No work to recap in this period");
       const body = parseRecap(await this.run(buildRecapPrompt(input, this.lang)));
       if (!body) throw new Error("The recap came back empty");
       saveRecap(this.db, t, input, body, { model: this.model, createdAt: this.now() });
-      this.recapErrors.delete(k);
+      this.recaps.clearFailure(t);
       return true;
     } catch (e) {
-      this.recapErrors.set(k, e instanceof Error ? e.message : String(e));
-      console.error(`kairos: recap failed for ${k}:`, e);
+      this.recaps.recordFailure(t, e, this.now());
+      console.error(`kairos: recap failed for ${recapKey(t)}:`, e);
       return false;
-    } finally {
-      this.currentRecap = null;
-      this.opts.onRecapUpdated?.(t);
     }
   }
 }

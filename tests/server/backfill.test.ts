@@ -28,7 +28,7 @@ const summarized = () =>
   db.query<{ n: number }, []>("SELECT COUNT(*) AS n FROM summaries").get()?.n ?? 0;
 
 test("finds old sections the automatic loop skips, newest sessions first, with the automatic modes", () => {
-  expect(summarizer.next()).toBeNull();
+  expect(summarizer.nextJob()).toBeNull();
   const targets = findTargets(db, now);
   expect(targets.length).toBeGreaterThan(2);
   const lastEnd = (sessionId: string) =>

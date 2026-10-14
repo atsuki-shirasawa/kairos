@@ -61,10 +61,30 @@ const skipTitles = () =>
      WHERE end - start < ${SUMMARY_MIN_DURATION_MS} AND prompt_count < ${SUMMARY_MIN_PROMPTS}`,
   );
 
+/** The loop's next job, which these tests expect to be a section (or nothing). */
+const nextSection = () => {
+  const job = summarizer.nextJob();
+  if (job?.kind === "recap") throw new Error("expected a section job, got a recap");
+  return job?.target ?? null;
+};
+
 describe("Summarizer", () => {
+  test("the loop takes requested sections first, then recaps, then automatic targets", () => {
+    skipTitles();
+    const recap = { projectId: 1, from: 0, to: min(2000) };
+    summarizer.requestRecap(recap);
+    summarizer.request(SID.basic, min(0));
+    expect(summarizer.nextJob()).toEqual({
+      kind: "section",
+      target: { sessionId: SID.basic, start: min(0), mode: "summary" },
+    });
+    expect(summarizer.nextJob()).toEqual({ kind: "recap", target: recap });
+    expect(summarizer.nextJob()).toMatchObject({ kind: "section", target: { mode: "summary" } });
+  });
+
   test("automatic targets are finished sections: short ones get a headline, long or busy ones a full summary", () => {
     const picked: string[] = [];
-    for (let t = summarizer.next(); t; t = summarizer.next()) {
+    for (let t = nextSection(); t; t = nextSection()) {
       picked.push(`${t.sessionId.slice(0, 4)}@${(t.start - min(0)) / 60_000}:${t.mode}`);
       db.query("INSERT INTO summaries VALUES (?, ?, 'x', 'y', 'm', 1e15, 0)").run(
         t.sessionId,
@@ -94,7 +114,7 @@ describe("Summarizer", () => {
       covered_until: min(50.2),
     });
     // Newest first: the ledger scenario's first section, which has a later one in its session
-    expect(summarizer.next()).toMatchObject({ sessionId: SID.ledgerOpen });
+    expect(nextSection()).toMatchObject({ sessionId: SID.ledgerOpen });
   });
 
   test("the prompt includes the section's conversation and the earlier sections' headlines", async () => {
@@ -153,18 +173,18 @@ describe("Summarizer", () => {
     skipTitles();
     skipLedger();
     now = min(50.2) + 10 * 60_000;
-    expect(summarizer.next()).toBeNull();
+    expect(nextSection()).toBeNull();
     now = min(50.2) + 31 * 60_000;
-    expect(summarizer.next()).toMatchObject({ sessionId: SID.basic, start: min(45) });
+    expect(nextSection()).toMatchObject({ sessionId: SID.basic, start: min(45) });
   });
 
   test("sections older than 7 days are not done automatically, but are when requested", async () => {
     skipTitles();
     now = min(1612) + 8 * 24 * 60 * 60_000; // 8 days after the last section
-    expect(summarizer.next()).toBeNull();
+    expect(nextSection()).toBeNull();
     summarizer.request(SID.basic, min(0)); // even a short section, when requested
     expect(summarizer.isPending(SID.basic, min(0))).toBe(true);
-    expect(summarizer.next()).toEqual({ sessionId: SID.basic, start: min(0), mode: "summary" });
+    expect(nextSection()).toEqual({ sessionId: SID.basic, start: min(0), mode: "summary" });
   });
 
   test("records the reason for a failure and retries later", async () => {
@@ -184,9 +204,9 @@ describe("Summarizer", () => {
       [SID.facts, min(1600)],
     ] as const)
       db.query("INSERT INTO summaries VALUES (?, ?, 'x', 'y', 'm', 1e15, 0)").run(sid, start);
-    expect(summarizer.next()).toBeNull(); // skipped until the retry time
+    expect(nextSection()).toBeNull(); // skipped until the retry time
     now += 61_000;
-    expect(summarizer.next()).toEqual({ ...target, mode: "summary" });
+    expect(nextSection()).toEqual({ ...target, mode: "summary" });
   });
 
   test("short sections get only a headline with an empty body", async () => {
@@ -198,7 +218,7 @@ describe("Summarizer", () => {
       headline: "Login screen research",
       body: "",
     });
-    expect(summarizer.next()).not.toMatchObject({ sessionId: SID.basic, start: min(0) });
+    expect(nextSection()).not.toMatchObject({ sessionId: SID.basic, start: min(0) });
   });
 
   test("regenerates a stale summary (when the section continued)", async () => {
@@ -219,7 +239,7 @@ describe("Summarizer", () => {
       min(1600),
       min(1612),
     );
-    expect(summarizer.next()).toEqual({
+    expect(nextSection()).toEqual({
       sessionId: SID.compaction,
       start: min(380),
       mode: "summary",
@@ -244,7 +264,7 @@ test("API: requesting a summary returns 202 and is pending while in progress", a
     await app.request(`http://127.0.0.1/api/sessions/${SID.basic}`)
   ).json()) as SessionDetail;
   expect(d.sections[0]?.pending).toBe(true);
-  const done = summarizer.summarize(summarizer.next() ?? { sessionId: "", start: 0 });
+  const done = summarizer.summarize(nextSection() ?? { sessionId: "", start: 0 });
   release("Login form implementation\n\n- Goal: …");
   expect(await done).toEqual({ status: "saved" });
   expect(summaryOf(SID.basic, min(0))?.headline).toBe("Login form implementation");
