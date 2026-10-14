@@ -19,7 +19,7 @@ Finished work goes to main without a PR: when asked to merge, use `/land` (revie
 
 ## Layout
 
-- `src/cli/` — the `kairos` command (`ensure` / `open` / `serve` / `ingest` / `summarize` / `report`, etc.). `help.ts` lists each command's options and arguments, and the CLI refuses any it doesn't list, so add new flags there too. `views.ts` renders `report` / `open-items` / `search`, `doctor.ts` the checks, `daemon.ts` handles background start and the PID file (which also keeps the server's options for `restart`)
+- `src/cli/` — the `kairos` command (`ensure` / `open` / `serve` / `ingest` / `summarize` / `report`, etc.). `help.ts` lists each command's options and arguments, and the CLI refuses any it doesn't list, so add new flags there too. `views.ts` renders `report` / `open-items` / `search`, `doctor.ts` the checks, `style.ts` the colors they share, `daemon.ts` handles background start and the PID file (which also keeps the server's options for `restart`)
 - `src/server/ingest/` — incremental read (`reader`) → classify (`classify`) → store (`ingester`) → work blocks (`segments`). `watcher` re-ingests changed files while the server runs
 - `src/server/db/` — schema and `MIGRATIONS`
 - `src/server/` (top level) — `queries.ts` (read queries behind the API), `settings.ts` (settings in the DB's kv table), `events.ts` (SSE broadcast), `pricing.ts` (token → USD, a usage gauge rather than the real bill), `serve.ts` (server startup)

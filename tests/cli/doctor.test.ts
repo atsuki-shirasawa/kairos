@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { checkHook, checkLiveRegistry } from "../../src/cli/doctor.ts";
+import { type Check, checkHook, checkLiveRegistry, renderChecks } from "../../src/cli/doctor.ts";
 
 /** A Claude config directory whose SessionStart hook runs `command`. */
 function claudeDirWith(command: string): string {
@@ -41,4 +41,13 @@ test("the running-sessions check warns when Claude Code's session registry is mi
     level: "ok",
     detail: expect.stringContaining("1 recorded"),
   });
+});
+
+test("the report ends by counting what needs attention, or saying all is well", () => {
+  const fine: Check = { name: "claude", level: "ok", detail: "2.1" };
+  const warned: Check = { name: "server", level: "warn", detail: "not running" };
+  const failed: Check = { name: "database", level: "fail", detail: "broken" };
+  expect(renderChecks([fine])).toBe("✓ claude  2.1\n\nAll good.");
+  expect(renderChecks([fine, warned, warned, failed])).toEndWith("\n\n1 problem, 2 warnings");
+  expect(renderChecks([failed], true)).toContain("\x1b[31m✗\x1b[0m");
 });

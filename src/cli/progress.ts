@@ -1,6 +1,7 @@
 // A status bar pinned to the bottom of the terminal for long CLI runs (`kairos summarize`): log
 // lines scroll above it while it keeps redrawing the count, the time left and what is running now.
 import { DUSK } from "./help.ts";
+import { styles } from "./style.ts";
 
 /** Spinner frames, advanced on every redraw so the bar shows it is alive during a slow `claude -p`. */
 const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
@@ -52,8 +53,7 @@ function bar(ratio: number, cells: number, color: boolean): string {
  */
 export function renderBar(state: BarState, columns: number, color: boolean): string {
   const { done, total, failed, elapsedMs } = state;
-  const dim = (s: string) => (color ? `\x1b[2m${s}\x1b[0m` : s);
-  const red = (s: string) => (color ? `\x1b[31m${s}\x1b[0m` : s);
+  const { dim, fail: red } = styles(color);
   const spinner = done < total ? (SPINNER[state.frame % SPINNER.length] ?? "") : "✓";
   const percent = `${String(Math.floor((done / Math.max(1, total)) * 100)).padStart(3)}%`;
   const count = `${String(done).padStart(String(total).length)}/${total}`;

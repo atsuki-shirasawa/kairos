@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { readRegistry } from "../server/live/registry.ts";
 import { LOG_PATH } from "../server/paths.ts";
 import { health, isAlive, readPid } from "./daemon.ts";
+import { styles } from "./style.ts";
 
 /** How a check came out: fine, worth a look, or broken. */
 export type CheckLevel = "ok" | "warn" | "fail";
@@ -185,9 +186,28 @@ export async function runChecks(input: DoctorInput): Promise<Check[]> {
   ];
 }
 
-/** The checks as aligned lines, marked ✓ / ! / ✗. */
-export function renderChecks(checks: Check[]): string {
-  const mark: Record<CheckLevel, string> = { ok: "✓", warn: "!", fail: "✗" };
+/** How many checks need attention, as the report's last line; it says so when all is well. */
+function verdict(checks: Check[], color: boolean): string {
+  const { fail, ok, warn } = styles(color);
+  const count = (level: CheckLevel, one: string) => {
+    const n = checks.filter((c) => c.level === level).length;
+    return n ? `${n} ${one}${n > 1 ? "s" : ""}` : null;
+  };
+  const failed = count("fail", "problem");
+  const warned = count("warn", "warning");
+  if (!failed && !warned) return ok("All good.");
+  return [failed && fail(failed), warned && warn(warned)].filter(Boolean).join(", ");
+}
+
+/** The checks as aligned lines marked ✓ / ! / ✗, then how many need attention. */
+export function renderChecks(checks: Check[], color = false): string {
+  const s = styles(color);
+  const mark: Record<CheckLevel, string> = { ok: s.ok("✓"), warn: s.warn("!"), fail: s.fail("✗") };
   const width = Math.max(...checks.map((c) => c.name.length));
-  return checks.map((c) => `${mark[c.level]} ${c.name.padEnd(width)}  ${c.detail}`).join("\n");
+  const lines = checks.map((c) => {
+    // A fine check's detail is reference; one that needs attention says what to do, so keep it bright
+    const detail = c.level === "ok" ? s.dim(c.detail) : c.detail;
+    return `${mark[c.level]} ${c.name.padEnd(width)}  ${detail}`;
+  });
+  return [...lines, "", verdict(checks, color)].join("\n");
 }

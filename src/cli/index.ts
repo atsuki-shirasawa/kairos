@@ -10,6 +10,7 @@ import { HOST, PORT } from "../shared/constants.ts";
 import { AUTO_SUMMARY_DAYS } from "../shared/sections.ts";
 import { ensure, health, isAlive, readPid, serverEnv, stop } from "./daemon.ts";
 import { formatTime, parseDay, printable, startOfDay, uiLink } from "./format.ts";
+import { colorFor, styles } from "./style.ts";
 
 /** Every option any command takes; which command takes which is listed in `help.ts`. */
 const OPTIONS = {
@@ -170,20 +171,14 @@ switch (command) {
     ]);
     break;
   }
-  case "status": {
-    const h = await health(port);
-    const pid = readPid();
-    if (h) console.log(`Running: ${url} (v${h.version}${pid ? `, pid ${pid.pid}` : ""})`);
-    else if (pid && isAlive(pid.pid))
-      console.log(`Starting (pid ${pid.pid}). If it does not respond, check the log: ${LOG_PATH}`);
-    else console.log("Not running. Start it with `kairos ensure`.");
-    if (h && pid?.args.length) console.log(`Options: ${pid.args.join(" ")}`);
-    console.log(`Log: ${LOG_PATH}`);
+  case "status":
+    await status();
+    break;
+  case "stop": {
+    const { dim, ok } = styles(colorFor(process.stdout));
+    console.log((await stop()) ? `${ok("✓")} Stopped.` : dim("Was not running."));
     break;
   }
-  case "stop":
-    console.log((await stop()) ? "Stopped." : "Was not running.");
-    break;
   case "restart":
     await restart();
     break;
@@ -227,23 +222,27 @@ switch (command) {
     await logs();
     break;
   default: {
-    const { overview, colorFor } = await import("./help.ts");
-    console.error(`Unknown command: ${command}\n\n${overview(colorFor(process.stderr))}`);
+    const { overview } = await import("./help.ts");
+    console.error(
+      `Unknown command: ${command}\n\n${overview(colorFor(process.stderr), process.stderr.columns)}`,
+    );
     process.exit(1);
   }
 }
 
 /** Prints the overview, or a command's own page when one is named. */
 async function printHelp(name: string | undefined): Promise<void> {
-  const { commandHelp, overview, colorFor } = await import("./help.ts");
+  const { commandHelp, overview } = await import("./help.ts");
   const color = colorFor(process.stdout);
-  const page = name ? commandHelp(name, color) : null;
+  const page = name ? commandHelp(name, color, process.stdout.columns) : null;
   if (name && !page) {
     // Same as an unknown command itself: a typo in a script should fail, not print the overview
-    console.error(`Unknown command: ${name}\n\n${overview(colorFor(process.stderr))}`);
+    console.error(
+      `Unknown command: ${name}\n\n${overview(colorFor(process.stderr), process.stderr.columns)}`,
+    );
     process.exit(1);
   }
-  console.log(page ?? overview(color));
+  console.log(page ?? overview(color, process.stdout.columns));
 }
 
 /**
@@ -261,8 +260,28 @@ async function restart(): Promise<void> {
     console.error(`Could not confirm the server started: ${LOG_PATH}`);
     process.exit(1);
   }
-  const options = kept?.length ? ` (kept options: ${kept.join(" ")})` : "";
-  console.log(`${wasRunning ? "Restarted" : "Started"}: ${url}${options}`);
+  const { dim, ok } = styles(colorFor(process.stdout));
+  const options = kept?.length ? dim(` (kept options: ${kept.join(" ")})`) : "";
+  console.log(`${ok("✓")} ${wasRunning ? "Restarted" : "Started"}: ${url}${options}`);
+}
+
+/**
+ * `kairos status`: a dot that says at a glance whether the server is up (green), starting
+ * (yellow) or down (dim), then its options and where its log is.
+ */
+async function status(): Promise<void> {
+  const { command, dim, ok, warn } = styles(colorFor(process.stdout));
+  const h = await health(port);
+  const pid = readPid();
+  if (h)
+    console.log(
+      `${ok("●")} Running: ${url} ${dim(`(v${h.version}${pid ? `, pid ${pid.pid}` : ""})`)}`,
+    );
+  else if (pid && isAlive(pid.pid))
+    console.log(`${warn("●")} Starting (pid ${pid.pid}). If it does not respond, see the log.`);
+  else console.log(`${dim("○")} Not running. Start it with ${command("kairos ensure")}.`);
+  if (h && pid?.args.length) console.log(`  ${dim("Options:")} ${pid.args.join(" ")}`);
+  console.log(`  ${dim("Log:")}     ${LOG_PATH}`);
 }
 
 /**
@@ -427,7 +446,6 @@ async function summarize(dbPath: string): Promise<void> {
       ...(summaryLang === "en" || summaryLang === "ja" ? { lang: summaryLang } : {}),
     },
   );
-  const { colorFor } = await import("./help.ts");
   const { formatDuration, StatusBar } = await import("./progress.ts");
   const started = performance.now();
   const bar = new StatusBar(process.stdout, targets.length, colorFor(process.stdout));
@@ -551,7 +569,7 @@ async function search(): Promise<void> {
   console.log(
     values.json
       ? JSON.stringify({ hits: shown, more }, null, 2)
-      : renderSearch(shown, more, projects, url),
+      : renderSearch(shown, more, projects, url, colorFor(process.stdout)),
   );
 }
 
@@ -564,7 +582,7 @@ async function doctor(): Promise<void> {
     dbPath: values.db,
     port,
   });
-  console.log(renderChecks(checks));
+  console.log(renderChecks(checks, colorFor(process.stdout)));
   if (checks.some((c) => c.level === "fail")) process.exit(1);
 }
 

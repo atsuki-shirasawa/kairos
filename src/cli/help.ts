@@ -1,8 +1,14 @@
 // Help text for the `kairos` command: the overview (with the mascot) and one page per command.
 import { version } from "../../package.json";
+import { type Styles, styles, wrapWords } from "./style.ts";
+
+/** The overview's sections, in the order it shows them. */
+const GROUPS = ["Browse", "Server", "Data", "Troubleshoot"] as const;
 
 /** One command's help page. */
 interface CommandHelp {
+  /** The overview section it's listed under. */
+  group: (typeof GROUPS)[number];
   /** One line, shown in the overview. */
   summary: string;
   /** Longer explanation for the command's own page; the summary is used when absent. */
@@ -36,9 +42,10 @@ const READ_OPTIONS: [string, string][] = [
   ["--port <n>", "port of the server, for links (default: 4319)"],
 ];
 
-/** Every command, in the order the overview lists them. */
+/** Every command; the overview lists them by group, in this order within each. */
 export const COMMANDS: Record<string, CommandHelp> = {
   open: {
+    group: "Browse",
     summary: "start the server and open it in the browser",
     description:
       "Start the server if it is not running and open it in the browser: this week, or the day\n" +
@@ -47,9 +54,14 @@ export const COMMANDS: Record<string, CommandHelp> = {
     options: [["--session <id>", "open this session's drawer"], ...SERVER_OPTIONS],
     examples: ["kairos open", "kairos open yesterday", "kairos open 2026-10-01"],
   },
-  status: { summary: "show the server status", options: [["--port <n>", "port to check"]] },
-  stop: { summary: "stop the background server" },
+  status: {
+    group: "Server",
+    summary: "show the server status",
+    options: [["--port <n>", "port to check"]],
+  },
+  stop: { group: "Server", summary: "stop the background server" },
   restart: {
+    group: "Server",
     summary: "stop and start the server again (after updating Kairos)",
     description:
       "Stop the server and start it again. It keeps the options the running server was started\n" +
@@ -58,6 +70,7 @@ export const COMMANDS: Record<string, CommandHelp> = {
     options: SERVER_OPTIONS,
   },
   rebuild: {
+    group: "Server",
     summary: "build the web UI and restart the server (after changing Kairos)",
     description:
       "Build the web UI (`bun run build` in the repository), then restart the server so it\n" +
@@ -65,18 +78,25 @@ export const COMMANDS: Record<string, CommandHelp> = {
     options: SERVER_OPTIONS,
   },
   ensure: {
+    group: "Server",
     summary: "start the server in the background if it is not running",
     description:
       "Start the server in the background if it is not running. Meant for Claude Code's\n" +
       "SessionStart hook: it returns immediately and prints nothing.",
     options: SERVER_OPTIONS,
   },
-  serve: { summary: "run the server in the foreground (for development)", options: SERVER_OPTIONS },
+  serve: {
+    group: "Server",
+    summary: "run the server in the foreground (for development)",
+    options: SERVER_OPTIONS,
+  },
   ingest: {
+    group: "Data",
     summary: "import session logs into the DB (incremental after the first run)",
     options: SERVER_OPTIONS.slice(0, 2),
   },
   summarize: {
+    group: "Data",
     summary: "summarize every work block that has no summary yet",
     description:
       "Summarize every finished work block that has no summary yet, newest first, one at a time.\n" +
@@ -110,6 +130,7 @@ export const COMMANDS: Record<string, CommandHelp> = {
     ],
   },
   report: {
+    group: "Browse",
     summary: "print a day's or a period's work as Markdown",
     description:
       "Print the work blocks of a day (default: today) or of --since / --until as Markdown, per\n" +
@@ -129,6 +150,7 @@ export const COMMANDS: Record<string, CommandHelp> = {
     ],
   },
   "open-items": {
+    group: "Browse",
     summary: "list what is still open, per project",
     description:
       "List the open items (todos, issues, questions, waits) that summaries left and nothing has\n" +
@@ -140,6 +162,7 @@ export const COMMANDS: Record<string, CommandHelp> = {
     examples: ["kairos open-items", "kairos open-items --project ."],
   },
   search: {
+    group: "Browse",
     summary: "find work blocks by what was done in them",
     description:
       "Find work blocks matching every term, newest first: in summaries, session titles,\n" +
@@ -150,6 +173,7 @@ export const COMMANDS: Record<string, CommandHelp> = {
     examples: ["kairos search migration", "kairos search file:src/cli/index.ts"],
   },
   doctor: {
+    group: "Troubleshoot",
     summary: "check the setup: claude, the build, the server, the DB and the hook",
     description:
       "Check what the README's troubleshooting table checks by hand: the session logs, the\n" +
@@ -163,20 +187,19 @@ export const COMMANDS: Record<string, CommandHelp> = {
     ],
   },
   logs: {
+    group: "Troubleshoot",
     summary: "show the end of the server log",
     options: [
       ["-n, --lines <n>", "how many lines (default: 50)"],
       ["-f, --follow", "keep printing as the log grows"],
     ],
   },
-  help: { summary: "show this help, or a command's (kairos help <command>)", args: "[command]" },
+  help: {
+    group: "Troubleshoot",
+    summary: "show this help, or a command's (kairos help <command>)",
+    args: "[command]",
+  },
 };
-
-/** Text styles, or no-ops when color is off. */
-function styles(color: boolean) {
-  const wrap = (code: string) => (s: string) => (color ? `\x1b[${code}m${s}\x1b[0m` : s);
-  return { bold: wrap("1"), dim: wrap("2") };
-}
 
 /** Logo width in pixels; a terminal cell is about twice as tall as wide, so it holds two pixels. */
 const LOGO_PX = 12;
@@ -241,47 +264,117 @@ function banner(color: boolean): string {
     .join("\n");
 }
 
-/** Option lines aligned in two columns. */
-function optionLines(options: [string, string][]): string {
-  const width = Math.max(...options.map(([flag]) => flag.length));
-  return options.map(([flag, text]) => `  ${flag.padEnd(width)}  ${text}`).join("\n");
+/** Widest help text, even on a wide terminal: longer lines are hard to read. */
+const MAX_WIDTH = 100;
+/** Below this many columns for an explanation, it moves under its name instead of beside it. */
+const MIN_TEXT_WIDTH = 32;
+/** A `(default: …)` closing an option's explanation. */
+const TRAILING_DEFAULT = /\s*\(default: [^)]*\)$/;
+
+/** A flag in the command color with its `<arg>` placeholder dimmed. */
+function styleFlag(flag: string, s: Styles): string {
+  const at = flag.indexOf(" <");
+  return at < 0 ? s.command(flag) : `${s.command(flag.slice(0, at))} ${s.dim(flag.slice(at + 1))}`;
 }
 
-/** The overview: the mascot, every command, and where to read more. */
-export function overview(color: boolean): string {
-  const { bold } = styles(color);
-  const width = Math.max(...Object.keys(COMMANDS).map((name) => name.length));
-  const commands = Object.entries(COMMANDS)
-    .map(([name, c]) => `  ${name.padEnd(width)}  ${c.summary}`)
+/**
+ * An option's explanation wrapped to `width`, with its closing `(default: …)` kept on one line
+ * and dimmed, so the explanation itself stands out.
+ */
+function optionText(text: string, width: number, s: Styles): string[] {
+  const fallback = TRAILING_DEFAULT.exec(text)?.[0].trim();
+  if (!fallback) return wrapWords(text, width);
+  const unbroken = fallback.replaceAll(" ", " ");
+  const lines = wrapWords(`${text.replace(TRAILING_DEFAULT, "")} ${unbroken}`, width);
+  const last = lines.pop() ?? "";
+  return [...lines, `${last.slice(0, -unbroken.length)}${s.dim(fallback)}`];
+}
+
+/**
+ * Two columns, names and their explanations wrapped to `columns`. When the names leave too little
+ * room, each explanation goes under its name instead. `nameWidth` lets several lists share one
+ * column.
+ */
+function twoColumns(
+  rows: { name: string; styled: string; text: string }[],
+  columns: number,
+  wrap: (text: string, width: number) => string[],
+  nameWidth = Math.max(...rows.map((r) => r.name.length)),
+): string {
+  const max = Math.min(columns, MAX_WIDTH);
+  const stacked = max - (2 + nameWidth + 2) < MIN_TEXT_WIDTH;
+  const indent = stacked ? 6 : 2 + nameWidth + 2;
+  return rows
+    .map(({ name, styled, text }) => {
+      const [first = "", ...more] = wrap(text, max - indent);
+      const head = stacked
+        ? [`  ${styled}`, `${" ".repeat(indent)}${first}`]
+        : [`  ${styled}${" ".repeat(nameWidth - name.length)}  ${first}`];
+      return [...head, ...more.map((l) => `${" ".repeat(indent)}${l}`)].join("\n");
+    })
     .join("\n");
+}
+
+/**
+ * The overview: the mascot, every command by group, and where to read more. Summaries wrap to
+ * `columns` (the terminal's width).
+ */
+export function overview(color: boolean, columns = MAX_WIDTH): string {
+  const s = styles(color);
+  // One name column across every group, so the sections line up
+  const nameWidth = Math.max(...Object.keys(COMMANDS).map((name) => name.length));
+  const groups = GROUPS.flatMap((group) => [
+    "",
+    s.heading(`${group}:`),
+    twoColumns(
+      Object.entries(COMMANDS)
+        .filter(([, c]) => c.group === group)
+        .map(([name, c]) => ({ name, styled: s.command(name), text: c.summary })),
+      columns,
+      wrapWords,
+      nameWidth,
+    ),
+  ]);
   return [
     banner(color),
     "",
-    `${bold("usage:")} kairos <command> [options]`,
+    `${s.heading("Usage:")} kairos ${s.command("<command>")} ${s.dim("[options]")}`,
+    ...groups,
     "",
-    bold("commands:"),
-    commands,
-    "",
-    "Run `kairos help <command>` (or `kairos <command> --help`) for a command's options.",
+    ...wrapWords(
+      "Run kairos help <command> or kairos <command> --help for its options.",
+      Math.min(columns, MAX_WIDTH),
+    ).map((line) => line.replace(/kairos (help <command>|<command> --help)/g, (m) => s.command(m))),
   ].join("\n");
 }
 
-/** A command's own help page, or null when there is no such command. */
-export function commandHelp(name: string, color: boolean): string | null {
+/**
+ * A command's own help page, or null when there is no such command. Text wraps to `columns` (the
+ * terminal's width; capped so lines stay readable).
+ */
+export function commandHelp(name: string, color: boolean, columns = MAX_WIDTH): string | null {
   const c = COMMANDS[name];
   if (!c) return null;
-  const { bold } = styles(color);
+  const s = styles(color);
+  const args = c.args ? ` ${c.args}` : "";
+  // Descriptions are broken by hand only to keep the source readable, so reflow them as one paragraph
+  const description = c.description ?? `${c.summary[0]?.toUpperCase()}${c.summary.slice(1)}.`;
   const parts = [
-    `${bold("usage:")} kairos ${name}${c.args ? ` ${c.args}` : ""}${c.options ? " [options]" : ""}`,
+    `${s.heading("Usage:")} kairos ${s.command(name)}${args}${c.options ? ` ${s.dim("[options]")}` : ""}`,
     "",
-    c.description ?? `${c.summary[0]?.toUpperCase()}${c.summary.slice(1)}.`,
+    ...wrapWords(description, Math.min(columns, MAX_WIDTH)),
   ];
-  if (c.options) parts.push("", bold("options:"), optionLines(c.options));
-  if (c.examples) parts.push("", bold("examples:"), ...c.examples.map((e) => `  ${e}`));
+  if (c.options)
+    parts.push(
+      "",
+      s.heading("Options:"),
+      twoColumns(
+        c.options.map(([flag, text]) => ({ name: flag, styled: styleFlag(flag, s), text })),
+        columns,
+        (text, width) => optionText(text, width, s),
+      ),
+    );
+  if (c.examples)
+    parts.push("", s.heading("Examples:"), ...c.examples.map((e) => `  ${s.dim("$")} ${e}`));
   return parts.join("\n");
-}
-
-/** Whether to color output: only on a terminal, and never when NO_COLOR is set. */
-export function colorFor(stream: { isTTY?: boolean }): boolean {
-  return Boolean(stream.isTTY) && !process.env.NO_COLOR;
 }

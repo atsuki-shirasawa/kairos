@@ -2,6 +2,7 @@
 // Kept free of I/O so the output can be tested on plain objects.
 import type { CalendarSession, LedgerEntry, Project, SearchHit } from "../shared/api.ts";
 import { formatTime, hhmm, isoDay, oneLine, printable, startOfDay, uiLink } from "./format.ts";
+import { styles } from "./style.ts";
 
 /** Shown for work outside any project, where the UI says "unknown project". */
 const NO_PROJECT = "(no project)";
@@ -189,20 +190,25 @@ export function renderOpenItems(
   return out.join("\n").trim();
 }
 
-/** Search hits (hidden projects already left out), newest first: when and where, what matched, and a link that opens the block. */
+/**
+ * Search hits (hidden projects already left out), newest first: when and where, what matched, and
+ * a link that opens the block. With color, the headline stands out and the rest recedes.
+ */
 export function renderSearch(
   hits: SearchHit[],
   more: boolean,
   projects: ReadonlyMap<number, Project>,
   base: string,
+  color = false,
 ): string {
   if (hits.length === 0) return "No matches.";
+  const { bold, dim } = styles(color);
   const out = hits.flatMap((h) => [
-    `${formatTime(h.start)}  ${printable(projectName(projects, h.projectId))}  ${oneLine(h.headline)}`,
-    ...(h.snippet ? [`  ${h.field}: ${oneLine(h.snippet)}`] : []),
-    `  ${uiLink(base, { day: startOfDay(h.start), session: h.sessionId, start: h.start })}`,
+    `${dim(formatTime(h.start))}  ${bold(printable(projectName(projects, h.projectId)))}  ${oneLine(h.headline)}`,
+    ...(h.snippet ? [`  ${dim(`${h.field}:`)} ${oneLine(h.snippet)}`] : []),
+    `  ${dim(uiLink(base, { day: startOfDay(h.start), session: h.sessionId, start: h.start }))}`,
     "",
   ]);
-  if (more) out.push("More sections matched; add terms or raise --limit.");
+  if (more) out.push(dim("More sections matched; add terms or raise --limit."));
   return out.join("\n").trim();
 }
