@@ -16,8 +16,10 @@ import {
   DEMO_TZ,
   DEMO_WEEK,
   DRAWER_SESSION,
+  type LiveDemoEntry,
   seedDemoSummaries,
   writeDemoLogs,
+  writeLiveDemoLogs,
 } from "./demo.ts";
 
 const ROOT = join(import.meta.dir, "..", "..");
@@ -32,9 +34,18 @@ const OUT = args.out ? resolve(args.out) : join(ROOT, "docs", "images");
 const PORT = 4329;
 const VIEWPORT = { width: 1440, height: 900, deviceScaleFactor: 2, mobile: false };
 
-/** Writes the demo logs and builds a DB from them, with summaries. Returns the drawer's section start. */
-function buildDemoData(claudeDir: string, dataDir: string): number {
+/**
+ * Writes the demo logs and builds a DB from them, with summaries. Returns the drawer's section
+ * start and the registry entries of the sessions shown as running.
+ */
+function buildDemoData(
+  claudeDir: string,
+  dataDir: string,
+): { drawerAt: number; live: LiveDemoEntry[] } {
   writeDemoLogs(claudeDir);
+  const live = writeLiveDemoLogs(claudeDir, Date.now());
+  // Empty until the live shot, so the server reads the registry but the other shots show none
+  mkdirSync(join(claudeDir, "sessions"), { recursive: true });
   mkdirSync(dataDir, { recursive: true });
   const db = openDb(join(dataDir, "kairos.db"));
   new Ingester(db, join(claudeDir, "projects")).scan();
@@ -47,7 +58,40 @@ function buildDemoData(claudeDir: string, dataDir: string): number {
   db.run("PRAGMA wal_checkpoint(TRUNCATE)");
   db.close();
   if (!first) throw new Error("the drawer's session was not ingested");
-  return first.start;
+  return { drawerAt: first.start, live };
+}
+
+/**
+ * Starts a stand-in process per running session and registers it the way Claude Code does
+ * (`<claudeDir>/sessions/<pid>.json`): the live page lists an entry only while its PID exists.
+ * Pushes each process onto `procs` as it starts, so the caller can stop them however it exits.
+ */
+function startLiveSessions(
+  claudeDir: string,
+  live: LiveDemoEntry[],
+  procs: ReturnType<typeof Bun.spawn>[],
+): void {
+  for (const entry of live) {
+    const proc = Bun.spawn(["sleep", "600"], { stdout: "ignore" });
+    procs.push(proc);
+    const file = join(claudeDir, "sessions", `${proc.pid}.json`);
+    writeFileSync(file, JSON.stringify({ pid: proc.pid, ...entry }));
+  }
+}
+
+/** Waits until the server lists every running session, so the live shot isn't taken half empty. */
+async function waitForLive(count: number): Promise<void> {
+  for (let i = 0; i < 50; i++) {
+    try {
+      const res = await fetch(`http://127.0.0.1:${PORT}/api/live`);
+      const body = (await res.json()) as { sessions?: unknown[] };
+      if (body.sessions?.length === count) return;
+    } catch {
+      // Not answering yet; try again
+    }
+    await Bun.sleep(200);
+  }
+  throw new Error(`the demo server did not list the ${count} running sessions`);
 }
 
 /** Starts `kairos serve` on the demo data and waits until it answers. */
@@ -85,8 +129,12 @@ async function answers(): Promise<boolean> {
   }
 }
 
-/** Opens each view and saves it as docs/images/screen-<name>.png. */
-async function captureAll(drawerAt: number): Promise<void> {
+/**
+ * Opens each view and saves it as docs/images/screen-<name>.png. `beforeLive` runs just before the
+ * live page's shot, so the sessions shown as running don't add the Live button's count to the
+ * calendar shots.
+ */
+async function captureAll(drawerAt: number, beforeLive: () => Promise<void>): Promise<void> {
   const chrome = await HeadlessChrome.launch();
   try {
     await chrome.send("Emulation.setDeviceMetricsOverride", VIEWPORT);
@@ -102,8 +150,10 @@ async function captureAll(drawerAt: number): Promise<void> {
       ["day", `?view=day&date=${DEMO_DAY}`],
       ["summary", `?layout=summary&date=${DEMO_WEEK}`],
       ["month", `?view=month&date=${DEMO_WEEK}`],
+      ["live", "?layout=live"],
     ];
     for (const [name, query] of shots) {
+      if (name === "live") await beforeLive();
       await chrome.open(base + query);
       const path = join(OUT, `screen-${name}.png`);
       writeFileSync(path, await chrome.screenshot());
@@ -122,11 +172,24 @@ const work = mkdtempSync(join(tmpdir(), "kairos-screenshots-"));
 const claudeDir = join(work, "claude");
 const dataDir = join(work, "data");
 let server: ReturnType<typeof Bun.spawn> | null = null;
-try {
-  const drawerAt = buildDemoData(claudeDir, dataDir);
-  server = await startServer(claudeDir, dataDir);
-  await captureAll(drawerAt);
-} finally {
+const sessions: ReturnType<typeof Bun.spawn>[] = [];
+function cleanUp(): void {
   server?.kill();
+  for (const p of sessions) p.kill();
   rmSync(work, { recursive: true, force: true });
+}
+// Ctrl-C skips `finally`; without this the stand-in sleeps would outlive the run
+process.on("SIGINT", () => {
+  cleanUp();
+  process.exit(130);
+});
+try {
+  const { drawerAt, live } = buildDemoData(claudeDir, dataDir);
+  server = await startServer(claudeDir, dataDir);
+  await captureAll(drawerAt, async () => {
+    startLiveSessions(claudeDir, live, sessions);
+    await waitForLive(live.length);
+  });
+} finally {
+  cleanUp();
 }

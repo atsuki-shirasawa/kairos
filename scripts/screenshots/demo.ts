@@ -8,7 +8,7 @@ import { recordSection } from "../../src/server/summarize/ledger.ts";
 import { loadRecapInput } from "../../src/server/summarize/recap.ts";
 import { saveRecap, saveSummary } from "../../src/server/summarize/store.ts";
 import { parseSummaryBody } from "../../src/shared/summaryBody.ts";
-import { at, LogBuilder } from "../../tests/fixtures/builder.ts";
+import { at, LogBuilder, type Rec, type TokenUsage } from "../../tests/fixtures/builder.ts";
 
 /** Time zone the demo week is laid out in; the capture renders in the same zone. */
 export const DEMO_TZ = "Asia/Tokyo";
@@ -802,4 +802,235 @@ function seedRecaps(db: Database, createdAt: number): void {
     if (!input) throw new Error(`no work for ${name} in the demo week`);
     saveRecap(db, target, input, body, { model: "haiku", createdAt });
   }
+}
+
+/** What Claude Code's session registry says of a running session, minus the process's PID. */
+export interface LiveDemoEntry {
+  sessionId: string;
+  cwd: string;
+  kind: "interactive" | "bg";
+  status: "busy" | "idle";
+  statusUpdatedAt: number;
+  startedAt: number;
+  name: string;
+}
+
+/**
+ * A session running at capture time, for the live page. Its log is laid out backwards from `now`,
+ * so the page's durations read as they would on the day; `write` adds what the log ends with (the
+ * call in flight, the question, tasks, the last test).
+ */
+interface LiveDemo {
+  id: string;
+  project: ProjectKey;
+  branch: string;
+  title: string;
+  kind: "interactive" | "bg";
+  status: "busy" | "idle";
+  /** Minutes since the process started. */
+  startedAgo: number;
+  /** Minutes since the registry's status last changed. */
+  sinceAgo: number;
+  /** `m(ago)` is the log minute `ago` minutes before now. */
+  write: (b: LogBuilder, m: (ago: number) => number) => void;
+}
+
+/** Usage whose input adds up to `context` tokens, which the live page reads as the context size. */
+function usageFor(context: number): TokenUsage {
+  return { input: 200, output: 120, cacheRead: context - 200, cache5m: 0, cache1h: 0 };
+}
+
+/** A response carrying `context` tokens of input. */
+function respond(b: LogBuilder, minute: number, context: number, text: string): void {
+  b.response(minute, [{ type: "text", text }], usageFor(context));
+}
+
+/**
+ * A tool call left without a result (still in flight, or a question not yet answered), in a
+ * response carrying `context` tokens: the latest response is what the live page reads the context
+ * size from, and `LogBuilder.toolUse` writes a fixed one.
+ */
+function inFlight(b: LogBuilder, minute: number, context: number, name: string, input: Rec): void {
+  // One call in flight per session, so the session ID makes it unique
+  const id = `toolu_live_${b.sessionId.slice(-6)}`;
+  b.response(minute, [{ type: "tool_use", id, name, input }], usageFor(context));
+}
+
+/** A question to the person, left unanswered: the turn waits on it. */
+function ask(b: LogBuilder, minute: number, context: number, question: string): void {
+  inFlight(b, minute, context, "AskUserQuestion", {
+    questions: [
+      {
+        question,
+        header: "Scope",
+        multiSelect: false,
+        options: [
+          { label: "Both", description: "Titles and body" },
+          { label: "Body only", description: "Keep titles plain" },
+        ],
+      },
+    ],
+  });
+}
+
+/** Creates a task; tasks are numbered in the order they are created. */
+function task(b: LogBuilder, minute: number, n: number, subject: string): void {
+  const id = b.toolUse(minute, "TaskCreate", { subject, description: subject });
+  b.toolResult(minute, id, `Task #${n} created successfully: ${subject}`);
+}
+
+function taskStatus(b: LogBuilder, minute: number, n: number, status: string): void {
+  const id = b.toolUse(minute, "TaskUpdate", { taskId: String(n), status });
+  b.toolResult(minute, id, `Updated task #${n} status`);
+}
+
+const LIVE: LiveDemo[] = [
+  {
+    id: sid(201),
+    project: "atlas",
+    branch: "feature/search-highlight",
+    title: "Highlight matches in search results",
+    kind: "interactive",
+    status: "busy",
+    startedAgo: 48,
+    sinceAgo: 3,
+    write: (b, m) => {
+      b.prompt(m(46), "Highlight the matched words in search results");
+      // Within 15 minutes of the question, so it is in the same work block the card reads
+      b.bash(m(12), "bun test src/search", "18 pass\n0 fail");
+      ask(b, m(3), 61_400, "Highlight matches in document titles too, or only in the body?");
+    },
+  },
+  {
+    id: sid(202),
+    project: "harbor",
+    branch: "feature/dark-mode",
+    title: "Dark mode for the settings pages (#91)",
+    kind: "interactive",
+    status: "idle",
+    startedAgo: 95,
+    sinceAgo: 6,
+    write: (b, m) => {
+      b.prompt(m(92), "Address the review on #91: the settings pages still use light-only colors");
+      task(b, m(91), 1, "Move settings colors to theme tokens");
+      task(b, m(91), 2, "Fix the invoice table's borders in dark mode");
+      task(b, m(91), 3, "Check the charts' contrast");
+      taskStatus(b, m(60), 1, "completed");
+      taskStatus(b, m(25), 2, "completed");
+      b.bash(m(8), "bun test", "64 pass\n0 fail");
+      respond(b, m(6.2), 112_800, "Tokens are in and the tests pass.");
+      b.turnEnd(m(6.1));
+      b.system(m(6), "away_summary", {
+        content:
+          "Settings pages now use theme tokens and the invoice table reads well in dark mode; tests pass. Next is checking the usage charts' contrast before pushing #91.",
+      });
+    },
+  },
+  {
+    id: sid(203),
+    project: "infra",
+    branch: "feature/preview-deploys",
+    title: "Preview deploys for every PR",
+    kind: "interactive",
+    status: "busy",
+    startedAgo: 130,
+    sinceAgo: 1,
+    write: (b, m) => {
+      b.prompt(m(128), "Deploy a preview for every PR and post its URL on the PR");
+      task(b, m(127), 1, "Add a preview environment module");
+      task(b, m(127), 2, "Build and deploy on pull_request");
+      task(b, m(127), 3, "Post the preview URL as a PR comment");
+      task(b, m(127), 4, "Tear previews down when the PR closes");
+      taskStatus(b, m(90), 1, "completed");
+      taskStatus(b, m(50), 2, "completed");
+      taskStatus(b, m(49), 3, "in_progress");
+      b.bash(
+        m(12),
+        "make test",
+        "--- FAIL: TestPreviewName (0.01s)\n    expected pr-214, got pr-0214",
+        true,
+      );
+      inFlight(b, m(1), 148_200, "Bash", {
+        command: "terraform plan -out=preview.plan",
+        description: "Plan",
+      });
+    },
+  },
+  {
+    id: sid(204),
+    project: "atlas",
+    branch: "main",
+    title: "Backfill the search index on staging",
+    kind: "bg",
+    status: "busy",
+    startedAgo: 22,
+    sinceAgo: 21,
+    write: (b, m) => {
+      b.prompt(m(21), "Run the search index backfill on staging and report the timings");
+      inFlight(b, m(4), 38_900, "Bash", {
+        command: "bun scripts/backfill-search.ts --env staging --batch 500",
+        description: "Backfill",
+      });
+    },
+  },
+  {
+    id: sid(205),
+    project: "field-notes",
+    branch: "main",
+    title: "Outline for a post on the search index",
+    kind: "interactive",
+    status: "idle",
+    startedAgo: 140,
+    sinceAgo: 52,
+    write: (b, m) => {
+      b.prompt(m(70), "Outline a post on how atlas's search index went from 1.8 s to 40 ms");
+      respond(b, m(52), 27_300, "Here is an outline in five parts.");
+      b.turnEnd(m(52));
+    },
+  },
+  {
+    id: sid(206),
+    project: "harbor",
+    branch: "main",
+    title: "Storybook stories for the billing page",
+    kind: "interactive",
+    status: "idle",
+    startedAgo: 260,
+    sinceAgo: 200,
+    write: (b, m) => {
+      b.prompt(m(240), "Add Storybook stories for the billing page's states");
+      b.bash(m(205), "bun run test-storybook", "12 pass\n0 fail");
+      respond(b, m(200), 44_100, "Added stories for empty, paid and overdue.");
+      b.turnEnd(m(200));
+    },
+  },
+];
+
+/**
+ * Writes the logs of the sessions running at `now` and returns their registry entries, for the
+ * capture to pair with stand-in processes. Their blocks fall in the few hours before the capture,
+ * so they stay out of the other screenshots as long as it isn't run during the demo week or the
+ * month view's days around it (September 2026).
+ */
+export function writeLiveDemoLogs(claudeDir: string, now: number): LiveDemoEntry[] {
+  const nowMinute = (now - minuteBase) / 60_000;
+  return LIVE.map((live) => {
+    const cwd = PROJECTS[live.project];
+    const b = new LogBuilder(live.id, cwd, live.branch);
+    b.meta("mode", { mode: "normal" });
+    live.write(b, (ago) => nowMinute - ago);
+    b.meta("ai-title", { aiTitle: live.title });
+    const path = join(claudeDir, "projects", cwd.replace(/[/.]/g, "-"), `${live.id}.jsonl`);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, b.toJsonl());
+    return {
+      sessionId: live.id,
+      cwd,
+      kind: live.kind,
+      status: live.status,
+      statusUpdatedAt: now - live.sinceAgo * 60_000,
+      startedAt: now - live.startedAgo * 60_000,
+      name: live.title,
+    };
+  });
 }
