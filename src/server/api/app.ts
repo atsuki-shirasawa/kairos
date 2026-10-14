@@ -19,6 +19,7 @@ import type {
   SpansResponse,
 } from "../../shared/api.ts";
 import type { EventHub } from "../events.ts";
+import { liveSpend } from "../live/cost.ts";
 import type { RegistryEntry } from "../live/registry.ts";
 import { liveSessions } from "../live/sessions.ts";
 import { Queries } from "../queries.ts";
@@ -197,22 +198,18 @@ export function createApp({ db, events, summarizer, live, now, hiddenCwds }: App
   });
 
   // Running sessions. Changes are announced via SSE live.updated (and sessions.updated for the log)
-  app.get("/api/live", (c) =>
-    c.json<LiveResponse>({
+  app.get("/api/live", (c) => {
+    const visibility = {
+      showHeadless: storedShowHeadless(db),
+      hiddenCwds: hiddenCwds ?? DEFAULT_HIDDEN_CWDS,
+    };
+    const at = (now ?? Date.now)();
+    return c.json<LiveResponse>({
       available: live?.available ?? false,
-      sessions: live
-        ? liveSessions(
-            db,
-            live.entries(),
-            {
-              showHeadless: storedShowHeadless(db),
-              hiddenCwds: hiddenCwds ?? DEFAULT_HIDDEN_CWDS,
-            },
-            (now ?? Date.now)(),
-          )
-        : [],
-    }),
-  );
+      sessions: live ? liveSessions(db, live.entries(), visibility, at) : [],
+      spend: liveSpend(db, visibility, at),
+    });
+  });
 
   app.get("/api/events", (c) => streamEvents(c, events));
 

@@ -835,9 +835,12 @@ interface LiveDemo {
   write: (b: LogBuilder, m: (ago: number) => number) => void;
 }
 
-/** Usage whose input adds up to `context` tokens, which the live page reads as the context size. */
+/**
+ * Usage whose input adds up to `context` tokens, which the live page reads as the context size:
+ * mostly a cache read, plus the turn's new tokens written to the 1-hour cache as Claude Code does.
+ */
 function usageFor(context: number): TokenUsage {
-  return { input: 200, output: 120, cacheRead: context - 200, cache5m: 0, cache1h: 0 };
+  return { input: 200, output: 120, cacheRead: context - 3200, cache5m: 0, cache1h: 3000 };
 }
 
 /** A response carrying `context` tokens of input. */
@@ -950,7 +953,7 @@ const LIVE: LiveDemo[] = [
         "--- FAIL: TestPreviewName (0.01s)\n    expected pr-214, got pr-0214",
         true,
       );
-      inFlight(b, m(1), 148_200, "Bash", {
+      inFlight(b, m(1), 612_400, "Bash", {
         command: "terraform plan -out=preview.plan",
         description: "Plan",
       });

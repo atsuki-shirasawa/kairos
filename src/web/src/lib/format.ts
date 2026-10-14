@@ -13,6 +13,11 @@ export function tokensLabel(n: number): string {
   return `${(n / 1_000_000_000).toFixed(2)}B`;
 }
 
+/** A context window: "1M" / "200k", without the decimal `tokensLabel` gives a count ("1.0M"). */
+export function windowLabel(n: number): string {
+  return n % 1_000_000 === 0 ? `${n / 1_000_000}M` : tokensLabel(n);
+}
+
 /** Plain number with the locale's digit grouping (1,234). */
 export function numberLabel(n: number): string {
   return n.toLocaleString(getLocale() === "ja" ? "ja-JP" : "en-US");
@@ -24,6 +29,11 @@ export function costLabel(usd: number): string {
   if (usd < 0.01) return "<$0.01";
   if (usd < 100) return `$${usd.toFixed(2)}`;
   return `$${Math.round(usd).toLocaleString("en-US")}`;
+}
+
+/** "$6.20/h": a rate of spend. */
+export function costPerHourLabel(usd: number): string {
+  return `${costLabel(usd)}/h`;
 }
 
 /** Model aliases `--model` accepts. Only these are capitalized; other names pass through. */

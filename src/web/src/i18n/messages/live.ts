@@ -44,8 +44,29 @@ export const liveMessages = defineMessages({
     testFailed: "Last test failed",
     testEnded: "Last test ran",
     context: (tokens: string) => `Context ${tokens}`,
+    /** The context size against the model's window ("Context 148k / 1M"). */
+    contextOf: (tokens: string, window: string) => `Context ${tokens} / ${window}`,
     startedAt: (time: string) => `Started ${time}`,
     notIngested: "Not in the log yet",
+    /** What the current work block has cost so far. */
+    blockCost: (cost: string) => `This block ${cost}`,
+    fast: "Fast",
+    cacheLeft: (left: string) => `Cache ${left} left`,
+    cacheExpired: "Cache expired",
+    /** What a reply costs now, and what it costs once the cache has lapsed. */
+    nextCost: (warm: string, cold: string) => `Next ≈ ${warm}, ${cold} once it expires`,
+    /** The first request after the cache lapsed: it writes the whole context again. */
+    resumeCost: (cost: string) => `Resume ≈ ${cost}`,
+    spend: {
+      today: "Today",
+      now: "Now",
+      /** The band's caveat, said once for every amount on the page. */
+      note: "Estimated at API list prices, not your bill",
+      unpriced: "Models without a price are left out",
+      /** The bars, for screen readers. */
+      chart: (from: string, to: string) => `Spend by project from ${from} to ${to}`,
+      bar: (from: string, to: string, cost: string) => `${from}–${to} ${cost}`,
+    },
   },
   ja: {
     button: "Live",
@@ -76,7 +97,22 @@ export const liveMessages = defineMessages({
     testFailed: "直近のテストは失敗",
     testEnded: "直近のテストを実行",
     context: (tokens: string) => `コンテキスト ${tokens}`,
+    contextOf: (tokens: string, window: string) => `コンテキスト ${tokens} / ${window}`,
     startedAt: (time: string) => `${time} 開始`,
     notIngested: "まだログに記録されていません",
+    blockCost: (cost: string) => `このブロック ${cost}`,
+    fast: "Fast",
+    cacheLeft: (left: string) => `キャッシュ残り ${left}`,
+    cacheExpired: "キャッシュ切れ",
+    nextCost: (warm: string, cold: string) => `次 ≈ ${warm}、切れた後は ${cold}`,
+    resumeCost: (cost: string) => `再開 ≈ ${cost}`,
+    spend: {
+      today: "今日",
+      now: "いま",
+      note: "API 定価での推定で、実際の請求額ではありません",
+      unpriced: "価格不明のモデルの分は含みません",
+      chart: (from: string, to: string) => `${from}〜${to} のプロジェクト別の支出`,
+      bar: (from: string, to: string, cost: string) => `${from}〜${to} ${cost}`,
+    },
   },
 });

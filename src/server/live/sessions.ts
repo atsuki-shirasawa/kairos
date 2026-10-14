@@ -1,9 +1,10 @@
 // Joins the running sessions from Claude Code's registry with what Kairos has ingested of them:
-// the project and title, the tool call in flight, the task list and the last test run.
+// the project and title, the tool call in flight, the task list, the last test run and the cost.
 import type { Database } from "bun:sqlite";
 import type { LiveSession, LiveState, LiveTasks, LiveTest } from "../../shared/api.ts";
 import { knownTitle } from "../queries.ts";
 import { type FactCall, lastTestRun, loadCalls, oneLine, taskStates } from "../summarize/facts.ts";
+import { latestResponse, liveUsage } from "./cost.ts";
 import type { RegistryEntry } from "./registry.ts";
 
 /** Registry kinds of sessions a person runs; anything else (SDK runs) counts as headless. */
@@ -97,18 +98,6 @@ function questionOf(call: PendingCall): string {
   return call.text;
 }
 
-/** Context size of the latest main-conversation response. */
-function contextTokens(db: Database, sessionId: string): number | null {
-  const row = db
-    .query<{ n: number }, [string]>(
-      `SELECT input + cache_read + cache_write_5m + cache_write_1h AS n FROM usage
-       WHERE session_id = ? AND agent_id IS NULL AND is_copy = 0
-       ORDER BY ts DESC LIMIT 1`,
-    )
-    .get(sessionId);
-  return row?.n || null;
-}
-
 /** Start of the session's latest work block. */
 function latestSection(db: Database, sessionId: string): number | null {
   return (
@@ -175,6 +164,7 @@ export function liveSessions(
     const pending = s ? pendingCall(db, e.sessionId) : null;
     const state = stateOf(e, pending);
     const section = s ? latestSection(db, e.sessionId) : null;
+    const latest = s ? latestResponse(db, e.sessionId) : null;
     list.push({
       id: e.sessionId,
       pid: e.pid,
@@ -196,7 +186,8 @@ export function liveSessions(
           ? { name: pending.name, text: pending.text, since: pending.since }
           : null,
       question: state === "asking" && pending ? questionOf(pending) : null,
-      contextTokens: s ? contextTokens(db, e.sessionId) : null,
+      contextTokens: latest?.context || null,
+      usage: latest ? liveUsage(db, e.sessionId, latest, section, now) : null,
       tasks: s ? tasksOf(db, e.sessionId, now) : null,
       test: s && section !== null ? testOf(loadCalls(db, e.sessionId, section, now)) : null,
       recap: s?.away_summary ? oneLine(s.away_summary, RECAP_CHARS) : null,

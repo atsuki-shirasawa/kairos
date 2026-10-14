@@ -1,5 +1,5 @@
 // How running sessions are shown: which ones want you, in what order, and for the tab title.
-import type { LiveSession, Project } from "@shared/api.ts";
+import type { LiveSession, LiveSpend, LiveUsage, Project } from "@shared/api.ts";
 
 /**
  * After this long waiting for a prompt, a session is idle: left open rather than waiting on you.
@@ -67,4 +67,58 @@ export function dirName(cwd: string): string {
 export function toolLabel(name: string): string {
   const m = /^mcp__(.+?)__(.+)$/.exec(name);
   return m ? `${m[1]} › ${m[2]}` : name;
+}
+
+/**
+ * From this share of the window on, the context gauge of a session waiting on you turns `warn`:
+ * each request now rereads most of a full window, and Claude Code compacts it before long.
+ */
+export const CONTEXT_FULL_SHARE = 0.8;
+
+/**
+ * With this share of its TTL left on the cache of a session waiting on you, its countdown turns
+ * `warn`: an answer now costs a cache read, one later rewrites the whole context. A share rather
+ * than a time, so a 5-minute cache isn't in `warn` from the start (10 minutes of a 1-hour one).
+ */
+export const CACHE_WARN_SHARE = 1 / 6;
+
+/** Share of the window the context fills, from 0 to 1. */
+export function contextShare(tokens: number, window: number): number {
+  return Math.min(Math.max(tokens / Math.max(window, 1), 0), 1);
+}
+
+/**
+ * The main thread's prompt cache at `now`: how long it stays warm and whether that is nearly up
+ * (`CACHE_WARN_SHARE` of its TTL), or expired. null when the session never wrote one.
+ */
+export function cacheState(
+  usage: Pick<LiveUsage, "cacheExpiresAt" | "cacheTtlMs">,
+  now: number,
+): { warm: true; leftMs: number; soon: boolean } | { warm: false } | null {
+  if (usage.cacheExpiresAt === null) return null;
+  const leftMs = usage.cacheExpiresAt - now;
+  if (leftMs <= 0) return { warm: false };
+  return { warm: true, leftMs, soon: leftMs < (usage.cacheTtlMs ?? 0) * CACHE_WARN_SHARE };
+}
+
+/** A spend bar's segments, as fractions of the band's height (the tallest bar fills it). */
+export interface SpendBar {
+  /** Start of the bar's span. */
+  start: number;
+  total: number;
+  segments: { projectId: number | null; usd: number; share: number }[];
+}
+
+/** The spend band's bars, each scaled against the tallest. */
+export function spendBars(
+  spend: Pick<LiveSpend, "from" | "buckets">,
+  bucketMs: number,
+): SpendBar[] {
+  const totals = spend.buckets.map((b) => b.reduce((n, p) => n + p.usd, 0));
+  const max = Math.max(...totals, 0);
+  return spend.buckets.map((b, i) => ({
+    start: spend.from + i * bucketMs,
+    total: totals[i] ?? 0,
+    segments: b.map((p) => ({ ...p, share: max > 0 ? p.usd / max : 0 })),
+  }));
 }

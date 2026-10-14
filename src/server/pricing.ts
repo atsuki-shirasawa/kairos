@@ -8,6 +8,11 @@ interface Price {
   cacheRead: number;
   /** Surcharge for fast mode (`usage.speed = "fast"`). Absent for models that do not support it. */
   fast?: number;
+  /**
+   * Claude Code runs the model with a 1M context window by default. Logs don't record the window,
+   * so the live page's context gauge reads it from here (and from any response past 200k).
+   */
+  largeWindow?: true;
 }
 
 /**
@@ -16,12 +21,12 @@ interface Price {
  * Add new models here (models not listed are treated as unpriced).
  */
 const PRICES: Record<string, Price> = {
-  "claude-fable-5-1": { input: 10, output: 50, cacheRead: 0.25 },
+  "claude-fable-5-1": { input: 10, output: 50, cacheRead: 0.25, largeWindow: true },
   "claude-mythos-5-1": { input: 10, output: 50, cacheRead: 0.25 },
-  "claude-fable-5": { input: 10, output: 50, cacheRead: 1 },
+  "claude-fable-5": { input: 10, output: 50, cacheRead: 1, largeWindow: true },
   "claude-mythos-5": { input: 10, output: 50, cacheRead: 1 },
-  "claude-opus-5-5": { input: 4, output: 20, cacheRead: 0.2, fast: 2 },
-  "claude-opus-5": { input: 5, output: 25, cacheRead: 0.5, fast: 2 },
+  "claude-opus-5-5": { input: 4, output: 20, cacheRead: 0.2, fast: 2, largeWindow: true },
+  "claude-opus-5": { input: 5, output: 25, cacheRead: 0.5, fast: 2, largeWindow: true },
   "claude-opus-4-8": { input: 5, output: 25, cacheRead: 0.5 },
   "claude-opus-4-7": { input: 5, output: 25, cacheRead: 0.5 },
   "claude-opus-4-6": { input: 5, output: 25, cacheRead: 0.5 },

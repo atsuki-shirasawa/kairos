@@ -201,7 +201,7 @@ swaps every value for its `-dark` token under `.dark`.
   the items
 - **Background / Surface:** the screen is slightly grey; the calendar body and the drawer sit on
   white (navy in dark) surfaces
-- **Warn (`#8a6420`):** text of numbers that need attention (snags). Plain yellow ocher lacks
+- **Warn (`#8a6420`):** text of numbers that need attention (snags), and the few marks that call for you (the asking dot, a full context bar in On you). Plain yellow ocher lacks
   contrast on white, so it is darkened
 - **Destructive:** error messages only
 - **Input (`#d7dce4` / `#2e3c5a`):** text fields and select borders, where the placeholder and
@@ -441,7 +441,19 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   with the date when not today), then what it is doing: the
   question (14px `ink`), the call in flight (tool name in medium, an MCP tool as "server › tool", its summary in `muted-ink`), tasks
   as a 4px bar in the project color on `input` (the card is already `muted`, which `line` barely differs from), the last test (its word in `warn` when it failed),
-  Claude Code's recap while it isn't working (three lines), and the context size. Working pulses the
+  Claude Code's recap while it isn't working (three lines), and the context against the model's
+  window ("Context 148k / 1M") with a 4px bar beside it in `muted-ink` on `input`, `warn` (bar and
+  words) from 80% of the window in On you only, where the next prompt is the time to compact or
+  clear; elsewhere the bar's length says it. Under it, in 12px `muted-ink`: the current block's cost,
+  the model and a "Fast" badge (styled like the Background one) when fast mode multiplies it, with
+  the spend rate at the right while working. A card not working adds the prompt cache: how long it
+  stays warm, with what the next request costs now and once it expires at the right ("Next ≈ $0.01,
+  $0.49 once it expires": the gap is the point, a late reply rewrites the whole context), or "Cache
+  expired" with what resuming costs. In On you its countdown turns `warn` in the last sixth of the cache's TTL (10 minutes of
+  an hour), the one
+  moment the cost asks something of you; elsewhere it stays `muted-ink`, or a column of idle
+  sessions would all call for you. An idle row ends its place line with the same, shortened
+  ("Cache 8m left" / "Resume ≈ $0.35"). Working pulses the
   dot in the project color, asking is a solid `warn` dot with its state word in `warn`, waiting and
   idle are a `muted-ink` ring. No opacity: cards stay readable. The title is the card's button;
   clicking anywhere else on the card does the same unless it ends a text selection, so a question or
@@ -449,7 +461,14 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   page as in the week view; a session not in the log yet has nothing to open, so its card is plain
   content (no pointer, no hover fill). Only a card or row that opens takes a hover fill (`input` on a card, `muted` on an idle row),
   and keyboard focus on its title draws the 2px `ring` outline around the card. The tab title leads
-  with the number waiting on you ("(2) Kairos"), so a background tab still says so
+  with the number waiting on you ("(2) Kairos"), so a background tab still says so. Above the
+  columns, a band separated by a `line` rule holds the page's money: "Today" and "Now" in 14px
+  `muted-ink` with their amounts in the 14px medium numeral face, then the last three hours as 10-minute
+  bars stacked in project colors (largest at the bottom, scaled against the tallest bar, on a `line`
+  baseline, with the first and last times under it in 12px `numeral` `muted-ink`), and at the end
+  the page's one caveat that amounts are estimates at API list prices (with a second line when some
+  model has no price and is left out). It counts every visible session, not only the running ones,
+  and the band stays, above the note, when nothing runs or the registry can't be read
 - **Mark:** `src/web/public/favicon.svg` — a circle with a dawn → evening → night gradient cut by a
   diagonal blade (Kairos stands on a razor's edge: cutting out a single moment). The background
   shows through the gap, so it reads on light and dark tabs; the gap stays open at 16px. Used for

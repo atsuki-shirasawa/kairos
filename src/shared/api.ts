@@ -448,14 +448,68 @@ export interface LiveSession {
   question: string | null;
   /** Context size of the latest main-thread response (input + cache reads and writes). */
   contextTokens: number | null;
+  /** The model, its context window, its prompt cache and what it costs; null before any response. */
+  usage: LiveUsage | null;
   tasks: LiveTasks | null;
   test: LiveTest | null;
   /** Claude Code's latest recap of the session (`away_summary`). */
   recap: string | null;
 }
 
+/**
+ * A running session's model and what its next request costs. Amounts are estimates at API list
+ * prices, like `Usage.costUsd`: a gauge of usage rather than the bill.
+ */
+export interface LiveUsage {
+  /** Model of the latest main-thread response. */
+  model: string;
+  /** The latest response ran in fast mode. */
+  fast: boolean;
+  /**
+   * Context window in tokens. Logs don't record it, so it is the model's default in Claude Code,
+   * or 1M once a response went past 200k.
+   */
+  contextWindow: number;
+  /**
+   * When the main thread's prompt cache lapses unless another request reads it: the latest
+   * response plus the TTL its cache writes used (1 hour or 5 minutes). null with no cache writes.
+   */
+  cacheExpiresAt: number | null;
+  /** That TTL in milliseconds; null with no cache writes. */
+  cacheTtlMs: number | null;
+  /** null when the model has no price. */
+  cost: LiveCost | null;
+}
+
+/** What a running session has cost and what its next request will. */
+export interface LiveCost {
+  /** The current work block so far, including subagents. */
+  blockUsd: number;
+  /** Spend over the last `LIVE_RATE_WINDOW_MS`, as USD per hour. */
+  perHourUsd: number;
+  /** Reading the current context from a warm cache: the least each request pays. */
+  warmRequestUsd: number;
+  /** Writing the current context to the cache again, as the first request after it lapsed does. */
+  coldRequestUsd: number;
+}
+
+/** Spend across visible sessions, running or not, for the band above the live page's columns. */
+export interface LiveSpend {
+  /** Since local midnight. */
+  todayUsd: number;
+  /** Over the last `LIVE_RATE_WINDOW_MS`, as USD per hour. */
+  perHourUsd: number;
+  /** Start of the first bucket. Buckets are `SPEND_BUCKET_MS` long, oldest first, ending now. */
+  from: number;
+  /** Each bucket's spend by project (null for sessions without one), largest first. */
+  buckets: { projectId: number | null; usd: number }[][];
+  /** Some usage was by a model with no price and is left out. */
+  unpriced: boolean;
+}
+
 /** `GET /api/live`. `available` is false when Claude Code's session registry can't be read. */
 export interface LiveResponse {
   available: boolean;
   sessions: LiveSession[];
+  spend: LiveSpend;
 }

@@ -11,3 +11,10 @@ export const ARTIFACT_GRACE_MS = 5 * 60_000;
  * away, and a recap says how long it has been open.
  */
 export const OPEN_ITEM_OLD_WEEKS = 4;
+
+/** How far back the live page's per-hour spend looks: long enough to span a few requests. */
+export const LIVE_RATE_WINDOW_MS = 15 * 60_000;
+/** Width of one bar in the live page's spend band. */
+export const SPEND_BUCKET_MS = 10 * 60_000;
+/** Bars in the spend band: the last three hours. */
+export const SPEND_BUCKETS = 18;

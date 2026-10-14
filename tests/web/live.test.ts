@@ -2,11 +2,14 @@ import { describe, expect, test } from "bun:test";
 import type { LiveSession, Project } from "../../src/shared/api.ts";
 import {
   attentionCount,
+  cacheState,
   columnOf,
+  contextShare,
   dirName,
   documentTitle,
   IDLE_AFTER_MS,
   liveDisplay,
+  spendBars,
   toolLabel,
   visibleLive,
 } from "../../src/web/src/lib/live.ts";
@@ -31,6 +34,7 @@ function live(id: string, over: Partial<LiveSession> = {}): LiveSession {
     tool: null,
     question: null,
     contextTokens: null,
+    usage: null,
     tasks: null,
     test: null,
     recap: null,
@@ -114,4 +118,55 @@ test("names an MCP tool by its server and tool, and leaves other tools as they a
     "plugin_github_github › create_issue",
   );
   expect(toolLabel("Bash")).toBe("Bash");
+});
+
+describe("cost", () => {
+  test("the context's share of the window stays between 0 and 1", () => {
+    expect(contextShare(250_000, 1_000_000)).toBe(0.25);
+    expect(contextShare(1_200_000, 1_000_000)).toBe(1);
+    expect(contextShare(10, 0)).toBe(1);
+  });
+
+  test("the cache is warm until it expires, and unknown without a write", () => {
+    const hour = 60 * 60_000;
+    expect(cacheState({ cacheExpiresAt: NOW + 60_000, cacheTtlMs: hour }, NOW)).toEqual({
+      warm: true,
+      leftMs: 60_000,
+      soon: true,
+    });
+    expect(cacheState({ cacheExpiresAt: NOW, cacheTtlMs: hour }, NOW)).toEqual({ warm: false });
+    expect(cacheState({ cacheExpiresAt: null, cacheTtlMs: null }, NOW)).toBeNull();
+  });
+
+  test("a cache is nearly up at a share of its TTL, so a 5-minute one doesn't start there", () => {
+    const fiveMin = 5 * 60_000;
+    const at = (leftMs: number, ttl: number) =>
+      cacheState({ cacheExpiresAt: NOW + leftMs, cacheTtlMs: ttl }, NOW);
+    expect(at(4 * 60_000, fiveMin)).toMatchObject({ soon: false });
+    expect(at(30_000, fiveMin)).toMatchObject({ soon: true });
+    expect(at(20 * 60_000, 60 * 60_000)).toMatchObject({ soon: false });
+  });
+
+  test("spend bars are scaled against the tallest, with empty bars kept in place", () => {
+    const bars = spendBars(
+      {
+        from: NOW,
+        buckets: [
+          [
+            { projectId: 1, usd: 3 },
+            { projectId: 2, usd: 1 },
+          ],
+          [],
+          [{ projectId: 1, usd: 2 }],
+        ],
+      },
+      600_000,
+    );
+    expect(bars.map((b) => b.start)).toEqual([NOW, NOW + 600_000, NOW + 1_200_000]);
+    expect(bars.map((b) => b.total)).toEqual([4, 0, 2]);
+    expect(bars[0]?.segments.map((x) => x.share)).toEqual([0.75, 0.25]);
+    expect(bars[2]?.segments[0]?.share).toBe(0.5);
+    // Nothing spent: no bar divides by zero
+    expect(spendBars({ from: NOW, buckets: [[]] }, 600_000)[0]?.segments).toEqual([]);
+  });
 });

@@ -3,7 +3,6 @@ import { formatMessages } from "@/i18n/messages/format.ts";
 import { liveMessages } from "@/i18n/messages/live.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { elapsedLabel, timeOrDateTime } from "@/lib/dates.ts";
-import { tokensLabel } from "@/lib/format.ts";
 import {
   columnOf,
   dirName,
@@ -15,11 +14,14 @@ import {
   toolLabel,
 } from "@/lib/live.ts";
 import { cn } from "@/lib/utils.ts";
+import { CardCost, ContextGauge, RowCache } from "./live/CardUsage.tsx";
+import { SpendBand } from "./live/SpendBand.tsx";
 
 /**
  * The page of Claude Code sessions running now, in three columns: what waits on you, what is
  * working, and what was left idle. Each card is a small work block with what the log says about
- * the session's current state; clicking it opens the latest work block in the drawer.
+ * the session's current state and cost; clicking it opens the latest work block in the drawer.
+ * A band above the columns shows what all sessions spend.
  */
 export function LivePage({
   live,
@@ -41,8 +43,10 @@ export function LivePage({
   // Loading, or the server is gone (the app's disconnected notice says so): claiming that
   // nothing runs would be wrong either way
   if (!live) return <div className="min-h-0 flex-1 bg-card" />;
-  if (!live.available) return <PageNote>{m.unavailable}</PageNote>;
-  if (sessions.length === 0) return <PageNote>{m.nothingRunning}</PageNote>;
+  // Spend comes from the logs, so the band stays when the registry can't be read
+  const band = <SpendBand spend={live.spend} projects={projects} now={now} />;
+  if (!live.available) return <PageNote band={band}>{m.unavailable}</PageNote>;
+  if (sessions.length === 0) return <PageNote band={band}>{m.nothingRunning}</PageNote>;
   const byColumn = new Map<LiveColumn, { s: LiveSession; display: LiveDisplay }[]>(
     LIVE_COLUMNS.map((c) => [c, []]),
   );
@@ -54,6 +58,7 @@ export function LivePage({
   const nothingOnYou = byColumn.get("attention")?.length === 0;
   return (
     <div className="min-h-0 flex-1 overflow-y-auto bg-card">
+      {band}
       <div
         className={cn(
           "grid gap-x-5 gap-y-6 px-5 py-5 max-lg:px-3",
@@ -115,13 +120,19 @@ function ColumnHeader({ column, count }: { column: LiveColumn; count: number }) 
   );
 }
 
-/** A message in place of the columns (nothing running, or the registry can't be read). */
-function PageNote({ children }: { children: React.ReactNode }) {
+/**
+ * A message in place of the columns (nothing running, or the registry can't be read), under the
+ * spend band.
+ */
+function PageNote({ band, children }: { band: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="flex min-h-0 flex-1 items-center justify-center bg-card px-4">
-      <p className="max-w-md text-center text-muted-foreground text-sm" role="status">
-        {children}
-      </p>
+    <div className="flex min-h-0 flex-1 flex-col bg-card">
+      {band}
+      <div className="flex flex-1 items-center justify-center px-4">
+        <p className="max-w-md text-center text-muted-foreground text-sm" role="status">
+          {children}
+        </p>
+      </div>
     </div>
   );
 }
@@ -182,6 +193,7 @@ function LiveCard({
         onOpen={open}
         compact={compact}
         duration={duration}
+        now={now}
       />
       {/* A row has no room for more, but this says why it has nothing to open */}
       {compact && section === null && (
@@ -201,7 +213,7 @@ function LiveCard({
               {m.startedAt(timeOrDateTime(s.startedAt, now))}
             </span>
           </p>
-          <CardNow session={s} display={display} />
+          <CardNow session={s} display={display} now={now} />
         </>
       )}
     </article>
@@ -211,7 +223,7 @@ function LiveCard({
 /**
  * The state dot, the title, and the project, worktree and branch it runs in. The title is the
  * button that opens the latest block, when there is one. In an idle row the title keeps to one
- * line, with the duration at its right.
+ * line, with the duration at its right, and the place line ends with the prompt cache's state.
  */
 function CardHeading({
   session: s,
@@ -223,6 +235,7 @@ function CardHeading({
   onOpen,
   compact,
   duration,
+  now,
 }: {
   session: LiveSession;
   project: Project | undefined;
@@ -235,6 +248,7 @@ function CardHeading({
   /** An idle row rather than a full card. */
   compact: boolean;
   duration: string;
+  now: number;
 }) {
   const m = liveMessages();
   const f = formatMessages();
@@ -283,6 +297,7 @@ function CardHeading({
         {s.background && (
           <span className="shrink-0 rounded-md border px-1 leading-4">{m.background}</span>
         )}
+        {compact && s.section !== null && <RowCache session={s} now={now} />}
       </p>
     </div>
   );
@@ -290,9 +305,17 @@ function CardHeading({
 
 /**
  * What the session is doing now: the question it asks, or the call it runs; then its tasks, the
- * last test, the context size, and Claude Code's recap while it waits.
+ * last test, Claude Code's recap while it waits, the context against its window, and the cost.
  */
-function CardNow({ session: s, display }: { session: LiveSession; display: LiveDisplay }) {
+function CardNow({
+  session: s,
+  display,
+  now,
+}: {
+  session: LiveSession;
+  display: LiveDisplay;
+  now: number;
+}) {
   const m = liveMessages();
   return (
     <div className="flex flex-col gap-1.5 text-xs">
@@ -315,11 +338,11 @@ function CardNow({ session: s, display }: { session: LiveSession; display: LiveD
       {s.recap && display !== "working" && (
         <p className="line-clamp-3 text-muted-foreground">{s.recap}</p>
       )}
-      {(s.contextTokens !== null || s.section === null) && (
-        <p className="font-num text-muted-foreground">
-          {s.section === null ? m.notIngested : m.context(tokensLabel(s.contextTokens ?? 0))}
-        </p>
+      {s.section === null && <p className="text-muted-foreground">{m.notIngested}</p>}
+      {s.section !== null && s.contextTokens !== null && (
+        <ContextGauge tokens={s.contextTokens} usage={s.usage} display={display} />
       )}
+      {s.section !== null && s.usage && <CardCost usage={s.usage} display={display} now={now} />}
     </div>
   );
 }

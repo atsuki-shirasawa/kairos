@@ -224,6 +224,11 @@ export const MIGRATIONS: string[] = [
   CREATE INDEX open_items_section ON open_items(session_id, start);
   CREATE INDEX open_items_closed_in ON open_items(closed_session_id, closed_start);
   `,
+  // 10: usage by time across sessions, for the live page's spend band (today, the last 15
+  // minutes and the last three hours over every visible session, on each refetch)
+  `
+  CREATE INDEX usage_ts ON usage(ts);
+  `,
 ];
 
 /** Schema version once every migration is applied (stored in `PRAGMA user_version`). */

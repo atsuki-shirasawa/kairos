@@ -17,6 +17,7 @@ description: Adds or updates Claude model prices in src/server/pricing.ts, after
    - Keep the order: newest family first, then by size, a short ID after its longer versions (`claude-opus-5-5` before `claude-opus-5`)
    - `input` / `output` / `cacheRead` are USD per million tokens. Cache writes are derived (1.25x input for 5 min, 2x for 1 hour); only add a field if a model breaks that rule, and change `costOf` with it
    - `fast` is the fast-mode multiplier on the whole amount; set it only for models that support fast mode
+   - `largeWindow: true` when Claude Code runs the model with a 1M context window by default (the live page's context gauge reads it; check the real DB for main-thread responses past 200k)
    - Update the "as of" date in the comment above `PRICES`
 4. **Tests** (`tests/server/pricing.test.ts`): add an expectation for each new model in `priceOf`, and for the cache read or fast multiplier if it differs from the existing cases
 5. **Verify**: `bun run check`

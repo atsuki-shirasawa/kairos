@@ -11,7 +11,15 @@ import {
   tokensLabel,
   troubleCount,
   troubleDetail,
+  windowLabel,
 } from "../../src/web/src/lib/format.ts";
+
+describe("windowLabel", () => {
+  test("names whole millions without a decimal, and anything else like a count", () => {
+    expect(windowLabel(1_000_000)).toBe("1M");
+    expect(windowLabel(200_000)).toBe("200k");
+  });
+});
 
 describe("tokensLabel", () => {
   test("abbreviates to k, M, and B by magnitude", () => {

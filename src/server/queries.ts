@@ -117,7 +117,8 @@ const SECTION_SELECT = `SELECT g.start, g.end, g.prompt_count, g.fallback_title,
          sm.headline, sm.body, sm.model, sm.covered_until, sm.created_at
   FROM segments g LEFT JOIN summaries sm ON sm.session_id = g.session_id AND sm.start = g.start`;
 
-interface UsageRow {
+/** Token totals for one model and speed, as the usage queries group them. */
+export interface UsageRow {
   model: string;
   speed: string | null;
   input: number;
@@ -128,7 +129,7 @@ interface UsageRow {
 }
 
 /** Combines per-model, per-speed totals into one and converts them to cost. */
-function toUsage(rows: UsageRow[]): Usage | null {
+export function toUsage(rows: UsageRow[]): Usage | null {
   if (rows.length === 0) return null;
   const u: Usage = {
     tokens: 0,
@@ -165,6 +166,28 @@ function toUsage(rows: UsageRow[]): Usage | null {
   }
   u.model = [...outputByModel].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
   return u.tokens > 0 ? u : null;
+}
+
+/**
+ * A session's token usage within a time range, subagents included and copies from a continued
+ * session left out. Shared by the drawer's blocks and the live page, so their costs agree.
+ */
+export function sessionUsage(
+  db: Database,
+  sessionId: string,
+  from: number,
+  to: number,
+): Usage | null {
+  return toUsage(
+    db
+      .query<UsageRow, [string, number, number]>(
+        `SELECT model, speed, SUM(input) AS input, SUM(output) AS output, SUM(cache_read) AS cache_read,
+                SUM(cache_write_5m) AS cache_write_5m, SUM(cache_write_1h) AS cache_write_1h
+         FROM usage WHERE session_id = ? AND is_copy = 0 AND COALESCE(ts, 0) BETWEEN ? AND ?
+         GROUP BY model, speed`,
+      )
+      .all(sessionId, from, to),
+  );
 }
 
 /** The part of `Activity` counted from artifacts. */
@@ -605,16 +628,7 @@ export class Queries {
    * With a range, only responses within it. Automatic-run turns are outside work blocks, so blocks never include them.
    */
   private usage(sessionId: string, from = 0, to = Number.MAX_SAFE_INTEGER): Usage | null {
-    return toUsage(
-      this.db
-        .query<UsageRow, [string, number, number]>(
-          `SELECT model, speed, SUM(input) AS input, SUM(output) AS output, SUM(cache_read) AS cache_read,
-                  SUM(cache_write_5m) AS cache_write_5m, SUM(cache_write_1h) AS cache_write_1h
-           FROM usage WHERE session_id = ? AND is_copy = 0 AND COALESCE(ts, 0) BETWEEN ? AND ?
-           GROUP BY model, speed`,
-        )
-        .all(sessionId, from, to),
-    );
+    return sessionUsage(this.db, sessionId, from, to);
   }
 
   /**

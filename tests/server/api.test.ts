@@ -14,6 +14,7 @@ import type {
   SessionDetail,
   SpansResponse,
 } from "../../src/shared/api.ts";
+import { SPEND_BUCKETS } from "../../src/shared/constants.ts";
 import { SID } from "../fixtures/ids.ts";
 import { min, setup } from "./ingest/helpers.ts";
 
@@ -550,7 +551,10 @@ test("GET /api/events streams events over SSE", async () => {
 
 describe("GET /api/live", () => {
   test("is unavailable when running sessions aren't followed", async () => {
-    expect(await json<LiveResponse>("/api/live")).toEqual({ available: false, sessions: [] });
+    const res = await json<LiveResponse>("/api/live");
+    expect(res).toMatchObject({ available: false, sessions: [] });
+    // Spend is the logs' and doesn't need the registry
+    expect(res.spend.buckets).toHaveLength(SPEND_BUCKETS);
   });
 
   test("lists the running sessions the calendar would show", async () => {
