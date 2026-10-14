@@ -2,6 +2,7 @@ import type { Database, Statement } from "bun:sqlite";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, join, relative, sep } from "node:path";
 import { WORK_BLOCK_GAP_MS } from "../../shared/sections.ts";
+import { readKv, writeKv } from "../db/kv.ts";
 import { classifyUser } from "./classify.ts";
 import { extractCommit } from "./commits.ts";
 import { nextAutoTurn, storedUserKind, storedUserText } from "./interpret.ts";
@@ -55,6 +56,8 @@ export const PARSER_VERSION = 10;
  */
 export const DERIVED_VERSION = 6;
 const FALLBACK_TITLE_CHARS = 120;
+/** The kv key that holds the DERIVED_VERSION the stored derived data was computed with. */
+const DERIVED_VERSION_KEY = "derived_version";
 
 const RECAP_SUFFIX = /\s*\(disable recaps in \/config\)\s*$/;
 
@@ -897,19 +900,13 @@ export class Ingester {
 
   /** The DERIVED_VERSION the stored derived data was computed with, or null if never computed. */
   private storedDerivedVersion(): number | null {
-    const row = this.db
-      .query<{ value: string }, []>("SELECT value FROM kv WHERE key = 'derived_version'")
-      .get();
-    return row ? Number(row.value) : null;
+    const value = readKv(this.db, DERIVED_VERSION_KEY);
+    return value === undefined ? null : Number(value);
   }
 
   /** Records that derived data is now computed with the current DERIVED_VERSION. */
   private storeDerivedVersion(): void {
-    this.db
-      .query(
-        "INSERT INTO kv (key, value) VALUES ('derived_version', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-      )
-      .run(String(DERIVED_VERSION));
+    writeKv(this.db, DERIVED_VERSION_KEY, String(DERIVED_VERSION));
   }
 }
 
