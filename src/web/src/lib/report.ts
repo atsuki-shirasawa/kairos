@@ -1,5 +1,6 @@
 // The shown period as Markdown, for pasting into a daily stand-up note, Slack or a ticket.
 import type { CalendarSession, Project } from "@shared/api.ts";
+import { prMarkdownLink } from "@shared/artifacts.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { dateLabel, hhmm } from "./dates.ts";
 import { blocksOfDay } from "./layout.ts";
@@ -47,10 +48,7 @@ export function buildReport(
     for (const [name, list] of byProject) {
       out.push(`### ${name}`, "");
       for (const b of list) {
-        const prs = b.segment.prs.map((a) => {
-          const num = /\/pull\/(\d+)/.exec(a.ref)?.[1];
-          return num ? `[#${num}](${a.ref})` : a.ref;
-        });
+        const prs = b.segment.prs.map((a) => prMarkdownLink(a.ref));
         const time = `${hhmm(b.dayStart + b.start)}–${hhmm(b.segment.end)}`;
         const headline = b.segment.headline.replace(/\s+/g, " ").trim();
         out.push(`- ${time} ${headline}${prs.length ? ` (${prs.join(", ")})` : ""}`);

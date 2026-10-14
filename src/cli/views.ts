@@ -1,6 +1,7 @@
 // What `kairos report`, `open-items` and `search` print, built from the same data the API serves.
 // Kept free of I/O so the output can be tested on plain objects.
 import type { CalendarSession, LedgerEntry, Project, SearchHit } from "../shared/api.ts";
+import { prMarkdownLink } from "../shared/artifacts.ts";
 import { formatTime, hhmm, isoDay, oneLine, printable, startOfDay, uiLink } from "./format.ts";
 import { styles } from "./style.ts";
 
@@ -130,12 +131,6 @@ function dayLabel(day: number): string {
   return `${isoDay(day)} (${new Date(day).toLocaleDateString("en-US", { weekday: "short" })})`;
 }
 
-/** A PR as `[#12](url)`, or the bare URL when it has no number. */
-function prLink(url: string): string {
-  const num = /\/pull\/(\d+)/.exec(url)?.[1];
-  return num ? `[#${num}](${url})` : url;
-}
-
 /** An open item as one list line: its kind tag, then the text. */
 function openItemLine(kind: string | null, text: string): string {
   return `- ${kind ? `[${kind}] ` : ""}${oneLine(text)}`;
@@ -156,7 +151,7 @@ export function renderReport(report: Report, full = false): string {
     for (const project of day.projects) {
       out.push(`### ${printable(project.name)}`, "");
       for (const b of project.blocks) {
-        const prs = b.prs.length ? ` (${b.prs.map(prLink).join(", ")})` : "";
+        const prs = b.prs.length ? ` (${b.prs.map(prMarkdownLink).join(", ")})` : "";
         out.push(`- ${hhmm(b.start)}–${hhmm(b.end)} ${oneLine(b.headline)}${prs}`);
         if (full && b.body)
           for (const line of b.body.trim().split("\n")) out.push(`  ${printable(line)}`);

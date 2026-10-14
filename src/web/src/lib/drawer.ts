@@ -2,6 +2,7 @@
 // shows, and how outcomes, subagents and summary failures are grouped. Kept free of React and
 // messages so they can be tested on their own.
 import type { Artifact, Section, Subagent, Usage } from "@shared/api.ts";
+import { prNumber } from "@shared/artifacts.ts";
 import { ARTIFACT_GRACE_MS } from "@shared/constants.ts";
 import { isSameDay } from "./dates.ts";
 import { costLabel } from "./format.ts";
@@ -93,7 +94,7 @@ export function splitSubagents(
 /** The parts of a PR shown in its link: the number from the URL, and the repository when no title was captured. */
 export function prLinkParts(a: Artifact): { num: string | undefined; repo: string | undefined } {
   return {
-    num: /\/pull\/(\d+)/.exec(a.ref)?.[1],
+    num: prNumber(a.ref),
     // PRs whose title could not be captured (e.g. created with `--fill`) are stored as "#number repository"
     repo: /^#\d+\s+(.+)$/.exec(a.title ?? "")?.[1],
   };

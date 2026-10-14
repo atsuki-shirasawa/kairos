@@ -2,6 +2,7 @@
 // Written from the period's section summaries rather than the raw conversation, so the input stays
 // small and a recap reads like the summaries it is built on.
 import type { Database } from "bun:sqlite";
+import { prShortRef } from "../../shared/artifacts.ts";
 import { ARTIFACT_GRACE_MS, OPEN_ITEM_OLD_WEEKS } from "../../shared/constants.ts";
 import { type OpenKind, parseSummaryBody } from "../../shared/summaryBody.ts";
 import { openItemsIn } from "../openItems.ts";
@@ -278,12 +279,7 @@ export function buildRecapPrompt(
   lang: SummaryLang = DEFAULT_SUMMARY_LANG,
 ): string {
   const r = RULES[lang];
-  const prs = input.prs
-    .map((p) => {
-      const num = /\/pull\/(\d+)/.exec(p.ref)?.[1];
-      return `- ${num ? `#${num}` : p.ref} ${p.title ?? ""}`.trim();
-    })
-    .join("\n");
+  const prs = input.prs.map((p) => `- ${prShortRef(p.ref)} ${p.title ?? ""}`.trim()).join("\n");
   const head = `Below is the work done with Claude Code on the project "${input.projectName}" ${periodOf(input)}: each piece of work with its time and, where available, its summary.
 Write a recap in ${r.name} (${r.style}) that explains what was done during this period, so it can go into a weekly report or be read when looking back.
 

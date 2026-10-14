@@ -1,5 +1,6 @@
 // The summary's "done" list: which recaps are still to write, and how blocks and PRs are labelled.
 import type { Artifact, Recap } from "@shared/api.ts";
+import { prNumber } from "@shared/artifacts.ts";
 import { isSameDay } from "./dates.ts";
 import type { DayBlock } from "./layout.ts";
 import type { ProjectSummary } from "./summary.ts";
@@ -20,6 +21,6 @@ export function startsNewDay(blocks: DayBlock[], i: number): boolean {
 
 /** "#123" for a GitHub PR URL; otherwise the PR's title, or its reference when untitled. */
 export function prLabel(a: Artifact): string {
-  const num = /\/pull\/(\d+)/.exec(a.ref)?.[1];
+  const num = prNumber(a.ref);
   return num ? `#${num}` : a.title || a.ref;
 }

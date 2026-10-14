@@ -1,6 +1,7 @@
 // Facts about a section taken from the log by code: what the summary can state as settled or open
 // without trusting the model to spot it in a clipped transcript.
 import type { Database } from "bun:sqlite";
+import { prShortRef } from "../../shared/artifacts.ts";
 import { ARTIFACT_GRACE_MS } from "../../shared/constants.ts";
 import { titleAfter } from "../ingest/prs.ts";
 
@@ -297,8 +298,7 @@ function artifactLines(artifacts: FactArtifact[]): string[] {
     if (a.kind === "merge") return `- merged PR ${a.ref}`;
     // A title from a pr-link record already starts with the number ("#42 me/app")
     if (a.title?.startsWith("#")) return `- opened PR ${a.title}`;
-    const num = /\/pull\/(\d+)/.exec(a.ref)?.[1];
-    return `- opened PR ${num ? `#${num}` : a.ref}${a.title ? ` ${a.title}` : ""}`;
+    return `- opened PR ${prShortRef(a.ref)}${a.title ? ` ${a.title}` : ""}`;
   });
 }
 
