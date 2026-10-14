@@ -1,7 +1,7 @@
 // A status bar pinned to the bottom of the terminal for long CLI runs (`kairos summarize`): log
 // lines scroll above it while it keeps redrawing the count, the time left and what is running now.
-import { DUSK } from "./help.ts";
-import { styles } from "./style.ts";
+import { DUSK } from "./logo.ts";
+import { CLEAR_LINE, RESET, rgbOnPalette, styles } from "./style.ts";
 
 /** Spinner frames, advanced on every redraw so the bar shows it is alive during a slow `claude -p`. */
 const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
@@ -11,6 +11,8 @@ const TICK_MS = 100;
 const BAR_CELLS = 24;
 /** Eighths of a cell, so the bar moves smoothly instead of a whole cell at a time. */
 const PARTIAL = ["", "▏", "▎", "▍", "▌", "▋", "▊", "▉"];
+/** The bar's empty track: a dark gray of the terminal's 256-color palette. */
+const DIM_TRACK = 236;
 
 /** Everything one frame of the status bar shows. */
 export interface BarState {
@@ -44,7 +46,7 @@ function bar(ratio: number, cells: number, color: boolean): string {
   const empty = " ".repeat(cells - full - (partial ? 1 : 0));
   if (!color) return `[${filled}${empty.replaceAll(" ", "·")}]`;
   // The logo's dusk on a dim track, so the bar matches the banner in `kairos help`
-  return `\x1b[38;2;${DUSK.join(";")};48;5;236m${filled}${empty}\x1b[0m`;
+  return `${rgbOnPalette(DUSK, DIM_TRACK)}${filled}${empty}${RESET}`;
 }
 
 /**
@@ -140,7 +142,7 @@ export class StatusBar {
       this.out.write(`${line}\n`);
       return;
     }
-    this.out.write(`\r\x1b[2K${line}\n`);
+    this.out.write(`${CLEAR_LINE}${line}\n`);
     this.draw();
   }
 
@@ -148,13 +150,13 @@ export class StatusBar {
   close(): void {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
-    if (this.live) this.out.write("\r\x1b[2K");
+    if (this.live) this.out.write(CLEAR_LINE);
   }
 
   private draw(): void {
     if (!this.live) return;
     this.state.frame++;
     this.state.elapsedMs = performance.now() - this.started;
-    this.out.write(`\r\x1b[2K${renderBar(this.state, this.out.columns ?? 80, this.color)}`);
+    this.out.write(`${CLEAR_LINE}${renderBar(this.state, this.out.columns ?? 80, this.color)}`);
   }
 }

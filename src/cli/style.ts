@@ -2,6 +2,38 @@
 // Colors are the terminal's own ANSI palette rather than fixed RGB, so they stay legible on both
 // light and dark themes; only the logo (and the summarize bar) use the favicon's exact colors.
 
+/** Resets every attribute; closes any styled run. */
+export const RESET = "\x1b[0m";
+
+/** Moves to the start of the line and clears it, so a status line can be redrawn in place. */
+export const CLEAR_LINE = "\r\x1b[2K";
+
+/** An exact color as red, green and blue channels (0–255), for the favicon's palette. */
+export type Rgb = readonly number[];
+
+/** One SGR escape setting every given parameter at once. */
+function sgr(params: readonly (number | string)[]): string {
+  return `\x1b[${params.join(";")}m`;
+}
+
+/** Sets the foreground to an exact color (needs a truecolor terminal, as the logo does). */
+export function rgbFg(rgb: Rgb): string {
+  return sgr([38, 2, ...rgb]);
+}
+
+/** Sets the background to an exact color. */
+export function rgbBg(rgb: Rgb): string {
+  return sgr([48, 2, ...rgb]);
+}
+
+/**
+ * An exact foreground over one of the terminal's 256 palette colors, in a single escape. The
+ * summarize bar fills in the logo's dusk over a dim track this way.
+ */
+export function rgbOnPalette(fg: Rgb, bg: number): string {
+  return sgr([38, 2, ...fg, 48, 5, bg]);
+}
+
 /** The styles one piece of output can use; each is the identity when color is off. */
 export interface Styles {
   bold: (s: string) => string;
@@ -22,7 +54,7 @@ export interface Styles {
 
 /** The styles, or no-ops when color is off. */
 export function styles(color: boolean): Styles {
-  const wrap = (code: string) => (s: string) => (color ? `\x1b[${code}m${s}\x1b[0m` : s);
+  const wrap = (code: string) => (s: string) => (color ? `${sgr([code])}${s}${RESET}` : s);
   return {
     bold: wrap("1"),
     dim: wrap("2"),
