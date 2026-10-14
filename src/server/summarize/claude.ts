@@ -1,4 +1,5 @@
 import { mkdirSync } from "node:fs";
+import { MINUTE } from "../../shared/dates.ts";
 import { CLAUDE_NOT_FOUND, timedOutMessage } from "../../shared/summaryFailure.ts";
 
 /** A `claude -p` run failed (no command, timeout, exit code). The message is shown in the UI. */
@@ -36,6 +37,58 @@ export interface ClaudeOptions {
   env?: Record<string, string | undefined>;
 }
 
+/** How long a run may take before it is killed, unless `ClaudeOptions.timeoutMs` says otherwise. */
+const DEFAULT_TIMEOUT_MS = 3 * MINUTE;
+
+/**
+ * The argv for `claude -p`. The flags keep the run free of side effects: no saved session, no
+ * tools, no MCP servers and no user or local settings. The prompt never goes here; it is passed on
+ * stdin, so log text can't become an argument.
+ */
+export function claudeArgs(exe: string, opts: Pick<ClaudeOptions, "model" | "effort">): string[] {
+  return [
+    exe,
+    "-p",
+    "--model",
+    opts.model,
+    "--effort",
+    opts.effort ?? DEFAULT_EFFORT,
+    "--no-session-persistence",
+    "--tools",
+    "",
+    "--strict-mcp-config",
+    "--setting-sources",
+    "project",
+  ];
+}
+
+/** What a finished `claude -p` process left behind, for `interpretExit`. */
+export interface ClaudeExit {
+  /** Everything written to stdout. */
+  out: string;
+  /** Everything written to stderr. */
+  err: string;
+  /** The process's exit code. */
+  code: number;
+  /** Whether the run was killed for taking longer than `timeoutMs`. */
+  timedOut: boolean;
+  /** The timeout that applied, named in the timeout message. */
+  timeoutMs: number;
+}
+
+/**
+ * Turns a finished run into the answer text, or throws a `SummaryError` carrying the message the
+ * UI shows: the timeout, else stderr (or stdout, or the exit code) cut to 500 characters.
+ */
+export function interpretExit({ out, err, code, timedOut, timeoutMs }: ClaudeExit): string {
+  // The exit code of a killed process doesn't say why, so say it timed out
+  if (timedOut) throw new SummaryError(timedOutMessage(Math.round(timeoutMs / 1000)));
+  if (code !== 0 || !out.trim()) {
+    throw new SummaryError((err || out || `exit code ${code}`).trim().slice(0, 500));
+  }
+  return out.trim();
+}
+
 /**
  * Answers a prompt with `claude -p`. It reuses Claude Code's authentication, so no API key is needed.
  * Runs without saving a session and without tools or MCP, so it has no side effects.
@@ -44,30 +97,14 @@ export async function runClaude(prompt: string, opts: ClaudeOptions): Promise<st
   const exe = Bun.which("claude");
   if (!exe) throw new SummaryError(CLAUDE_NOT_FOUND);
   mkdirSync(opts.cwd, { recursive: true });
-  const proc = Bun.spawn(
-    [
-      exe,
-      "-p",
-      "--model",
-      opts.model,
-      "--effort",
-      opts.effort ?? DEFAULT_EFFORT,
-      "--no-session-persistence",
-      "--tools",
-      "",
-      "--strict-mcp-config",
-      "--setting-sources",
-      "project",
-    ],
-    {
-      cwd: opts.cwd,
-      ...(opts.env ? { env: opts.env } : {}),
-      stdin: new Blob([prompt]),
-      stdout: "pipe",
-      stderr: "pipe",
-    },
-  );
-  const timeoutMs = opts.timeoutMs ?? 180_000;
+  const proc = Bun.spawn(claudeArgs(exe, opts), {
+    cwd: opts.cwd,
+    ...(opts.env ? { env: opts.env } : {}),
+    stdin: new Blob([prompt]),
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   let timedOut = false;
   const timer = setTimeout(() => {
     timedOut = true;
@@ -79,12 +116,7 @@ export async function runClaude(prompt: string, opts: ClaudeOptions): Promise<st
       new Response(proc.stderr).text(),
       proc.exited,
     ]);
-    // The exit code of a killed process doesn't say why, so say it timed out
-    if (timedOut) throw new SummaryError(timedOutMessage(Math.round(timeoutMs / 1000)));
-    if (code !== 0 || !out.trim()) {
-      throw new SummaryError((err || out || `exit code ${code}`).trim().slice(0, 500));
-    }
-    return out.trim();
+    return interpretExit({ out, err, code, timedOut, timeoutMs });
   } finally {
     clearTimeout(timer);
   }
