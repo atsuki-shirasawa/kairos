@@ -2,15 +2,11 @@
 // sessions until the log or a later summary shows it settled. State kept in rows rather than
 // re-summarized text, so it doesn't drift as summaries build on summaries.
 import type { Database } from "bun:sqlite";
-import {
-  issueClosedNote,
-  joinCloseNotes,
-  prMergedNote,
-  taskCompletedNote,
-} from "../../shared/closeNotes.ts";
+import { issueClosedNote, prMergedNote, taskCompletedNote } from "../../shared/closeNotes.ts";
 import type { OpenItem, OpenKind } from "../../shared/summaryBody.ts";
 import { closedIssues, completedTask, type FactCall, type TaskState } from "./facts.ts";
 import type { EarlierOpen } from "./prompt.ts";
+import { type CloseEvent, isClosable, settlementOf } from "./settlement.ts";
 import type { SectionRef } from "./store.ts";
 
 /** Most earlier items shown to the model; past it, the newest are kept. */
@@ -339,17 +335,6 @@ export function recordSection(db: Database, target: SectionRef, update: LedgerUp
   closeByRefs(db, target.sessionId);
 }
 
-/**
- * Something in the log that settles a ref: an issue closed, a PR merged, a task completed. Its
- * note is one of the phrases in `shared/closeNotes.ts`, which the UI reads back.
- */
-interface CloseEvent {
-  ref: string;
-  ts: number;
-  sessionId: string;
-  note: string;
-}
-
 /** Which sessions to look in: a project's, or a list (a session chain). */
 type Scope = { project: number } | { sessions: string[] };
 
@@ -391,35 +376,21 @@ export function closeByRefs(db: Database, sessionId: string): void {
     }
     return events;
   };
+  const close = db.query(
+    `UPDATE open_items SET closed_at = ?, closed_session_id = ?, closed_start = ?,
+       closed_by = 'ref', closed_note = ?
+     WHERE id = ?`,
+  );
   for (const item of items) {
     const events = item.refs.some((r) => r.startsWith("task:"))
       ? [...shared, ...tasksOf(item.sessionId)]
       : shared;
-    const settled = item.refs
-      .filter(isClosable)
-      .map((ref) =>
-        events
-          .filter((e) => e.ref === ref && e.ts > item.openedAt)
-          .reduce<CloseEvent | null>((first, e) => (first && first.ts <= e.ts ? first : e), null),
-      );
-    if (settled.some((e) => e === null)) continue;
-    const last = (settled as CloseEvent[]).reduce((a, b) => (b.ts > a.ts ? b : a));
-    db.query(
-      `UPDATE open_items SET closed_at = ?, closed_session_id = ?, closed_start = ?,
-         closed_by = 'ref', closed_note = ?
-       WHERE id = ?`,
-    ).run(
-      last.ts,
-      last.sessionId,
-      sectionAt(db, last.sessionId, last.ts),
-      joinCloseNotes((settled as CloseEvent[]).map((e) => e.note)),
-      item.id,
-    );
+    const settlement = settlementOf(item, events);
+    if (!settlement) continue;
+    const { last, note } = settlement;
+    close.run(last.ts, last.sessionId, sectionAt(db, last.sessionId, last.ts), note, item.id);
   }
 }
-
-/** Refs the log can show settled: issue / PR numbers and task IDs. */
-const isClosable = (ref: string) => ref.startsWith("#") || ref.startsWith("task:");
 
 /**
  * Start of the section a time falls in: the last one starting at or before it (a merge is recorded
