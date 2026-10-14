@@ -135,17 +135,45 @@ function IdleProject({
   return (
     <div className="border-l-2 pl-4" style={{ borderColor: projectColor(project) }}>
       <h3 className="mb-1.5 font-medium text-sm">{projectName(projects, projectId)}</h3>
-      <OpenItems
+      <ProjectOpenItemsSection
         view={view}
         items={items}
-        at={open.at}
-        error={failureIn(items, open.failure)}
+        open={open}
         onSelect={onSelect}
-        onUpdate={open.onUpdate}
-        busyId={open.busyId}
         baseUrl={issueBaseUrl(project?.repo)}
       />
     </div>
+  );
+}
+
+/**
+ * One project's open items, wired to the period's open-item state: when they are counted from,
+ * which one is being updated, and the last failed update when it was one of these.
+ */
+function ProjectOpenItemsSection({
+  view,
+  items,
+  open,
+  onSelect,
+  baseUrl,
+}: {
+  view: View;
+  items: ProjectOpenItems;
+  open: Open;
+  onSelect: (id: string, at: number) => void;
+  baseUrl: string | null;
+}) {
+  return (
+    <OpenItems
+      view={view}
+      items={items}
+      at={open.at}
+      error={failureIn(items, open.failure)}
+      onSelect={onSelect}
+      onUpdate={open.onUpdate}
+      busyId={open.busyId}
+      baseUrl={baseUrl}
+    />
   );
 }
 
@@ -184,14 +212,11 @@ function ProjectDone({
         <RecapBlock recap={recap} baseUrl={baseUrl} onRecap={() => onRecap(recap.projectId)} />
       )}
       {items && (
-        <OpenItems
+        <ProjectOpenItemsSection
           view={view}
           items={items}
-          at={open.at}
-          error={failureIn(items, open.failure)}
+          open={open}
           onSelect={onSelect}
-          onUpdate={open.onUpdate}
-          busyId={open.busyId}
           baseUrl={baseUrl}
         />
       )}
