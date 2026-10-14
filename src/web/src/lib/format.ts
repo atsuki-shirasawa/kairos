@@ -130,3 +130,12 @@ export function sumActivity(list: (Activity | null)[]): Activity | null {
     effort: null,
   };
 }
+
+/**
+ * The items with the separator between them. A line wraps only at a separator, and only after its
+ * dot: a non-breaking space before it keeps " · " from starting a line.
+ */
+export function interleave<T>(items: T[], separator: string): (T | string)[] {
+  const glued = separator.replace(/^ /, "\u00a0");
+  return items.flatMap((item, i) => (i === 0 ? [item] : [glued, item]));
+}

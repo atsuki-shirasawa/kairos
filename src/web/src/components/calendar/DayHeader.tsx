@@ -1,4 +1,4 @@
-import type { Activity, Usage } from "@shared/api.ts";
+import type { Usage } from "@shared/api.ts";
 import { Hint } from "@/components/Hint.tsx";
 import { MomentNode } from "@/components/MomentNode.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip.tsx";
@@ -7,42 +7,10 @@ import { dateMessages } from "@/i18n/messages/dates.ts";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { dateLabel, durationLabel, weekday } from "@/lib/dates.ts";
-import { approxCostLabel, tokensLabel, troubleCount, troubleDetail } from "@/lib/format.ts";
-import { busyMs, type PlacedBlock } from "@/lib/layout.ts";
-import { counted, totalsOf } from "@/lib/totals.ts";
+import { approxCostLabel, interleave, tokensLabel } from "@/lib/format.ts";
+import type { PlacedBlock } from "@/lib/layout.ts";
+import { type DayFigures, dayFigures } from "@/lib/totals.ts";
 import { cn } from "@/lib/utils.ts";
-
-/** The numbers a day header shows, summed over the day's blocks. */
-export interface DayFigures {
-  /** Blocks on the day; 0 means nothing to show. */
-  shown: number;
-  /** Blocks counted on this day (a block spanning midnight counts on its first day only). */
-  counted: number;
-  busy: number;
-  usage: Usage | null;
-  activity: Activity | null;
-  commits: number;
-  prs: number;
-  trouble: number;
-  /** What kind of snags they were ("" without any), for the places that explain the count. */
-  troubleDetail: string;
-}
-
-/** Sums the day's blocks into the figures its header (or month cell) shows. */
-export function dayFigures(blocks: PlacedBlock[]): DayFigures {
-  const { usage, activity } = totalsOf(blocks);
-  return {
-    shown: blocks.length,
-    counted: blocks.filter(counted).length,
-    busy: busyMs(blocks),
-    usage,
-    activity,
-    commits: activity?.commits ?? 0,
-    prs: activity?.prs ?? 0,
-    trouble: activity ? troubleCount(activity) : 0,
-    troubleDetail: activity ? troubleDetail(activity) : "",
-  };
-}
 
 /** Tokens and cost, with "~" on the cost when some of it couldn't be priced. */
 function usageText(usage: Usage): string {
@@ -121,15 +89,6 @@ function DayFiguresLine({ figures }: { figures: DayFigures }) {
       )}
     </div>
   );
-}
-
-/**
- * The nodes with the separator between them. A line wraps only at a separator, and only after its
- * dot: a non-breaking space before it keeps " · " from starting a line.
- */
-function interleave(nodes: React.ReactElement[], separator: string): React.ReactNode[] {
-  const glued = separator.replace(/^ /, "\u00a0");
-  return nodes.flatMap((node, i) => (i === 0 ? [node] : [glued, node]));
 }
 
 /** Weekday above the day number, then the short figures line when the column has room. */

@@ -9,10 +9,11 @@ import { projectColor } from "@/lib/colors.ts";
 import { dateLabel, durationLabel } from "@/lib/dates.ts";
 import type { SegmentMatch } from "@/lib/filter.ts";
 import { type PlacedBlock, runGroups } from "@/lib/layout.ts";
+import { dayFigures } from "@/lib/totals.ts";
 import { cn } from "@/lib/utils.ts";
 import { BlockTooltip, timeRange } from "./Block.tsx";
 import { MIN_HOUR_PX } from "./constants.ts";
-import { DayTooltip, dayFigures } from "./DayHeader.tsx";
+import { DayTooltip } from "./DayHeader.tsx";
 import { Mark } from "./Mark.tsx";
 
 /** Height of the date line at the top of a cell. */

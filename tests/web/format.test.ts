@@ -4,6 +4,7 @@ import {
   approxCostLabel,
   cacheRate,
   costLabel,
+  interleave,
   modelLabel,
   numberLabel,
   openItemsLine,
@@ -150,5 +151,17 @@ describe("approxCostLabel", () => {
   test("marks unpriced usage with ~", () => {
     expect(approxCostLabel({ costUsd: 1.5, unpriced: false })).toBe("$1.50");
     expect(approxCostLabel({ costUsd: 1.5, unpriced: true })).toBe("~$1.50");
+  });
+});
+
+describe("interleave", () => {
+  test("puts the separator between items, glued to the item before it", () => {
+    expect(interleave(["a", "b", "c"], " · ")).toEqual(["a", "\u00a0· ", "b", "\u00a0· ", "c"]);
+    expect(interleave(["a"], " · ")).toEqual(["a"]);
+    expect(interleave([], " · ")).toEqual([]);
+  });
+
+  test("leaves a separator without a leading space as it is", () => {
+    expect(interleave([1, 2], "・")).toEqual([1, "・", 2]);
   });
 });
