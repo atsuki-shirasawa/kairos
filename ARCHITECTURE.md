@@ -235,7 +235,10 @@ kairos/
 ├── DESIGN.md           # visual design for agents (DESIGN.md format)
 ├── scripts/            # check-jsdoc.ts; screenshots/ (fictional demo week and the capture)
 ├── src/
-│   ├── cli/            # the kairos command (ensure / open / status / stop / restart / serve / ingest / summarize / help); daemon.ts, help.ts
+│   ├── cli/            # the kairos command: index.ts (entry: parse → context → command → exit code), args.ts
+│   │                   #   (validation into a typed context), options.ts (every flag once), errors.ts,
+│   │                   #   commands/ (server, ingest, summarize, browse), help.ts with logo.ts / layout.ts,
+│   │                   #   views.ts, projects.ts, progress.ts, doctor.ts, daemon.ts, style.ts
 │   ├── server/
 │   │   ├── db/         # schema and migrations; kv (reads and writes of the kv table)
 │   │   ├── ingest/     # watcher → files → reader → classify / records → ingester → derived → segments;
