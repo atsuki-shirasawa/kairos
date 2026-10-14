@@ -26,6 +26,8 @@ export const liveMessages = defineMessages({
         `Nothing for ${minutes === 1 ? "1 minute" : `${minutes} minutes`} or more`,
     },
     nothingRunning: "No Claude Code session is running.",
+    /** An empty On you column. */
+    nothingOnYou: "Nothing is waiting on you",
     unavailable:
       "Can't read Claude Code's record of running sessions (~/.claude/sessions). Run kairos doctor.",
     state: {
@@ -58,6 +60,7 @@ export const liveMessages = defineMessages({
       idle: (minutes: number) => `${minutes} 分以上操作がありません`,
     },
     nothingRunning: "起動中の Claude Code セッションはありません。",
+    nothingOnYou: "対応待ちはありません",
     unavailable:
       "Claude Code の起動中セッションの記録（~/.claude/sessions）を読めません。kairos doctor を実行してください。",
     state: {

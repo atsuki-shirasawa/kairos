@@ -426,23 +426,28 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   turn), Working, Idle (nothing for 15 minutes or more). The column names are short status-board
   words kept in English in both languages, like "Live"; their notes are translated. A column heading is 14px medium with its
   count beside it in the numeral face at the heading's size (`warn` for a non-empty On you)
-  and a 12px `muted-ink` note on what puts a session there; an empty column says "None". A card is a
-  work block: the 3px project-colored edge and the dim block fill (`--mix-block-dim`, `--mix-block`
-  on hover), the selected one outlined in `primary`. It shows a 6px state dot and the title (14px
+  and a 12px `muted-ink` note on what puts a session there; an empty column says "None", and an
+  empty On you says "Nothing is waiting on you" and narrows to 13rem, giving its third of the width
+  to the cards. A card keeps a work block's 3px project-colored edge but sits on the neutral `muted`
+  fill (`input` on hover, since `accent` barely differs from `muted` in dark), not the block fill: dim pigment fills on the navy surface read as muddy
+  browns, and the project color in the edge alone leaves `warn` the only color that calls for you.
+  The selected card is outlined in `primary`. An idle session is a single row instead of a card:
+  the edge with no fill (`muted` on hover), the dot, the title on one line with how long it has
+  idled at its right, and the place under it (and "Not in the log yet" when there is nothing to open); its details are in the drawer. A full card shows a 6px state dot and the title (14px
   medium, two lines at most; `muted-ink` when idle), the project, worktree and branch (12px
   `muted-ink`, with a "Background" badge styled like the drawer's Headless one), the state word (only
   in On you, which holds two states; elsewhere the column names it) and how long it has lasted,
   coarsening to whole hours from 3h and days from 24h, with the start time at the right (`numeral`,
   with the date when not today), then what it is doing: the
   question (14px `ink`), the call in flight (tool name in medium, an MCP tool as "server › tool", its summary in `muted-ink`), tasks
-  as a 4px bar in the project color on `muted`, the last test (its word in `warn` when it failed),
+  as a 4px bar in the project color on `input` (the card is already `muted`, which `line` barely differs from), the last test (its word in `warn` when it failed),
   Claude Code's recap while it isn't working (three lines), and the context size. Working pulses the
   dot in the project color, asking is a solid `warn` dot with its state word in `warn`, waiting and
   idle are a `muted-ink` ring. No opacity: cards stay readable. The title is the card's button;
   clicking anywhere else on the card does the same unless it ends a text selection, so a question or
   command can still be copied. It opens the latest work block in the drawer, which floats over the
   page as in the week view; a session not in the log yet has nothing to open, so its card is plain
-  content (no pointer, no hover fill). Only a card that opens takes the hover fill (`--mix-block`),
+  content (no pointer, no hover fill). Only a card or row that opens takes a hover fill (`input` on a card, `muted` on an idle row),
   and keyboard focus on its title draws the 2px `ring` outline around the card. The tab title leads
   with the number waiting on you ("(2) Kairos"), so a background tab still says so
 - **Mark:** `src/web/public/favicon.svg` — a circle with a dawn → evening → night gradient cut by a
@@ -457,7 +462,9 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
 - **Do** use the theme tokens (`bg-card`, `text-muted-foreground`, `text-primary`, `var(--p3)`…);
   **don't** hard-code hex values in components
 - **Do** add new colors to both `:root` and `.dark` in `index.css`, and here
-- **Do** mix project colors in `oklch` into `--block-base`; **don't** mix into `--card` or use opacity
+- **Do** mix project colors in `oklch` into `--block-base`; **don't** mix into `--card` or use opacity.
+  The live page's cards and rows are the exception that uses no block fill at all: `muted` / `input`
+  with the project color only in the edge
 - **Do** use `font-num` for any time, date, count or cost
 - **Don't** add new accent colors, gradients or decorative shadows to the frame — color belongs to
   the work blocks

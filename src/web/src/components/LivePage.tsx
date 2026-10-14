@@ -43,31 +43,50 @@ export function LivePage({
   if (!live) return <div className="min-h-0 flex-1 bg-card" />;
   if (!live.available) return <PageNote>{m.unavailable}</PageNote>;
   if (sessions.length === 0) return <PageNote>{m.nothingRunning}</PageNote>;
-  const byColumn = new Map<LiveColumn, LiveSession[]>(LIVE_COLUMNS.map((c) => [c, []]));
-  for (const s of sessions) byColumn.get(columnOf(liveDisplay(s, now)))?.push(s);
+  const byColumn = new Map<LiveColumn, { s: LiveSession; display: LiveDisplay }[]>(
+    LIVE_COLUMNS.map((c) => [c, []]),
+  );
+  for (const s of sessions) {
+    // Once per session, so the column and the card's form agree at the idle boundary
+    const display = liveDisplay(s, now);
+    byColumn.get(columnOf(display))?.push({ s, display });
+  }
+  const nothingOnYou = byColumn.get("attention")?.length === 0;
   return (
     <div className="min-h-0 flex-1 overflow-y-auto bg-card">
-      <div className="grid gap-x-5 gap-y-6 px-5 py-5 max-lg:px-3 lg:grid-cols-3">
-        {LIVE_COLUMNS.map((column) => (
-          <section key={column} aria-labelledby={`live-${column}`} className="min-w-0">
-            <ColumnHeader column={column} count={byColumn.get(column)?.length ?? 0} />
-            <div className="mt-3 flex flex-col gap-2">
-              {byColumn.get(column)?.map((s) => (
-                <LiveCard
-                  key={s.id}
-                  session={s}
-                  project={s.projectId === null ? undefined : projects.get(s.projectId)}
-                  now={now}
-                  selected={s.id === selectedId}
-                  onSelect={onSelect}
-                />
-              ))}
-              {byColumn.get(column)?.length === 0 && (
-                <p className="text-muted-foreground text-xs">{formatMessages().none}</p>
-              )}
-            </div>
-          </section>
-        ))}
+      <div
+        className={cn(
+          "grid gap-x-5 gap-y-6 px-5 py-5 max-lg:px-3",
+          // An empty On you column only says so: its third of the width goes to the cards
+          nothingOnYou ? "lg:grid-cols-[13rem_1fr_1fr]" : "lg:grid-cols-3",
+        )}
+      >
+        {LIVE_COLUMNS.map((column) => {
+          const entries = byColumn.get(column) ?? [];
+          return (
+            <section key={column} aria-labelledby={`live-${column}`} className="min-w-0">
+              <ColumnHeader column={column} count={entries.length} />
+              <div className="mt-3 flex flex-col gap-2">
+                {entries.map(({ s, display }) => (
+                  <LiveCard
+                    key={s.id}
+                    session={s}
+                    display={display}
+                    project={s.projectId === null ? undefined : projects.get(s.projectId)}
+                    now={now}
+                    selected={s.id === selectedId}
+                    onSelect={onSelect}
+                  />
+                ))}
+                {entries.length === 0 && (
+                  <p className="text-muted-foreground text-xs">
+                    {column === "attention" ? m.nothingOnYou : formatMessages().none}
+                  </p>
+                )}
+              </div>
+            </section>
+          );
+        })}
       </div>
     </div>
   );
@@ -108,29 +127,33 @@ function PageNote({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * One running session as a small work block: the project's colored edge and dim fill, what it
- * is called and where, its state and how long it has lasted, then what it is doing now.
+ * One running session as a card: the project's colored edge on a neutral raised fill, what it is
+ * called and where, its state and how long it has lasted, then what it is doing now. An idle
+ * session is a single row instead (title, place and how long), with no fill: it was left open, so
+ * it shouldn't weigh as much as the sessions in play. Its details are in the drawer.
  */
 function LiveCard({
   session: s,
+  display,
   project,
   now,
   selected,
   onSelect,
 }: {
   session: LiveSession;
+  display: LiveDisplay;
   project: Project | undefined;
   now: number;
   selected: boolean;
   onSelect: (session: string, at: number) => void;
 }) {
   const m = liveMessages();
-  const display = liveDisplay(s, now);
   const name = s.title ?? s.name ?? dirName(s.cwd);
   const duration = elapsedLabel(now - s.since);
   const section = s.section;
   // A session not in the log yet has no block to open: its card is plain content
   const open = section === null ? null : () => onSelect(s.id, section);
+  const compact = display === "idle";
   return (
     // The title is the card's button, for the keyboard and screen readers; a click anywhere else
     // on the card does the same, unless it ends a text selection (a command or question to copy).
@@ -141,9 +164,10 @@ function LiveCard({
         if (open && !window.getSelection()?.toString()) open();
       }}
       className={cn(
-        "flex flex-col gap-2 rounded-r-md rounded-l-[3px] border-l-[3px] border-l-[var(--c)] bg-[color-mix(in_oklch,var(--c)_var(--mix-block-dim),var(--block-base))] px-3 py-2.5 has-[button:focus-visible]:outline-2 has-[button:focus-visible]:outline-ring",
-        open &&
-          "cursor-pointer hover:bg-[color-mix(in_oklch,var(--c)_var(--mix-block),var(--block-base))]",
+        "flex flex-col rounded-r-md rounded-l-[3px] border-l-[3px] border-l-[var(--c)] has-[button:focus-visible]:outline-2 has-[button:focus-visible]:outline-ring",
+        compact ? "px-3 py-1.5" : "gap-2 bg-muted px-3 py-2.5",
+        open && "cursor-pointer",
+        open && (compact ? "hover:bg-muted" : "hover:bg-input"),
         selected && "outline-2 outline-primary",
       )}
       style={{ "--c": projectColor(project) } as React.CSSProperties}
@@ -156,27 +180,38 @@ function LiveCard({
         selected={selected}
         description={m.status(m.state[display], duration)}
         onOpen={open}
+        compact={compact}
+        duration={duration}
       />
-      <p className="flex items-baseline gap-1 text-xs">
-        {/* Only the waiting column holds two states; elsewhere the column already names it */}
-        {columnOf(display) === "attention" && (
-          <span className={display === "asking" ? "text-warn" : "text-muted-foreground"}>
-            {m.state[display]}
-          </span>
-        )}
-        <span className="font-num text-muted-foreground">{duration}</span>
-        <span className="ml-auto font-num text-muted-foreground">
-          {m.startedAt(timeOrDateTime(s.startedAt, now))}
-        </span>
-      </p>
-      <CardNow session={s} display={display} />
+      {/* A row has no room for more, but this says why it has nothing to open */}
+      {compact && section === null && (
+        <p className="pl-3.5 text-muted-foreground text-xs">{m.notIngested}</p>
+      )}
+      {!compact && (
+        <>
+          <p className="flex items-baseline gap-1 text-xs">
+            {/* Only the waiting column holds two states; elsewhere the column already names it */}
+            {columnOf(display) === "attention" && (
+              <span className={display === "asking" ? "text-warn" : "text-muted-foreground"}>
+                {m.state[display]}
+              </span>
+            )}
+            <span className="font-num text-muted-foreground">{duration}</span>
+            <span className="ml-auto font-num text-muted-foreground">
+              {m.startedAt(timeOrDateTime(s.startedAt, now))}
+            </span>
+          </p>
+          <CardNow session={s} display={display} />
+        </>
+      )}
     </article>
   );
 }
 
 /**
  * The state dot, the title, and the project, worktree and branch it runs in. The title is the
- * button that opens the latest block, when there is one.
+ * button that opens the latest block, when there is one. In an idle row the title keeps to one
+ * line, with the duration at its right.
  */
 function CardHeading({
   session: s,
@@ -186,6 +221,8 @@ function CardHeading({
   selected,
   description,
   onOpen,
+  compact,
+  duration,
 }: {
   session: LiveSession;
   project: Project | undefined;
@@ -195,6 +232,9 @@ function CardHeading({
   /** The state and how long it has lasted, said after the title. */
   description: string;
   onOpen: (() => void) | null;
+  /** An idle row rather than a full card. */
+  compact: boolean;
+  duration: string;
 }) {
   const m = liveMessages();
   const f = formatMessages();
@@ -209,7 +249,7 @@ function CardHeading({
         <StateDot display={display} />
         <h3
           className={cn(
-            "line-clamp-2 min-w-0 font-medium text-sm",
+            "min-w-0 font-medium text-sm",
             display === "idle" && "text-muted-foreground",
           )}
         >
@@ -223,14 +263,20 @@ function CardHeading({
               }}
               aria-pressed={selected}
               aria-description={description}
-              className="text-left outline-none"
+              className="block text-left outline-none"
             >
-              {name}
+              <Clamped compact={compact}>{name}</Clamped>
             </button>
           ) : (
-            name
+            <Clamped compact={compact}>{name}</Clamped>
           )}
         </h3>
+        {compact && (
+          // The title button's description already says it
+          <span aria-hidden className="ml-auto shrink-0 font-num text-muted-foreground text-xs">
+            {duration}
+          </span>
+        )}
       </div>
       <p className="mt-0.5 flex min-w-0 items-center gap-1.5 pl-3.5 text-muted-foreground text-xs">
         <span className="truncate">{where}</span>
@@ -278,14 +324,17 @@ function CardNow({ session: s, display }: { session: LiveSession; display: LiveD
   );
 }
 
-/** Tasks done out of all, as a thin bar in the project color, and the one in progress. */
+/**
+ * Tasks done out of all, as a thin bar in the project color on the input tone (the card is already
+ * `muted`, and `border` barely differs from it), and the one in progress.
+ */
 function TaskProgress({ tasks }: { tasks: NonNullable<LiveSession["tasks"]> }) {
   const m = liveMessages();
   return (
     <div>
       <div className="flex items-center gap-2">
         <span className="shrink-0 font-num">{m.tasks(tasks.done, tasks.total)}</span>
-        <span className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
+        <span className="h-1 flex-1 overflow-hidden rounded-full bg-input">
           <span
             className="block h-full rounded-full bg-[var(--c)]"
             style={{ width: `${(tasks.done / Math.max(tasks.total, 1)) * 100}%` }}
@@ -295,6 +344,14 @@ function TaskProgress({ tasks }: { tasks: NonNullable<LiveSession["tasks"]> }) {
       {tasks.current && <p className="mt-0.5 truncate text-muted-foreground">{tasks.current}</p>}
     </div>
   );
+}
+
+/**
+ * The title text, clamped to one line in an idle row and two in a card. The clamp sits on the text
+ * itself: on the heading it would count the inline-block button as a single line and clip nothing.
+ */
+function Clamped({ compact, children }: { compact: boolean; children: React.ReactNode }) {
+  return <span className={compact ? "line-clamp-1" : "line-clamp-2"}>{children}</span>;
 }
 
 /**
