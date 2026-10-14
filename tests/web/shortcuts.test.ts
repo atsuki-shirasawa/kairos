@@ -1,5 +1,39 @@
 import { describe, expect, test } from "bun:test";
-import { shortcutFor } from "../../src/web/src/lib/shortcuts.ts";
+import { keyCap, SHORTCUT_GROUPS, shortcutFor } from "../../src/web/src/lib/shortcuts.ts";
+
+describe("keyCap", () => {
+  test("writes each shortcut's key as the menu and tooltips show it", () => {
+    expect(keyCap("prevPeriod")).toBe("←");
+    expect(keyCap("nextPeriod")).toBe("→");
+    expect(keyCap("today")).toBe("t");
+    expect(keyCap("list")).toBe("l");
+    expect(keyCap("search")).toBe("/");
+    expect(keyCap("close")).toBe("Esc");
+    expect(keyCap("menu")).toBe("?");
+  });
+});
+
+describe("SHORTCUT_GROUPS", () => {
+  test("lists every shortcut exactly once", () => {
+    const listed = SHORTCUT_GROUPS.flatMap((g) => g.shortcuts);
+    expect(new Set(listed).size).toBe(listed.length);
+    expect(listed.length).toBe(15);
+  });
+
+  test("keeps the menu's lines and key caps", () => {
+    expect(SHORTCUT_GROUPS.map((g) => g.shortcuts.map(keyCap))).toEqual([
+      ["←", "→"],
+      ["t"],
+      ["m", "w", "d"],
+      ["c", "s", "n"],
+      ["l"],
+      ["j", "k"],
+      ["/"],
+      ["Esc"],
+      ["?"],
+    ]);
+  });
+});
 
 describe("shortcutFor", () => {
   test("maps the documented keys", () => {

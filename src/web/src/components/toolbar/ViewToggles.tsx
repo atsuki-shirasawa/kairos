@@ -9,15 +9,16 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import { toolbarMessages } from "@/i18n/messages/toolbar.ts";
 import type { Layout, View } from "@/lib/dates.ts";
+import { keyCap } from "@/lib/shortcuts.ts";
 import { SEGMENT, SEGMENTED } from "./segmented.ts";
 
 /** The periods in the dropdown, largest first, with their labels and shortcut keys. */
 function views(): [View, string, string][] {
   const m = toolbarMessages();
   return [
-    ["month", m.month, "m"],
-    ["week", m.week, "w"],
-    ["day", m.day, "d"],
+    ["month", m.month, keyCap("month")],
+    ["week", m.week, keyCap("week")],
+    ["day", m.day, keyCap("day")],
   ];
 }
 
@@ -78,7 +79,7 @@ export function LayoutToggle({
         value="calendar"
         className={SEGMENT}
         aria-label={m.calendar}
-        title={`${m.calendar} (c)`}
+        title={`${m.calendar} (${keyCap("calendar")})`}
       >
         <CalendarDays />
       </ToggleGroupItem>
@@ -86,7 +87,7 @@ export function LayoutToggle({
         value="summary"
         className={SEGMENT}
         aria-label={m.summary}
-        title={`${m.summary} (s)`}
+        title={`${m.summary} (${keyCap("summary")})`}
       >
         <ChartColumn />
       </ToggleGroupItem>

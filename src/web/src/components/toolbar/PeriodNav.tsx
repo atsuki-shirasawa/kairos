@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { toolbarMessages } from "@/i18n/messages/toolbar.ts";
 import type { View } from "@/lib/dates.ts";
+import { keyCap } from "@/lib/shortcuts.ts";
 
 /**
  * Previous / today / next, kept together by spacing rather than a shared frame. It sits left of
@@ -24,7 +25,7 @@ export function PeriodNav({
         size="icon"
         onClick={() => onMove(-1)}
         aria-label={m.prev(view)}
-        title={`${m.prev(view)} (←)`}
+        title={`${m.prev(view)} (${keyCap("prevPeriod")})`}
       >
         <ChevronLeft />
       </Button>
@@ -33,7 +34,7 @@ export function PeriodNav({
         size="default"
         className="px-2.5"
         onClick={onToday}
-        title={`${m.today} (t)`}
+        title={`${m.today} (${keyCap("today")})`}
       >
         {m.today}
       </Button>
@@ -42,7 +43,7 @@ export function PeriodNav({
         size="icon"
         onClick={() => onMove(1)}
         aria-label={m.next(view)}
-        title={`${m.next(view)} (→)`}
+        title={`${m.next(view)} (${keyCap("nextPeriod")})`}
       >
         <ChevronRight />
       </Button>

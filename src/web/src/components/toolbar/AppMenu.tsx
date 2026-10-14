@@ -7,6 +7,7 @@ import { useShowHeadless } from "@/hooks/queries.ts";
 import type { Theme } from "@/hooks/useTheme.ts";
 import { LOCALES, type Locale, setLocale, useLocale } from "@/i18n/index.ts";
 import { toolbarMessages } from "@/i18n/messages/toolbar.ts";
+import { keyCap, SHORTCUT_GROUPS, type ShortcutGroup } from "@/lib/shortcuts.ts";
 import { cn } from "@/lib/utils.ts";
 import { SEGMENT, SEGMENTED } from "./segmented.ts";
 
@@ -23,20 +24,29 @@ function themes(): [Theme, string, typeof Sun][] {
 /** Each language's name is written in that language, so it can be found from either side. */
 const LANGUAGE_NAMES: Record<Locale, string> = { en: "English", ja: "日本語" };
 
-/** The keyboard shortcuts. The keys are handled in App.tsx's keydown listener. */
-function shortcuts(): [string[], string][] {
+/** The menu's label for each line of the shortcut list. */
+function groupLabel(group: ShortcutGroup): string {
   const m = toolbarMessages();
-  return [
-    [["←", "→"], m.shortcutPeriod],
-    [["t"], m.shortcutToday],
-    [["m", "w", "d"], m.shortcutView],
-    [["c", "s", "n"], m.shortcutLayout],
-    [["l"], m.shortcutTable],
-    [["j", "k"], m.shortcutStep],
-    [["/"], m.shortcutSearch],
-    [["Esc"], m.shortcutClose],
-    [["?"], m.shortcutMenu],
-  ];
+  const labels: Record<ShortcutGroup, string> = {
+    period: m.shortcutPeriod,
+    today: m.shortcutToday,
+    view: m.shortcutView,
+    layout: m.shortcutLayout,
+    table: m.shortcutTable,
+    step: m.shortcutStep,
+    search: m.shortcutSearch,
+    close: m.shortcutClose,
+    menu: m.shortcutMenu,
+  };
+  return labels[group];
+}
+
+/** The keyboard shortcuts as key caps and labels, from the key map in lib/shortcuts.ts. */
+function shortcuts(): [string[], string][] {
+  return SHORTCUT_GROUPS.map(({ group, shortcuts: members }) => [
+    members.map(keyCap),
+    groupLabel(group),
+  ]);
 }
 
 /**

@@ -3,6 +3,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import { summaryMessages } from "@/i18n/messages/summary.ts";
 import type { View } from "@/lib/dates.ts";
 import type { SegmentMatch } from "@/lib/filter.ts";
+import { keyCap } from "@/lib/shortcuts.ts";
 import { ByDay } from "./summary/ByDay.tsx";
 import { ByProject } from "./summary/ByProject.tsx";
 import { Done } from "./summary/Done.tsx";
@@ -11,7 +12,7 @@ import { Totals } from "./summary/Totals.tsx";
 import { usePeriodSummaries } from "./summary/usePeriodSummaries.ts";
 import { useProjectOpenItems } from "./summary/useProjectOpenItems.ts";
 import { useProjectRecaps } from "./summary/useProjectRecaps.ts";
-import { SEGMENT, SEGMENTED } from "./Toolbar.tsx";
+import { SEGMENT, SEGMENTED } from "./toolbar/segmented.ts";
 
 interface Props {
   view: View;
@@ -129,10 +130,14 @@ export function SummaryTabs({
       onValueChange={(v) => v && onTable(v === "table")}
       aria-label={m.tabs}
     >
-      <ToggleGroupItem value="overview" className={SEGMENT} title={`${m.overview} (s)`}>
+      <ToggleGroupItem
+        value="overview"
+        className={SEGMENT}
+        title={`${m.overview} (${keyCap("summary")})`}
+      >
         {m.overview}
       </ToggleGroupItem>
-      <ToggleGroupItem value="table" className={SEGMENT} title={`${m.table} (l)`}>
+      <ToggleGroupItem value="table" className={SEGMENT} title={`${m.table} (${keyCap("list")})`}>
         {m.table}
       </ToggleGroupItem>
     </ToggleGroup>
