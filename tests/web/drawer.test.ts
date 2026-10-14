@@ -12,7 +12,6 @@ import {
   spansDays,
   splitOutcomes,
   splitSubagents,
-  summaryFailureKind,
 } from "../../src/web/src/lib/drawer.ts";
 
 const DAY0 = new Date(2026, 9, 5).getTime(); // 2026-10-05 00:00
@@ -169,16 +168,6 @@ describe("approxCostLabel", () => {
     const u = { costUsd: 1.5, unpriced: false } as Parameters<typeof approxCostLabel>[0];
     expect(approxCostLabel(u)).not.toStartWith("~");
     expect(approxCostLabel({ ...u, unpriced: true })).toStartWith("~");
-  });
-});
-
-describe("summaryFailureKind", () => {
-  test("classifies the server's failure messages", () => {
-    expect(summaryFailureKind("Not logged in · Please run /login")).toBe("login");
-    expect(summaryFailureKind("claude command not found")).toBe("noClaude");
-    expect(summaryFailureKind("did not finish within 120s")).toBe("timeout");
-    expect(summaryFailureKind("API Error: 529 overloaded")).toBe("rateLimit");
-    expect(summaryFailureKind("something else")).toBe("other");
   });
 });
 

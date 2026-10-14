@@ -1,8 +1,8 @@
 import type { Recap } from "@shared/api.ts";
+import { summaryFailureKind } from "@shared/summaryFailure.ts";
 import { Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { summaryMessages } from "@/i18n/messages/summary.ts";
-import { summaryFailureKind } from "@/lib/drawer.ts";
 import { failureHint } from "../drawer/failureHint.ts";
 import { Hint } from "../Hint.tsx";
 import { Markdown } from "../Markdown.tsx";

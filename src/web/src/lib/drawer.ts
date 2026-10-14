@@ -122,21 +122,6 @@ export function approxCostLabel(u: Usage): string {
   return `${u.unpriced ? "~" : ""}${costLabel(u.costUsd)}`;
 }
 
-/** Why a summary failed, as far as the next step for the user goes. */
-export type SummaryFailureKind = "login" | "noClaude" | "timeout" | "rateLimit" | "other";
-
-/**
- * Classifies the failure reason (the error output of `claude -p`) so the drawer can suggest what
- * to do next. Matches the server's own (English) messages.
- */
-export function summaryFailureKind(error: string): SummaryFailureKind {
-  if (/not logged in|log ?in|authenticat/i.test(error)) return "login";
-  if (/claude command not found/i.test(error)) return "noClaude";
-  if (/did not finish within|timed out/i.test(error)) return "timeout";
-  if (/rate.?limit|usage limit|overloaded|\b(429|529)\b/i.test(error)) return "rateLimit";
-  return "other";
-}
-
 /**
  * The node to set beside a summary's Outcome: a PR when it names one of the section's PRs by
  * number, a commit when it names one of its commits by SHA, otherwise none. Only outcomes the

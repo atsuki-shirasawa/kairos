@@ -1,4 +1,5 @@
 import { mkdirSync } from "node:fs";
+import { CLAUDE_NOT_FOUND, timedOutMessage } from "../../shared/summaryFailure.ts";
 
 /** A `claude -p` run failed (no command, timeout, exit code). The message is shown in the UI. */
 export class SummaryError extends Error {}
@@ -41,7 +42,7 @@ export interface ClaudeOptions {
  */
 export async function runClaude(prompt: string, opts: ClaudeOptions): Promise<string> {
   const exe = Bun.which("claude");
-  if (!exe) throw new SummaryError("claude command not found");
+  if (!exe) throw new SummaryError(CLAUDE_NOT_FOUND);
   mkdirSync(opts.cwd, { recursive: true });
   const proc = Bun.spawn(
     [
@@ -79,8 +80,7 @@ export async function runClaude(prompt: string, opts: ClaudeOptions): Promise<st
       proc.exited,
     ]);
     // The exit code of a killed process doesn't say why, so say it timed out
-    if (timedOut)
-      throw new SummaryError(`Did not finish within ${Math.round(timeoutMs / 1000)} seconds`);
+    if (timedOut) throw new SummaryError(timedOutMessage(Math.round(timeoutMs / 1000)));
     if (code !== 0 || !out.trim()) {
       throw new SummaryError((err || out || `exit code ${code}`).trim().slice(0, 500));
     }

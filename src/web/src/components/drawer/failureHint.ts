@@ -1,5 +1,5 @@
+import type { SummaryFailureKind } from "@shared/summaryFailure.ts";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
-import type { SummaryFailureKind } from "@/lib/drawer.ts";
 
 /**
  * What to do next about a failed `claude -p` run. Shared by section summaries and recaps, which

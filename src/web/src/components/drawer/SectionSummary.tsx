@@ -1,5 +1,6 @@
 import type { LedgerEntry, Section, SessionDetail } from "@shared/api.ts";
 import { type OpenItem, parseSummaryBody, type SummaryParts } from "@shared/summaryBody.ts";
+import { summaryFailureKind } from "@shared/summaryFailure.ts";
 import { RefreshCw, Sparkles } from "lucide-react";
 import { type RefObject, useLayoutEffect, useRef, useState } from "react";
 import { MomentNode } from "@/components/MomentNode.tsx";
@@ -7,7 +8,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { useRequestSummary } from "@/hooks/queries.ts";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import { dateLabel } from "@/lib/dates.ts";
-import { outcomeNode, splitOutcomes, summaryFailureKind } from "@/lib/drawer.ts";
+import { outcomeNode, splitOutcomes } from "@/lib/drawer.ts";
 import { modelLabel } from "@/lib/format.ts";
 import { issueBaseUrl } from "@/lib/issueLinks.ts";
 import { cn } from "@/lib/utils.ts";
