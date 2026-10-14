@@ -103,6 +103,30 @@ function liveCost(
   section: number | null,
   now: number,
 ): LiveCost | null {
+  const next = requestCosts(latest, ttl);
+  if (!next) return null;
+  const recent = sessionSpend(db, sessionId, now - LIVE_RATE_WINDOW_MS, now);
+  return {
+    blockUsd: section === null ? 0 : sessionSpend(db, sessionId, section, now),
+    perHourUsd: ratePerHour(recent, LIVE_RATE_WINDOW_MS),
+    warmRequestUsd: next.warm,
+    coldRequestUsd: next.cold,
+  };
+}
+
+/** What the next request costs, depending on whether the prompt cache is still warm. */
+export interface RequestCosts {
+  /** The cache is warm: the whole context is a cache read. */
+  warm: number;
+  /** The cache expired: the whole context is written to the cache again, at `ttl`'s price. */
+  cold: number;
+}
+
+/**
+ * What the next request after `latest` costs with a warm and with a cold cache (`ttl` picks the
+ * 5-minute or 1-hour write price), or null when the model has no price.
+ */
+export function requestCosts(latest: LatestResponse, ttl: number): RequestCosts | null {
   const none = { input: 0, output: 0, cacheRead: 0, cacheWrite5m: 0, cacheWrite1h: 0 };
   const warm = costOf(latest.model, { ...none, cacheRead: latest.context }, latest.speed);
   const cold = costOf(
@@ -113,13 +137,12 @@ function liveCost(
     latest.speed,
   );
   if (warm === null || cold === null) return null;
-  const recent = sessionSpend(db, sessionId, now - LIVE_RATE_WINDOW_MS, now);
-  return {
-    blockUsd: section === null ? 0 : sessionSpend(db, sessionId, section, now),
-    perHourUsd: (recent * HOUR) / LIVE_RATE_WINDOW_MS,
-    warmRequestUsd: warm,
-    coldRequestUsd: cold,
-  };
+  return { warm, cold };
+}
+
+/** Spend over a window of `windowMs`, as USD per hour. */
+export function ratePerHour(usd: number, windowMs: number): number {
+  return (usd * HOUR) / windowMs;
 }
 
 /** The session's priced spend within a time range. */
@@ -134,10 +157,14 @@ interface SpendRow extends UsageRow {
 }
 
 /** A bucket's priced spend for one project. */
-interface BucketSpend {
+export interface BucketSpend {
+  /** Index of the bucket, counted from the start of the range. */
   bucket: number;
+  /** The project, or null for sessions without one. */
   projectId: number | null;
+  /** Priced spend. */
   usd: number;
+  /** Some of the usage was by a model with no price and is left out of `usd`. */
   unpriced: boolean;
 }
 
@@ -189,32 +216,45 @@ export function liveSpend(db: Database, visibility: LiveVisibility, now: number)
     now,
     LIVE_RATE_WINDOW_MS + 1,
   );
-  // Edges on whole 5 minutes, so they meet the hour ticks and hold still across refetches; the
-  // last bucket is the one in progress and ends at `now`
-  const from =
-    Math.floor(now / SPEND_BUCKET_MS) * SPEND_BUCKET_MS - (SPEND_BUCKETS - 1) * SPEND_BUCKET_MS;
-  const buckets: Map<number | null, number>[] = Array.from(
-    { length: SPEND_BUCKETS },
-    () => new Map(),
-  );
-  for (const b of visibleSpend(db, visibility, from, now, SPEND_BUCKET_MS)) {
-    // Every response falls within the last bucket at the latest; the clamp is a guard
-    const bucket = buckets[Math.min(b.bucket, SPEND_BUCKETS - 1)];
-    bucket?.set(b.projectId, (bucket.get(b.projectId) ?? 0) + b.usd);
-  }
+  const from = spendWindowStart(now);
   return {
     todayUsd: sum(today),
-    perHourUsd: (sum(recent) * HOUR) / LIVE_RATE_WINDOW_MS,
+    perHourUsd: ratePerHour(sum(recent), LIVE_RATE_WINDOW_MS),
     from,
     to: now,
-    buckets: buckets.map((m) =>
-      [...m]
-        .filter(([, usd]) => usd > 0)
-        .map(([projectId, usd]) => ({ projectId, usd }))
-        .sort((a, b) => b.usd - a.usd),
-    ),
+    buckets: bucketize(visibleSpend(db, visibility, from, now, SPEND_BUCKET_MS), SPEND_BUCKETS),
     unpriced: today.some((b) => b.unpriced),
   };
+}
+
+/**
+ * Start of the band's first bucket. Edges fall on whole `SPEND_BUCKET_MS`, so they meet the hour
+ * ticks and hold still across refetches; the last of the `SPEND_BUCKETS` is the one in progress
+ * and ends at `now`.
+ */
+export function spendWindowStart(now: number): number {
+  return (
+    Math.floor(now / SPEND_BUCKET_MS) * SPEND_BUCKET_MS - (SPEND_BUCKETS - 1) * SPEND_BUCKET_MS
+  );
+}
+
+/**
+ * Folds spend rows into `count` buckets of spend by project: projects with a positive total only,
+ * largest first.
+ */
+export function bucketize(spends: readonly BucketSpend[], count: number): LiveSpend["buckets"] {
+  const buckets: Map<number | null, number>[] = Array.from({ length: count }, () => new Map());
+  for (const b of spends) {
+    // Every response falls within the last bucket at the latest; the clamp is a guard
+    const bucket = buckets[Math.min(b.bucket, count - 1)];
+    bucket?.set(b.projectId, (bucket.get(b.projectId) ?? 0) + b.usd);
+  }
+  return buckets.map((m) =>
+    [...m]
+      .filter(([, usd]) => usd > 0)
+      .map(([projectId, usd]) => ({ projectId, usd }))
+      .sort((a, b) => b.usd - a.usd),
+  );
 }
 
 /** Total of priced spend. */
