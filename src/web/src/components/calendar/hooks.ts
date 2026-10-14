@@ -1,4 +1,5 @@
 import { type RefObject, useCallback, useLayoutEffect, useState } from "react";
+import { useResizeObserver } from "@/hooks/useResizeObserver.ts";
 import { type Edges, findEdges, NO_EDGES, sameEdges } from "@/lib/calendarEdges.ts";
 import type { PlacedBlock } from "@/lib/layout.ts";
 import { reveal } from "@/lib/reveal.ts";
@@ -18,41 +19,27 @@ export interface GridSize {
  */
 export function useGridSize(ref: RefObject<HTMLDivElement | null>): GridSize {
   const [size, setSize] = useState<GridSize>({ hourPx: MIN_HOUR_PX, viewportPx: 0, widthPx: 0 });
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const measure = () => {
-      const viewportPx = el.clientHeight;
-      const widthPx = el.clientWidth;
-      // A quarter hour of slack at each end, so the first and last hour labels (centered on
-      // their line) aren't cut in half by the edges of the scroll area
-      const hourPx = Math.max(MIN_HOUR_PX, viewportPx / (VIEW_END - VIEW_START + 0.5));
-      setSize((prev) =>
-        prev.hourPx === hourPx && prev.viewportPx === viewportPx && prev.widthPx === widthPx
-          ? prev
-          : { hourPx, viewportPx, widthPx },
-      );
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [ref]);
+  const measure = useCallback((el: HTMLDivElement) => {
+    const viewportPx = el.clientHeight;
+    const widthPx = el.clientWidth;
+    // A quarter hour of slack at each end, so the first and last hour labels (centered on
+    // their line) aren't cut in half by the edges of the scroll area
+    const hourPx = Math.max(MIN_HOUR_PX, viewportPx / (VIEW_END - VIEW_START + 0.5));
+    setSize((prev) =>
+      prev.hourPx === hourPx && prev.viewportPx === viewportPx && prev.widthPx === widthPx
+        ? prev
+        : { hourPx, viewportPx, widthPx },
+    );
+  }, []);
+  useResizeObserver(ref, measure);
   return size;
 }
 
 /** The element's height in px, re-measured as it resizes (0 before the first measure). */
 export function useElementHeight(ref: RefObject<HTMLElement | null>): number {
   const [height, setHeight] = useState(0);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const measure = () => setHeight(el.clientHeight);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [ref]);
+  const measure = useCallback((el: HTMLElement) => setHeight(el.clientHeight), []);
+  useResizeObserver(ref, measure);
   return height;
 }
 
