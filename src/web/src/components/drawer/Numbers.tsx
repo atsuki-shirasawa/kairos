@@ -2,6 +2,7 @@ import type { Activity, Section, SessionDetail, Usage } from "@shared/api.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import { durationLabel } from "@/lib/dates.ts";
+import { usageShown } from "@/lib/drawer.ts";
 import {
   approxCostLabel,
   cacheRate,
@@ -30,7 +31,7 @@ export function Numbers({
   onOpen: (open: boolean) => void;
 }) {
   const t = drawerMessages();
-  const u = section ? section.usage : s.usage;
+  const u = usageShown(s, section);
   if (!u && !section) return null;
   if (!open) return <CollapsedNumbers usage={u} section={section} onOpen={() => onOpen(true)} />;
   return (
@@ -88,7 +89,7 @@ function UsageBlock({
   action?: React.ReactNode;
 }) {
   const t = drawerMessages();
-  const u = section ? section.usage : s.usage;
+  const u = usageShown(s, section);
   const showTotal = s.usage && section && (s.sections.length > 1 || u?.tokens !== s.usage.tokens);
   return (
     <Block title={section ? t.sectionUsage : t.usage} action={action}>
@@ -170,14 +171,7 @@ function ActivityBlock({ section }: { section: Section }) {
     <Block title={t.sectionActivity}>
       <dl className="grid grid-cols-3 gap-x-4 gap-y-2.5 text-sm">
         {items.map(([label, value, title]) => (
-          <div key={label} className="min-w-0">
-            <dt className="truncate text-[11px] text-muted-foreground">
-              <Hint text={title} focusable>
-                {label}
-              </Hint>
-            </dt>
-            <dd className="font-medium font-num tabular-nums">{value}</dd>
-          </div>
+          <Stat key={label} label={label} value={value} title={title} />
         ))}
       </dl>
     </Block>
@@ -212,8 +206,19 @@ function Trouble({ activity: a }: { activity: Activity }) {
   );
 }
 
-/** Label over value, the same as the activity grid, so the drawer has one way of showing a number. */
-function Stat({ label, value, title }: { label: string; value: string; title?: string }) {
+/**
+ * A number under its label, explained on hover when there is a note. The usage and activity grids
+ * both use it, so the drawer has one way of showing a number.
+ */
+function Stat({
+  label,
+  value,
+  title,
+}: {
+  label: string;
+  value: React.ReactNode;
+  title?: string | undefined;
+}) {
   return (
     <div className="min-w-0">
       <dt className="truncate text-[11px] text-muted-foreground">

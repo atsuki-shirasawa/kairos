@@ -1,7 +1,7 @@
 // Pure decisions behind the session drawer: which section is selected, which periods the flow
 // shows, and how outcomes, subagents and summary failures are grouped. Kept free of React and
 // messages so they can be tested on their own.
-import type { Artifact, Section, SessionDetail, Subagent } from "@shared/api.ts";
+import type { Artifact, Section, SessionDetail, Subagent, Usage } from "@shared/api.ts";
 import { ARTIFACT_GRACE_MS } from "@shared/constants.ts";
 import type { SummaryParts } from "@shared/summaryBody.ts";
 import { type OutcomeNode, outcomeNode } from "./artifacts.ts";
@@ -10,6 +10,14 @@ import { isSameDay } from "./dates.ts";
 /** The section starting at `at`, falling back to the last one (also when `at` is null). */
 export function selectedSection(sections: Section[], at: number | null): Section | null {
   return sections.find((x) => x.start === at) ?? sections.at(-1) ?? null;
+}
+
+/** The usage the drawer's numbers show: the selected section's, or the whole session's without one. */
+export function usageShown(
+  session: Pick<SessionDetail, "usage">,
+  section: Section | null,
+): Usage | null {
+  return section ? section.usage : session.usage;
 }
 
 /** Whether the sections span more than one calendar day, so each period needs a date. */

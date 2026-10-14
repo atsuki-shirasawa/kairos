@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Activity, Artifact, Section, Subagent } from "../../src/shared/api.ts";
+import type { Activity, Artifact, Section, Subagent, Usage } from "../../src/shared/api.ts";
 import { ARTIFACT_GRACE_MS } from "../../src/shared/constants.ts";
 import type { SummaryParts } from "../../src/shared/summaryBody.ts";
 import {
@@ -10,6 +10,7 @@ import {
   splitOutcomes,
   splitSubagents,
   summaryOutcomeNode,
+  usageShown,
 } from "../../src/web/src/lib/drawer.ts";
 
 const DAY0 = new Date(2026, 9, 5).getTime(); // 2026-10-05 00:00
@@ -133,6 +134,19 @@ describe("splitSubagents", () => {
 
   test("without a section, none ran during it", () => {
     expect(ranDuring(subagent(DAY0, DAY0 + 1), null)).toBe(false);
+  });
+});
+
+describe("usageShown", () => {
+  const usage = (tokens: number) => ({ tokens }) as Usage;
+
+  test("the selected section's usage, even when it has none", () => {
+    expect(usageShown({ usage: usage(9) }, { ...section(DAY0), usage: usage(3) })?.tokens).toBe(3);
+    expect(usageShown({ usage: usage(9) }, section(DAY0))).toBeNull();
+  });
+
+  test("the session's usage without a selection", () => {
+    expect(usageShown({ usage: usage(9) }, null)?.tokens).toBe(9);
   });
 });
 
