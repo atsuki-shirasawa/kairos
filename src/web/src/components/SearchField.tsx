@@ -1,12 +1,12 @@
 import type { Project, SearchHit } from "@shared/api.ts";
 import { MIN_SEARCH_CHARS } from "@shared/constants.ts";
-import { isProjectShown } from "@shared/projects.ts";
 import { FileCode, Search, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { searchMessages } from "@/i18n/messages/search.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { dateLabel, hhmm, type View } from "@/lib/dates.ts";
+import { highlightTerms, splitHighlights, visibleHits } from "@/lib/search.ts";
 import { cn } from "@/lib/utils.ts";
 
 /** Cross-period search results as the search panel shows them (owned by App's search query). */
@@ -56,8 +56,7 @@ export function SearchField({
   useEffect(() => onPanel(open), [open, onPanel]);
   // In a narrow window the field is just its icon until used; the button would stick out
   const showFiles = focused || value !== "" || files;
-  // Hidden projects stay hidden here too
-  const hits = search.hits.filter((h) => isProjectShown(projects, h.projectId));
+  const hits = visibleHits(search.hits, projects);
   const items = () => [...(listRef.current?.querySelectorAll("button") ?? [])];
 
   const pick = (hit: SearchHit) => {
@@ -228,11 +227,6 @@ function searchPadding(hasQuery: boolean): string {
   return "pr-7 max-lg:pr-0 max-lg:group-focus-within:pr-7";
 }
 
-/** The words to mark in results: the query's terms, with a `file:` prefix taken off its path. */
-function highlightTerms(query: string): string[] {
-  return query.split(/\s+/).map((t) => t.replace(/^file:/i, ""));
-}
-
 /** Points at the file button (and the `file:` syntax it stands for) while the button is off. */
 function FileHint() {
   return <span className="mt-1 block text-xs">{searchMessages().fileHint}</span>;
@@ -298,18 +292,14 @@ function HitRow({
 
 /** Marks every occurrence of the search terms, ignoring case. */
 function Highlight({ text, terms }: { text: string; terms: string[] }) {
-  const words = terms.filter(Boolean).map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  if (words.length === 0) return text;
-  const parts = text.split(new RegExp(`(${words.join("|")})`, "gi"));
-  return parts.map((part, i) =>
-    // Odd indexes are the captured matches
-    i % 2 === 1 ? (
+  return splitHighlights(text, terms).map((part, i) =>
+    part.match ? (
       // biome-ignore lint/suspicious/noArrayIndexKey: parts of one fixed string, never reordered
       <mark key={i} className="rounded-sm bg-primary/15 text-inherit">
-        {part}
+        {part.text}
       </mark>
     ) : (
-      part
+      part.text
     ),
   );
 }
