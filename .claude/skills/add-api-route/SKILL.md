@@ -13,7 +13,7 @@ The server returns conversation logs from every project, so every route must sta
 2. **Query** (`src/server/queries.ts`): a method on `Queries` that returns the shared type. Placeholders only, never SQL built from request values. If the query needs a new index, that's a migration: `/add-migration`
 3. **Route** (`src/server/api/app.ts`): register it inside `createApp`, next to its neighbors, so it inherits both guards. Never mount a route on another app or add CORS headers
    - Path under `/api/`, `c.json<Type>(...)` with the shared type
-   - Validate input in a `parseXxx(body: unknown)` function at the bottom of the file (like `parseProjectUpdate`), and periods with `parseRange`. Bad input → 400 `{ error }`, missing thing → 404
+   - Validate input in a `parseXxx(body: unknown)` function in `src/server/api/validate.ts` (like `parseProjectUpdate`, tested in `tests/server/validate.test.ts`); read bodies with `readJson(c)` and periods with `withRange(c, ...)`. Bad input → 400 `{ error }`, missing thing → 404
    - GET has no side effects. A write that changes what the UI shows publishes on `events` (add the variant to `ServerEvent` in `src/shared/api.ts`) so open tabs refresh over SSE
    - Anything that runs `claude -p` goes through the summarizer queue, never directly from the handler
 4. **Client** (`src/web/src/lib/api.ts`): one method on `api` using `request` / `query`; a write passes `method`, `content-type: application/json` and a JSON body. Add a TanStack Query hook in `src/web/src/hooks/queries.ts` when components read it, and invalidate the affected keys after a write
