@@ -3,16 +3,17 @@ import { MINUTE } from "@shared/dates.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { liveMessages } from "@/i18n/messages/live.ts";
 import { projectColor } from "@/lib/colors.ts";
-import { elapsedLabel, timeOrDateTime } from "@/lib/dates.ts";
+import { timeOrDateTime } from "@/lib/dates.ts";
 import {
   columnOf,
-  dirName,
   groupByColumn,
   IDLE_AFTER_MS,
   LIVE_COLUMNS,
-  type LiveColumn,
+  type LiveCardView,
+  type LiveColumn as LiveColumnId,
   type LiveDisplay,
-  livePlace,
+  type LiveEntry,
+  liveCardView,
   toolLabel,
 } from "@/lib/live.ts";
 import { projectOf } from "@/lib/selection.ts";
@@ -62,39 +63,68 @@ export function LivePage({
           nothingOnYou ? "lg:grid-cols-[13rem_1fr_1fr]" : "lg:grid-cols-3",
         )}
       >
-        {LIVE_COLUMNS.map((column) => {
-          const entries = byColumn.get(column) ?? [];
-          return (
-            <section key={column} aria-labelledby={`live-${column}`} className="min-w-0">
-              <ColumnHeader column={column} count={entries.length} />
-              <div className="mt-3 flex flex-col gap-2">
-                {entries.map(({ session: s, display }) => (
-                  <LiveCard
-                    key={s.id}
-                    session={s}
-                    display={display}
-                    project={projectOf(projects, s.projectId)}
-                    now={now}
-                    selected={s.id === selectedId}
-                    onSelect={onSelect}
-                  />
-                ))}
-                {entries.length === 0 && (
-                  <p className="text-muted-foreground text-xs">
-                    {column === "attention" ? m.nothingOnYou : formatMessages().none}
-                  </p>
-                )}
-              </div>
-            </section>
-          );
-        })}
+        {LIVE_COLUMNS.map((column) => (
+          <LiveColumn
+            key={column}
+            column={column}
+            entries={byColumn.get(column) ?? []}
+            projects={projects}
+            now={now}
+            selectedId={selectedId}
+            onSelect={onSelect}
+          />
+        ))}
       </div>
     </div>
   );
 }
 
+/** One column of the page: its header, then a card per session, or a line saying it is empty. */
+function LiveColumn({
+  column,
+  entries,
+  projects,
+  now,
+  selectedId,
+  onSelect,
+}: {
+  column: LiveColumnId;
+  entries: LiveEntry[];
+  projects: ReadonlyMap<number, Project>;
+  now: number;
+  selectedId: string | null;
+  onSelect: (session: string, at: number) => void;
+}) {
+  const m = liveMessages();
+  return (
+    <section aria-labelledby={`live-${column}`} className="min-w-0">
+      <ColumnHeader column={column} count={entries.length} />
+      <div className="mt-3 flex flex-col gap-2">
+        {entries.map(({ session: s, display }) => {
+          const project = projectOf(projects, s.projectId);
+          return (
+            <LiveCard
+              key={s.id}
+              card={liveCardView(s, display, project, now)}
+              project={project}
+              now={now}
+              selected={s.id === selectedId}
+              onSelect={onSelect}
+            />
+          );
+        })}
+        {entries.length === 0 && (
+          <p className="text-muted-foreground text-xs">
+            {column === "attention" ? m.nothingOnYou : formatMessages().none}
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
 /** A column's name and count, with what puts a session there. */
-function ColumnHeader({ column, count }: { column: LiveColumn; count: number }) {
+function ColumnHeader({ column, count }: { column: LiveColumnId; count: number }) {
   const m = liveMessages();
   return (
     <header>
@@ -140,27 +170,23 @@ function PageNote({ band, children }: { band: React.ReactNode; children: React.R
  * it shouldn't weigh as much as the sessions in play. Its details are in the drawer.
  */
 function LiveCard({
-  session: s,
-  display,
+  card,
   project,
   now,
   selected,
   onSelect,
 }: {
-  session: LiveSession;
-  display: LiveDisplay;
+  card: LiveCardView;
   project: Project | undefined;
   now: number;
   selected: boolean;
   onSelect: (session: string, at: number) => void;
 }) {
   const m = liveMessages();
-  const name = s.title ?? s.name ?? dirName(s.cwd);
-  const duration = elapsedLabel(now - s.since);
+  const { session: s, display, duration, compact } = card;
   const section = s.section;
   // A session not in the log yet has no block to open: its card is plain content
   const open = section === null ? null : () => onSelect(s.id, section);
-  const compact = display === "idle";
   return (
     // The title is the card's button, for the keyboard and screen readers; a click anywhere else
     // on the card does the same, unless it ends a text selection (a command or question to copy).
@@ -179,18 +205,7 @@ function LiveCard({
       )}
       style={{ "--c": projectColor(project) } as React.CSSProperties}
     >
-      <CardHeading
-        session={s}
-        project={project}
-        name={name}
-        display={display}
-        selected={selected}
-        description={m.status(m.state[display], duration)}
-        onOpen={open}
-        compact={compact}
-        duration={duration}
-        now={now}
-      />
+      <CardHeading card={card} selected={selected} onOpen={open} now={now} />
       {/* A row has no room for more, but this says why it has nothing to open */}
       {compact && section === null && (
         <p className="pl-3.5 text-muted-foreground text-xs">{m.notIngested}</p>
@@ -222,32 +237,18 @@ function LiveCard({
  * line, with the duration at its right, and the place line ends with the prompt cache's state.
  */
 function CardHeading({
-  session: s,
-  project,
-  name,
-  display,
+  card,
   selected,
-  description,
   onOpen,
-  compact,
-  duration,
   now,
 }: {
-  session: LiveSession;
-  project: Project | undefined;
-  name: string;
-  display: LiveDisplay;
+  card: LiveCardView;
   selected: boolean;
-  /** The state and how long it has lasted, said after the title. */
-  description: string;
   onOpen: (() => void) | null;
-  /** An idle row rather than a full card. */
-  compact: boolean;
-  duration: string;
   now: number;
 }) {
   const m = liveMessages();
-  const where = livePlace(s, project);
+  const { session: s, display, name, description, compact, duration } = card;
   return (
     <div className="min-w-0">
       <div className="flex items-center gap-2">
@@ -284,7 +285,7 @@ function CardHeading({
         )}
       </div>
       <p className="mt-0.5 flex min-w-0 items-center gap-1.5 pl-3.5 text-muted-foreground text-xs">
-        <span className="truncate">{where}</span>
+        <span className="truncate">{card.place}</span>
         {s.background && (
           <span className="shrink-0 rounded-md border px-1 leading-4">{m.background}</span>
         )}

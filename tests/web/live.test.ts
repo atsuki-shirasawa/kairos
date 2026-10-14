@@ -9,11 +9,11 @@ import {
   dirName,
   documentTitle,
   groupByColumn,
-  hourTicks,
   IDLE_AFTER_MS,
+  type LiveDisplay,
+  liveCardView,
   liveDisplay,
   livePlace,
-  spendBars,
   toolLabel,
   visibleLive,
 } from "../../src/web/src/lib/live.ts";
@@ -150,36 +150,6 @@ describe("cost", () => {
     expect(at(30_000, fiveMin)).toMatchObject({ soon: true });
     expect(at(20 * 60_000, 60 * 60_000)).toMatchObject({ soon: false });
   });
-
-  test("hour ticks fall on whole hours strictly inside the span", () => {
-    const at = (h: number, min = 0) => new Date(2026, 9, 14, h, min).getTime();
-    expect(hourTicks(at(8, 53), at(11, 53))).toEqual([at(9), at(10), at(11)]);
-    expect(hourTicks(at(9), at(12))).toEqual([at(10), at(11)]);
-  });
-
-  test("spend bars are scaled against the tallest, with empty bars kept in place", () => {
-    const bars = spendBars(
-      {
-        from: NOW,
-        buckets: [
-          [
-            { projectId: 1, usd: 3 },
-            { projectId: 2, usd: 1 },
-          ],
-          [],
-          [{ projectId: 1, usd: 2 }],
-        ],
-      },
-      600_000,
-    );
-    expect(bars.map((b) => b.start)).toEqual([NOW, NOW + 600_000, NOW + 1_200_000]);
-    expect(bars.map((b) => b.total)).toEqual([4, 0, 2]);
-    expect(bars.map((b) => b.height)).toEqual([1, 0, 0.5]);
-    expect(bars[0]?.segments.map((x) => x.share)).toEqual([0.75, 0.25]);
-    expect(bars[2]?.segments[0]?.share).toBe(0.5);
-    // Nothing spent: no bar divides by zero
-    expect(spendBars({ from: NOW, buckets: [[]] }, 600_000)[0]?.segments).toEqual([]);
-  });
 });
 
 describe("groupByColumn", () => {
@@ -225,5 +195,23 @@ describe("livePlace", () => {
     expect(livePlace(live("a", { label: "wt", branch: "main" }), undefined)).toBe(
       "app（wt）・main",
     );
+  });
+});
+
+describe("liveCardView", () => {
+  const view = (over: Partial<LiveSession>, display: LiveDisplay = "waiting") =>
+    liveCardView(live("a", over), display, undefined, NOW);
+
+  test("names the session by its title, then its name, then its directory", () => {
+    expect(view({}).name).toBe("a");
+    expect(view({ title: null, name: "n" }).name).toBe("n");
+    expect(view({ title: null }).name).toBe("app");
+  });
+
+  test("says the state and how long it has lasted, and turns an idle session into a row", () => {
+    const card = view({ since: NOW - 5 * 60_000 }, "idle");
+    expect(card).toMatchObject({ duration: "5m", compact: true, place: "app" });
+    expect(card.description).toContain("5m");
+    expect(view({}, "working").compact).toBe(false);
   });
 });

@@ -1,21 +1,24 @@
 import type { LiveSpend, Project } from "@shared/api.ts";
-import { SPEND_BUCKET_MS, SPEND_BUCKETS } from "@shared/constants.ts";
+import { SPEND_BUCKET_MS } from "@shared/constants.ts";
 import { HOUR } from "@shared/dates.ts";
 import { useState } from "react";
 import { liveMessages } from "@/i18n/messages/live.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { hhmm } from "@/lib/dates.ts";
 import { costLabel, costPerHourLabel } from "@/lib/format.ts";
-import { hourTicks, type SpendBar, spendBars } from "@/lib/live.ts";
 import { projectOf } from "@/lib/selection.ts";
+import {
+  SPAN_MS,
+  type SpendBar,
+  spendBarHeading,
+  spendBarSpeech,
+  spendBars,
+  visibleTicks,
+} from "@/lib/spendBand.ts";
 import { cn } from "@/lib/utils.ts";
 
 /** Pixels a bar with any spend keeps, taller than an empty slot's stub so it reads as spent. */
 const MIN_BAR_PX = 4;
-/** Hour labels closer than this share of the width to "Now" or the left end would collide. */
-const TICK_CLEARANCE = 0.08;
-/** The time the bars span: whole buckets, the last one still in progress. */
-const SPAN_MS = SPEND_BUCKETS * SPEND_BUCKET_MS;
 
 /**
  * The page's money at a glance, above the columns: today's spend and the current rate, then the
@@ -89,12 +92,7 @@ export function SpendBand({
           {bars
             .filter((b) => b.total > 0)
             .map((b) => (
-              <li key={b.start}>
-                {m.spend.barSplit(
-                  m.spend.bar(hhmm(b.start), hhmm(b.start + SPEND_BUCKET_MS), costLabel(b.total)),
-                  b.segments.map((s) => `${nameOf(s.projectId)} ${costLabel(s.usd)}`),
-                )}
-              </li>
+              <li key={b.start}>{spendBarSpeech(b, nameOf)}</li>
             ))}
         </ul>
       </figure>
@@ -181,14 +179,11 @@ function Axis({ from, nowAt }: { from: number; nowAt: number }) {
   const m = liveMessages();
   return (
     <div aria-hidden className="relative mt-1.5 h-4 font-num text-muted-foreground text-xs">
-      {hourTicks(from, from + SPAN_MS)
-        .map((t) => ({ t, at: (t - from) / SPAN_MS }))
-        .filter(({ at }) => at > TICK_CLEARANCE / 2 && Math.abs(nowAt - at) > TICK_CLEARANCE)
-        .map(({ t, at }) => (
-          <span key={t} className="absolute -translate-x-1/2" style={{ left: `${at * 100}%` }}>
-            {hhmm(t)}
-          </span>
-        ))}
+      {visibleTicks(from, nowAt).map(({ t, at }) => (
+        <span key={t} className="absolute -translate-x-1/2" style={{ left: `${at * 100}%` }}>
+          {hhmm(t)}
+        </span>
+      ))}
       <span className="absolute -translate-x-1/2 text-primary" style={{ left: `${nowAt * 100}%` }}>
         {m.spend.now}
       </span>
@@ -206,12 +201,9 @@ function BarDetail({
   colorOf: (projectId: number | null) => string;
   nameOf: (projectId: number | null) => string;
 }) {
-  const m = liveMessages();
   return (
     <span className="flex items-baseline gap-x-3 overflow-hidden whitespace-nowrap">
-      <span className="font-num">
-        {m.spend.bar(hhmm(bar.start), hhmm(bar.start + SPEND_BUCKET_MS), costLabel(bar.total))}
-      </span>
+      <span className="font-num">{spendBarHeading(bar)}</span>
       {bar.segments.map((s) => (
         <span key={s.projectId ?? "none"} className="flex items-center gap-1 text-muted-foreground">
           <span

@@ -1,9 +1,10 @@
 // How running sessions are shown: which ones want you, in what order, and for the tab title.
-import type { LiveSession, LiveSpend, LiveUsage, Project } from "@shared/api.ts";
-import { HOUR } from "@shared/dates.ts";
+import type { LiveSession, LiveUsage, Project } from "@shared/api.ts";
 import { isProjectShown } from "@shared/projects.ts";
 import { WORK_BLOCK_GAP_MS } from "@shared/sections.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
+import { liveMessages } from "@/i18n/messages/live.ts";
+import { elapsedLabel } from "./dates.ts";
 
 /**
  * After this long waiting for a prompt, a session is idle: left open rather than waiting on you.
@@ -144,36 +145,38 @@ export function cacheState(
   return { warm: true, leftMs, soon: leftMs < (usage.cacheTtlMs ?? 0) * CACHE_WARN_SHARE };
 }
 
-/** Whole hours after `from` and before `to`, for the spend band's axis. */
-export function hourTicks(from: number, to: number): number[] {
-  const first = new Date(from);
-  first.setMinutes(0, 0, 0);
-  const ticks: number[] = [];
-  for (let t = first.getTime() + HOUR; t < to; t += HOUR) ticks.push(t);
-  return ticks;
+/** What a running session's card shows about it, worked out once for its parts. */
+export interface LiveCardView {
+  session: LiveSession;
+  display: LiveDisplay;
+  /** The title: the summary's, the session's name, or its directory before Kairos has either. */
+  name: string;
+  /** How long it has been in its state. */
+  duration: string;
+  /** The state and how long it has lasted, said after the title. */
+  description: string;
+  /** Where it runs (`livePlace`). */
+  place: string;
+  /** An idle row rather than a full card. */
+  compact: boolean;
 }
 
-/** A spend bar's segments, as fractions of the band's height (the tallest bar fills it). */
-export interface SpendBar {
-  /** Start of the bar's span. */
-  start: number;
-  total: number;
-  /** Height as a share of the band's: the bar's total against the tallest. */
-  height: number;
-  segments: { projectId: number | null; usd: number; share: number }[];
-}
-
-/** The spend band's bars, each scaled against the tallest. */
-export function spendBars(
-  spend: Pick<LiveSpend, "from" | "buckets">,
-  bucketMs: number,
-): SpendBar[] {
-  const totals = spend.buckets.map((b) => b.reduce((n, p) => n + p.usd, 0));
-  const max = Math.max(...totals, 0);
-  return spend.buckets.map((b, i) => ({
-    start: spend.from + i * bucketMs,
-    total: totals[i] ?? 0,
-    height: max > 0 ? (totals[i] ?? 0) / max : 0,
-    segments: b.map((p) => ({ ...p, share: max > 0 ? p.usd / max : 0 })),
-  }));
+/** The card view of a running session in `display` state at `now`. */
+export function liveCardView(
+  session: LiveSession,
+  display: LiveDisplay,
+  project: Pick<Project, "name"> | undefined,
+  now: number,
+): LiveCardView {
+  const m = liveMessages();
+  const duration = elapsedLabel(now - session.since);
+  return {
+    session,
+    display,
+    name: session.title ?? session.name ?? dirName(session.cwd),
+    duration,
+    description: m.status(m.state[display], duration),
+    place: livePlace(session, project),
+    compact: display === "idle",
+  };
 }
