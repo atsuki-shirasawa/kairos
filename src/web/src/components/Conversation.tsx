@@ -1,7 +1,10 @@
 import type { Message } from "@shared/api.ts";
 import { ChevronRight } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo, useRef } from "react";
 import { useMessages } from "@/hooks/queries.ts";
+import type { Jump } from "@/hooks/useConversationJump.ts";
+import { useJumpToMessage } from "@/hooks/useJumpToMessage.ts";
+import { useLoadMoreOnScroll } from "@/hooks/useLoadMoreOnScroll.ts";
 import { conversationMessages } from "@/i18n/messages/conversation.ts";
 import {
   firstLine,
@@ -25,7 +28,7 @@ export function Conversation({
 }: {
   sessionId: string;
   agent: string | null;
-  jump?: { ts: number; key: number } | null;
+  jump?: Jump | null;
 }) {
   const t = conversationMessages();
   const query = useMessages(sessionId, agent);
@@ -34,34 +37,9 @@ export function Conversation({
   const rows = useMemo(() => withDaySeparators(messages), [messages]);
 
   const sentinel = useRef<HTMLDivElement>(null);
+  useLoadMoreOnScroll(sentinel, query);
+  useJumpToMessage(messages, jump, query);
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = query;
-  useEffect(() => {
-    const el = sentinel.current;
-    if (!el || !hasNextPage) return;
-    const io = new IntersectionObserver((entries) => {
-      if (entries.some((e) => e.isIntersecting) && !isFetchingNextPage) void fetchNextPage();
-    });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
-
-  // Scroll to the requested time, fetching more pages if it is not loaded yet
-  const jumped = useRef<number | null>(null);
-  useEffect(() => {
-    if (!jump || jumped.current === jump.key || messages.length === 0) return;
-    const target = messages.find(
-      (m) => m.kind !== "tool_result" && m.ts !== null && m.ts >= jump.ts,
-    );
-    if (!target) {
-      if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
-      return;
-    }
-    const el = document.getElementById(`msg-${target.id}`);
-    if (!el) return;
-    jumped.current = jump.key;
-    // The jump can be long, so skip smooth scrolling
-    el.scrollIntoView({ block: "start" });
-  }, [jump, messages, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   if (query.isPending) return <p className="text-muted-foreground text-sm">{t.loading}</p>;
   if (query.isError)

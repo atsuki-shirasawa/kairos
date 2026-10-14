@@ -1,6 +1,7 @@
 import type { Section, SessionDetail } from "@shared/api.ts";
 import { useState } from "react";
 import { Button } from "@/components/ui/button.tsx";
+import { type Jump, useConversationJump } from "@/hooks/useConversationJump.ts";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import { Conversation } from "../Conversation.tsx";
 import { AgentTabs } from "./AgentTabs.tsx";
@@ -9,9 +10,6 @@ import { Flow, hasFlow } from "./Flow.tsx";
 import { Numbers } from "./Numbers.tsx";
 import { Outcomes } from "./Outcomes.tsx";
 import { SectionSummary } from "./SectionSummary.tsx";
-
-/** Where the conversation should scroll to. `key` changes to repeat a jump to the same time. */
-type Jump = { ts: number; key: number };
 
 /** The drawer body: summary → session flow → outcomes → conversation → numbers. */
 export function Detail({
@@ -79,19 +77,6 @@ export function Detail({
       {!showConversation && numbers}
     </div>
   );
-}
-
-/**
- * Opens the conversation at the start of `section` (when there is one to jump to). Even when moving
- * to another block while open, the conversation shows from the selected time.
- */
-function useConversationJump(section: Section | null, onShowConversation: (show: boolean) => void) {
-  const [jump, setJump] = useState<Jump | null>(section ? { ts: section.start, key: 0 } : null);
-  const openConversation = () => {
-    if (section) setJump((j) => ({ ts: section.start, key: (j?.key ?? 0) + 1 }));
-    onShowConversation(true);
-  };
-  return { jump, openConversation };
 }
 
 /** The open conversation, with the agent switcher and controls to jump back or collapse. */
