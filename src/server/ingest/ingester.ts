@@ -315,7 +315,7 @@ export class Ingester {
       } catch {
         continue; // Skip complete lines that are malformed
       }
-      if (isRec(r)) this.handle(ctx, r, line.offset * 16);
+      if (isRec(r)) this.handle(ctx, r, lineSeq(line.offset));
     }
   }
 
@@ -439,7 +439,7 @@ export class Ingester {
     // so treat them as the prompt here
     if (ctx.agentId !== null && (kind === "meta" || kind === "sdk_prompt")) kind = "prompt";
 
-    const id = str(r.uuid) ?? `${ctx.fileId}:${seq}`;
+    const id = recordId(r, ctx.fileId, seq);
     const content = rec(r.message)?.content;
     const text = contentText(content);
     switch (kind) {
@@ -501,9 +501,10 @@ export class Ingester {
         },
       );
       if (!toolUseId) return;
-      this.attachPrTitle(ctx, toolUseId, result, output, isError || interrupted, ts);
-      this.attachCommit(ctx, toolUseId, output, isError || interrupted, ts);
-      this.attachMerge(ctx, toolUseId, result, isError || interrupted, ts);
+      const failed = isError || interrupted;
+      this.attachPrTitle(ctx, toolUseId, result, output, failed, ts);
+      this.attachCommit(ctx, toolUseId, output, failed, ts);
+      this.attachMerge(ctx, toolUseId, result, failed, ts);
     });
   }
 
@@ -571,7 +572,7 @@ export class Ingester {
   /** Stores an assistant response: its usage, text blocks and tool calls (or an API error). */
   private handleAssistant(ctx: Ctx, r: Rec, ts: number | null, seq: number): void {
     const msg = rec(r.message) ?? {};
-    const id = str(r.uuid) ?? `${ctx.fileId}:${seq}`;
+    const id = recordId(r, ctx.fileId, seq);
     if (msg.model === "<synthetic>" || r.isApiErrorMessage) {
       this.insert(ctx, id, seq, ts, "error", clip(contentText(msg.content), LIMIT.short));
       return;
@@ -642,7 +643,7 @@ export class Ingester {
 
   /** Stores compactions, turn durations and away summaries (recaps); other system records are ignored. */
   private handleSystem(ctx: Ctx, r: Rec, ts: number | null, seq: number): void {
-    const id = str(r.uuid) ?? `${ctx.fileId}:${seq}`;
+    const id = recordId(r, ctx.fileId, seq);
     if (r.subtype === "compact_boundary") {
       const meta = rec(r.compactMetadata);
       this.insert(ctx, id, seq, ts, "compact", "Conversation compacted", {
@@ -948,6 +949,22 @@ export class Ingester {
 function runLabel(cwd: string): string | null {
   const name = basename(cwd);
   return name === "scratchpad" ? null : name;
+}
+
+/**
+ * Room each line leaves in `seq` for the blocks of its record: a line's rows are numbered from
+ * its byte offset times this, plus the block index, so rows sort in file order (see the schema).
+ */
+const SEQ_PER_LINE = 16;
+
+/** The `seq` of a line's first row, from the line's byte offset in the file. */
+function lineSeq(offset: number): number {
+  return offset * SEQ_PER_LINE;
+}
+
+/** A record's message ID: its uuid, or the file and position when it has none. */
+function recordId(r: Rec, fileId: number, seq: number): string {
+  return str(r.uuid) ?? `${fileId}:${seq}`;
 }
 
 /** Fills in the elapsed time of a scan started at `started`. */
