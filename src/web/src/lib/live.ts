@@ -3,6 +3,7 @@ import type { LiveSession, LiveSpend, LiveUsage, Project } from "@shared/api.ts"
 import { HOUR } from "@shared/dates.ts";
 import { isProjectShown } from "@shared/projects.ts";
 import { WORK_BLOCK_GAP_MS } from "@shared/sections.ts";
+import { formatMessages } from "@/i18n/messages/format.ts";
 
 /**
  * After this long waiting for a prompt, a session is idle: left open rather than waiting on you.
@@ -22,6 +23,29 @@ export const LIVE_COLUMNS: readonly LiveColumn[] = ["attention", "working", "idl
 /** The column a state belongs in. */
 export function columnOf(display: LiveDisplay): LiveColumn {
   return display === "asking" || display === "waiting" ? "attention" : display;
+}
+
+/** A session placed in its column, with the state it was placed by. */
+export interface LiveEntry {
+  session: LiveSession;
+  display: LiveDisplay;
+}
+
+/**
+ * The sessions in their columns, keeping their order within each. Every column is present, empty
+ * or not. The state is worked out once per session, so the column and the card's form agree at
+ * the idle boundary.
+ */
+export function groupByColumn(
+  sessions: readonly LiveSession[],
+  now: number,
+): Map<LiveColumn, LiveEntry[]> {
+  const byColumn = new Map<LiveColumn, LiveEntry[]>(LIVE_COLUMNS.map((c) => [c, []]));
+  for (const session of sessions) {
+    const display = liveDisplay(session, now);
+    byColumn.get(columnOf(display))?.push({ session, display });
+  }
+  return byColumn;
 }
 
 /** Display order: what wants an answer first, idle sessions last. */
@@ -61,6 +85,22 @@ export function documentTitle(attention: number): string {
 /** Last path segment of a directory, to name a session Kairos hasn't ingested yet. */
 export function dirName(cwd: string): string {
   return cwd.replace(/\/+$/, "").split("/").at(-1) || cwd;
+}
+
+/**
+ * Where a session runs, as one line: the project (or the directory's name before Kairos knows
+ * the project), its worktree label, and its branch.
+ */
+export function livePlace(
+  s: Pick<LiveSession, "cwd" | "label" | "branch">,
+  project: Pick<Project, "name"> | undefined,
+): string {
+  const f = formatMessages();
+  return [
+    project?.name ?? dirName(s.cwd),
+    s.label ? f.sessionLabel(s.label) : "",
+    s.branch ? `${f.separator}${s.branch}` : "",
+  ].join("");
 }
 
 /**

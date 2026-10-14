@@ -7,11 +7,12 @@ import { elapsedLabel, timeOrDateTime } from "@/lib/dates.ts";
 import {
   columnOf,
   dirName,
+  groupByColumn,
   IDLE_AFTER_MS,
   LIVE_COLUMNS,
   type LiveColumn,
   type LiveDisplay,
-  liveDisplay,
+  livePlace,
   toolLabel,
 } from "@/lib/live.ts";
 import { cn } from "@/lib/utils.ts";
@@ -48,14 +49,7 @@ export function LivePage({
   const band = <SpendBand spend={live.spend} projects={projects} />;
   if (!live.available) return <PageNote band={band}>{m.unavailable}</PageNote>;
   if (sessions.length === 0) return <PageNote band={band}>{m.nothingRunning}</PageNote>;
-  const byColumn = new Map<LiveColumn, { s: LiveSession; display: LiveDisplay }[]>(
-    LIVE_COLUMNS.map((c) => [c, []]),
-  );
-  for (const s of sessions) {
-    // Once per session, so the column and the card's form agree at the idle boundary
-    const display = liveDisplay(s, now);
-    byColumn.get(columnOf(display))?.push({ s, display });
-  }
+  const byColumn = groupByColumn(sessions, now);
   const nothingOnYou = byColumn.get("attention")?.length === 0;
   return (
     <div className="min-h-0 flex-1 overflow-y-auto bg-card">
@@ -73,7 +67,7 @@ export function LivePage({
             <section key={column} aria-labelledby={`live-${column}`} className="min-w-0">
               <ColumnHeader column={column} count={entries.length} />
               <div className="mt-3 flex flex-col gap-2">
-                {entries.map(({ s, display }) => (
+                {entries.map(({ session: s, display }) => (
                   <LiveCard
                     key={s.id}
                     session={s}
@@ -252,12 +246,7 @@ function CardHeading({
   now: number;
 }) {
   const m = liveMessages();
-  const f = formatMessages();
-  const where = [
-    project?.name ?? dirName(s.cwd),
-    s.label ? f.sessionLabel(s.label) : "",
-    s.branch ? `${f.separator}${s.branch}` : "",
-  ].join("");
+  const where = livePlace(s, project);
   return (
     <div className="min-w-0">
       <div className="flex items-center gap-2">

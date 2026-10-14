@@ -1,5 +1,6 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import type { LiveSession, Project } from "../../src/shared/api.ts";
+import { setLocale } from "../../src/web/src/i18n/index.ts";
 import {
   attentionCount,
   cacheState,
@@ -7,9 +8,11 @@ import {
   contextShare,
   dirName,
   documentTitle,
+  groupByColumn,
   hourTicks,
   IDLE_AFTER_MS,
   liveDisplay,
+  livePlace,
   spendBars,
   toolLabel,
   visibleLive,
@@ -176,5 +179,51 @@ describe("cost", () => {
     expect(bars[2]?.segments[0]?.share).toBe(0.5);
     // Nothing spent: no bar divides by zero
     expect(spendBars({ from: NOW, buckets: [[]] }, 600_000)[0]?.segments).toEqual([]);
+  });
+});
+
+describe("groupByColumn", () => {
+  test("puts each session in its state's column, keeping the order, with every column present", () => {
+    const sessions = [
+      live("a", { state: "working" }),
+      live("b", { state: "asking" }),
+      live("c", { state: "waiting", since: NOW - IDLE_AFTER_MS }),
+      live("d", { state: "working" }),
+    ];
+    const byColumn = groupByColumn(sessions, NOW);
+    const ids = (c: "attention" | "working" | "idle") =>
+      byColumn.get(c)?.map((e) => [e.session.id, e.display]);
+    expect([...byColumn.keys()]).toEqual(["attention", "working", "idle"]);
+    expect(ids("attention")).toEqual([["b", "asking"]]);
+    expect(ids("working")).toEqual([
+      ["a", "working"],
+      ["d", "working"],
+    ]);
+    expect(ids("idle")).toEqual([["c", "idle"]]);
+  });
+
+  test("keeps empty columns", () => {
+    expect([...groupByColumn([], NOW).values()]).toEqual([[], [], []]);
+  });
+});
+
+describe("livePlace", () => {
+  afterEach(() => setLocale("en"));
+
+  test("names the project, worktree label and branch", () => {
+    const s = live("a", { label: "wt", branch: "main" });
+    expect(livePlace(s, { name: "kairos" })).toBe("kairos (wt) · main");
+    expect(livePlace(live("a"), { name: "kairos" })).toBe("kairos");
+  });
+
+  test("falls back to the directory name without a project", () => {
+    expect(livePlace(live("a", { branch: "main" }), undefined)).toBe("app · main");
+  });
+
+  test("follows the UI language", () => {
+    setLocale("ja");
+    expect(livePlace(live("a", { label: "wt", branch: "main" }), undefined)).toBe(
+      "app（wt）・main",
+    );
   });
 });
