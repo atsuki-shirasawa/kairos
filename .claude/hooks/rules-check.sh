@@ -11,25 +11,31 @@ git rev-parse --verify -q main >/dev/null || exit 0
 # Committed changes on this branch plus uncommitted ones. On main itself this is only the working tree.
 base=$(git merge-base HEAD main)
 changed() { ! git diff --quiet "$base" -- "$@"; }
-bumped() { git diff "$base" -- src/server/ingest/ingester.ts | grep -qE "^\+export const $1 ="; }
+# Look for the bump anywhere under ingest, so it still counts if the constants move to another file
+bumped() { git diff "$base" -- src/server/ingest | grep -qE "^\+export const $1 ="; }
 
 issues=()
 
-parser_files=(src/server/ingest/{classify,records,reader,commits,prs}.ts)
+# Every ingest file counts as interpretation code unless listed here, so a file split out of
+# ingester.ts is covered without editing this hook. List new derived-only files in derived_files.
+derived_files=(src/server/ingest/{segments,project}.ts)
+not_stored=(src/server/ingest/watcher.ts)
+parser_files=(src/server/ingest)
+for f in "${derived_files[@]}" "${not_stored[@]}"; do parser_files+=(":(exclude)$f"); done
+
 if changed "${parser_files[@]}" && ! bumped PARSER_VERSION; then
-  issues+=("Interpretation code changed (classify/records/reader/commits/prs) but PARSER_VERSION was not bumped.")
+  issues+=("Interpretation code under src/server/ingest changed but PARSER_VERSION was not bumped.")
 fi
 
-derived_files=(src/server/ingest/{segments,project}.ts)
 if changed "${derived_files[@]}" && ! bumped DERIVED_VERSION; then
   issues+=("Work-block / project-assignment code changed (segments/project) but DERIVED_VERSION was not bumped.")
 fi
 
 # Existing MIGRATIONS entries must never change: any removed or modified line between
-# `const MIGRATIONS` and `SCHEMA_VERSION` in the base version is a rewrite. Appending is a pure insert.
+# `MIGRATIONS` and `SCHEMA_VERSION` in the base version is a rewrite. Appending is a pure insert.
 db=src/server/db/index.ts
 if changed "$db"; then
-  start=$(git show "$base:$db" 2>/dev/null | grep -n "^const MIGRATIONS" | cut -d: -f1)
+  start=$(git show "$base:$db" 2>/dev/null | grep -nE "^(export )?const MIGRATIONS" | cut -d: -f1)
   end=$(git show "$base:$db" 2>/dev/null | grep -n "^export const SCHEMA_VERSION" | cut -d: -f1)
   if [ -n "$start" ] && [ -n "$end" ]; then
     # Hunk headers look like "@@ -old_start,old_count +new_start,new_count @@"; old_count defaults to 1
