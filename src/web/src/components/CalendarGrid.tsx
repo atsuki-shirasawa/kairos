@@ -1,4 +1,3 @@
-import type { CalendarSession, Project } from "@shared/api.ts";
 import { useMemo, useRef } from "react";
 import { GUTTER, GUTTER_PX } from "@/components/calendar/constants.ts";
 import { DayColumn } from "@/components/calendar/DayColumn.tsx";
@@ -8,27 +7,13 @@ import { HourLabels } from "@/components/calendar/HourLabels.tsx";
 import { useGridScroll, useGridSize, useOffscreenEdges } from "@/components/calendar/hooks.ts";
 import { focusDayIndex } from "@/lib/calendarGrid.ts";
 import { isSameDay } from "@/lib/dates.ts";
-import type { SegmentMatch } from "@/lib/filter.ts";
 import { columnTracks, layoutDay } from "@/lib/layout.ts";
+import type { PeriodBodyProps } from "@/lib/periodBody.ts";
 import { cn } from "@/lib/utils.ts";
 
 /** Animate column width changes so it's easy to follow which day widened. */
 const ANIMATE_COLUMNS =
   "transition-[grid-template-columns] duration-200 motion-reduce:transition-none";
-
-interface Props {
-  days: number[];
-  sessions: CalendarSession[];
-  projects: Map<number, Project>;
-  selectedId: string | null;
-  /** Start of the selected section. When null, every block of that session shows as selected. */
-  selectedAt: number | null;
-  now: number;
-  /** Whether a block matches the filter. Non-matching blocks are faded, not removed, to keep the shape of the day. */
-  matches: SegmentMatch;
-  onSelect: (id: string, at: number) => void;
-  onOpenDay: (day: number) => void;
-}
 
 /** The calendar layout: a time grid with one column per day, drawing work blocks at their times. */
 export function CalendarGrid({
@@ -41,7 +26,7 @@ export function CalendarGrid({
   matches,
   onSelect,
   onOpenDay,
-}: Props) {
+}: PeriodBodyProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { hourPx, viewportPx, widthPx } = useGridSize(scrollRef);
   const columns = useMemo(() => days.map((day) => layoutDay(sessions, day)), [days, sessions]);

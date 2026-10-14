@@ -1,7 +1,5 @@
+import type { ImportProgress } from "@/hooks/useLiveUpdates.ts";
 import { toolbarMessages } from "@/i18n/messages/toolbar.ts";
-
-/** How far an import has got, or `null` when none is running. */
-export type ImportProgress = { done: number; total: number } | null;
 
 /** The mark and the wordmark at the left end of the header. */
 export function Brand({ progress }: { progress: ImportProgress }) {

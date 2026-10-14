@@ -1,11 +1,10 @@
-import type { CalendarSession, Project } from "@shared/api.ts";
 import { useMemo, useRef } from "react";
 import { useElementHeight } from "@/components/calendar/hooks.ts";
 import { CELL_HEAD_PX, CELL_LINE_PX, MonthCell } from "@/components/calendar/MonthCell.tsx";
 import { monthRowHeights } from "@/lib/calendarGrid.ts";
 import { isSameDay, monthWeeks, weekdayHeaders } from "@/lib/dates.ts";
-import type { SegmentMatch } from "@/lib/filter.ts";
 import { layoutDay, type PlacedBlock } from "@/lib/layout.ts";
+import type { PeriodBodyProps } from "@/lib/periodBody.ts";
 import { cn } from "@/lib/utils.ts";
 
 /** Below this a week row stops shrinking and the month scrolls, so a day keeps two lines and "+n more". */
@@ -13,26 +12,12 @@ const MIN_ROW_PX = CELL_HEAD_PX + 3 * CELL_LINE_PX;
 /** A week without work keeps its day numbers and a little air below them. */
 const EMPTY_ROW_PX = CELL_HEAD_PX + 8;
 
-interface Props {
-  /** The days of the month (midnight). Its weeks are padded with days of the adjacent months. */
-  days: number[];
-  sessions: CalendarSession[];
-  projects: Map<number, Project>;
-  selectedId: string | null;
-  selectedAt: number | null;
-  now: number;
-  /** Whether a block matches the filter. Non-matching ones are faded, as on the week's grid. */
-  matches: SegmentMatch;
-  onSelect: (id: string, at: number) => void;
-  onOpenDay: (day: number) => void;
-}
-
 /**
  * The calendar layout for a month: a Sunday-first grid of days, each listing its work in time
  * order. Time of day no longer fits, so a block is a line rather than a card sized to its length;
  * the day view (opened from a date or "+n more") is where the times are.
  */
-export function MonthGrid({ days, sessions, now, onOpenDay, ...context }: Props) {
+export function MonthGrid({ days, sessions, now, onOpenDay, ...context }: PeriodBodyProps) {
   const month = days[0] ?? now;
   const weeks = useMemo(() => monthWeeks(month), [month]);
   const blocks = useMemo(

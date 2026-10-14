@@ -3,10 +3,13 @@ import { useEffect, useState } from "react";
 import { keys } from "@/hooks/queries.ts";
 import { subscribe } from "@/lib/api.ts";
 
+/** How far an import has got, or `null` when none is running. */
+export type ImportProgress = { done: number; total: number } | null;
+
 /** Refetches affected data on server update events. Returns the import progress. */
-export function useLiveUpdates(): { done: number; total: number } | null {
+export function useLiveUpdates(): ImportProgress {
   const client = useQueryClient();
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [progress, setProgress] = useState<ImportProgress>(null);
 
   useEffect(
     () =>

@@ -1,8 +1,8 @@
-import type { CalendarSession, Project } from "@shared/api.ts";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
+import type { PreviousPeriod } from "@/hooks/usePeriodSessions.ts";
 import { summaryMessages } from "@/i18n/messages/summary.ts";
 import type { View } from "@/lib/dates.ts";
-import type { SegmentMatch } from "@/lib/filter.ts";
+import type { PeriodBodyProps } from "@/lib/periodBody.ts";
 import { keyCap } from "@/lib/shortcuts.ts";
 import { ByDay } from "./summary/ByDay.tsx";
 import { ByProject } from "./summary/ByProject.tsx";
@@ -14,23 +14,13 @@ import { useProjectOpenItems } from "./summary/useProjectOpenItems.ts";
 import { useProjectRecaps } from "./summary/useProjectRecaps.ts";
 import { SEGMENT, SEGMENTED } from "./toolbar/segmented.ts";
 
-interface Props {
+interface Props extends PeriodBodyProps {
   view: View;
   /** The shown period [from, to). Recaps are stored per period. */
   from: number;
   to: number;
-  days: number[];
-  sessions: CalendarSession[];
   /** The period before, for the change under each number. null while it loads. */
-  previous: { days: number[]; sessions: CalendarSession[] } | null;
-  projects: Map<number, Project>;
-  /** The same filter as the calendar and list, so all three add up the same blocks. */
-  matches: SegmentMatch;
-  selectedId: string | null;
-  selectedAt: number | null;
-  now: number;
-  onSelect: (id: string, at: number) => void;
-  onOpenDay: (day: number) => void;
+  previous: PreviousPeriod | null;
   /** Overview / table switch, placed at the top of the content rather than on a bar of its own. */
   tabs: React.ReactNode;
 }

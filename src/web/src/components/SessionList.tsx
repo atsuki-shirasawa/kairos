@@ -1,10 +1,9 @@
-import type { CalendarSession, Project } from "@shared/api.ts";
 import { useMemo } from "react";
 import { isSameDay, type View } from "@/lib/dates.ts";
-import type { SegmentMatch } from "@/lib/filter.ts";
 import type { DayBlock } from "@/lib/layout.ts";
 import type { ListSort } from "@/lib/listTable.ts";
 import { type DayGroup, dayGroups, nextSort, sortBlocks, visibleSort } from "@/lib/listTable.ts";
+import type { PeriodBodyProps } from "@/lib/periodBody.ts";
 import { DEFAULT_SORT } from "@/lib/urlState.ts";
 import { ColumnPicker } from "./list/ColumnPicker.tsx";
 import { COLUMNS, tableMinRem } from "./list/columns.tsx";
@@ -14,20 +13,9 @@ import { ColumnWidths, TableHead } from "./list/TableHead.tsx";
 import { useColumns } from "./list/useColumns.ts";
 import { useListScroll } from "./list/useListScroll.ts";
 
-interface Props {
+interface Props extends PeriodBodyProps {
   /** The shown period's unit, for the summary line ("This month: …"). */
   view: View;
-  days: number[];
-  sessions: CalendarSession[];
-  projects: Map<number, Project>;
-  selectedId: string | null;
-  /** Start of the selected section. When null, every row of that session shows as selected. */
-  selectedAt: number | null;
-  now: number;
-  /** Whether a row matches the filter. The table is read through totals and sorting, so non-matching rows are left out. */
-  matches: SegmentMatch;
-  onSelect: (id: string, at: number) => void;
-  onOpenDay: (day: number) => void;
   /** Sort order. Kept in the URL so it survives Back and reloads. */
   sort: ListSort;
   onSort: (sort: ListSort) => void;

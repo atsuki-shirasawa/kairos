@@ -1,33 +1,24 @@
 import { startOfDay } from "@shared/dates.ts";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
-import { CalendarGrid } from "@/components/CalendarGrid.tsx";
+import { useCallback, useRef, useState } from "react";
+import { PeriodNotices } from "@/components/app/Notices.tsx";
+import { PeriodBody } from "@/components/app/PeriodBody.tsx";
 import { FilterChips } from "@/components/filter/FilterChips.tsx";
-import { LivePage } from "@/components/LivePage.tsx";
-import { MonthGrid } from "@/components/MonthGrid.tsx";
 import { SessionDrawer } from "@/components/SessionDrawer.tsx";
-import { SessionList } from "@/components/SessionList.tsx";
-import { SummaryTabs, SummaryView } from "@/components/SummaryView.tsx";
 import { Toolbar } from "@/components/Toolbar.tsx";
-import { Button } from "@/components/ui/button.tsx";
-import { useCalendar, useLive, useSummaryLangSync } from "@/hooks/queries.ts";
+import { useSummaryLangSync } from "@/hooks/queries.ts";
 import { useBlockStepping, useCloseDrawer } from "@/hooks/useBlockNavigation.ts";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle.ts";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts.ts";
+import { useLiveSummary } from "@/hooks/useLiveSummary.ts";
 import { useLiveUpdates } from "@/hooks/useLiveUpdates.ts";
 import { useNow } from "@/hooks/useNow.ts";
-import {
-  useFilteredSessions,
-  usePreviousPeriod,
-  useRecapBodies,
-} from "@/hooks/usePeriodSessions.ts";
+import { usePeriodData } from "@/hooks/usePeriodData.ts";
 import { useTheme } from "@/hooks/useTheme.ts";
 import { useUrlState } from "@/hooks/useUrlState.ts";
 import { useLocale } from "@/i18n/index.ts";
-import { appMessages } from "@/i18n/messages/app.tsx";
-import { dateLabel, rangeOf, shift, type View } from "@/lib/dates.ts";
-import { type Filter, hiddenReason, isFocused, withoutConditions } from "@/lib/filter.ts";
-import { attentionCount, liveDisplay, visibleLive } from "@/lib/live.ts";
+import { shift } from "@/lib/dates.ts";
+import { drawerOverlay, drawerStepping } from "@/lib/drawerPlacement.ts";
+import type { Filter } from "@/lib/filter.ts";
 import { buildReport } from "@/lib/report.ts";
 
 /**
@@ -40,36 +31,11 @@ export function App() {
   const now = useNow();
   useSummaryLangSync(useLocale());
   const progress = useLiveUpdates();
-  const { from, to, days } = useMemo(
-    () => rangeOf(state.view, state.anchor),
-    [state.view, state.anchor],
-  );
-  const calendar = useCalendar(from, to);
-  const projects = calendar.data?.projects ?? [];
-  const projectMap = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
-  const sessions = calendar.data?.sessions ?? [];
-  const { visible, matches, focused, search } = useFilteredSessions(
-    calendar.data?.sessions,
-    projectMap,
-    state.filter,
-  );
-  const previousSessions = usePreviousPeriod(
-    state.view,
-    state.anchor,
-    projectMap,
-    state.filter,
-    state.layout === "summary",
-  );
-  const recapBodies = useRecapBodies(from, to);
+  const data = usePeriodData(state);
+  const { from, to, days, projectMap, visible, focused, search } = data;
   const setFilter = useCallback((filter: Filter) => update({ filter }), [update]);
-  const live = useLive();
-  const running = useMemo(
-    () => visibleLive(live.data?.sessions ?? [], projectMap, now),
-    [live.data, projectMap, now],
-  );
-  const attention = attentionCount(running, now);
-  useDocumentTitle(attention);
-  const isLive = state.layout === "live";
+  const live = useLiveSummary(projectMap, now);
+  useDocumentTitle(live.summary.attention);
 
   const { prev, next, goTo, run } = useBlockStepping({
     focused,
@@ -83,8 +49,6 @@ export function App() {
   const closeDrawer = useCloseDrawer(update);
 
   const [menuOpen, setMenuOpen] = useState(false);
-  // The results panel drops over the top of the period, where the no-match notice sits; it already
-  // says what matched, so the notice waits until the panel closes rather than peeking out under it
   const [searchPanel, setSearchPanel] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   useKeyboardShortcuts({
@@ -99,27 +63,7 @@ export function App() {
     focusSearch: () => searchRef.current?.focus(),
   });
 
-  // Calendar and list render the same data differently, so they get the same props
-  const body = {
-    days,
-    sessions: visible,
-    projects: projectMap,
-    selectedId: state.session,
-    selectedAt: state.at,
-    now,
-    matches,
-    onSelect: (session: string, at: number) => update({ session, at }, { push: true }),
-    onOpenDay: (day: number) => update({ view: "day", anchor: day }),
-  };
-
-  const period = state.view;
-  const m = appMessages();
-  const summaryTabs = (
-    <SummaryTabs
-      table={state.layout === "list"}
-      onTable={(table) => update({ layout: table ? "list" : "summary" })}
-    />
-  );
+  const stepping = drawerStepping(state.layout);
 
   return (
     <div className="flex h-full flex-col">
@@ -128,8 +72,8 @@ export function App() {
         layout={state.layout}
         anchor={state.anchor}
         now={now}
-        projects={projects}
-        sessions={sessions}
+        projects={data.projects}
+        sessions={data.sessions}
         filter={state.filter}
         onFilter={setFilter}
         progress={progress}
@@ -138,11 +82,7 @@ export function App() {
         onMove={(dir) => update({ anchor: shift(state.view, state.anchor, dir) })}
         onToday={() => update({ anchor: startOfDay(Date.now()) })}
         onJump={(day) => update({ anchor: day })}
-        live={{
-          running: running.length,
-          attention,
-          working: running.some((s) => liveDisplay(s, now) === "working"),
-        }}
+        live={live.summary}
         searchRef={searchRef}
         search={{
           hits: search.data?.hits ?? [],
@@ -152,7 +92,7 @@ export function App() {
         }}
         projectMap={projectMap}
         // The report follows what's on screen: hidden projects and filters apply
-        report={() => buildReport(days, focused, projectMap, recapBodies)}
+        report={() => buildReport(days, focused, projectMap, data.recapBodies)}
         hasWork={focused.length > 0}
         onOpenHit={(hit) =>
           update(
@@ -166,64 +106,18 @@ export function App() {
         menuOpen={menuOpen}
         onMenuOpen={setMenuOpen}
       />
-      {!isLive && <FilterChips filter={state.filter} onFilter={setFilter} />}
+      {state.layout !== "live" && <FilterChips filter={state.filter} onFilter={setFilter} />}
       <div className="relative flex min-h-0 flex-1">
         <main className="relative flex min-w-0 flex-1 flex-col">
-          {isLive ? (
-            <LivePage
-              live={live.data}
-              sessions={running}
-              projects={projectMap}
-              now={now}
-              selectedId={state.session}
-              // The anchor follows the block, so going back to the calendar shows its day
-              onSelect={(session, at) =>
-                update({ anchor: startOfDay(at), session, at }, { push: true })
-              }
-            />
-          ) : state.layout === "list" ? (
-            <SessionList
-              {...body}
-              view={state.view}
-              sort={state.sort}
-              onSort={(sort) => update({ sort })}
-              tabs={summaryTabs}
-            />
-          ) : state.layout === "summary" ? (
-            <SummaryView
-              {...body}
-              view={state.view}
-              from={from}
-              to={to}
-              previous={previousSessions}
-              tabs={summaryTabs}
-            />
-          ) : state.view === "month" ? (
-            <MonthGrid {...body} />
-          ) : (
-            <CalendarGrid {...body} />
-          )}
-          {calendar.isError && <Notice>{m.disconnected(<code>kairos ensure</code>)}</Notice>}
-          {!isLive && calendar.isSuccess && visible.length === 0 && (
-            <EmptyNotice
-              period={period}
-              progress={progress}
-              hiddenBy={hiddenReason(sessions, projectMap)}
-              prev={calendar.data.prev}
-              next={calendar.data.next}
-              onJump={(t) => update({ anchor: startOfDay(t) })}
-            />
-          )}
-          {!isLive &&
-            visible.length > 0 &&
-            focused.length === 0 &&
-            isFocused(state.filter) &&
-            !searchPanel && (
-              <NoMatchNotice
-                period={period}
-                onClear={() => setFilter({ ...withoutConditions(state.filter), q: "" })}
-              />
-            )}
+          <PeriodBody state={state} update={update} data={data} live={live} now={now} />
+          <PeriodNotices
+            state={state}
+            data={data}
+            progress={progress}
+            searchPanel={searchPanel}
+            update={update}
+            onFilter={setFilter}
+          />
         </main>
         {state.session && (
           <SessionDrawer
@@ -231,114 +125,13 @@ export function App() {
             at={state.at}
             onClose={closeDrawer}
             onSelect={(session, at) => update({ session, at }, { push: true })}
-            // Stepping walks the period's blocks, which the live page doesn't show
-            onPrev={prev && !isLive ? () => goTo(prev) : null}
-            onNext={next && !isLive ? () => goTo(next) : null}
-            // Only the calendar draws a burst as one mark; the list and table give each run a row
-            run={state.layout === "calendar" ? run : null}
+            onPrev={prev && stepping.blocks ? () => goTo(prev) : null}
+            onNext={next && stepping.blocks ? () => goTo(next) : null}
+            run={stepping.runs ? run : null}
             onRun={goTo}
-            // The day view's single column has room to spare, so only the seven-column views float
-            // it; the live page's three columns would shrink to slivers beside it
-            overlay={(state.layout === "calendar" && state.view !== "day") || isLive}
+            overlay={drawerOverlay(state.layout, state.view)}
           />
         )}
-      </div>
-    </div>
-  );
-}
-
-/** When the period has nothing to show, explain why and what to do next. */
-function EmptyNotice({
-  period,
-  progress,
-  hiddenBy,
-  prev,
-  next,
-  onJump,
-}: {
-  period: View;
-  progress: { done: number; total: number } | null;
-  /** There are sessions, but all are hidden. What hid them. */
-  hiddenBy: "project" | "brief" | null;
-  prev: number | null;
-  next: number | null;
-  onJump: (t: number) => void;
-}) {
-  const m = appMessages();
-  if (progress)
-    return (
-      <EmptyState>
-        {m.ingesting(Math.floor((progress.done / Math.max(progress.total, 1)) * 100))}
-      </EmptyState>
-    );
-  if (hiddenBy === "project") return <EmptyState>{m.hiddenByProject(period)}</EmptyState>;
-  if (hiddenBy === "brief") return <EmptyState>{m.hiddenByBrief(period)}</EmptyState>;
-  if (prev === null && next === null) return <EmptyState>{m.noRecordsYet}</EmptyState>;
-  return (
-    <EmptyState>
-      <p>{m.noRecords(period)}</p>
-      <div className="mt-2 flex flex-wrap justify-center gap-2">
-        {prev !== null && (
-          <Button variant="outline" size="xs" onClick={() => onJump(prev)}>
-            <ChevronLeft />
-            {m.previous}
-            <span className="font-num text-muted-foreground">{dateLabel(prev)}</span>
-          </Button>
-        )}
-        {next !== null && (
-          <Button variant="outline" size="xs" onClick={() => onJump(next)}>
-            {m.next}
-            <span className="font-num text-muted-foreground">{dateLabel(next)}</span>
-            <ChevronRight />
-          </Button>
-        )}
-      </div>
-    </EmptyState>
-  );
-}
-
-/** The filter left nothing of a period that has work: say so and offer to clear it. */
-function NoMatchNotice({ period, onClear }: { period: View; onClear: () => void }) {
-  const m = appMessages();
-  return (
-    <Notice>
-      <p>{m.noMatch(period)}</p>
-      <Button variant="outline" size="xs" className="mt-2" onClick={onClear}>
-        {m.clearFilter}
-      </Button>
-    </Notice>
-  );
-}
-
-/**
- * A status message floating over the top of the period body, for states that sit over content
- * still on screen (blocks faded by a filter, the last data before the server went away).
- */
-function Notice({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="pointer-events-none absolute inset-x-0 top-24 flex justify-center px-4">
-      <div
-        className="pointer-events-auto rounded-md border bg-popover px-4 py-2 text-center text-muted-foreground text-sm shadow-sm"
-        role="status"
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
-
-/**
- * The period body's state when it has nothing to show, centered in the empty area. Plain text on
- * the page rather than a bordered card, so it reads as the page's state, not a passing toast.
- */
-function EmptyState({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4">
-      <div
-        className="pointer-events-auto max-w-md px-4 py-3 text-center text-muted-foreground text-sm"
-        role="status"
-      >
-        {children}
       </div>
     </div>
   );
