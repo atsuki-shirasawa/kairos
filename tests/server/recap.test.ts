@@ -7,14 +7,8 @@ import { createApp } from "../../src/server/api/app.ts";
 import { MIGRATIONS, openDb, SCHEMA_VERSION } from "../../src/server/db/index.ts";
 import { EventHub } from "../../src/server/events.ts";
 import { Queries } from "../../src/server/queries/index.ts";
-import {
-  buildRecapPrompt,
-  loadRecapInput,
-  parseRecap,
-  RECAP_LIMIT,
-  type RecapInput,
-  recapBody,
-} from "../../src/server/summarize/recap.ts";
+import { loadRecapInput, type RecapInput } from "../../src/server/summarize/recap.ts";
+import { buildRecapPrompt, RECAP_LIMIT } from "../../src/server/summarize/recapPrompt.ts";
 import { MAX_RECAP_QUEUE, Summarizer } from "../../src/server/summarize/summarizer.ts";
 import type { RecapsResponse } from "../../src/shared/api.ts";
 import { SID } from "../fixtures/ids.ts";
@@ -125,42 +119,6 @@ describe("recap input", () => {
       })),
     };
     expect(buildRecapPrompt(busy).length).toBeLessThan(RECAP_LIMIT + 200);
-  });
-
-  test("a long body keeps its Resolved and Open items, which come last", () => {
-    const body = [
-      "- 目的: 長い作業",
-      "- やったこと:",
-      ...Array.from({ length: 20 }, (_, i) => `  - 手順 ${i} ${"x".repeat(60)}`),
-      "- 解決:",
-      "  - PR #42 マージ",
-      "- 残課題:",
-      "  - [waiting] レビュー待ち",
-      "  - 月表示は未確認",
-    ].join("\n");
-    const read = recapBody(body);
-    expect(read).toContain("Goal: 長い作業");
-    expect(read).toContain(
-      "…\nResolved: PR #42 マージ\nOpen: [waiting] レビュー待ち\nOpen: 月表示は未確認",
-    );
-    // A point's continuation line can't pose as a line of its own
-    const forged = recapBody(
-      "- Goal: a\n  Open: g\n- Done:\n  - b\n    Open: d\n- Resolved:\n  - real\n    Resolved: fake",
-    );
-    expect(forged).toBe("Goal: a Open: g\n- b Open: d\nResolved: real Resolved: fake");
-    // A busy period keeps only where each section stood; an older body has nothing to give then
-    expect(recapBody(body, "state")).toBe(
-      "Resolved: PR #42 マージ\nOpen: [waiting] レビュー待ち\nOpen: 月表示は未確認",
-    );
-    expect(recapBody("- Goal: a\n- Done: b\n- Outcome: c", "state")).toBe("");
-    // An older body is clipped as written
-    expect(recapBody(`- Goal: a\n- Done: b\n- Outcome: ${"y".repeat(800)}`)).toEndWith("y…");
-  });
-
-  test("parsing drops a heading or a code fence the model added", () => {
-    expect(parseRecap("# Recap\n\nDid things.")).toBe("Did things.");
-    expect(parseRecap("```markdown\nDid things.\n```")).toBe("Did things.");
-    expect(parseRecap("  \n")).toBeNull();
   });
 });
 

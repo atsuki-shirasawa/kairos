@@ -7,13 +7,8 @@ import { FailureLog } from "./failures.ts";
 import { labelCandidates, loadCandidates } from "./ledger/candidates.ts";
 import { recordSection } from "./ledger/record.ts";
 import { buildPrompt, buildTitlePrompt, parseSummary, takeClosures } from "./prompt.ts";
-import {
-  buildRecapPrompt,
-  loadRecapInput,
-  parseRecap,
-  type RecapTarget,
-  recapKey,
-} from "./recap.ts";
+import { loadRecapInput, type RecapTarget, recapKey } from "./recap.ts";
+import { buildRecapPrompt, parseRecap } from "./recapPrompt.ts";
 import { findAutoTargets, loadSectionInput, saveRecap, saveSummary } from "./store.ts";
 import type { Mode, SectionRef, Target } from "./target.ts";
 
