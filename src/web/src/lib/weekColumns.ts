@@ -1,4 +1,7 @@
 // How the week view shares its width among its day columns.
+import type { CalendarSession } from "@shared/api.ts";
+import { isSameDay } from "./dates.ts";
+import { selectedSegment } from "./navigation.ts";
 
 /**
  * Below this lane width a block shows only a word or two of its heading. When a busy day falls
@@ -34,4 +37,21 @@ export function columnTracks(lanes: number[], widthPx: number, focus: number): s
       return Math.abs(i - focus) === 1 ? `minmax(0, ${w * 0.6}fr)` : SQUEEZED_TRACK;
     return `minmax(0, ${w}fr)`;
   });
+}
+
+/**
+ * Index of the day holding the selected block, which keeps its width when columns get narrow.
+ * -1 when nothing is selected or the view has few enough days that every column is wide.
+ */
+export function focusDayIndex(
+  sessions: CalendarSession[],
+  selectedId: string | null,
+  selectedAt: number | null,
+  days: number[],
+): number {
+  const seg = selectedSegment(sessions, selectedId, selectedAt);
+  if (!seg || days.length <= 3) return -1;
+  // A block continued from before the period belongs to its first shown day
+  const t = Math.max(seg.start, days[0] ?? 0);
+  return days.findIndex((d) => isSameDay(d, t));
 }

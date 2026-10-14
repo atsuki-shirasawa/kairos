@@ -1,9 +1,9 @@
 import { useMemo, useRef } from "react";
 import { useElementHeight } from "@/components/calendar/hooks.ts";
 import { CELL_HEAD_PX, CELL_LINE_PX, MonthCell } from "@/components/calendar/MonthCell.tsx";
-import { monthRowHeights } from "@/lib/calendarGrid.ts";
 import { isSameDay, monthWeeks, weekdayHeaders } from "@/lib/dates.ts";
 import { layoutDay, type PlacedBlock } from "@/lib/layout.ts";
+import { monthRowHeights } from "@/lib/monthGrid.ts";
 import type { PeriodBodyProps } from "@/lib/periodBody.ts";
 import { cn } from "@/lib/utils.ts";
 

@@ -10,20 +10,22 @@ import { artifactRef } from "@/lib/artifacts.ts";
 import {
   type BlockGeometry,
   blockGeometry,
-  blockMoments,
   headingLines,
   isLastSegment,
-  type Moment,
-  type MomentRow,
-  momentMarks,
-  momentRows,
   RAISED_LAYER,
   stackOrder,
-} from "@/lib/calendarGrid.ts";
+} from "@/lib/blockGeometry.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { dateLabel, durationLabel, hhmm } from "@/lib/dates.ts";
 import { openItemsLine } from "@/lib/format.ts";
 import type { PlacedBlock } from "@/lib/layout.ts";
+import {
+  blockMoments,
+  type Moment,
+  type MomentRow,
+  momentMarks,
+  momentRows,
+} from "@/lib/moments.ts";
 import { projectLabel } from "@/lib/selection.ts";
 import { cn } from "@/lib/utils.ts";
 import { INDENT_PX, LINE_CLAMP } from "./constants.ts";

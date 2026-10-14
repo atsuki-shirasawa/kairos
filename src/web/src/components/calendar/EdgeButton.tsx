@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { calendarMessages } from "@/i18n/messages/calendar.ts";
-import type { Edge } from "@/lib/calendarGrid.ts";
+import type { Edge } from "@/lib/calendarEdges.ts";
 import { hhmm } from "@/lib/dates.ts";
 import { cn } from "@/lib/utils.ts";
 

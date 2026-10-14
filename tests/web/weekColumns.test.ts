@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { columnTracks } from "../../src/web/src/lib/weekColumns.ts";
+import { columnTracks, focusDayIndex } from "../../src/web/src/lib/weekColumns.ts";
+import { DAY0, H, session as sessionOf } from "./helpers.ts";
+
+const DAY1 = new Date(2026, 9, 6).getTime();
+
+/** A finished session with one block per [start, end] span. */
+const session = (id: string, spans: [number, number][]) => sessionOf(id, ...spans);
 
 describe("columnTracks", () => {
   const fr = (track: string) => Number(/([\d.]+)fr\)$/.exec(track)?.[1]);
@@ -27,5 +33,24 @@ describe("columnTracks", () => {
     expect(columnTracks([2, 4, 2, 1, 1, 1, 1], 900, -1)).toEqual(
       columnTracks([2, 4, 2, 1, 1, 1, 1], 3000, -1),
     );
+  });
+});
+
+describe("focusDayIndex", () => {
+  const week = Array.from({ length: 7 }, (_, i) => new Date(2026, 9, 5 + i).getTime());
+  const sessions = [session("a", [[DAY1 + 10 * H, DAY1 + 11 * H]])];
+
+  test("the day of the selected block", () => {
+    expect(focusDayIndex(sessions, "a", null, week)).toBe(1);
+  });
+
+  test("a block started before the period belongs to the first day", () => {
+    const early = [session("b", [[DAY0 - 2 * H, DAY0 + H]])];
+    expect(focusDayIndex(early, "b", null, week)).toBe(0);
+  });
+
+  test("none without a selection, or with few days", () => {
+    expect(focusDayIndex(sessions, null, null, week)).toBe(-1);
+    expect(focusDayIndex(sessions, "a", null, week.slice(0, 3))).toBe(-1);
   });
 });

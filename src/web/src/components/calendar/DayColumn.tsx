@@ -1,9 +1,8 @@
 import type { Project } from "@shared/api.ts";
 import { DAY, HOUR } from "@shared/dates.ts";
-import { markTops } from "@/lib/calendarGrid.ts";
 import type { SegmentMatch } from "@/lib/filter.ts";
 import type { PlacedBlock } from "@/lib/layout.ts";
-import { runGroups } from "@/lib/marks.ts";
+import { markTops, runGroups } from "@/lib/marks.ts";
 import { isSelected, projectOf } from "@/lib/selection.ts";
 import { cn } from "@/lib/utils.ts";
 import { Block } from "./Block.tsx";

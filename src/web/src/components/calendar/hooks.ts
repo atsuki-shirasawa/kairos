@@ -1,5 +1,5 @@
 import { type RefObject, useCallback, useLayoutEffect, useState } from "react";
-import { type Edges, findEdges, NO_EDGES, sameEdges } from "@/lib/calendarGrid.ts";
+import { type Edges, findEdges, NO_EDGES, sameEdges } from "@/lib/calendarEdges.ts";
 import type { PlacedBlock } from "@/lib/layout.ts";
 import { reveal } from "@/lib/reveal.ts";
 import { MIN_HOUR_PX, VIEW_END, VIEW_START } from "./constants.ts";

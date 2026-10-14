@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { CalendarSession } from "../../src/shared/api.ts";
 import { layoutDay } from "../../src/web/src/lib/layout.ts";
-import { isMark, runGroups } from "../../src/web/src/lib/marks.ts";
+import { isMark, markTops, runGroups } from "../../src/web/src/lib/marks.ts";
 import { at, DAY0, session } from "./helpers.ts";
 
 describe("isMark", () => {
@@ -84,5 +84,11 @@ describe("runGroups", () => {
       run("b", sec(10, 26, 10)),
     ];
     expect(ids(runGroups(marks))).toEqual([["a", "b"], ["asked"], ["other"]]);
+  });
+});
+
+describe("markTops", () => {
+  test("keeps marks at their time, pushing close ones just below the one above", () => {
+    expect(markTops([10, 40, 42, 43, 80])).toEqual([10, 40, 46, 52, 80]);
   });
 });
