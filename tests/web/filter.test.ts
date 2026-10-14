@@ -1,141 +1,23 @@
 import { describe, expect, test } from "bun:test";
-import type { Activity, CalendarSession, Project } from "../../src/shared/api.ts";
+import type { CalendarSegment, CalendarSession } from "../../src/shared/api.ts";
 import {
-  branchOptions,
+  type BlockState,
   conditionCount,
-  countBlocks,
   type Filter,
-  hasOutcome,
-  hiddenReason,
-  hideSessions,
   hitKey,
-  isBrief,
+  inState,
   isFocused,
+  meetsConditions,
   NO_FILTER,
   narrowSessions,
-  readFilter,
   searchQuery,
   segmentMatcher,
   withoutConditions,
-  withProjects,
-  writeFilter,
 } from "../../src/web/src/lib/filter.ts";
+import { projects, session } from "./filterHelpers.ts";
 
-const NONE: Activity = {
-  commits: 0,
-  prs: 0,
-  merges: 0,
-  filesEdited: 0,
-  toolCalls: 0,
-  subagents: 0,
-  toolErrors: 0,
-  interrupts: 0,
-  apiErrors: 0,
-  compactions: 0,
-  claudeMs: null,
-  effort: null,
-};
-
-function session(
-  id: string,
-  opts: {
-    projectId?: number | null;
-    label?: string | null;
-    promptCount?: number;
-    segments?: {
-      headline: string;
-      activity?: Partial<Activity>;
-      minutes?: number;
-      body?: string;
-    }[];
-    /** Session-wide fields the conditions read (branch, active, ...). */
-    fields?: Partial<CalendarSession>;
-  } = {},
-): CalendarSession {
-  const segments = (opts.segments ?? [{ headline: id }]).map((g, i) => ({
-    start: i * HOUR * 3,
-    end: i * HOUR * 3 + (g.minutes ?? 1) * 60_000,
-    headline: g.headline,
-    summarized: true,
-    body: g.body ?? null,
-    prs: [],
-    commits: [],
-    promptCount: 1,
-    usage: null,
-    activity: { ...NONE, ...g.activity },
-  }));
-  return {
-    id,
-    projectId: opts.projectId === undefined ? 1 : opts.projectId,
-    label: opts.label ?? null,
-    branch: null,
-    scheduledRuns: 0,
-    headless: false,
-    continued: false,
-    title: `${id} title`,
-    startedAt: 0,
-    endedAt: segments.length * 1000,
-    promptCount: opts.promptCount ?? 5,
-    active: false,
-    segments,
-    ...opts.fields,
-  };
-}
-
-const HOUR = 60 * 60_000;
-
-const project = (id: number, name: string, hidden = false): Project => ({
-  id,
-  path: `/Users/me/dev/${name}`,
-  name,
-  repo: null,
-  color: null,
-  hidden,
-});
-const projects = new Map([
-  [1, project(1, "app")],
-  [2, project(2, "blog", true)],
-]);
-
-describe("isBrief", () => {
-  test("a session with few prompts, no edits and no outcome is a quick question", () => {
-    expect(isBrief(session("a", { promptCount: 2 }))).toBe(true);
-  });
-
-  test("few prompts but file edits: kept", () => {
-    const s = session("a", {
-      promptCount: 1,
-      segments: [{ headline: "x" }, { headline: "y", activity: { filesEdited: 3 } }],
-    });
-    expect(isBrief(s)).toBe(false);
-  });
-
-  test("many prompts: kept even without edits", () => {
-    expect(isBrief(session("a", { promptCount: 3 }))).toBe(false);
-  });
-});
-
-describe("hideSessions", () => {
-  const list = [
-    session("app"),
-    session("blog", { projectId: 2 }),
-    session("unknown", { projectId: null }),
-    session("brief", { promptCount: 1 }),
-  ];
-
-  test("always drops hidden projects and keeps sessions with no project", () => {
-    expect(hideSessions(list, projects, NO_FILTER).map((s) => s.id)).toEqual([
-      "app",
-      "unknown",
-      "brief",
-    ]);
-  });
-
-  test("drops quick questions only when hiding them", () => {
-    const shown = hideSessions(list, projects, { ...NO_FILTER, hideBrief: true });
-    expect(shown.map((s) => s.id)).toEqual(["app", "unknown"]);
-  });
-});
+/** A summary body with one item left open. */
+const OPEN_BODY = "- Goal: a\n- Done: b\n- Open:\n  - [waiting] CI";
 
 describe("segmentMatcher", () => {
   const s = session("a", {
@@ -253,17 +135,6 @@ describe("conditions", () => {
     expect(isFocused(f)).toBe(true);
     expect(isFocused({ ...NO_FILTER, hideBrief: true })).toBe(false);
   });
-
-  test("counts blocks per option and lists branches busiest first", () => {
-    expect(countBlocks([busy, quiet], (_, g) => hasOutcome(g, ["commit"]))).toBe(1);
-    const other = session("other", { fields: { branch: "main" } });
-    expect(branchOptions([busy, quiet, other], null)).toEqual([
-      { name: "feature/login", blocks: 2 },
-      { name: "main", blocks: 1 },
-    ]);
-    // The chosen branch stays listed in a period without it
-    expect(branchOptions([quiet], "fix/header")).toEqual([{ name: "fix/header", blocks: 0 }]);
-  });
 });
 
 describe("file button", () => {
@@ -287,53 +158,6 @@ describe("file button", () => {
   });
 });
 
-describe("URL parameters", () => {
-  const read = (search: string) => readFilter(new URLSearchParams(search));
-  const write = (f: Filter) => {
-    const q = new URLSearchParams();
-    writeFilter(f, q);
-    return q.toString();
-  };
-
-  test("round-trips every condition, in a fixed order", () => {
-    const f: Filter = {
-      q: "login",
-      qFiles: true,
-      outcomes: ["merge", "commit"],
-      states: ["snag", "active"],
-      minMinutes: 60,
-      branch: "feature/login",
-      hideBrief: true,
-    };
-    const search = write(f);
-    expect(search).toBe(
-      "q=login&in=files&outcome=commit%2Cmerge&state=active%2Csnag&len=60&branch=feature%2Flogin&brief=hide",
-    );
-    expect(read(search)).toEqual({
-      ...f,
-      outcomes: ["commit", "merge"],
-      states: ["active", "snag"],
-    });
-  });
-
-  test("no conditions write nothing", () => {
-    expect(write(NO_FILTER)).toBe("");
-    expect(read("")).toEqual(NO_FILTER);
-  });
-
-  test("the old outcome=1 switch means a commit or PR", () => {
-    expect(read("outcome=1").outcomes).toEqual(["commit", "pr"]);
-  });
-
-  test("unknown values are dropped", () => {
-    expect(read("outcome=deploy,pr&state=bogus&len=45")).toMatchObject({
-      outcomes: ["pr"],
-      states: [],
-      minMinutes: 0,
-    });
-  });
-});
-
 describe("narrowSessions", () => {
   test("keeps only matching blocks and drops sessions with none", () => {
     const list = [
@@ -352,32 +176,74 @@ describe("narrowSessions", () => {
   });
 });
 
-describe("hiddenReason", () => {
-  test("no sessions at all: nothing was hidden", () => {
-    expect(hiddenReason([], projects)).toBeNull();
+/** The only block of a one-block session, with the session it belongs to. */
+function onlyBlock(s: CalendarSession): [CalendarSession, CalendarSegment] {
+  const g = s.segments[0];
+  if (!g) throw new Error("no segment");
+  return [s, g];
+}
+
+describe("inState", () => {
+  const plain = onlyBlock(session("plain"));
+  const cases: [BlockState, [CalendarSession, CalendarSegment]][] = [
+    ["active", onlyBlock(session("a", { fields: { active: true } }))],
+    ["loop", onlyBlock(session("a", { fields: { scheduledRuns: 1 } }))],
+    ["continued", onlyBlock(session("a", { fields: { continued: true } }))],
+    [
+      "subagent",
+      onlyBlock(session("a", { segments: [{ headline: "x", activity: { subagents: 1 } }] })),
+    ],
+    ["open", onlyBlock(session("a", { segments: [{ headline: "x", body: OPEN_BODY }] }))],
+  ];
+
+  for (const [state, [s, g]] of cases) {
+    test(`${state}: in it when the block or session says so, not otherwise`, () => {
+      expect(inState(s, g, state)).toBe(true);
+      expect(inState(plain[0], plain[1], state)).toBe(false);
+    });
+  }
+
+  test("snag: any tool error, interrupt or API error", () => {
+    for (const activity of [{ toolErrors: 1 }, { interrupts: 1 }, { apiErrors: 1 }]) {
+      const [s, g] = onlyBlock(session("a", { segments: [{ headline: "x", activity }] }));
+      expect(inState(s, g, "snag")).toBe(true);
+    }
+    expect(inState(plain[0], plain[1], "snag")).toBe(false);
   });
 
-  test("every session in a hidden project: the project hid them", () => {
-    expect(hiddenReason([session("a", { projectId: 2 })], projects)).toBe("project");
-  });
-
-  test("some sessions outside hidden projects: hiding quick questions hid them", () => {
-    const sessions = [session("a", { projectId: 2 }), session("b", { promptCount: 1 })];
-    expect(hiddenReason(sessions, projects)).toBe("brief");
+  test("open: a summary without open items isn't", () => {
+    const body = "- Goal: a\n- Done: b\n- Resolved: merged";
+    const [s, g] = onlyBlock(session("a", { segments: [{ headline: "x", body }] }));
+    expect(inState(s, g, "open")).toBe(false);
   });
 });
 
-describe("withProjects", () => {
-  test("adds unknown projects and keeps the known ones as they are", () => {
-    const stale = project(1, "renamed", true);
-    const all = withProjects(projects, [stale, project(3, "docs", true)]);
-    expect(all.get(1)?.name).toBe("app");
-    expect(all.get(3)?.hidden).toBe(true);
-    expect(all.size).toBe(3);
+describe("meetsConditions", () => {
+  const [s, g] = onlyBlock(
+    session("a", {
+      fields: { branch: "main", active: true },
+      segments: [{ headline: "x", activity: { commits: 1 }, minutes: 45 }],
+    }),
+  );
+  const meets = (filter: Partial<Filter>) => meetsConditions({ ...NO_FILTER, ...filter }, s, g);
+
+  test("passes with no conditions, and ignores the keyword", () => {
+    expect(meets({})).toBe(true);
+    expect(meets({ q: "nothing like it" })).toBe(true);
   });
 
-  test("leaves the original map untouched", () => {
-    withProjects(projects, [project(3, "docs")]);
-    expect(projects.has(3)).toBe(false);
+  test("checks each group", () => {
+    expect(meets({ outcomes: ["pr", "commit"] })).toBe(true);
+    expect(meets({ outcomes: ["merge"] })).toBe(false);
+    expect(meets({ states: ["active"] })).toBe(true);
+    expect(meets({ states: ["active", "loop"] })).toBe(false);
+    expect(meets({ minMinutes: 30 })).toBe(true);
+    expect(meets({ minMinutes: 60 })).toBe(false);
+    expect(meets({ branch: "main" })).toBe(true);
+    expect(meets({ branch: "feature/x" })).toBe(false);
+  });
+
+  test("a block exactly the minimum length passes", () => {
+    expect(meets({ minMinutes: 45 })).toBe(true);
   });
 });

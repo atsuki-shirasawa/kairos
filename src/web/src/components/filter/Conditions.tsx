@@ -14,10 +14,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import { filterMessages } from "@/i18n/messages/filter.ts";
 import {
   type BlockState,
-  BRIEF_PROMPTS,
-  branchOptions,
   conditionCount,
-  countBlocks,
   type Filter,
   hasOutcome,
   inState,
@@ -27,6 +24,8 @@ import {
   STATES,
   withoutConditions,
 } from "@/lib/filter.ts";
+import { branchOptions, countBlocks } from "@/lib/filterMenu.ts";
+import { BRIEF_PROMPTS } from "@/lib/projectVisibility.ts";
 
 /** Select value for "any branch". `*` can't appear in a git branch name, so it never collides. */
 const ANY_BRANCH = "*";

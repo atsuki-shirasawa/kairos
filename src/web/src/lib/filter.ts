@@ -2,7 +2,6 @@
 // you never want to see), these are "just for now" conditions kept in the URL.
 import type { CalendarSegment, CalendarSession, Project } from "@shared/api.ts";
 import { MINUTE } from "@shared/dates.ts";
-import { isProjectShown } from "@shared/projects.ts";
 import { openItemsOf } from "@shared/summaryBody.ts";
 import { projectOf } from "./selection.ts";
 
@@ -37,7 +36,7 @@ export interface Filter {
   minMinutes: number;
   /** Only sessions on this git branch. */
   branch: string | null;
-  /** Hide quick-question sessions (`isBrief`). */
+  /** Hide quick-question sessions (`isBrief` in projectVisibility.ts). */
   hideBrief: boolean;
 }
 
@@ -51,9 +50,6 @@ export const NO_FILTER: Filter = {
   branch: null,
   hideBrief: false,
 };
-
-/** Sessions with at most this many prompts and no hands-on work count as "quick questions". */
-export const BRIEF_PROMPTS = 2;
 
 /** Number of narrowing conditions set from the filter menu (the keyword and hiding aren't counted). */
 export function conditionCount(f: Filter): number {
@@ -134,84 +130,6 @@ export function meetsConditions(
   return filter.branch === null || session.branch === filter.branch;
 }
 
-/**
- * The filter from URL parameters. Unknown values are dropped, so an edited or old link still
- * opens. `outcome=1` is the old "commit or PR" switch.
- */
-export function readFilter(q: URLSearchParams): Filter {
-  const list = <T extends string>(key: string, allowed: readonly T[]): T[] =>
-    (q.get(key) ?? "").split(",").filter((v): v is T => (allowed as readonly string[]).includes(v));
-  const outcome = q.get("outcome");
-  const minMinutes = Number(q.get("len"));
-  return {
-    q: q.get("q") ?? "",
-    qFiles: q.get("in") === "files",
-    outcomes: outcome === "1" ? ["commit", "pr"] : list("outcome", OUTCOMES),
-    states: list("state", STATES),
-    minMinutes: (MIN_LENGTHS as readonly number[]).includes(minMinutes) ? minMinutes : 0,
-    branch: q.get("branch") || null,
-    hideBrief: q.get("brief") === "hide",
-  };
-}
-
-/** Writes the filter's set conditions into URL parameters (unset ones are left out). */
-export function writeFilter(f: Filter, q: URLSearchParams): void {
-  if (f.q) q.set("q", f.q);
-  if (f.qFiles) q.set("in", "files");
-  if (f.outcomes.length) q.set("outcome", OUTCOMES.filter((o) => f.outcomes.includes(o)).join(","));
-  if (f.states.length) q.set("state", STATES.filter((s) => f.states.includes(s)).join(","));
-  if (f.minMinutes) q.set("len", String(f.minMinutes));
-  if (f.branch) q.set("branch", f.branch);
-  if (f.hideBrief) q.set("brief", "hide");
-}
-
-/**
- * Sessions with few prompts and no file edits, commits or PRs.
- * A single request that delegated a large task still has edits, so it stays.
- */
-export function isBrief(session: CalendarSession): boolean {
-  if (session.promptCount > BRIEF_PROMPTS) return false;
-  return session.segments.every(
-    (g) => g.activity.filesEdited === 0 && g.activity.commits === 0 && g.activity.prs === 0,
-  );
-}
-
-/** Drops sessions kept off screen (hidden projects, and quick questions when hidden). */
-export function hideSessions(
-  sessions: CalendarSession[],
-  projects: Map<number, Project>,
-  filter: Filter,
-): CalendarSession[] {
-  return sessions.filter(
-    (s) => isProjectShown(projects, s.projectId) && !(filter.hideBrief && isBrief(s)),
-  );
-}
-
-/**
- * Why a period with sessions shows none of them: every one is in a hidden project, or the rest
- * are quick questions being hidden. null when there are no sessions at all.
- */
-export function hiddenReason(
-  sessions: CalendarSession[],
-  projects: Map<number, Project>,
-): "project" | "brief" | null {
-  if (sessions.length === 0) return null;
-  return hideSessions(sessions, projects, NO_FILTER).length === 0 ? "project" : "brief";
-}
-
-/**
- * `projects` plus those in `extra` it doesn't know yet. Sessions from another period may belong to
- * projects not seen in this one, and those still need their hidden flag.
- */
-export function withProjects(
-  projects: Map<number, Project>,
-  extra: Project[],
-): Map<number, Project> {
-  const all = new Map(projects);
-  for (const p of extra) if (!all.has(p.id)) all.set(p.id, p);
-  return all;
-}
-
 /** Whether a block (a section of a session) passes the current filter. */
 export type SegmentMatch = (session: CalendarSession, segment: CalendarSegment) => boolean;
 
@@ -253,31 +171,4 @@ export function narrowSessions(
     if (segments.length === 0) return [];
     return segments.length === s.segments.length ? [s] : [{ ...s, segments }];
   });
-}
-
-/** Number of blocks across the sessions that pass `test`, for the counts beside the menu's options. */
-export function countBlocks(sessions: CalendarSession[], test: SegmentMatch): number {
-  let n = 0;
-  for (const s of sessions) for (const g of s.segments) if (test(s, g)) n++;
-  return n;
-}
-
-/** A branch offered in the menu, with how many of the period's blocks were on it. */
-export interface BranchOption {
-  name: string;
-  blocks: number;
-}
-
-/**
- * Branches the period's sessions ran on, busiest first. The chosen branch stays listed even when
- * the period has none of it (after moving to another week), so the menu can still show and clear it.
- */
-export function branchOptions(sessions: CalendarSession[], chosen: string | null): BranchOption[] {
-  const counts = new Map<string, number>();
-  for (const s of sessions)
-    if (s.branch) counts.set(s.branch, (counts.get(s.branch) ?? 0) + s.segments.length);
-  if (chosen !== null && !counts.has(chosen)) counts.set(chosen, 0);
-  return [...counts]
-    .map(([name, blocks]) => ({ name, blocks }))
-    .sort((a, b) => b.blocks - a.blocks || a.name.localeCompare(b.name));
 }

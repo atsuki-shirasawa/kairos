@@ -6,7 +6,8 @@ import type { PeriodData } from "@/hooks/usePeriodData.ts";
 import type { UrlStateUpdate } from "@/hooks/useUrlState.ts";
 import { appMessages } from "@/i18n/messages/app.tsx";
 import { dateLabel, type View } from "@/lib/dates.ts";
-import { type Filter, hiddenReason, isFocused, withoutConditions } from "@/lib/filter.ts";
+import { type Filter, isFocused, withoutConditions } from "@/lib/filter.ts";
+import { hiddenReason } from "@/lib/projectVisibility.ts";
 import type { UrlState } from "@/lib/urlState.ts";
 
 /**

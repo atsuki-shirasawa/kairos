@@ -3,7 +3,8 @@
 import { isoDay, startOfDay } from "@shared/dates.ts";
 import { DAY_VIEW, readSessionTarget, UI_PARAMS, writeSessionTarget } from "@shared/uiUrl.ts";
 import { fromISODate, type Layout, type View } from "./dates.ts";
-import { type Filter, readFilter, writeFilter } from "./filter.ts";
+import type { Filter } from "./filter.ts";
+import { readFilter, writeFilter } from "./filterUrl.ts";
 import type { ListSort } from "./listTable.ts";
 
 /** Time order; left out of the URL. */
