@@ -1,14 +1,12 @@
 import type { Project } from "@shared/api.ts";
-import { openItemsOf } from "@shared/summaryBody.ts";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip.tsx";
 import { calendarMessages } from "@/i18n/messages/calendar.ts";
+import { markFacts } from "@/lib/blockFacts.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { dateLabel } from "@/lib/dates.ts";
 import type { PlacedBlock } from "@/lib/layout.ts";
-import { blockMoments } from "@/lib/moments.ts";
-import { projectLabel } from "@/lib/selection.ts";
 import { cn } from "@/lib/utils.ts";
-import { BlockTooltip, timeRange } from "./Block.tsx";
+import { BlockTooltip } from "./BlockTooltip.tsx";
 
 /** Width of the strip on a day column's left that holds the marks, when the day has any. */
 export const MARK_STRIP_PX = 14;
@@ -50,14 +48,8 @@ export function Mark({
 }) {
   const first = runs[0];
   if (!first) return null;
-  const { session, segment } = first;
   const burst = runs.length > 1;
-  // Runs can overlap, so the burst ends with whichever run ends last, not the one starting last
-  const end = Math.max(...runs.map((b) => b.end));
-  const range = timeRange({ ...first, end });
-  const projectName = projectLabel(project);
-  const m = calendarMessages();
-  const label = burst ? m.runs(runs.length) : segment.headline;
+  const facts = markFacts(runs, lead, { project, faded, dim, hourPx });
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -67,7 +59,12 @@ export function Mark({
           onClick={() => onSelect(lead.session.id, lead.segment.start)}
           aria-pressed={selected}
           data-selected={selected || undefined}
-          aria-label={m.blockAria(label, projectName, dateLabel(first.dayStart), range)}
+          aria-label={calendarMessages().blockAria(
+            facts.label,
+            facts.projectName,
+            dateLabel(first.dayStart),
+            facts.range,
+          )}
           className={cn(
             "group flex h-2.5 w-2.5 items-center rounded-sm outline-none focus-visible:outline-2 focus-visible:outline-ring",
             top === null ? "shrink-0" : "absolute left-0.5 z-[1] -translate-y-1/2",
@@ -76,25 +73,10 @@ export function Mark({
           )}
           style={{ top: top ?? undefined, "--c": projectColor(project) } as React.CSSProperties}
         >
-          {burst ? <BurstBar /> : <MarkBar headless={session.headless} />}
+          {burst ? <BurstBar /> : <MarkBar headless={first.session.headless} />}
         </button>
       </TooltipTrigger>
-      <BlockTooltip
-        label={label}
-        projectName={projectName}
-        session={session}
-        range={range}
-        durationMs={end - first.start}
-        commits={runs.reduce((sum, b) => sum + b.segment.activity.commits, 0)}
-        prs={runs.reduce((sum, b) => sum + b.segment.activity.prs, 0)}
-        moments={runs.flatMap((b) => blockMoments(b, hourPx, Number.POSITIVE_INFINITY))}
-        // A burst's runs are headless and summarized one by one, so only a single block has items
-        open={burst ? [] : openItemsOf(lead.segment.body)}
-        note={burst ? m.runsHint : null}
-        faded={faded}
-        // A burst's heading is its count, not a first prompt waiting for a summary
-        dim={dim && !burst}
-      />
+      <BlockTooltip {...facts} />
     </Tooltip>
   );
 }

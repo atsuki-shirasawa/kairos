@@ -1,18 +1,19 @@
 import type { Project } from "@shared/api.ts";
-import { openItemsOf } from "@shared/summaryBody.ts";
 import { MomentNode } from "@/components/MomentNode.tsx";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip.tsx";
 import { calendarMessages } from "@/i18n/messages/calendar.ts";
+import { tooltipFacts } from "@/lib/blockFacts.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { dateLabel, durationLabel } from "@/lib/dates.ts";
 import type { SegmentMatch } from "@/lib/filter.ts";
 import type { PlacedBlock } from "@/lib/layout.ts";
 import { blockMoments } from "@/lib/moments.ts";
 import { monthCellFit, splitCellBlocks } from "@/lib/monthGrid.ts";
-import { isSelected, projectLabel, projectOf } from "@/lib/selection.ts";
+import { isSelected, projectOf } from "@/lib/selection.ts";
 import { dayFigures } from "@/lib/totals.ts";
 import { cn } from "@/lib/utils.ts";
-import { BlockTooltip, timeRange } from "./Block.tsx";
+import { BlockTooltip } from "./BlockTooltip.tsx";
+import { FADED, LINE_FILL } from "./blockFills.ts";
 import { MIN_HOUR_PX } from "./constants.ts";
 import { DayTooltip } from "./DayHeader.tsx";
 import { Mark } from "./Mark.tsx";
@@ -155,7 +156,6 @@ function blockState(b: PlacedBlock, c: CellContext) {
   const project = projectOf(c.projects, b.session.projectId);
   return {
     project,
-    projectName: projectLabel(project),
     selected: isSelected(b, c.selectedId, c.selectedAt),
     faded: !c.matches(b.session, b.segment),
     // Work still in progress is only waiting for its summary, so it isn't toned down
@@ -169,8 +169,9 @@ function blockState(b: PlacedBlock, c: CellContext) {
  */
 function CellLine({ block, ...c }: CellContext & { block: PlacedBlock }) {
   const { session, segment } = block;
-  const { project, projectName, selected, faded, dim } = blockState(block, c);
-  const range = timeRange(block);
+  const { project, selected, faded, dim } = blockState(block, c);
+  const moments = blockMoments(block, MIN_HOUR_PX, Number.POSITIVE_INFINITY);
+  const facts = tooltipFacts(block, { project, faded, dim, moments });
   const { commits, prs } = segment.activity;
   return (
     <Tooltip>
@@ -181,25 +182,21 @@ function CellLine({ block, ...c }: CellContext & { block: PlacedBlock }) {
           aria-pressed={selected}
           data-selected={selected || undefined}
           aria-label={calendarMessages().blockAria(
-            segment.headline,
-            projectName,
+            facts.label,
+            facts.projectName,
             dateLabel(block.dayStart),
-            range,
+            facts.range,
           )}
           className={cn(
             "flex h-5 w-full min-w-0 items-center gap-1 rounded-r-sm rounded-l-[2px] border-l-[3px] pr-1 pl-1.5 text-left text-xs outline-none",
             // Headless runs get the week's dashed edge here too
             session.headless && "border-dashed",
-            // The same fills as the week's blocks: the project color mixed into an achromatic base
-            dim
-              ? "bg-[color-mix(in_oklch,var(--c)_var(--mix-block-dim),var(--block-base))] text-muted-foreground"
-              : "bg-[color-mix(in_oklch,var(--c)_var(--mix-block),var(--block-base))] font-medium text-foreground",
-            "hover:bg-[color-mix(in_oklch,var(--c)_var(--mix-block-hover),var(--block-base))]",
+            // The same fills as the week's blocks
+            dim ? LINE_FILL.dim : LINE_FILL.normal,
+            LINE_FILL.hover,
             "focus-visible:outline-2 focus-visible:outline-ring",
             selected && "font-medium text-foreground outline-2 outline-primary",
-            faded &&
-              !selected &&
-              "opacity-30 transition-opacity hover:opacity-100 focus-visible:opacity-100 motion-reduce:transition-none",
+            faded && !selected && FADED.line,
           )}
           style={
             { "--c": projectColor(project), borderLeftColor: "var(--c)" } as React.CSSProperties
@@ -209,19 +206,7 @@ function CellLine({ block, ...c }: CellContext & { block: PlacedBlock }) {
           {(commits > 0 || prs > 0) && <MomentNode pr={prs > 0} />}
         </button>
       </TooltipTrigger>
-      <BlockTooltip
-        label={segment.headline}
-        projectName={projectName}
-        session={session}
-        range={range}
-        durationMs={block.end - block.start}
-        commits={commits}
-        prs={prs}
-        moments={blockMoments(block, MIN_HOUR_PX, Number.POSITIVE_INFINITY)}
-        open={openItemsOf(segment.body)}
-        faded={faded}
-        dim={dim}
-      />
+      <BlockTooltip {...facts} />
     </Tooltip>
   );
 }
