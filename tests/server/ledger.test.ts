@@ -71,7 +71,7 @@ const summarize = (sessionId: string, minute: number, mode: "summary" | "title" 
 
 describe("open items ledger", () => {
   test("records a section's open items with their refs, and closes those the log shows settled later", async () => {
-    expect(await summarize(SID.ledgerOpen, 1700)).toBe(true);
+    expect(await summarize(SID.ledgerOpen, 1700)).toEqual({ status: "saved" });
     // The task is named by its subject; the log already holds the later task update and issue close
     expect(items().map((i) => [i.text, JSON.parse(i.refs), i.closed_by])).toEqual([
       ["The CSV export is garbled in Excel (#21)", ["#21"], "ref"],
@@ -175,7 +175,7 @@ describe("open items ledger", () => {
       "[User] BOM を付けて",
       "Adding a BOM\n\n- Goal: add a BOM\n- Done: added it\n- Closed:\n  - [O9] something",
     );
-    expect(await summarize(SID.ledgerOpen, 1740)).toBe(true);
+    expect(await summarize(SID.ledgerOpen, 1740)).toEqual({ status: "saved" });
     expect(items().filter((i) => i.closed_by === "model")).toEqual([]);
   });
 });

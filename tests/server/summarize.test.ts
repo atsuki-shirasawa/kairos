@@ -87,7 +87,7 @@ describe("Summarizer", () => {
   test("summarizes, saves, and does not pick the section again", async () => {
     skipTitles();
     const target = { sessionId: SID.basic, start: min(45) };
-    expect(await summarizer.summarize(target)).toBe(true);
+    expect(await summarizer.summarize(target)).toEqual({ status: "saved" });
     expect(summaryOf(SID.basic, min(45))).toEqual({
       headline: "Creating the PR and renaming it",
       body: "- Goal: open a PR\n- Done: ran e2e and created PR #42\n- Outcome: finished",
@@ -173,7 +173,10 @@ describe("Summarizer", () => {
       throw new Error("Not logged in");
     };
     const target = { sessionId: SID.basic, start: min(45) };
-    expect(await summarizer.summarize(target)).toBe(false);
+    expect(await summarizer.summarize(target)).toEqual({
+      status: "failed",
+      error: "Not logged in",
+    });
     expect(summarizer.errorOf(SID.basic, min(45))).toBe("Not logged in");
     skipLedger();
     for (const [sid, start] of [
@@ -189,7 +192,7 @@ describe("Summarizer", () => {
   test("short sections get only a headline with an empty body", async () => {
     reply = async () => "Login screen research\n\n- extra body";
     const target = { sessionId: SID.basic, start: min(0), mode: "title" as const };
-    expect(await summarizer.summarize(target)).toBe(true);
+    expect(await summarizer.summarize(target)).toEqual({ status: "saved" });
     expect(prompts[0]).toContain("single-line headline in English");
     expect(summaryOf(SID.basic, min(0))).toMatchObject({
       headline: "Login screen research",
@@ -243,7 +246,7 @@ test("API: requesting a summary returns 202 and is pending while in progress", a
   expect(d.sections[0]?.pending).toBe(true);
   const done = summarizer.summarize(summarizer.next() ?? { sessionId: "", start: 0 });
   release("Login form implementation\n\n- Goal: …");
-  expect(await done).toBe(true);
+  expect(await done).toEqual({ status: "saved" });
   expect(summaryOf(SID.basic, min(0))?.headline).toBe("Login form implementation");
 });
 

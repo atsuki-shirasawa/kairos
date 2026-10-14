@@ -2,7 +2,7 @@
 // reach back a week, so older sections otherwise wait for someone to open them in the drawer.
 import type { Database } from "bun:sqlite";
 import { loadHeadline, type NamedTarget } from "./store.ts";
-import { NO_CONVERSATION, type Summarizer } from "./summarizer.ts";
+import type { Summarizer } from "./summarizer.ts";
 
 /**
  * Stops after this many failures in a row. A logged-out or missing `claude` fails every section
@@ -50,20 +50,16 @@ export async function backfill(
   let streak = 0;
   for (const [i, target] of targets.entries()) {
     hooks.onStart?.(target, i);
-    const ok = await summarizer.summarize(target);
-    const error = ok ? null : summarizer.errorOf(target.sessionId, target.start);
-    const status: BackfillStatus = ok
-      ? target.mode
-      : error === NO_CONVERSATION
-        ? "skipped"
-        : "failed";
+    const result = await summarizer.summarize(target);
+    const error = result.status === "saved" ? null : result.error;
+    const status: BackfillStatus = result.status === "saved" ? target.mode : result.status;
     counts[status]++;
     hooks.onProgress?.({
       index: i + 1,
       total: targets.length,
       target,
       status,
-      detail: ok ? loadHeadline(db, target) : error,
+      detail: result.status === "saved" ? loadHeadline(db, target) : error,
     });
     streak = status === "failed" ? streak + 1 : 0;
     if (streak >= MAX_CONSECUTIVE_FAILURES) return { counts, abortedBy: error };

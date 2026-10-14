@@ -1,5 +1,5 @@
 // DB reads and writes for the summarizer: what a section summary is built from, which sections are
-// due for an automatic summary, and saving summaries and recaps.
+// due for an automatic summary, and saving summaries (with their ledger update) and recaps.
 import type { Database } from "bun:sqlite";
 import { DAY } from "../../shared/dates.ts";
 import { AUTO_SUMMARY_DAYS, isSummarizable, SECTION_IDLE_MS } from "../../shared/sections.ts";
@@ -7,6 +7,7 @@ import type { TaskState } from "../tasks.ts";
 import { DEFAULT_HIDDEN_CWDS, visibleSessionSql } from "../visibility.ts";
 import { buildDigest, DIGEST_KINDS, type DigestMessage } from "./digest.ts";
 import { formatFacts, loadFacts } from "./facts.ts";
+import { type LedgerUpdate, recordSection } from "./ledger/record.ts";
 import { refsOf } from "./ledger/refs.ts";
 import type { ParsedSummary, PromptInput } from "./prompt.ts";
 import { type RecapInput, type RecapTarget, recapHash } from "./recap.ts";
@@ -231,6 +232,28 @@ export function saveSummary(
     meta.coveredUntil,
     meta.createdAt,
   );
+}
+
+/** What a section summary saves: the summary itself and its change to the ledger. */
+export interface SectionResult {
+  summary: ParsedSummary;
+  ledger: LedgerUpdate;
+}
+
+/**
+ * Saves a section's summary and applies it to the ledger in one transaction, so the summary and
+ * the open items it recorded never disagree. The summary reaches as far as the ledger update's end.
+ */
+export function saveSection(
+  db: Database,
+  target: SectionRef,
+  result: SectionResult,
+  meta: { model: string; createdAt: number },
+): void {
+  db.transaction(() => {
+    saveSummary(db, target, result.summary, { ...meta, coveredUntil: result.ledger.end });
+    recordSection(db, target, result.ledger);
+  })();
 }
 
 /** Saves (or replaces) a recap with the hash of the input it was written from. */

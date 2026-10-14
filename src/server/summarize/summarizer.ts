@@ -1,15 +1,12 @@
 import type { Database } from "bun:sqlite";
 import { MINUTE } from "../../shared/dates.ts";
-import { parseSummaryBody } from "../../shared/summaryBody.ts";
 import { DEFAULT_SUMMARY_LANG, type SummaryLang } from "../../shared/summaryLang.ts";
 import { storedSummaryLang } from "../settings.ts";
 import { FailureLog } from "./failures.ts";
-import { labelCandidates, loadCandidates } from "./ledger/candidates.ts";
-import { recordSection } from "./ledger/record.ts";
-import { buildPrompt, buildTitlePrompt, parseSummary, takeClosures } from "./prompt.ts";
 import { loadRecapInput, type RecapTarget, recapKey } from "./recap.ts";
 import { buildRecapPrompt, parseRecap } from "./recapPrompt.ts";
-import { findAutoTargets, loadSectionInput, saveRecap, saveSummary } from "./store.ts";
+import { interpretSection, prepareSection } from "./section.ts";
+import { findAutoTargets, saveRecap, saveSection } from "./store.ts";
 import type { Mode, SectionRef, Target } from "./target.ts";
 
 /** Model used for summaries unless `--summary-model` is given; cheap suffices for excerpts. */
@@ -24,6 +21,15 @@ export const NO_CONVERSATION = "No conversation to summarize";
 
 /** Answers a prompt with the LLM. Production uses `runClaude`; tests pass a stub. */
 export type Runner = (prompt: string) => Promise<string>;
+
+/**
+ * How summarizing one section went: saved, skipped for good (nothing to summarize), or failed
+ * (to be retried). `error` is the message also kept for `errorOf`.
+ */
+export type SummarizeResult =
+  | { status: "saved" }
+  | { status: "skipped"; error: string }
+  | { status: "failed"; error: string };
 
 /** String key for a section, for queue and failure lookups. */
 const key = (t: SectionRef) => `${t.sessionId}:${t.start}`;
@@ -185,53 +191,34 @@ export class Summarizer {
     this.wake = null;
   }
 
-  /** Summarizes and saves one section (`mode` defaults to a full summary). Failures are recorded and retried later. */
-  async summarize(target: Omit<Target, "mode"> & { mode?: Mode }): Promise<boolean> {
+  /**
+   * Summarizes and saves one section (`mode` defaults to a full summary). A section with nothing
+   * to summarize is skipped for good; other failures are recorded and retried later.
+   */
+  async summarize(target: Omit<Target, "mode"> & { mode?: Mode }): Promise<SummarizeResult> {
     const k = key(target);
     this.current = k;
     try {
-      const input = loadSectionInput(this.db, target);
-      if (!input) {
-        // No conversation (e.g. only scheduled runs). Retrying gives the same result, so skip it for good
-        this.failures.giveUp(k, NO_CONVERSATION);
-        return false;
-      }
-      const title = target.mode === "title";
-      // Earlier items go only to a full summary: a headline can't say what it settled
-      const earlier = title ? [] : loadCandidates(this.db, target, input.refs);
-      const labeled = labelCandidates(earlier, target.sessionId);
-      const build = title ? buildTitlePrompt : buildPrompt;
-      const parsed = parseSummary(
-        await this.run(build({ ...input.prompt, earlierOpen: labeled }, this.lang)),
+      const prepared = prepareSection(
+        this.db,
+        { ...target, mode: target.mode ?? "summary" },
+        this.lang,
       );
-      if (!parsed) throw new Error("Could not parse the summary output");
-      // Headline-only: keep the body empty, discarding any extra lines after the headline
-      const { body, closures } = title ? { body: "", closures: [] } : takeClosures(parsed.body);
-      const idOf = new Map(labeled.map((l, n) => [l.label, earlier[n]?.id]));
-      this.db.transaction(() => {
-        saveSummary(
-          this.db,
-          target,
-          { headline: parsed.headline, body },
-          { model: this.model, coveredUntil: input.end, createdAt: this.now() },
-        );
-        recordSection(this.db, target, {
-          end: input.end,
-          opened: parseSummaryBody(body)?.open ?? [],
-          tasks: input.tasks,
-          closed: closures.flatMap((c) => {
-            const id = idOf.get(c.label);
-            return id === undefined ? [] : [{ id, note: c.note }];
-          }),
-        });
-      })();
+      if (prepared === "no-conversation") {
+        // Retrying gives the same result, so skip it for good
+        this.failures.giveUp(k, NO_CONVERSATION);
+        return { status: "skipped", error: NO_CONVERSATION };
+      }
+      const result = interpretSection(await this.run(prepared.prompt), prepared);
+      if (!result) throw new Error("Could not parse the summary output");
+      saveSection(this.db, target, result, { model: this.model, createdAt: this.now() });
       this.failures.clear(k);
-      return true;
+      return { status: "saved" };
     } catch (e) {
       const attempts = this.failures.record(k, e, this.now());
       if (!this.opts.quiet)
         console.error(`kairos: summary failed for ${k} (attempt ${attempts}):`, e);
-      return false;
+      return { status: "failed", error: this.failures.messageOf(k) ?? String(e) };
     } finally {
       this.current = null;
       this.opts.onUpdated?.(target);
