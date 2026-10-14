@@ -5,8 +5,9 @@ import { summaryMessages } from "@/i18n/messages/summary.ts";
 import { scaleToMax } from "@/lib/charts.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { durationLabel } from "@/lib/dates.ts";
+import { projectName, projectOf } from "@/lib/selection.ts";
 import type { PeriodSummary, ProjectSummary } from "@/lib/summary.ts";
-import { costText, Heading, projectName, projectOf } from "./shared.tsx";
+import { costText, Heading } from "./shared.tsx";
 
 /** Working time per project as bars, with each project's outcomes and cost. */
 export function ByProject({

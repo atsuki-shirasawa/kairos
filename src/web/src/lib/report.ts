@@ -4,6 +4,7 @@ import { prMarkdownLink } from "@shared/artifacts.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { dateLabel, hhmm } from "./dates.ts";
 import { blocksOfDay } from "./layout.ts";
+import { projectName } from "./selection.ts";
 import { counted } from "./totals.ts";
 
 /**
@@ -30,7 +31,7 @@ export function buildReport(
   );
   const summary = [...shown].flatMap((id) => {
     const body = id !== null ? recaps.get(id)?.trim() : undefined;
-    return id !== null && body ? [[projects.get(id)?.name ?? f.unknownProject, body]] : [];
+    return id !== null && body ? [[projectName(projects, id), body]] : [];
   });
   if (summary.length) {
     out.push(`## ${f.reportSummary}`, "");
@@ -39,11 +40,7 @@ export function buildReport(
   for (const day of days) {
     const blocks = blocksOfDay(sessions, day).filter(counted);
     if (blocks.length === 0) continue;
-    const byProject = Map.groupBy(blocks, (b) =>
-      b.session.projectId !== null
-        ? (projects.get(b.session.projectId)?.name ?? f.unknownProject)
-        : f.unknownProject,
-    );
+    const byProject = Map.groupBy(blocks, (b) => projectName(projects, b.session.projectId));
     out.push(`## ${dateLabel(day)}`, "");
     for (const [name, list] of byProject) {
       out.push(`### ${name}`, "");

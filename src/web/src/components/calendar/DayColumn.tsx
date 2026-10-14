@@ -3,6 +3,7 @@ import { DAY, HOUR } from "@shared/dates.ts";
 import { markTops } from "@/lib/calendarGrid.ts";
 import type { SegmentMatch } from "@/lib/filter.ts";
 import { type PlacedBlock, runGroups } from "@/lib/layout.ts";
+import { isSelected, projectOf } from "@/lib/selection.ts";
 import { cn } from "@/lib/utils.ts";
 import { Block } from "./Block.tsx";
 import { MARK_STRIP_PX, Mark } from "./Mark.tsx";
@@ -37,10 +38,7 @@ export function DayColumn({
   onSelect: (id: string, at: number) => void;
 }) {
   const today = now >= day && now < day + DAY;
-  const isSelected = (b: PlacedBlock) =>
-    b.session.id === selectedId && (selectedAt === null || b.segment.start === selectedAt);
-  const projectOf = (b: PlacedBlock) =>
-    b.session.projectId !== null ? projects.get(b.session.projectId) : undefined;
+  const selected = (b: PlacedBlock) => isSelected(b, selectedId, selectedAt);
   const cards = blocks.filter((b) => !b.mark);
   const marks = runGroups(blocks.filter((b) => b.mark).sort((a, b) => a.start - b.start));
   const tops = markTops(marks.map(([b]) => ((b?.start ?? 0) / HOUR) * hourPx));
@@ -64,8 +62,8 @@ export function DayColumn({
             block={b}
             detailed={detailed}
             hourPx={hourPx}
-            project={projectOf(b)}
-            selected={isSelected(b)}
+            project={projectOf(projects, b.session.projectId)}
+            selected={selected(b)}
             faded={!matches(b.session, b.segment)}
             onSelect={onSelect}
           />
@@ -80,9 +78,9 @@ export function DayColumn({
             runs={runs}
             top={tops[i] ?? 0}
             hourPx={hourPx}
-            project={projectOf(b)}
+            project={projectOf(projects, b.session.projectId)}
             lead={runs.find((r) => matches(r.session, r.segment)) ?? b}
-            selected={runs.some(isSelected)}
+            selected={runs.some(selected)}
             faded={!runs.some((r) => matches(r.session, r.segment))}
             dim={!b.segment.summarized}
             onSelect={onSelect}

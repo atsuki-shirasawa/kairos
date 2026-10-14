@@ -15,6 +15,7 @@ import {
   livePlace,
   toolLabel,
 } from "@/lib/live.ts";
+import { projectOf } from "@/lib/selection.ts";
 import { cn } from "@/lib/utils.ts";
 import { CardCost, ContextGauge, RowCache } from "./live/CardUsage.tsx";
 import { SpendBand } from "./live/SpendBand.tsx";
@@ -72,7 +73,7 @@ export function LivePage({
                     key={s.id}
                     session={s}
                     display={display}
-                    project={s.projectId === null ? undefined : projects.get(s.projectId)}
+                    project={projectOf(projects, s.projectId)}
                     now={now}
                     selected={s.id === selectedId}
                     onSelect={onSelect}

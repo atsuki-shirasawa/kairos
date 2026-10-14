@@ -1,7 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import type { CalendarSession } from "../../src/shared/api.ts";
+import { setLocale } from "../../src/web/src/i18n/index.ts";
 import { blocksOfDay } from "../../src/web/src/lib/layout.ts";
-import { isSelected, isWorking } from "../../src/web/src/lib/selection.ts";
+import {
+  isSelected,
+  isWorking,
+  projectLabel,
+  projectName,
+  projectOf,
+} from "../../src/web/src/lib/selection.ts";
 
 const DAY0 = new Date(2026, 9, 5).getTime();
 const H = 3_600_000;
@@ -68,5 +75,26 @@ describe("isWorking", () => {
     expect(second && isWorking(second)).toBe(true);
     const [, ended] = blocksOfDay([session(false)], DAY0);
     expect(ended && isWorking(ended)).toBe(false);
+  });
+});
+
+describe("projectOf", () => {
+  test("finds the project by id, and none without an id or for an unknown one", () => {
+    const projects = new Map([[1, { name: "app" }]]);
+    expect(projectOf(projects, 1)).toEqual({ name: "app" });
+    expect(projectOf(projects, 2)).toBeUndefined();
+    expect(projectOf(projects, null)).toBeUndefined();
+  });
+});
+
+describe("projectLabel / projectName", () => {
+  test("names the project, or says it is unknown in the UI language", () => {
+    const projects = new Map([[1, { name: "app" }]]);
+    expect(projectName(projects, 1)).toBe("app");
+    expect(projectLabel(undefined)).toBe("Unknown project");
+    setLocale("ja");
+    expect(projectName(projects, null)).toBe("プロジェクト不明");
+    expect(projectName(projects, 9)).toBe("プロジェクト不明");
+    setLocale("en");
   });
 });

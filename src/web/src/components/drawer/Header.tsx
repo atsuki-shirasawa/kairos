@@ -15,6 +15,7 @@ import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { projectColor } from "@/lib/colors.ts";
 import type { BlockRef, RunPosition } from "@/lib/navigation.ts";
+import { projectLabel } from "@/lib/selection.ts";
 import { resumeCommand } from "@/lib/shell.ts";
 import { SectionTime } from "./SectionTime.tsx";
 
@@ -201,9 +202,7 @@ function ProjectLine({
         className="size-2 shrink-0 rounded-full"
         style={{ background: projectColor(project) }}
       />
-      <span className="shrink-0 font-medium text-foreground">
-        {project?.name ?? drawerMessages().unknownProject}
-      </span>
+      <span className="shrink-0 font-medium text-foreground">{projectLabel(project)}</span>
       {label && (
         <>
           <span aria-hidden>/</span>

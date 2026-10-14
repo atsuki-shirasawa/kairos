@@ -24,6 +24,7 @@ import { dateLabel, durationLabel, hhmm } from "@/lib/dates.ts";
 import { artifactRef } from "@/lib/drawer.ts";
 import { openItemsLine } from "@/lib/format.ts";
 import type { PlacedBlock } from "@/lib/layout.ts";
+import { projectLabel } from "@/lib/selection.ts";
 import { cn } from "@/lib/utils.ts";
 import { INDENT_PX, LINE_CLAMP } from "./constants.ts";
 
@@ -107,7 +108,7 @@ export function Block({
   // In the day view a tall block has room to be read without opening the drawer
   const body = detailed && geo.visible >= BODY_MIN_PX ? blockBody(segment.body) : null;
   const { commits, prs } = segment.activity;
-  const projectName = project?.name ?? formatMessages().unknownProject;
+  const projectName = projectLabel(project);
   const state: BlockState = {
     ...block,
     selected,

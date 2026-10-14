@@ -3,12 +3,12 @@ import { openItemsOf } from "@shared/summaryBody.ts";
 import { MomentNode } from "@/components/MomentNode.tsx";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip.tsx";
 import { calendarMessages } from "@/i18n/messages/calendar.ts";
-import { formatMessages } from "@/i18n/messages/format.ts";
 import { blockMoments, monthCellFit, splitCellBlocks } from "@/lib/calendarGrid.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { dateLabel, durationLabel } from "@/lib/dates.ts";
 import type { SegmentMatch } from "@/lib/filter.ts";
 import type { PlacedBlock } from "@/lib/layout.ts";
+import { isSelected, projectLabel, projectOf } from "@/lib/selection.ts";
 import { dayFigures } from "@/lib/totals.ts";
 import { cn } from "@/lib/utils.ts";
 import { BlockTooltip, timeRange } from "./Block.tsx";
@@ -151,12 +151,11 @@ function DateButton({
 
 /** Project, selection and summary state shared by a cell's lines and marks. */
 function blockState(b: PlacedBlock, c: CellContext) {
-  const project = b.session.projectId !== null ? c.projects.get(b.session.projectId) : undefined;
+  const project = projectOf(c.projects, b.session.projectId);
   return {
     project,
-    projectName: project?.name ?? formatMessages().unknownProject,
-    selected:
-      b.session.id === c.selectedId && (c.selectedAt === null || b.segment.start === c.selectedAt),
+    projectName: projectLabel(project),
+    selected: isSelected(b, c.selectedId, c.selectedAt),
     faded: !c.matches(b.session, b.segment),
     // Work still in progress is only waiting for its summary, so it isn't toned down
     dim: !b.segment.summarized && !b.session.active,

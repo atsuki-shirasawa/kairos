@@ -3,9 +3,10 @@ import { summaryMessages } from "@/i18n/messages/summary.ts";
 import { scaleToMax, scaleToSum } from "@/lib/charts.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { dateLabel, durationLabel, isSameDay, weekday } from "@/lib/dates.ts";
+import { projectName, projectOf } from "@/lib/selection.ts";
 import type { DaySummary, PeriodSummary } from "@/lib/summary.ts";
 import { cn } from "@/lib/utils.ts";
-import { Heading, projectName, projectOf } from "./shared.tsx";
+import { Heading } from "./shared.tsx";
 
 /**
  * Above this many days (a month) the bars are too narrow for their durations and weekday ticks:

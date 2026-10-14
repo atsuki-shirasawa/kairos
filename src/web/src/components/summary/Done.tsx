@@ -7,13 +7,12 @@ import { durationLabel, hhmm, type View, weekday } from "@/lib/dates.ts";
 import { issueBaseUrl } from "@/lib/issueLinks.ts";
 import type { DayBlock } from "@/lib/layout.ts";
 import type { ProjectOpenItems } from "@/lib/openItems.ts";
-import { isSelected } from "@/lib/selection.ts";
+import { isSelected, projectName, projectOf } from "@/lib/selection.ts";
 import type { PeriodSummary, ProjectSummary } from "@/lib/summary.ts";
 import { prLabel, startsNewDay, unwrittenRecaps } from "@/lib/summaryDone.ts";
 import { cn } from "@/lib/utils.ts";
 import { OpenItems } from "./OpenItems.tsx";
 import { RecapBlock } from "./RecapBlock.tsx";
-import { projectName, projectOf } from "./shared.tsx";
 import type { useProjectOpenItems } from "./useProjectOpenItems.ts";
 
 /** The period's open items and what can be done with them. */

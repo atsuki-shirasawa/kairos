@@ -4,6 +4,7 @@ import type { CalendarSegment, CalendarSession, Project } from "@shared/api.ts";
 import { MINUTE } from "@shared/dates.ts";
 import { isProjectShown } from "@shared/projects.ts";
 import { openItemsOf } from "@shared/summaryBody.ts";
+import { projectOf } from "./selection.ts";
 
 /** Outcomes a block can be narrowed to. A block passes when it has any of the chosen ones. */
 export const OUTCOMES = ["commit", "pr", "merge"] as const;
@@ -233,7 +234,7 @@ export function segmentMatcher(
     if (!meetsConditions(filter, session, segment)) return false;
     if (terms.length === 0) return true;
     if (hits.has(hitKey(session.id, segment.start))) return true;
-    const project = session.projectId !== null ? projects.get(session.projectId) : undefined;
+    const project = projectOf(projects, session.projectId);
     const text = [segment.headline, session.title, session.label, project?.name]
       .filter(Boolean)
       .join("\n")

@@ -5,7 +5,7 @@ import { listMessages } from "@/i18n/messages/list.tsx";
 import { projectColor } from "@/lib/colors.ts";
 import { dateLabel, hhmm, relativeDay } from "@/lib/dates.ts";
 import type { DayBlock } from "@/lib/layout.ts";
-import { isSelected, isWorking } from "@/lib/selection.ts";
+import { isSelected, isWorking, projectLabel, projectOf } from "@/lib/selection.ts";
 import { totalsOf } from "@/lib/totals.ts";
 import { cn } from "@/lib/utils.ts";
 import { type Column, STICKY_TIME, STICKY_WORK } from "./columns.tsx";
@@ -110,7 +110,7 @@ export function Row({
   withDate?: boolean;
 }) {
   const { session, segment } = block;
-  const project = session.projectId !== null ? projects.get(session.projectId) : undefined;
+  const project = projectOf(projects, session.projectId);
   const selected = isSelected(block, selectedId, selectedAt);
 
   return (
@@ -192,7 +192,7 @@ function WorkCell({
             )}
           </button>
           <span className="truncate text-muted-foreground text-xs">
-            {project?.name ?? f.unknownProject}
+            {projectLabel(project)}
             {session.label ? f.sessionLabel(session.label) : ""}
             {session.title !== segment.headline && ` · ${session.title}`}
           </span>

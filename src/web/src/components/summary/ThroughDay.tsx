@@ -5,8 +5,9 @@ import { type HourAxis, hourAxis } from "@/lib/charts.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { hhmm } from "@/lib/dates.ts";
 import type { DayBlock } from "@/lib/layout.ts";
+import { projectName, projectOf } from "@/lib/selection.ts";
 import type { PeriodSummary } from "@/lib/summary.ts";
-import { Heading, projectName, projectOf } from "./shared.tsx";
+import { Heading } from "./shared.tsx";
 
 /** The day's blocks on one line per project, between the first and last hour with work. */
 export function ThroughDay({

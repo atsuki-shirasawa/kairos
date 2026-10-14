@@ -2,11 +2,11 @@ import type { Project } from "@shared/api.ts";
 import { openItemsOf } from "@shared/summaryBody.ts";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip.tsx";
 import { calendarMessages } from "@/i18n/messages/calendar.ts";
-import { formatMessages } from "@/i18n/messages/format.ts";
 import { blockMoments } from "@/lib/calendarGrid.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { dateLabel } from "@/lib/dates.ts";
 import type { PlacedBlock } from "@/lib/layout.ts";
+import { projectLabel } from "@/lib/selection.ts";
 import { cn } from "@/lib/utils.ts";
 import { BlockTooltip, timeRange } from "./Block.tsx";
 
@@ -55,7 +55,7 @@ export function Mark({
   // Runs can overlap, so the burst ends with whichever run ends last, not the one starting last
   const end = Math.max(...runs.map((b) => b.end));
   const range = timeRange({ ...first, end });
-  const projectName = project?.name ?? formatMessages().unknownProject;
+  const projectName = projectLabel(project);
   const m = calendarMessages();
   const label = burst ? m.runs(runs.length) : segment.headline;
   return (

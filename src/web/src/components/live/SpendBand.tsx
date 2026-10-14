@@ -7,6 +7,7 @@ import { projectColor } from "@/lib/colors.ts";
 import { hhmm } from "@/lib/dates.ts";
 import { costLabel, costPerHourLabel } from "@/lib/format.ts";
 import { hourTicks, type SpendBar, spendBars } from "@/lib/live.ts";
+import { projectOf } from "@/lib/selection.ts";
 import { cn } from "@/lib/utils.ts";
 
 /** Pixels a bar with any spend keeps, taller than an empty slot's stub so it reads as spent. */
@@ -37,9 +38,8 @@ export function SpendBand({
   // Keyed by the slot's start: after a refetch the same index can be another slot
   const [pointed, setPointed] = useState<number | null>(null);
   const bar = bars.find((b) => b.start === pointed);
-  const colorOf = (id: number | null) => projectColor(id === null ? undefined : projects.get(id));
-  const nameOf = (id: number | null) =>
-    (id === null ? undefined : projects.get(id)?.name) ?? m.spend.noProject;
+  const colorOf = (id: number | null) => projectColor(projectOf(projects, id));
+  const nameOf = (id: number | null) => projectOf(projects, id)?.name ?? m.spend.noProject;
   const nowAt = (spend.to - spend.from) / SPAN_MS;
   return (
     <section

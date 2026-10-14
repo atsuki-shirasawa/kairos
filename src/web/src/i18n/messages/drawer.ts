@@ -109,7 +109,6 @@ export const drawerMessages = defineMessages({
     hintTimeout: "It took too long. Wait a moment, then try again.",
     hintRateLimit: "Refused due to a usage limit or high load. Try again later.",
     hintOther: "Try again later. If it keeps failing, check ~/Library/Logs/kairos/server.log.",
-    unknownProject: "Unknown project",
     headless: "Headless",
     headlessTitle: "Started by claude -p or the SDK, with no prompt from you",
     /** Position in a burst of headless runs drawn as one mark on the calendar. */
@@ -222,7 +221,6 @@ export const drawerMessages = defineMessages({
     hintRateLimit: "利用上限か混雑で断られました。時間をおいて、もう一度試してください。",
     hintOther:
       "時間をおいて、もう一度試してください。続くときは ~/Library/Logs/kairos/server.log を確認してください。",
-    unknownProject: "プロジェクト不明",
     headless: "ヘッドレス",
     headlessTitle: "claude -p や SDK から始まり、あなたの発言はありません",
     runOf: (n: number, total: number) => `実行 ${n} / ${total}`,
