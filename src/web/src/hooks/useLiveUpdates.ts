@@ -20,18 +20,18 @@ export function useLiveUpdates(): { done: number; total: number } | null {
           void client.invalidateQueries({ queryKey: keys.live });
           return;
         }
-        void client.invalidateQueries({ queryKey: ["calendar"] });
+        void client.invalidateQueries({ queryKey: keys.allCalendar });
         // Recaps are listed under "calendar", so the line above already refetches them
         if (event.type === "recap.updated") return;
         if (event.type === "summary.updated") {
-          void client.invalidateQueries({ queryKey: ["session", event.sessionId] });
+          void client.invalidateQueries({ queryKey: keys.session(event.sessionId) });
           return;
         }
         // The tool in flight, tasks and tests come from the log
         void client.invalidateQueries({ queryKey: keys.live });
         for (const id of event.ids) {
-          void client.invalidateQueries({ queryKey: ["session", id] });
-          void client.invalidateQueries({ queryKey: ["messages", id] });
+          void client.invalidateQueries({ queryKey: keys.session(id) });
+          void client.invalidateQueries({ queryKey: keys.allMessages(id) });
         }
       }),
     [client],

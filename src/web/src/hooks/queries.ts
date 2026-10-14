@@ -15,12 +15,18 @@ import { api } from "@/lib/api.ts";
 /** Waits this long after the last keystroke before searching every period. */
 const SEARCH_DEBOUNCE_MS = 200;
 
-/** React Query keys. Everything nested under "calendar" is refetched when sessions change. */
+/**
+ * React Query keys. Everything nested under "calendar" is refetched when sessions change. The
+ * `all*` entries are prefixes, for invalidating every period (or every page) of a kind at once.
+ */
 export const keys = {
+  allCalendar: ["calendar"] as const,
   calendar: (from: number, to: number) => ["calendar", from, to] as const,
   // Nested under "calendar" so import notifications refetch it along with the calendar
   spans: (from: number, to: number) => ["calendar", "spans", from, to] as const,
   session: (id: string) => ["session", id] as const,
+  // Every agent's pages of a session's conversation
+  allMessages: (id: string) => ["messages", id] as const,
   messages: (id: string, agent: string | null) => ["messages", id, agent] as const,
   // Nested under "calendar" so new sessions and summaries refresh the results too
   search: (q: string) => ["calendar", "search", q] as const,
@@ -28,8 +34,10 @@ export const keys = {
   // Not under "calendar": running sessions change on their own (live.updated) as well as with the log
   live: ["live"] as const,
   // Nested under "calendar" so new work marks recaps stale, and recap.updated refreshes them
+  allRecaps: ["calendar", "recaps"] as const,
   recaps: (from: number, to: number) => ["calendar", "recaps", from, to] as const,
   // Nested under "calendar" so a new summary, which may open or close items, refreshes it
+  allOpenItems: ["calendar", "open-items"] as const,
   openItems: (from: number, to: number) => ["calendar", "open-items", from, to] as const,
 };
 
@@ -119,10 +127,15 @@ export function useUpdateOpenItem() {
     // Every period's list, and the recaps that read the open items (one may turn stale)
     onSettled: () =>
       Promise.all([
-        client.invalidateQueries({ queryKey: ["calendar", "open-items"] }),
-        client.invalidateQueries({ queryKey: ["calendar", "recaps"] }),
+        client.invalidateQueries({ queryKey: keys.allOpenItems }),
+        client.invalidateQueries({ queryKey: keys.allRecaps }),
       ]),
   });
+}
+
+/** The server's settings (summary language, headless visibility), shared by the hooks below. */
+function useSettings() {
+  return useQuery({ queryKey: keys.settings, queryFn: api.settings });
 }
 
 /**
@@ -131,7 +144,7 @@ export function useUpdateOpenItem() {
  */
 export function useSummaryLangSync(locale: Locale) {
   const client = useQueryClient();
-  const { data } = useQuery({ queryKey: keys.settings, queryFn: api.settings });
+  const { data } = useSettings();
   useEffect(() => {
     if (!data || data.summaryLangFixed || data.summaryLang === locale) return;
     api
@@ -153,12 +166,12 @@ export function useShowHeadless(): [
   loaded: boolean,
 ] {
   const client = useQueryClient();
-  const { data } = useQuery({ queryKey: keys.settings, queryFn: api.settings });
+  const { data } = useSettings();
   const { mutate } = useMutation({
     mutationFn: (show: boolean) => api.updateSettings({ showHeadless: show }),
     onSuccess: (settings) => {
       client.setQueryData(keys.settings, settings);
-      void client.invalidateQueries({ queryKey: ["calendar"] });
+      void client.invalidateQueries({ queryKey: keys.allCalendar });
       // The live page lists sessions and counts spend by the same visibility
       void client.invalidateQueries({ queryKey: keys.live });
     },
@@ -204,7 +217,7 @@ export function useUpdateProject() {
       api.updateProject(id, update),
     onSuccess: () =>
       Promise.all([
-        client.invalidateQueries({ queryKey: ["calendar"] }),
+        client.invalidateQueries({ queryKey: keys.allCalendar }),
         // The spend band leaves hidden projects out on the server
         client.invalidateQueries({ queryKey: keys.live }),
       ]),
