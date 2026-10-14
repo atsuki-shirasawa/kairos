@@ -22,10 +22,10 @@ Finished work goes to main without a PR: when asked to merge, use `/land` (revie
 - `src/cli/` — the `kairos` command (`ensure` / `open` / `serve` / `ingest` / `summarize` / `report`, etc.). `help.ts` lists each command's options and arguments, and the CLI refuses any it doesn't list, so add new flags there too. `views.ts` renders `report` / `open-items` / `search`, `doctor.ts` the checks, `style.ts` the colors they share, `daemon.ts` handles background start and the PID file (which also keeps the server's options for `restart`)
 - `src/server/ingest/` — incremental read (`reader`) → classify (`classify`) → store (`ingester`) → work blocks (`segments`). `watcher` re-ingests changed files while the server runs
 - `src/server/db/` — schema and `MIGRATIONS`
-- `src/server/` (top level) — `queries.ts` (read queries behind the API), `settings.ts` (settings in the DB's kv table), `events.ts` (SSE broadcast), `pricing.ts` (token → USD, a usage gauge rather than the real bill), `serve.ts` (server startup)
+- `src/server/` (top level) — `queries.ts` (read queries behind the API), `search.ts` (the search engine behind `/api/search`), `settings.ts` (settings in the DB's kv table), `events.ts` (SSE broadcast), `pricing.ts` (token → USD, a usage gauge rather than the real bill), `serve.ts` (server startup)
 - `src/server/summarize/` — per-section summaries. Runs `claude -p` with side-effect-free settings. The output language follows the UI language (stored on the server via `PATCH /api/settings`); `--summary-lang <en|ja>` fixes it instead. Existing summaries are kept and can be regenerated from the drawer
-- `src/server/api/` — Hono. `security.ts` holds Host validation, CSP and write protection
-- `src/shared/` — API types and constants shared by the server and the UI
+- `src/server/api/` — Hono. `app.ts` registers the routes, `validate.ts` checks request input, `security.ts` holds Host validation, CSP and write protection
+- `src/shared/` — API types, constants, and rules the server, CLI and UI must agree on (dates, PR refs, open items, close notes, summary failures, the UI's URL parameters). Put a rule here once a second layer needs it
 - `src/web/` — React 19 + Tailwind v4 + shadcn/ui (`@/` is `src/web/src`)
 - `src/web/src/i18n/` — UI language (English by default, Japanese selectable from the "⋯" menu, saved per browser). Messages live in `messages/*.ts` via `defineMessages`
 - `tests/` mirrors `src/` (`cli/`, `server/`, `web/`). `tests/web` covers pure `lib/` logic without a DOM and imports by relative path (the `@/` alias is not used in tests); call `setLocale` when a test checks copy
