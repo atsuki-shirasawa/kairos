@@ -68,43 +68,43 @@ export function App() {
   return (
     <div className="flex h-full flex-col">
       <Toolbar
-        view={state.view}
         layout={state.layout}
-        anchor={state.anchor}
+        onLayout={(layout) => update({ layout })}
         now={now}
         projects={data.projects}
-        sessions={data.sessions}
-        filter={state.filter}
-        onFilter={setFilter}
-        progress={progress}
-        onView={(view) => update({ view })}
-        onLayout={(layout) => update({ layout })}
-        onMove={(dir) => update({ anchor: shift(state.view, state.anchor, dir) })}
-        onToday={() => update({ anchor: startOfDay(Date.now()) })}
-        onJump={(day) => update({ anchor: day })}
-        live={live.summary}
-        searchRef={searchRef}
-        search={{
-          hits: search.data?.hits ?? [],
-          more: search.data?.more ?? false,
-          loading: search.isFetching,
-          error: search.error?.message ?? null,
-        }}
         projectMap={projectMap}
-        // The report follows what's on screen: hidden projects and filters apply
-        report={() => buildReport(days, focused, projectMap, data.recapBodies)}
-        hasWork={focused.length > 0}
-        onOpenHit={(hit) =>
-          update(
-            { anchor: startOfDay(hit.start), session: hit.sessionId, at: hit.start },
-            { push: true },
-          )
-        }
-        onSearchPanel={setSearchPanel}
-        theme={theme}
-        onTheme={setTheme}
-        menuOpen={menuOpen}
-        onMenuOpen={setMenuOpen}
+        progress={progress}
+        live={live.summary}
+        period={{
+          view: state.view,
+          anchor: state.anchor,
+          onView: (view) => update({ view }),
+          onMove: (dir) => update({ anchor: shift(state.view, state.anchor, dir) }),
+          onToday: () => update({ anchor: startOfDay(Date.now()) }),
+          onJump: (day) => update({ anchor: day }),
+        }}
+        filter={{ value: state.filter, onChange: setFilter, sessions: data.sessions }}
+        search={{
+          ref: searchRef,
+          results: {
+            hits: search.data?.hits ?? [],
+            more: search.data?.more ?? false,
+            loading: search.isFetching,
+            error: search.error?.message ?? null,
+          },
+          onOpenHit: (hit) =>
+            update(
+              { anchor: startOfDay(hit.start), session: hit.sessionId, at: hit.start },
+              { push: true },
+            ),
+          onPanel: setSearchPanel,
+        }}
+        report={{
+          // The report follows what's on screen: hidden projects and filters apply
+          build: () => buildReport(days, focused, projectMap, data.recapBodies),
+          hasWork: focused.length > 0,
+        }}
+        menu={{ open: menuOpen, onOpenChange: setMenuOpen, theme, onTheme: setTheme }}
       />
       {state.layout !== "live" && <FilterChips filter={state.filter} onFilter={setFilter} />}
       <div className="relative flex min-h-0 flex-1">

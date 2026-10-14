@@ -14,42 +14,63 @@ import { LiveButton, type LiveSummary } from "./toolbar/LiveButton.tsx";
 import { PeriodNav } from "./toolbar/PeriodNav.tsx";
 import { LayoutToggle, ViewToggle } from "./toolbar/ViewToggles.tsx";
 
-// SummaryView styles its own toggles with the toolbar's segmented look
-export { SEGMENT, SEGMENTED } from "./toolbar/segmented.ts";
-
-interface Props {
+/** The shown period and how to move through it or pick another. */
+export interface ToolbarPeriod {
   view: View;
-  layout: Layout;
   anchor: number;
-  now: number;
-  projects: Project[];
-  sessions: CalendarSession[];
-  filter: Filter;
-  onFilter: (filter: Filter) => void;
-  progress: ImportProgress;
   onView: (view: View) => void;
-  onLayout: (layout: Layout) => void;
   onMove: (dir: -1 | 1) => void;
   onToday: () => void;
   onJump: (day: number) => void;
-  /** The running sessions, for the button that opens their page. */
-  live: LiveSummary;
-  /** The search field. App holds the ref because the `/` key focuses it. */
-  searchRef: React.RefObject<HTMLInputElement | null>;
+}
+
+/** The filter and the period's sessions, which the filter menu offers conditions from. */
+export interface ToolbarFilter {
+  value: Filter;
+  onChange: (filter: Filter) => void;
+  sessions: CalendarSession[];
+}
+
+/** The search field and its results across every period. */
+export interface ToolbarSearch {
+  /** App holds the ref because the `/` key focuses it. */
+  ref: React.RefObject<HTMLInputElement | null>;
   /** Results of the keyword across every period. */
-  search: SearchState;
-  projectMap: Map<number, Project>;
+  results: SearchState;
   onOpenHit: (hit: SearchHit) => void;
   /** Whether the search results panel is open (it covers the top of the period body). */
-  onSearchPanel: (open: boolean) => void;
+  onPanel: (open: boolean) => void;
+}
+
+/** The copy-report button. */
+export interface ToolbarReport {
   /** The shown work as Markdown (empty when there is none). Built only when copying. */
-  report: () => string;
+  build: () => string;
   hasWork: boolean;
+}
+
+/** The "⋯" menu (theme, language, shortcuts). App owns its open state because `?` opens it too. */
+export interface ToolbarMenu {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   theme: Theme;
   onTheme: (theme: Theme) => void;
-  /** The "⋯" menu (theme, language, shortcuts). App owns its open state because `?` opens it too. */
-  menuOpen: boolean;
-  onMenuOpen: (open: boolean) => void;
+}
+
+interface Props {
+  layout: Layout;
+  onLayout: (layout: Layout) => void;
+  now: number;
+  projects: Project[];
+  projectMap: Map<number, Project>;
+  progress: ImportProgress;
+  /** The running sessions, for the button that opens their page. */
+  live: LiveSummary;
+  period: ToolbarPeriod;
+  filter: ToolbarFilter;
+  search: ToolbarSearch;
+  report: ToolbarReport;
+  menu: ToolbarMenu;
 }
 
 /**
@@ -58,33 +79,20 @@ interface Props {
  * period controls give way to its heading.
  */
 export function Toolbar({
-  view,
   layout,
-  anchor,
+  onLayout,
   now,
   projects,
-  sessions,
-  filter,
-  onFilter,
-  progress,
-  onView,
-  onLayout,
-  onMove,
-  onToday,
-  onJump,
-  live,
-  searchRef,
-  search,
   projectMap,
-  onOpenHit,
-  onSearchPanel,
+  progress,
+  live,
+  period,
+  filter,
+  search,
   report,
-  hasWork,
-  theme,
-  onTheme,
-  menuOpen,
-  onMenuOpen,
+  menu,
 }: Props) {
+  const { view } = period;
   return (
     // Below lg (a half-screen or small laptop window; the full bar needs ~940px with a two-month
     // week label) the bar tightens instead of overflowing: the wordmark goes and search shrinks to
@@ -99,9 +107,15 @@ export function Toolbar({
         </h1>
       ) : (
         <>
-          <PeriodNav view={view} onMove={onMove} onToday={onToday} />
+          <PeriodNav view={view} onMove={period.onMove} onToday={period.onToday} />
           <h1 className="flex min-w-0">
-            <DatePicker view={view} anchor={anchor} now={now} projects={projects} onJump={onJump} />
+            <DatePicker
+              view={view}
+              anchor={period.anchor}
+              now={now}
+              projects={projects}
+              onJump={period.onJump}
+            />
           </h1>
         </>
       )}
@@ -110,34 +124,39 @@ export function Toolbar({
         {/* Search narrows the shown period, which the live page doesn't have */}
         {layout !== "live" && (
           <SearchField
-            inputRef={searchRef}
-            value={filter.q}
-            files={filter.qFiles}
-            onFiles={(qFiles) => onFilter({ ...filter, qFiles })}
+            inputRef={search.ref}
+            value={filter.value.q}
+            files={filter.value.qFiles}
+            onFiles={(qFiles) => filter.onChange({ ...filter.value, qFiles })}
             period={view}
-            onChange={(q) => onFilter({ ...filter, q })}
-            search={search}
+            onChange={(q) => filter.onChange({ ...filter.value, q })}
+            search={search.results}
             projects={projectMap}
-            onOpen={onOpenHit}
-            onPanel={onSearchPanel}
+            onOpen={search.onOpenHit}
+            onPanel={search.onPanel}
           />
         )}
-        {layout !== "live" && <ViewToggle view={view} onView={onView} />}
+        {layout !== "live" && <ViewToggle view={view} onView={period.onView} />}
         <LayoutToggle layout={layout} onLayout={onLayout} />
         <LiveButton live={live} active={layout === "live"} onOpen={() => onLayout("live")} />
         <span className="w-2 shrink-0 max-lg:hidden" aria-hidden />
         {layout !== "live" && (
           <>
-            <CopyReportButton view={view} report={report} hasWork={hasWork} />
+            <CopyReportButton view={view} report={report.build} hasWork={report.hasWork} />
             <FilterMenu
               projects={projects}
-              sessions={sessions}
-              filter={filter}
-              onFilter={onFilter}
+              sessions={filter.sessions}
+              filter={filter.value}
+              onFilter={filter.onChange}
             />
           </>
         )}
-        <AppMenu open={menuOpen} onOpenChange={onMenuOpen} theme={theme} onTheme={onTheme} />
+        <AppMenu
+          open={menu.open}
+          onOpenChange={menu.onOpenChange}
+          theme={menu.theme}
+          onTheme={menu.onTheme}
+        />
       </div>
     </header>
   );
