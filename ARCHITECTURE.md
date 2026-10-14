@@ -243,8 +243,8 @@ kairos/
 │   │   ├── summarize/  # summarizer (queue), digest (excerpt), prompt, claude (runs claude -p),
 │   │   │               #   ledger and settlement (open items closed by the log)
 │   │   ├── api/        # Hono routes (app), request validation (validate), SSE (sse), security middleware
-│   │   ├── queries.ts  # read queries behind the API
-│   │   ├── search.ts   # the search engine behind /api/search (terms, SQL, excerpts)
+│   │   ├── queries/    # read queries behind the API: the Queries façade (index) and its domain
+│   │   │               #   modules; search is the engine behind /api/search (terms, SQL, excerpts)
 │   │   ├── pricing.ts  # API price list for cost estimates
 │   │   └── serve.ts    # wires ingest, summaries and the API together
 │   ├── shared/         # API types, constants and rules the server, CLI and web must agree on
