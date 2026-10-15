@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import type { LiveSession, Project } from "../../src/shared/api.ts";
+import type { LiveAgent, LiveSession, Project } from "../../src/shared/api.ts";
 import { setLocale } from "../../src/web/src/i18n/index.ts";
 import {
+  AGENT_ROWS,
+  agentRows,
   attentionCount,
   cacheState,
   columnOf,
@@ -14,6 +16,7 @@ import {
   liveCardView,
   liveDisplay,
   livePlace,
+  runningAgents,
   toolLabel,
   visibleLive,
 } from "../../src/web/src/lib/live.ts";
@@ -42,6 +45,7 @@ function live(id: string, over: Partial<LiveSession> = {}): LiveSession {
     tasks: null,
     test: null,
     recap: null,
+    agents: [],
     ...over,
   };
 }
@@ -213,5 +217,58 @@ describe("liveCardView", () => {
     expect(card).toMatchObject({ duration: "5m", compact: true, place: "app" });
     expect(card.description).toContain("5m");
     expect(view({}, "working").compact).toBe(false);
+  });
+});
+
+describe("agentRows", () => {
+  afterEach(() => setLocale("en"));
+
+  /** A running subagent started `minutes` before NOW, with overrides. */
+  const agent = (id: string, minutes: number, over: Partial<LiveAgent> = {}): LiveAgent => ({
+    id,
+    agentType: "Explore",
+    description: null,
+    running: true,
+    background: false,
+    tool: null,
+    startedAt: NOW - minutes * 60_000,
+    lastAt: NOW,
+    tokens: 0,
+    ...over,
+  });
+
+  test("names each subagent and says how long it runs, or that it is done", () => {
+    const { rows, more } = agentRows(
+      [agent("a", 3), agent("b", 1, { agentType: null, running: false })],
+      NOW,
+    );
+    expect(rows.map((r) => [r.name, r.status])).toEqual([
+      ["Explore", "3m"],
+      ["Subagent", "Done"],
+    ]);
+    expect(more).toBe(0);
+  });
+
+  test("folds subagents past the first few into a count", () => {
+    const list = Array.from({ length: AGENT_ROWS + 2 }, (_, i) => agent(`a${i}`, i));
+    const { rows, more } = agentRows(list, NOW);
+    expect(rows).toHaveLength(AGENT_ROWS);
+    expect(more).toBe(2);
+  });
+
+  test("speaks the UI language", () => {
+    setLocale("ja");
+    expect(
+      agentRows([agent("a", 1, { agentType: null, running: false })], NOW).rows[0],
+    ).toMatchObject({
+      name: "サブエージェント",
+      status: "完了",
+    });
+  });
+
+  test("counts the subagents still running", () => {
+    expect(runningAgents([agent("a", 1), agent("b", 1, { running: false }), agent("c", 1)])).toBe(
+      2,
+    );
   });
 });

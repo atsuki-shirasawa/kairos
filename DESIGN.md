@@ -445,7 +445,12 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   how long it has lasted, coarsening to whole hours from 3h and days from 24h, with the start time
   under it at the right of the place line (`numeral`, with the date when not today), then what it
   is doing: the
-  question (14px `ink`), the call in flight (tool name in medium, an MCP tool as "server › tool", its summary in `muted-ink`), tasks
+  question (14px `ink`), the call in flight (tool name in medium, an MCP tool as "server › tool", its summary in `muted-ink`), its
+  subagents as a list nested under it by indent alone (no rule: the edge, fill and footer rule
+  already frame the card): at most three rows, running ones first, then "+n more"; each row has a
+  6px dot (pulsing in the project color while it runs, a `muted-ink` ring once done), its type in
+  medium (`muted-ink` once done), what it was asked in `muted-ink`, how long it has run at the right
+  in `numeral` ("Done" once done, kept two minutes), and the call it is in under it; tasks
   as a 4px bar in the project color on `input` (the card is already `muted`, which `line` barely differs from), the last test (its word in `warn` when it failed),
   and Claude Code's recap while it isn't working (three lines). Gauges go in a footer under a rule
   (`line`, `input` on the `muted` fill), all 12px `muted-ink`: the context against the model's
@@ -458,7 +463,8 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   expired", when a reply rewrites the whole context. In On you its countdown turns `warn` in the
   last sixth of the cache's TTL (10 minutes of an hour), the one moment the cache asks something of
   you; elsewhere it stays `muted-ink`, or a column of idle sessions would all call for you. An idle
-  row ends its place line with the same. The page shows tokens rather than cost: they are what the
+  row ends its place line with the same, after how many subagents still run (`numeral`
+  `muted-ink`; background ones go on while the session waits). The page shows tokens rather than cost: they are what the
   logs record, without a price list's estimate in between. Working pulses the
   dot in the project color, asking is a solid `warn` dot with its state word in `warn`, waiting and
   idle are a `muted-ink` ring. No opacity: cards stay readable. The title is the card's button;

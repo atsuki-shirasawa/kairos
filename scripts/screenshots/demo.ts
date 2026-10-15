@@ -833,6 +833,17 @@ interface LiveDemo {
   sinceAgo: number;
   /** `m(ago)` is the log minute `ago` minutes before now. */
   write: (b: LogBuilder, m: (ago: number) => number) => void;
+  /** Subagents it launched in the background; `write` calls `launch` for each. */
+  agents?: DemoAgent[];
+}
+
+/** A background subagent of a running demo session, with its own log and meta file. */
+interface DemoAgent {
+  id: string;
+  type: string;
+  description: string;
+  /** What its log holds after its first prompt; `m` as in `LiveDemo.write`. */
+  write: (s: LogBuilder, m: (ago: number) => number) => void;
 }
 
 /**
@@ -886,6 +897,57 @@ function taskStatus(b: LogBuilder, minute: number, n: number, status: string): v
   const id = b.toolUse(minute, "TaskUpdate", { taskId: String(n), status });
   b.toolResult(minute, id, `Updated task #${n} status`);
 }
+
+/** The call that launches `agent`, named after it so its meta file can point at the call. */
+function agentCallId(agent: DemoAgent): string {
+  return `toolu_agent_${agent.id}`;
+}
+
+/** Launches `agent` in the background: the call returns at once and the turn goes on. */
+function launch(b: LogBuilder, minute: number, context: number, agent: DemoAgent): void {
+  const id = agentCallId(agent);
+  const input = {
+    subagent_type: agent.type,
+    description: agent.description,
+    prompt: agent.description,
+    run_in_background: true,
+  };
+  b.response(minute, [{ type: "tool_use", id, name: "Agent", input }], usageFor(context));
+  b.toolResult(minute, id, "Async agent launched successfully.");
+}
+
+const PREVIEW_AGENTS: DemoAgent[] = [
+  {
+    id: "a7e1c0de5eed0001",
+    type: "Explore",
+    description: "Find where CI posts PR comments",
+    write: (s, m) => {
+      s.bash(m(8), "rg -l 'gh pr comment' .github", ".github/workflows/coverage.yml");
+      const id = `toolu_agent_grep_${s.sessionId.slice(-6)}`;
+      s.response(
+        m(0.5),
+        [
+          {
+            type: "tool_use",
+            id,
+            name: "Grep",
+            input: { pattern: "GITHUB_TOKEN", path: ".github" },
+          },
+        ],
+        usageFor(41_200),
+      );
+    },
+  },
+  {
+    id: "a7e1c0de5eed0002",
+    type: "code-reviewer",
+    description: "Review the preview environment module",
+    write: (s, m) => {
+      s.bash(m(7), "git diff main -- modules/preview", "diff --git a/modules/preview/main.tf ...");
+      s.text(m(1.2), "Two findings: the bucket name collides across PRs, and teardown skips DNS.");
+    },
+  },
+];
 
 const LIVE: LiveDemo[] = [
   {
@@ -947,6 +1009,7 @@ const LIVE: LiveDemo[] = [
       taskStatus(b, m(90), 1, "completed");
       taskStatus(b, m(50), 2, "completed");
       taskStatus(b, m(49), 3, "in_progress");
+      for (const agent of PREVIEW_AGENTS) launch(b, m(9), 598_000, agent);
       b.bash(
         m(12),
         "make test",
@@ -958,6 +1021,7 @@ const LIVE: LiveDemo[] = [
         description: "Plan",
       });
     },
+    agents: PREVIEW_AGENTS,
   },
   {
     id: sid(204),
@@ -1009,6 +1073,30 @@ const LIVE: LiveDemo[] = [
   },
 ];
 
+/** Writes a subagent's log and meta file beside its session's log at `sessionPath`. */
+function writeAgentLog(
+  sessionPath: string,
+  live: LiveDemo,
+  agent: DemoAgent,
+  m: (ago: number) => number,
+): void {
+  const s = new LogBuilder(live.id, PROJECTS[live.project], live.branch, { agentId: agent.id });
+  s.systemUser(m(9) + 0.05, agent.description);
+  agent.write(s, m);
+  const dir = join(sessionPath.replace(/\.jsonl$/, ""), "subagents");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, `agent-${agent.id}.jsonl`), s.toJsonl());
+  writeFileSync(
+    join(dir, `agent-${agent.id}.meta.json`),
+    JSON.stringify({
+      agentType: agent.type,
+      description: agent.description,
+      toolUseId: agentCallId(agent),
+      requestShape: "background",
+    }),
+  );
+}
+
 /**
  * Writes the logs of the sessions running at `now` and returns their registry entries, for the
  * capture to pair with stand-in processes. Their blocks fall in the few hours before the capture,
@@ -1026,6 +1114,8 @@ export function writeLiveDemoLogs(claudeDir: string, now: number): LiveDemoEntry
     const path = join(claudeDir, "projects", cwd.replace(/[/.]/g, "-"), `${live.id}.jsonl`);
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, b.toJsonl());
+    for (const agent of live.agents ?? [])
+      writeAgentLog(path, live, agent, (ago) => nowMinute - ago);
     return {
       sessionId: live.id,
       cwd,

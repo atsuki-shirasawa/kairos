@@ -443,8 +443,8 @@ export interface LiveSession {
   startedAt: number;
   /** Start of the latest work block, to open it in the drawer. */
   section: number | null;
-  /** The tool call being run while working. `text` is its one-line summary (a command, a path). */
-  tool: { name: string; text: string; since: number } | null;
+  /** The tool call being run while working. */
+  tool: LiveTool | null;
   /** The question being asked while asking. */
   question: string | null;
   /** Context size of the latest main-thread response (input + cache reads and writes). */
@@ -455,6 +455,37 @@ export interface LiveSession {
   test: LiveTest | null;
   /** Claude Code's latest recap of the session (`away_summary`). */
   recap: string | null;
+  /** Its subagents running now or just finished, running ones first. */
+  agents: LiveAgent[];
+}
+
+/** A tool call that hasn't returned yet. `text` is its one-line summary (a command, a path). */
+export interface LiveTool {
+  name: string;
+  text: string;
+  since: number;
+}
+
+/**
+ * A subagent of a running session. Done ones stay listed for a couple of minutes after they finish,
+ * so a quick one is seen at all.
+ */
+export interface LiveAgent {
+  id: string;
+  /** Its type (`Explore`, a custom agent); null when its meta file hasn't been read. */
+  agentType: string | null;
+  /** What it was asked to do, as the caller described it. */
+  description: string | null;
+  running: boolean;
+  /** Launched to run on its own: the session's turn doesn't wait for it. */
+  background: boolean;
+  /** The call it is running; null while it thinks, and once done. */
+  tool: LiveTool | null;
+  startedAt: number;
+  /** Its latest message: when it finished, once done. */
+  lastAt: number;
+  /** Tokens it has used so far. */
+  tokens: number;
 }
 
 /**

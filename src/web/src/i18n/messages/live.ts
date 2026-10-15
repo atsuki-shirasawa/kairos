@@ -48,6 +48,16 @@ export const liveMessages = defineMessages({
     contextOf: (tokens: string, window: string) => `Context ${tokens} / ${window}`,
     startedAt: (time: string) => `Started ${time}`,
     notIngested: "Not in the log yet",
+    /** A subagent whose type isn't known yet. */
+    subagent: "Subagent",
+    /** The card's list of subagents, for screen readers. */
+    subagents: "Subagents",
+    /** A subagent that finished a moment ago, in place of how long it runs. */
+    agentDone: "Done",
+    /** Subagents past the ones a card lists. */
+    agentsMore: (n: number) => `+${n} more`,
+    /** An idle row's count of subagents still running. */
+    agentsRunning: (n: number) => (n === 1 ? "1 subagent running" : `${n} subagents running`),
     /** The tokens of the current work block so far. */
     blockTokens: (tokens: string) => `This block ${tokens}`,
     fast: "Fast",
@@ -107,6 +117,11 @@ export const liveMessages = defineMessages({
     contextOf: (tokens: string, window: string) => `コンテキスト ${tokens} / ${window}`,
     startedAt: (time: string) => `${time} 開始`,
     notIngested: "まだログに記録されていません",
+    subagent: "サブエージェント",
+    subagents: "サブエージェント",
+    agentDone: "完了",
+    agentsMore: (n: number) => `ほか ${n} 件`,
+    agentsRunning: (n: number) => `サブエージェント ${n} 件実行中`,
     blockTokens: (tokens: string) => `このブロック ${tokens}`,
     fast: "Fast",
     cacheLeft: (left: string) => `キャッシュ残り ${left}`,

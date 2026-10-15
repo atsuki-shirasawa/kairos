@@ -18,6 +18,7 @@ import {
 } from "@/lib/live.ts";
 import { projectOf } from "@/lib/selection.ts";
 import { cn } from "@/lib/utils.ts";
+import { AgentCount, CardAgents } from "./live/CardAgents.tsx";
 import { CardFooter, RowCache } from "./live/CardUsage.tsx";
 import { TokenBand } from "./live/TokenBand.tsx";
 
@@ -209,7 +210,7 @@ function LiveCard({
       {compact && section === null && (
         <p className="pl-3.5 text-muted-foreground text-xs">{m.notIngested}</p>
       )}
-      {!compact && <CardNow session={s} display={display} />}
+      {!compact && <CardNow session={s} display={display} now={now} />}
       {!compact && <CardFooter session={s} display={display} now={now} />}
     </article>
   );
@@ -298,6 +299,7 @@ function CardHeading({
         {s.background && (
           <span className="shrink-0 rounded-md border px-1 leading-4">{m.background}</span>
         )}
+        {compact && <AgentCount session={s} />}
         {compact && s.section !== null && <RowCache session={s} now={now} />}
         {!compact && (
           <span className="ml-auto shrink-0 font-num">
@@ -310,10 +312,19 @@ function CardHeading({
 }
 
 /**
- * What the session is doing now: the question it asks, or the call it runs; then its tasks, the
- * last test, and Claude Code's recap while it waits. Context and tokens go in the footer.
+ * What the session is doing now: the question it asks, or the call it runs, and its subagents; then
+ * its tasks, the last test, and Claude Code's recap while it waits. Context and tokens go in the
+ * footer.
  */
-function CardNow({ session: s, display }: { session: LiveSession; display: LiveDisplay }) {
+function CardNow({
+  session: s,
+  display,
+  now,
+}: {
+  session: LiveSession;
+  display: LiveDisplay;
+  now: number;
+}) {
   const m = liveMessages();
   return (
     <div className="flex flex-col gap-1.5 text-xs">
@@ -324,6 +335,7 @@ function CardNow({ session: s, display }: { session: LiveSession; display: LiveD
           <span className="text-muted-foreground">{s.tool.text}</span>
         </p>
       )}
+      <CardAgents session={s} now={now} />
       {s.tasks && <TaskProgress tasks={s.tasks} />}
       {s.test && (
         <p className="flex min-w-0 gap-1.5">

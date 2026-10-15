@@ -1,14 +1,17 @@
 // Joins the running sessions from Claude Code's registry with what Kairos has ingested of them:
-// the project and title, the tool call in flight, the task list, the last test run and the cost.
+// the project and title, the tool call in flight, the task list, the last test run, the cost and
+// the subagents at work.
 import type { Database } from "bun:sqlite";
-import type { LiveSession, LiveState, LiveTasks, LiveTest } from "../../shared/api.ts";
+import type { LiveSession, LiveState, LiveTasks, LiveTest, LiveTool } from "../../shared/api.ts";
 import { knownTitle } from "../queries/titles.ts";
 import { taskStates } from "../tasks.ts";
 import { lastTestRun } from "../testRuns.ts";
 import { oneLine } from "../text.ts";
 import { loadTaskCalls, loadToolCalls, type ToolCall } from "../toolCalls.ts";
 import type { SessionVisibility } from "../visibility.ts";
+import { liveAgents } from "./agents.ts";
 import type { RegistryEntry } from "./registry.ts";
+import { logTail, toolOf } from "./tail.ts";
 import { latestResponse, liveUsage } from "./usage.ts";
 
 /** Registry kinds of sessions a person runs; anything else (SDK runs) counts as headless. */
@@ -22,7 +25,8 @@ const ASKING_TOOLS = new Set(["AskUserQuestion", "ExitPlanMode"]);
 const TURN_STARTS = new Set(["prompt", "command", "interrupt", "sdk_prompt", "scheduled"]);
 /** How far back from the end of the main conversation to look for a call still in flight. */
 const TAIL_MESSAGES = 30;
-const TEXT_CHARS = 160;
+/** How long a question may run on a card. */
+const QUESTION_CHARS = 160;
 const COMMAND_CHARS = 80;
 const RECAP_CHARS = 600;
 
@@ -40,21 +44,9 @@ interface SessionRow {
   sdk_prompt_count: number;
 }
 
-interface TailRow {
-  kind: string;
-  tool_name: string | null;
-  tool_use_id: string | null;
-  text: string | null;
-  meta: string | null;
-  ts: number | null;
-}
-
-/** A tool call made in the main conversation that has no result yet. */
-interface PendingCall {
-  name: string;
-  text: string;
+/** A tool call made in the main conversation that has no result yet, with its stored input. */
+interface PendingCall extends LiveTool {
   input: string | null;
-  since: number;
 }
 
 /**
@@ -62,24 +54,13 @@ interface PendingCall {
  * after it. Reads only the conversation's tail.
  */
 function pendingCall(db: Database, sessionId: string): PendingCall | null {
-  const rows = db
-    .query<TailRow, [string, number]>(
-      `SELECT kind, tool_name, tool_use_id, text, meta, ts FROM messages
-       WHERE session_id = ? AND agent_id IS NULL AND is_copy = 0
-       ORDER BY file_id DESC, seq DESC LIMIT ?`,
-    )
-    .all(sessionId, TAIL_MESSAGES);
+  const rows = logTail(db, sessionId, null, TAIL_MESSAGES);
   const answered = new Set<string>();
   for (const r of rows) {
     if (TURN_STARTS.has(r.kind)) return null;
     if (r.kind === "tool_result" && r.tool_use_id) answered.add(r.tool_use_id);
     if (r.kind === "tool_use" && r.tool_use_id && !answered.has(r.tool_use_id))
-      return {
-        name: r.tool_name ?? "",
-        text: oneLine(r.text ?? "", TEXT_CHARS),
-        input: r.meta,
-        since: r.ts ?? 0,
-      };
+      return { ...toolOf(r), input: r.meta };
   }
   return null;
 }
@@ -89,7 +70,7 @@ function questionOf(call: PendingCall): string {
   try {
     const input = JSON.parse(call.input ?? "") as { questions?: { question?: unknown }[] };
     const q = input.questions?.[0]?.question;
-    if (typeof q === "string" && q) return oneLine(q, TEXT_CHARS);
+    if (typeof q === "string" && q) return oneLine(q, QUESTION_CHARS);
   } catch {
     // Input cut short when stored; fall back to the stored summary
   }
@@ -189,6 +170,7 @@ export function liveSessions(
       tasks: s ? tasksOf(db, e.sessionId, now) : null,
       test: s && section !== null ? testOf(loadToolCalls(db, e.sessionId, section, now)) : null,
       recap: s?.away_summary ? oneLine(s.away_summary, RECAP_CHARS) : null,
+      agents: s ? liveAgents(db, e.sessionId, state, now) : [],
     });
   }
   return list;

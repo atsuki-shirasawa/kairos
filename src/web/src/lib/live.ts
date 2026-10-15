@@ -1,5 +1,5 @@
 // How running sessions are shown: which ones want you, in what order, and for the tab title.
-import type { LiveSession, LiveUsage, Project } from "@shared/api.ts";
+import type { LiveAgent, LiveSession, LiveUsage, Project } from "@shared/api.ts";
 import { isProjectShown } from "@shared/projects.ts";
 import { WORK_BLOCK_GAP_MS } from "@shared/sections.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
@@ -179,4 +179,40 @@ export function liveCardView(
     place: livePlace(session, project),
     compact: display === "idle",
   };
+}
+
+/** How many subagents a card lists before folding the rest into "+n". */
+export const AGENT_ROWS = 3;
+
+/** One subagent as its row on a card shows it. */
+export interface LiveAgentRow {
+  agent: LiveAgent;
+  /** Its type, or a generic name when its meta file hasn't been read. */
+  name: string;
+  /** How long it has run, or that it is done. */
+  status: string;
+}
+
+/**
+ * The subagent rows of a card: the first `AGENT_ROWS` (the server lists running ones first), and
+ * how many more were left out.
+ */
+export function agentRows(
+  agents: readonly LiveAgent[],
+  now: number,
+): { rows: LiveAgentRow[]; more: number } {
+  const m = liveMessages();
+  return {
+    rows: agents.slice(0, AGENT_ROWS).map((agent) => ({
+      agent,
+      name: agent.agentType ?? m.subagent,
+      status: agent.running ? elapsedLabel(now - agent.startedAt) : m.agentDone,
+    })),
+    more: Math.max(0, agents.length - AGENT_ROWS),
+  };
+}
+
+/** How many of the subagents still run. */
+export function runningAgents(agents: readonly LiveAgent[]): number {
+  return agents.filter((a) => a.running).length;
 }
