@@ -18,6 +18,7 @@ import type {
   SettingsUpdate,
   SpansResponse,
 } from "@shared/api.ts";
+import { reopenHandler } from "./reconnect.ts";
 
 /** A non-2xx API response. `message` is the server's `error` field when it sent one. */
 export class ApiError extends Error {
@@ -115,9 +116,16 @@ export const api = {
     ),
 };
 
-/** Subscribes to server events. The browser reconnects on its own. Call the result to unsubscribe. */
-export function subscribe(onEvent: (event: ServerEvent) => void): () => void {
+/**
+ * Subscribes to server events. The browser reconnects on its own; `onReconnect` runs after each
+ * reconnection, so the caller can refetch what it missed. Call the result to unsubscribe.
+ */
+export function subscribe(
+  onEvent: (event: ServerEvent) => void,
+  onReconnect: () => void,
+): () => void {
   const source = new EventSource("/api/events");
+  source.addEventListener("open", reopenHandler(onReconnect));
   const handler = (e: MessageEvent<string>) => onEvent(JSON.parse(e.data) as ServerEvent);
   // EventSource drops named events nobody listens for, so every type needs a listener; the
   // record makes a new event type a type error here until it is added
