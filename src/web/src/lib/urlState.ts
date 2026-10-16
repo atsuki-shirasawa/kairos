@@ -2,7 +2,7 @@
 // left-out values) can be tested without a browser. The hook only wires them to history.
 import { isoDay, startOfDay } from "@shared/dates.ts";
 import { DAY_VIEW, readSessionTarget, UI_PARAMS, writeSessionTarget } from "@shared/uiUrl.ts";
-import { fromISODate } from "./dates.ts";
+import { fromISODate, periodStart } from "./dates.ts";
 import type { Filter } from "./filter.ts";
 import { readFilter, writeFilter } from "./filterUrl.ts";
 import type { ListSort } from "./listTable.ts";
@@ -70,4 +70,17 @@ export function serializeUrlState(s: UrlState, now: number): URLSearchParams {
   if (s.sort.key !== "start") q.set(PARAMS.sort, `${s.sort.desc ? "-" : ""}${s.sort.key}`);
   writeFilter(s.filter, q);
   return q;
+}
+
+/**
+ * Whether going from `prev` to `next` moves to another place the back button should return from:
+ * a different period (view, or a step to another week, month or day) or a different layout.
+ * Selecting a block, filtering and sorting stay on the same place, so they replace the entry.
+ */
+export function isNewPlace(prev: UrlState, next: UrlState): boolean {
+  return (
+    prev.layout !== next.layout ||
+    prev.view !== next.view ||
+    periodStart(prev.view, prev.anchor) !== periodStart(next.view, next.anchor)
+  );
 }

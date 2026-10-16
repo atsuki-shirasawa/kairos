@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { NO_FILTER } from "../../src/web/src/lib/filter.ts";
 import {
   DEFAULT_SORT,
+  isNewPlace,
   parseUrlState,
   serializeUrlState,
   type UrlState,
@@ -90,4 +91,29 @@ test("state survives a round trip through the URL", () => {
     },
   ];
   for (const s of states) expect(parseUrlState(serializeUrlState(s, NOW), NOW)).toEqual(s);
+});
+
+describe("isNewPlace", () => {
+  const base: UrlState = { ...DEFAULTS, anchor: TODAY };
+  const day = (d: number) => new Date(2026, 9, d).getTime();
+
+  test("a step to another period is a new place", () => {
+    expect(isNewPlace(base, { ...base, anchor: day(20) })).toBe(true);
+  });
+
+  test("another day in the same week is not", () => {
+    // Oct 13 (Tue) and Oct 15 (Thu) are in the week starting Sunday Oct 11
+    expect(isNewPlace(base, { ...base, anchor: day(15) })).toBe(false);
+  });
+
+  test("switching the view or the layout is a new place", () => {
+    expect(isNewPlace(base, { ...base, view: "day" })).toBe(true);
+    expect(isNewPlace(base, { ...base, layout: "summary" })).toBe(true);
+  });
+
+  test("selecting a block, filtering or sorting stays in place", () => {
+    expect(isNewPlace(base, { ...base, session: "s", at: NOW })).toBe(false);
+    expect(isNewPlace(base, { ...base, filter: { ...base.filter, q: "fix" } })).toBe(false);
+    expect(isNewPlace(base, { ...base, sort: { key: "start", desc: true } })).toBe(false);
+  });
 });

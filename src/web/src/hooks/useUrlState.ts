@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { parseUrlState, serializeUrlState, type UrlState } from "@/lib/urlState.ts";
+import { isNewPlace, parseUrlState, serializeUrlState, type UrlState } from "@/lib/urlState.ts";
 
 /** The view state of the current location. */
 function readLocation(): UrlState {
@@ -15,12 +15,16 @@ function writeLocation(s: UrlState, push: boolean): void {
   else history.replaceState(null, "", url);
 }
 
-/** Patches the view state and rewrites the URL. `push: true` adds a history entry. */
+/**
+ * Patches the view state and rewrites the URL. A move to another period or layout adds a history
+ * entry on its own; `push: true` adds one for other steps too.
+ */
 export type UrlStateUpdate = (patch: Partial<UrlState>, opts?: { push?: boolean }) => void;
 
 /**
  * The view state and a patch function that also rewrites the URL.
- * Pass `push: true` for steps the back button should undo (opening a block, a search hit).
+ * Moving to another period or layout adds a history entry, so the back button returns to where
+ * you were. Pass `push: true` for other steps it should undo (opening a block, a search hit).
  */
 export function useUrlState(): [UrlState, UrlStateUpdate] {
   const [state, setState] = useState(readLocation);
@@ -38,9 +42,10 @@ export function useUrlState(): [UrlState, UrlStateUpdate] {
   }, []);
 
   const update = useCallback((patch: Partial<UrlState>, opts: { push?: boolean } = {}) => {
-    const next = { ...latest.current, ...patch };
+    const prev = latest.current;
+    const next = { ...prev, ...patch };
     latest.current = next;
-    writeLocation(next, opts.push ?? false);
+    writeLocation(next, opts.push ?? isNewPlace(prev, next));
     setState(next);
   }, []);
 
