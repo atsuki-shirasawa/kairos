@@ -104,7 +104,7 @@ export function Toolbar({
       <span className="w-3 shrink-0 max-lg:hidden" aria-hidden />
       {/* The live page shows the present, so it has no period to move through or pick */}
       {!hasPeriod ? (
-        <h1 className="min-w-0 truncate font-semibold text-[17px] tracking-tight">
+        <h1 className="min-w-0 truncate font-semibold text-title tracking-tight">
           {liveMessages().heading}
         </h1>
       ) : (

@@ -41,10 +41,10 @@ export function Conversation({
   useJumpToMessage(messages, jump, query);
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = query;
 
-  if (query.isPending) return <p className="text-muted-foreground text-sm">{t.loading}</p>;
+  if (query.isPending) return <p className="text-body text-muted-foreground">{t.loading}</p>;
   if (query.isError)
-    return <p className="text-destructive text-sm">{t.loadFailed(query.error.message)}</p>;
-  if (messages.length === 0) return <p className="text-muted-foreground text-sm">{t.empty}</p>;
+    return <p className="text-body text-destructive">{t.loadFailed(query.error.message)}</p>;
+  if (messages.length === 0) return <p className="text-body text-muted-foreground">{t.empty}</p>;
 
   return (
     <ol className="space-y-3">
@@ -61,7 +61,7 @@ export function Conversation({
       {hasNextPage && (
         <button
           type="button"
-          className="w-full rounded-md border py-1.5 text-muted-foreground text-xs hover:bg-accent disabled:opacity-60"
+          className="w-full rounded-md border py-1.5 text-label text-muted-foreground hover:bg-accent disabled:opacity-60"
           onClick={() => void fetchNextPage()}
           disabled={isFetchingNextPage}
         >
@@ -74,7 +74,7 @@ export function Conversation({
 
 function DaySeparator({ ts }: { ts: number }) {
   return (
-    <li className="flex items-center gap-3 pt-1 font-num text-muted-foreground text-xs">
+    <li className="flex items-center gap-3 pt-1 font-num text-label text-muted-foreground">
       <span className="h-px flex-1 bg-border" />
       <time>{dateLabel(ts)}</time>
       <span className="h-px flex-1 bg-border" />
@@ -83,7 +83,7 @@ function DaySeparator({ ts }: { ts: number }) {
 }
 
 function Time({ ts }: { ts: number | null }) {
-  return ts ? <time className="font-num text-[11px] text-muted-foreground">{hhmm(ts)}</time> : null;
+  return ts ? <time className="font-num text-meta text-muted-foreground">{hhmm(ts)}</time> : null;
 }
 
 function Entry({ message: m, result }: { message: Message; result: Message | undefined }) {
@@ -95,15 +95,15 @@ function Entry({ message: m, result }: { message: Message; result: Message | und
       return (
         <div className="ml-8 rounded-lg bg-accent px-3 py-2">
           <div className="mb-0.5 flex items-center justify-between">
-            <span className="font-medium text-xs">
+            <span className="font-medium text-label">
               {m.kind === "sdk_prompt" ? t.sdkRequest : t.you}
             </span>
             <Time ts={m.ts} />
           </div>
           {m.kind === "command" ? (
-            <code className="text-sm">{m.text}</code>
+            <code className="text-body">{m.text}</code>
           ) : (
-            <p className="whitespace-pre-wrap break-words text-sm">{m.text}</p>
+            <p className="whitespace-pre-wrap break-words text-body">{m.text}</p>
           )}
         </div>
       );
@@ -111,7 +111,7 @@ function Entry({ message: m, result }: { message: Message; result: Message | und
       return (
         <div>
           <div className="mb-0.5 flex items-center justify-between">
-            <span className="font-medium text-xs">Claude</span>
+            <span className="font-medium text-label">Claude</span>
             <Time ts={m.ts} />
           </div>
           <Markdown>{m.text ?? ""}</Markdown>
@@ -121,16 +121,16 @@ function Entry({ message: m, result }: { message: Message; result: Message | und
       return <ToolCall message={m} result={result} />;
     case "compact":
       return (
-        <div className="flex items-center gap-3 text-muted-foreground text-xs">
+        <div className="flex items-center gap-3 text-label text-muted-foreground">
           <span className="h-px flex-1 bg-border" />
           {t.compacted}
           <span className="h-px flex-1 bg-border" />
         </div>
       );
     case "interrupt":
-      return <p className="text-muted-foreground text-xs">{t.interrupted}</p>;
+      return <p className="text-label text-muted-foreground">{t.interrupted}</p>;
     case "error":
-      return <p className="text-destructive text-xs">{t.error(m.text ?? "")}</p>;
+      return <p className="text-destructive text-label">{t.error(m.text ?? "")}</p>;
     case "scheduled":
       return <SystemLine ts={m.ts} label={t.scheduled} text={firstLine(m.text)} />;
     case "notification":
@@ -144,7 +144,7 @@ function Entry({ message: m, result }: { message: Message; result: Message | und
 
 function SystemLine({ ts, label, text }: { ts: number | null; label: string; text: string }) {
   return (
-    <div className="flex items-baseline gap-2 text-muted-foreground text-xs">
+    <div className="flex items-baseline gap-2 text-label text-muted-foreground">
       <span className="shrink-0 rounded border px-1.5">{label}</span>
       <span className="min-w-0 flex-1 truncate">{text}</span>
       <Time ts={ts} />
@@ -155,7 +155,7 @@ function SystemLine({ ts, label, text }: { ts: number | null; label: string; tex
 function ToolCall({ message: m, result }: { message: Message; result: Message | undefined }) {
   const t = conversationMessages();
   return (
-    <details className="group rounded-md border text-xs">
+    <details className="group rounded-md border text-label">
       <summary className="flex cursor-pointer list-none items-center gap-2 px-2 py-1.5 [&::-webkit-details-marker]:hidden">
         <ChevronRight className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
         <span className="font-medium">{m.toolName}</span>
@@ -179,7 +179,7 @@ function Pre({ children, className }: { children: string; className?: string }) 
   return (
     <pre
       className={cn(
-        "max-h-80 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 font-mono text-[11px]",
+        "max-h-80 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 font-mono text-meta",
         className,
       )}
     >

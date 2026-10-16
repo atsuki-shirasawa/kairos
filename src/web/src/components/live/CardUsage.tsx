@@ -34,7 +34,7 @@ export function CardFooter({
   return (
     <div
       className={cn(
-        "flex flex-col gap-0.5 border-t pt-2 text-muted-foreground text-xs",
+        "flex flex-col gap-0.5 border-t pt-2 text-label text-muted-foreground",
         // `line` barely differs from the `muted` fill an On you card sits on
         columnOf(display) === "attention" && "border-input",
       )}

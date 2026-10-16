@@ -70,7 +70,7 @@ export function ModelCell({ usage, activity }: { usage: Usage | null; activity: 
   return (
     <span className="block text-muted-foreground">
       {modelLabel(usage.model)}
-      {activity?.effort && <span className="block text-[11px]">{activity.effort}</span>}
+      {activity?.effort && <span className="block text-meta">{activity.effort}</span>}
     </span>
   );
 }

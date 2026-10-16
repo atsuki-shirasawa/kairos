@@ -5,7 +5,7 @@ import { approxCostLabel } from "@/lib/format.ts";
 
 /** A section heading of the summary. */
 export function Heading({ children }: { children: React.ReactNode }) {
-  return <h2 className="mb-3 font-medium text-muted-foreground text-xs">{children}</h2>;
+  return <h2 className="mb-3 font-medium text-label text-muted-foreground">{children}</h2>;
 }
 
 /** Estimated cost, marked "~" when some models had no known price. */

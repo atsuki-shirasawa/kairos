@@ -102,13 +102,13 @@ function FlowItem({
       onClick={onClick}
       aria-current={selected}
       className={cn(
-        "flex w-full items-baseline gap-3 rounded-r-md border-transparent border-l-2 px-2 py-1.5 text-left text-sm hover:bg-accent",
+        "flex w-full items-baseline gap-3 rounded-r-md border-transparent border-l-2 px-2 py-1.5 text-left text-body hover:bg-accent",
         selected && "border-primary bg-accent font-medium",
       )}
     >
       <span
         className={cn(
-          "shrink-0 font-num text-muted-foreground text-xs",
+          "shrink-0 font-num text-label text-muted-foreground",
           multiDay ? "w-24" : "w-[4.5rem]",
         )}
       >
@@ -144,7 +144,7 @@ function FlowMoments({ commits, prs }: { commits: number; prs: number }) {
   return (
     <Hint
       text={words}
-      className="flex shrink-0 items-center gap-0.5 self-center font-num text-[11px] text-muted-foreground"
+      className="flex shrink-0 items-center gap-0.5 self-center font-num text-meta text-muted-foreground"
     >
       {/* The tooltip only opens on hover, so the row's accessible name carries the words itself */}
       <span className="sr-only">{words}</span>
@@ -173,7 +173,7 @@ function ContinuationLinks({
 }) {
   const t = drawerMessages();
   return (
-    <div className="mt-3 flex gap-4 text-sm">
+    <div className="mt-3 flex gap-4 text-body">
       {from && (
         <button
           type="button"
@@ -204,7 +204,7 @@ function AwaySummary({ text }: { text: string }) {
       type="button"
       onClick={() => setOpen((v) => !v)}
       aria-expanded={open}
-      className="mt-3 block w-full border-l-2 pl-3 text-left text-muted-foreground text-xs leading-relaxed hover:text-foreground"
+      className="mt-3 block w-full border-l-2 pl-3 text-left text-label text-muted-foreground leading-relaxed hover:text-foreground"
     >
       <span className="mb-0.5 block font-medium">{drawerMessages().awaySummary}</span>
       <span className={cn("block", !open && "line-clamp-3")}>{text}</span>
@@ -216,7 +216,7 @@ function AwaySummary({ text }: { text: string }) {
 function Hidden({ count, where }: { count: number; where: "before" | "after" }) {
   const t = drawerMessages();
   return (
-    <p className="px-2 py-0.5 text-muted-foreground text-xs">
+    <p className="px-2 py-0.5 text-label text-muted-foreground">
       {where === "before" ? t.hiddenBefore(count) : t.hiddenAfter(count)}
     </p>
   );

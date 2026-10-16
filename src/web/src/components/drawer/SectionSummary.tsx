@@ -42,7 +42,7 @@ export function SectionSummary({
           <>
             {/* Beside the button that would rewrite it, rather than on a line of its own */}
             {section.model && (
-              <span className="text-muted-foreground text-xs">
+              <span className="text-label text-muted-foreground">
                 {t.madeWith(modelLabel(section.model))}
               </span>
             )}
@@ -60,7 +60,7 @@ export function SectionSummary({
         <SummaryBody session={s} section={section} onSelect={onSelect} />
       ) : (
         <div className="space-y-2">
-          <p className="text-muted-foreground text-sm">
+          <p className="text-body text-muted-foreground">
             {busy ? t.summarizingNote : section.summarizable ? t.noSummaryYet : t.shortSection}
           </p>
           {!busy && (
@@ -81,7 +81,9 @@ export function SectionSummary({
         />
       )}
       {section.error && !busy && <SummaryFailure error={section.error} />}
-      {request.isError && <p className="mt-2 text-destructive text-xs">{request.error.message}</p>}
+      {request.isError && (
+        <p className="mt-2 text-destructive text-label">{request.error.message}</p>
+      )}
     </Block>
   );
 }
@@ -135,11 +137,11 @@ function SummaryBody({
         />
       ) : (
         // A body in neither summary format is shown as written rather than guessed at
-        <SummaryMarkdown baseUrl={baseUrl} className="text-[15px] leading-7">
+        <SummaryMarkdown baseUrl={baseUrl} className="text-read leading-7">
           {body}
         </SummaryMarkdown>
       )}
-      {section.stale && <p className="mt-2 text-muted-foreground text-xs">{t.staleSummary}</p>}
+      {section.stale && <p className="mt-2 text-label text-muted-foreground">{t.staleSummary}</p>}
     </>
   );
 }

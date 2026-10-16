@@ -38,7 +38,7 @@ export function AgentTabs({
         />
       </div>
       {selected?.description && (
-        <p className="text-muted-foreground text-xs">
+        <p className="text-label text-muted-foreground">
           {t.subagentTask(selected.agentType ?? t.subagent, selected.description)}
         </p>
       )}
@@ -66,7 +66,7 @@ function SubagentSelect({
     <select
       aria-label={t.ariaSubagent}
       className={cn(
-        "min-w-0 flex-1 truncate rounded-full border bg-transparent px-2.5 py-0.5 text-xs",
+        "min-w-0 flex-1 truncate rounded-full border bg-transparent px-2.5 py-0.5 text-label",
         highlighted ? "border-primary text-foreground" : "text-muted-foreground",
       )}
       value={agent ?? ""}
@@ -101,7 +101,7 @@ function Tab({ active, children, ...props }: { active: boolean } & React.Compone
       type="button"
       aria-pressed={active}
       className={cn(
-        "rounded-full border px-3 py-0.5 text-xs",
+        "rounded-full border px-3 py-0.5 text-label",
         active ? "border-primary bg-primary text-primary-foreground" : "hover:bg-accent",
       )}
       {...props}

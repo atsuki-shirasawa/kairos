@@ -55,7 +55,7 @@ export function ByDay({
           <span
             key={d.day}
             className={cn(
-              "text-center font-num text-xs",
+              "text-center font-num text-label",
               isSameDay(d.day, now) ? "text-primary" : "text-muted-foreground",
             )}
           >
@@ -72,7 +72,7 @@ export function ByDay({
 /** Which color is which project, so the bars read without scrolling to the project list. */
 function Legend({ summary, projects }: { summary: PeriodSummary; projects: Map<number, Project> }) {
   return (
-    <ul className="mb-3 flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground text-xs">
+    <ul className="mb-3 flex flex-wrap gap-x-3 gap-y-1 text-label text-muted-foreground">
       {summary.projects.map((p) => (
         <li key={p.projectId ?? "none"} className="flex items-center gap-1.5">
           <span
@@ -115,7 +115,7 @@ function DayBar({
       )}
     >
       {!compact && (
-        <span className="font-num text-[11px] text-muted-foreground tabular-nums">{duration}</span>
+        <span className="font-num text-meta text-muted-foreground tabular-nums">{duration}</span>
       )}
       <span
         className="flex w-full flex-col-reverse overflow-hidden rounded-t-sm opacity-90 group-hover:opacity-100"

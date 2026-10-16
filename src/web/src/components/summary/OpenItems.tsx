@@ -46,11 +46,11 @@ export function OpenItems({
   return (
     <div className="mb-3">
       <div className="mb-1 flex items-baseline justify-between gap-3">
-        <h4 className="font-semibold text-muted-foreground text-xs tracking-wide">
+        <h4 className="font-semibold text-label text-muted-foreground tracking-wide">
           {m.openHeading(count)}
         </h4>
         <Hint text={m.openDeltaNote(view)}>
-          <span className="font-num text-muted-foreground text-xs tabular-nums">
+          <span className="font-num text-label text-muted-foreground tabular-nums">
             {m.openDelta(view, items.opened, items.closedIn)}
           </span>
         </Hint>
@@ -81,7 +81,7 @@ export function OpenItems({
         </Folded>
       )}
       {error && (
-        <p className="mt-1 text-destructive text-xs" role="alert">
+        <p className="mt-1 text-destructive text-label" role="alert">
           {m.openUpdateFailed(error)}
         </p>
       )}
@@ -126,7 +126,7 @@ function ItemText({
     <Markdown
       issueBaseUrl={baseUrl}
       className={cn(
-        "min-w-0 flex-1 text-sm leading-normal",
+        "min-w-0 flex-1 text-body leading-normal",
         muted && "text-muted-foreground",
         faded && "opacity-60",
       )}
@@ -182,7 +182,7 @@ function ClosedRow({ item, onSelect, onUpdate, busyId, baseUrl }: Actions & { it
       {by !== null && at !== null ? (
         <BlockLink label={how} title={m.closedShow} onClick={() => onSelect(by, at)} />
       ) : (
-        <span className="shrink-0 whitespace-nowrap text-muted-foreground text-xs">{how}</span>
+        <span className="shrink-0 whitespace-nowrap text-label text-muted-foreground">{how}</span>
       )}
       <HandActions item={item} busy={busyId === item.id} onUpdate={onUpdate} />
     </li>

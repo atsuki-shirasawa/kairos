@@ -65,7 +65,7 @@ function CollapsedNumbers({
   return (
     <CollapsedBlock onClick={onOpen} expanded={false}>
       {t.numbers}
-      <span className="ml-auto truncate font-num text-xs">
+      <span className="ml-auto truncate font-num text-label">
         {[
           u && t.tokens(tokensLabel(u.tokens)),
           u && approxCostLabel(u),
@@ -96,7 +96,7 @@ function UsageBlock({
       {u ? (
         <UsageFigures usage={u} prompts={section?.promptCount ?? s.promptCount} />
       ) : (
-        <p className="text-muted-foreground text-sm">{t.noUsage}</p>
+        <p className="text-body text-muted-foreground">{t.noUsage}</p>
       )}
       {showTotal && s.usage && <SessionTotal session={s} usage={s.usage} />}
     </Block>
@@ -123,7 +123,7 @@ function UsageFigures({ usage: u, prompts }: { usage: Usage; prompts: number }) 
         />
         <Stat label={t.statPrompts} value={String(prompts)} />
       </dl>
-      <p className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 font-num text-muted-foreground text-xs">
+      <p className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 font-num text-label text-muted-foreground">
         <span>{t.input(tokensLabel(u.input))}</span>
         <span>{t.output(tokensLabel(u.output))}</span>
         <span>{t.cacheRead(tokensLabel(u.cacheRead))}</span>
@@ -138,7 +138,7 @@ function UsageFigures({ usage: u, prompts }: { usage: Usage; prompts: number }) 
 function SessionTotal({ session: s, usage }: { session: SessionDetail; usage: Usage }) {
   const t = drawerMessages();
   return (
-    <p className="mt-3 border-t pt-2 text-muted-foreground text-xs">
+    <p className="mt-3 border-t pt-2 text-label text-muted-foreground">
       {t.sessionTotal(s.sections.length, s.scheduledRuns)}
       <span className="font-medium font-num text-foreground">{tokensLabel(usage.tokens)}</span>
       {t.sessionTotalTokens}
@@ -169,7 +169,7 @@ function ActivityBlock({ section }: { section: Section }) {
   ];
   return (
     <Block title={t.sectionActivity}>
-      <dl className="grid grid-cols-3 gap-x-4 gap-y-2.5 text-sm">
+      <dl className="grid grid-cols-3 gap-x-4 gap-y-2.5 text-body">
         {items.map(([label, value, title]) => (
           <Stat key={label} label={label} value={value} title={title} />
         ))}
@@ -185,7 +185,7 @@ function ClaudeTime({ claudeMs, span }: { claudeMs: number | null; span: number 
     <>
       {durationLabel(claudeMs)}
       {span > 0 && (
-        <span className="ml-1 font-normal text-muted-foreground text-xs">
+        <span className="ml-1 font-normal text-label text-muted-foreground">
           {Math.min(100, Math.round((claudeMs / span) * 100))}%
         </span>
       )}
@@ -200,7 +200,9 @@ function Trouble({ activity: a }: { activity: Activity }) {
     <span className={cn(trouble > 0 && "text-warn")}>
       {trouble}
       {trouble > 0 && (
-        <span className="block font-normal text-muted-foreground text-xs">{troubleDetail(a)}</span>
+        <span className="block font-normal text-label text-muted-foreground">
+          {troubleDetail(a)}
+        </span>
       )}
     </span>
   );
@@ -221,12 +223,12 @@ function Stat({
 }) {
   return (
     <div className="min-w-0">
-      <dt className="truncate text-[11px] text-muted-foreground">
+      <dt className="truncate text-meta text-muted-foreground">
         <Hint text={title} focusable>
           {label}
         </Hint>
       </dt>
-      <dd className="font-medium font-num text-sm tabular-nums">{value}</dd>
+      <dd className="font-medium font-num text-body tabular-nums">{value}</dd>
     </div>
   );
 }

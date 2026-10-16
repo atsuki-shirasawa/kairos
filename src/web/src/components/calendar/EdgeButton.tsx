@@ -25,7 +25,7 @@ export function EdgeButton({
       type="button"
       onClick={() => onClick(Math.max(0, edge.scrollTo))}
       className={cn(
-        "absolute left-1/2 z-20 inline-flex -translate-x-1/2 items-center gap-1 rounded-full border bg-popover px-3 py-1 font-num text-muted-foreground text-xs shadow-sm hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring",
+        "absolute left-1/2 z-20 inline-flex -translate-x-1/2 items-center gap-1 rounded-full border bg-popover px-3 py-1 font-num text-label text-muted-foreground shadow-sm hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring",
         where === "above" ? "top-2" : "bottom-2",
       )}
       aria-label={m.edgeAria(where === "above", text)}

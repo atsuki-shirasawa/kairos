@@ -103,7 +103,7 @@ export function SearchField({
         aria-label={m.label(period)}
         className={cn(
           // Frameless until used, like the toolbar's other controls; the icon and "/" say what it is
-          "h-8 w-36 rounded-md border border-transparent pl-7 text-sm outline-none transition-[width] duration-150 placeholder:text-muted-foreground hover:bg-accent focus-visible:border-ring group-focus-within:w-64 group-focus-within:border-input group-focus-within:bg-card motion-reduce:transition-none",
+          "h-8 w-36 rounded-md border border-transparent pl-7 text-body outline-none transition-[width] duration-150 placeholder:text-muted-foreground hover:bg-accent focus-visible:border-ring group-focus-within:w-64 group-focus-within:border-input group-focus-within:bg-card motion-reduce:transition-none",
           // Up to xl the open field stays narrower, so the period label beside it keeps its width
           "max-xl:group-focus-within:w-48",
           // In a narrow window only the icon shows until focused, then it opens to a usable width
@@ -205,7 +205,7 @@ function ClearButton({ onClear }: { onClear: () => void }) {
 function SlashHint() {
   return (
     <kbd
-      className="pointer-events-none absolute right-1.5 rounded border bg-muted px-1 font-num text-[11px] text-muted-foreground leading-4 max-lg:hidden"
+      className="pointer-events-none absolute right-1.5 rounded border bg-muted px-1 font-num text-meta text-muted-foreground leading-4 max-lg:hidden"
       aria-hidden
     >
       /
@@ -238,7 +238,7 @@ function ResultsPanel({
     // Anchored under the field; in a narrow window the field sits mid-bar, so the results span
     // the screen instead of running off its left edge
     <div className="absolute top-10 right-0 z-40 flex max-h-[min(70vh,36rem)] w-[30rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md max-lg:fixed max-lg:inset-x-2 max-lg:top-14 max-lg:w-auto max-lg:max-w-none">
-      <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b px-3 text-xs">
+      <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b px-3 text-label">
         <span className="font-medium text-muted-foreground">
           {m.allPeriods}
           {hits.length > 0 && (
@@ -297,12 +297,12 @@ function searchPadding(hasQuery: boolean): string {
 
 /** Points at the file button (and the `file:` syntax it stands for) while the button is off. */
 function FileHint() {
-  return <span className="mt-1 block text-xs">{searchMessages().fileHint}</span>;
+  return <span className="mt-1 block text-label">{searchMessages().fileHint}</span>;
 }
 
 /** A line of text in the panel where results would be (too short, failed, nothing found). */
 function Note({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <p className={cn("px-3 py-3 text-muted-foreground text-sm", className)}>{children}</p>;
+  return <p className={cn("px-3 py-3 text-body text-muted-foreground", className)}>{children}</p>;
 }
 
 /** One result: its headline, when and where, the field that matched, and a snippet. */
@@ -333,10 +333,10 @@ function HitRow({
         style={{ background: projectColor(project) }}
       />
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="line-clamp-1 font-medium text-sm">
+        <span className="line-clamp-1 font-medium text-body">
           <Highlight text={hit.headline} terms={terms} />
         </span>
-        <span className="flex min-w-0 gap-2 text-muted-foreground text-xs">
+        <span className="flex min-w-0 gap-2 text-label text-muted-foreground">
           <span className="shrink-0 font-num">
             {dateLabel(hit.start)} {hhmm(hit.start)}
           </span>
@@ -345,13 +345,13 @@ function HitRow({
             {hit.label ? f.sessionLabel(hit.label) : ""}
           </span>
           {hit.field !== "headline" && (
-            <span className="ml-auto shrink-0 rounded border px-1 text-[11px] leading-4">
+            <span className="ml-auto shrink-0 rounded border px-1 text-meta leading-4">
               {m.field[hit.field]}
             </span>
           )}
         </span>
         {hit.snippet && (
-          <span className="line-clamp-2 text-muted-foreground text-xs leading-relaxed">
+          <span className="line-clamp-2 text-label text-muted-foreground leading-relaxed">
             <Highlight text={hit.snippet} terms={terms} />
           </span>
         )}

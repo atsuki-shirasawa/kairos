@@ -162,7 +162,7 @@ function RunStepper({ run, onRun }: { run: RunPosition; onRun: (run: BlockRef) =
     return target ? () => onRun(target) : null;
   };
   return (
-    <div className="mt-2 -ml-1.5 flex items-center text-muted-foreground text-xs">
+    <div className="mt-2 -ml-1.5 flex items-center text-label text-muted-foreground">
       <IconButton label={t.prevRun} onClick={step(-1)}>
         <ChevronLeft />
       </IconButton>
@@ -187,7 +187,7 @@ function ProjectLine({
   const showBranch = branch && branch !== "HEAD";
   return (
     <p
-      className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs"
+      className="flex min-w-0 items-center gap-1.5 text-label text-muted-foreground"
       title={[project?.repo, project?.path, label, showBranch ? branch : null]
         .filter(Boolean)
         .join("\n")}
@@ -206,7 +206,7 @@ function ProjectLine({
       {showBranch && (
         <span className="ml-1 inline-flex min-w-0 shrink items-center gap-1">
           <GitBranch className="size-3 shrink-0" />
-          <span className="truncate font-mono text-[11px]">{branch}</span>
+          <span className="truncate font-mono text-meta">{branch}</span>
         </span>
       )}
     </p>
@@ -226,13 +226,13 @@ function DetailHeader({
     // The colored line on the left ties this detail to its block on the calendar
     <div className="mt-1 border-l-[3px] pl-3" style={{ borderColor: projectColor(s.project) }}>
       <h2
-        className="line-clamp-2 text-balance font-semibold text-[17px] leading-snug tracking-tight"
+        className="line-clamp-2 text-balance font-semibold text-title leading-snug tracking-tight"
         title={headline}
       >
         {headline}
       </h2>
       {section && section.headline !== s.title && (
-        <p className="mt-0.5 line-clamp-1 text-muted-foreground text-xs" title={s.title}>
+        <p className="mt-0.5 line-clamp-1 text-label text-muted-foreground" title={s.title}>
           {s.title}
         </p>
       )}

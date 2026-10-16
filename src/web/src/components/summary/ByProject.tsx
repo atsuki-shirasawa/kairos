@@ -25,11 +25,11 @@ export function ByProject({
     <div>
       <Heading>{m.byProject}</Heading>
       {overlap && (
-        <p className="-mt-2 mb-2 text-muted-foreground text-xs">
+        <p className="-mt-2 mb-2 text-label text-muted-foreground">
           {m.overlap(durationLabel(summary.busyMs))}
         </p>
       )}
-      <table className="w-full text-sm">
+      <table className="w-full text-body">
         <thead className="sr-only">
           <tr>
             <th>{m.byProject}</th>

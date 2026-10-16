@@ -114,21 +114,21 @@ export function Totals({
 
 /** Value type by tier: lead largest, outcomes in ink, spend smaller and muted. */
 const VALUE_CLASS: Record<Tier, string> = {
-  lead: "text-[1.75rem] leading-9 text-foreground",
-  outcome: "text-xl leading-7 text-foreground",
-  spend: "text-base leading-7 text-muted-foreground",
+  lead: "text-figure-lg leading-9 text-foreground",
+  outcome: "text-figure-md leading-7 text-foreground",
+  spend: "text-figure-sm leading-7 text-muted-foreground",
 };
 
 /** A figure as label, value and the line under it, weighted by its tier. */
 function FigureItem({ figure: f }: { figure: Figure }) {
   return (
     <div className="row-span-3 mb-3 grid min-w-0 grid-rows-subgrid items-end">
-      <dt className="flex items-center gap-1.5 text-muted-foreground text-xs">
+      <dt className="flex items-center gap-1.5 text-label text-muted-foreground">
         {f.node && <MomentNode pr={f.node === "pr"} />}
         {f.hint ? <Hint text={f.hint}>{f.label}</Hint> : f.label}
       </dt>
       <dd className={cn("font-num font-semibold tabular-nums", VALUE_CLASS[f.tier])}>{f.value}</dd>
-      <dd className="flex min-h-4 flex-col self-start font-num text-[11px] text-muted-foreground leading-4">
+      <dd className="flex min-h-4 flex-col self-start font-num text-meta text-muted-foreground leading-4">
         {f.sub}
       </dd>
     </div>

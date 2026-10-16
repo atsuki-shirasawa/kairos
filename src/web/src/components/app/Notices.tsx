@@ -137,7 +137,7 @@ function Notice({ children }: { children: React.ReactNode }) {
   return (
     <div className="pointer-events-none absolute inset-x-0 top-24 flex justify-center px-4">
       <div
-        className="pointer-events-auto rounded-md border bg-popover px-4 py-2 text-center text-muted-foreground text-sm shadow-sm"
+        className="pointer-events-auto rounded-md border bg-popover px-4 py-2 text-center text-body text-muted-foreground shadow-sm"
         role="status"
       >
         {children}
@@ -154,7 +154,7 @@ function EmptyState({ children }: { children: React.ReactNode }) {
   return (
     <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4">
       <div
-        className="pointer-events-auto max-w-md px-4 py-3 text-center text-muted-foreground text-sm"
+        className="pointer-events-auto max-w-md px-4 py-3 text-center text-body text-muted-foreground"
         role="status"
       >
         {children}

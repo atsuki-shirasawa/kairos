@@ -13,7 +13,7 @@ export function CardAgents({ session, now }: { session: LiveSession; now: number
   const { rows, more } = agentRows(session.agents, now);
   if (rows.length === 0) return null;
   return (
-    <ul aria-label={m.subagents} className="flex flex-col gap-1 pl-3 text-xs">
+    <ul aria-label={m.subagents} className="flex flex-col gap-1 pl-3 text-label">
       {rows.map((row) => (
         <AgentRow key={row.agent.id} row={row} />
       ))}

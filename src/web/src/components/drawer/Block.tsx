@@ -20,7 +20,7 @@ export function Block({
       <div className="mb-2 flex min-h-7 items-center gap-3">
         <h3
           className={cn(
-            "shrink-0 font-semibold text-xs tracking-wide",
+            "shrink-0 font-semibold text-label tracking-wide",
             emphasis ? "text-foreground" : "text-muted-foreground",
           )}
         >
@@ -49,7 +49,7 @@ export function CollapsedBlock({
       type="button"
       onClick={onClick}
       aria-expanded={expanded}
-      className="flex w-full items-center gap-1.5 rounded-md border border-dashed px-3 py-2 text-left text-muted-foreground text-sm hover:bg-accent hover:text-foreground"
+      className="flex w-full items-center gap-1.5 rounded-md border border-dashed px-3 py-2 text-left text-body text-muted-foreground hover:bg-accent hover:text-foreground"
     >
       <ChevronRight className="size-4 shrink-0" />
       {children}

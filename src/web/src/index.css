@@ -37,6 +37,32 @@
   --font-num: "IBM Plex Sans Condensed", "IBM Plex Sans JP", system-ui, sans-serif;
   --font-mark: "Syne", "IBM Plex Sans JP", system-ui, sans-serif;
 
+  /* The type scale (DESIGN.md, Typography). Tailwind's own sizes are switched off, so these are
+     the only ones; `bun run check` also refuses arbitrary sizes (scripts/check-type-scale.ts) */
+  --text-*: initial;
+  /* Metadata, hour labels, figures */
+  --text-meta: 11px;
+  /* Block headings, labels */
+  --text-label: 0.75rem;
+  --text-label--line-height: calc(1 / 0.75);
+  /* Body and controls */
+  --text-body: 0.875rem;
+  --text-body--line-height: calc(1.25 / 0.875);
+  /* Where you read: the section summary's Resolved, Open and Next */
+  --text-read: 15px;
+  /* Titles: the period heading, day numbers, the drawer title */
+  --text-title: 17px;
+  /* The exceptions DESIGN.md names: the wordmark, count badges too small for 11px, the small
+     controls' labels, and the summary's three tiers of totals */
+  --text-wordmark: 21px;
+  --text-badge: 10px;
+  --text-control: 0.8rem;
+  --text-figure-lg: 1.75rem;
+  --text-figure-md: 1.25rem;
+  --text-figure-md--line-height: calc(1.75 / 1.25);
+  --text-figure-sm: 1rem;
+  --text-figure-sm--line-height: 1.5;
+
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);

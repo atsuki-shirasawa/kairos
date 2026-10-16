@@ -31,7 +31,7 @@ export function LedgerOpenList({
             <SummaryMarkdown
               baseUrl={baseUrl}
               className={cn(
-                "min-w-0 flex-1 text-[15px] leading-7",
+                "min-w-0 flex-1 text-read leading-7",
                 item.closedAt !== null && "text-muted-foreground",
               )}
             >
@@ -43,7 +43,7 @@ export function LedgerOpenList({
         ))}
       </ul>
       {edits.failure && (
-        <p className="mt-1 text-destructive text-xs" role="alert">
+        <p className="mt-1 text-destructive text-label" role="alert">
           {summaryMessages().openUpdateFailed(edits.failure.message)}
         </p>
       )}
@@ -70,7 +70,7 @@ function ClosedHow({
       />
     );
   return (
-    <span className="shrink-0 whitespace-nowrap text-muted-foreground text-xs">
+    <span className="shrink-0 whitespace-nowrap text-label text-muted-foreground">
       {closedHow(item)}
     </span>
   );

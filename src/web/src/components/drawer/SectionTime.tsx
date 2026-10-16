@@ -14,7 +14,7 @@ export function SectionTime({ session: s, section }: { session: SessionDetail; s
   // When on the first line, figures on the second: wrapping one long line used to strand the
   // last figure on a line of its own
   return (
-    <div className="mt-2 flex flex-col gap-1 font-num text-muted-foreground text-xs">
+    <div className="mt-2 flex flex-col gap-1 font-num text-label text-muted-foreground">
       <SectionWhen section={section} active={s.active && section === s.sections.at(-1)} />
       {hasKeyFigures(section) && <KeyFigures usage={section.usage} activity={section.activity} />}
     </div>

@@ -18,7 +18,7 @@ import { Conditions } from "./filter/Conditions.tsx";
 const SEARCH_FROM = 8;
 
 const INPUT =
-  "h-7 min-w-0 flex-1 rounded-md border bg-transparent px-2 text-sm outline-none focus-visible:border-ring";
+  "h-7 min-w-0 flex-1 rounded-md border bg-transparent px-2 text-body outline-none focus-visible:border-ring";
 
 /**
  * Filtering. Keywords belong to the search field in the header. The top part holds temporary
@@ -74,7 +74,7 @@ export function FilterMenu({
           <Funnel className={cn(active > 0 && "fill-primary/20")} />
           {active > 0 && (
             <span
-              className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-0.5 font-num text-[10px] text-primary-foreground leading-none"
+              className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-0.5 font-num text-badge text-primary-foreground leading-none"
               aria-hidden
             >
               {active}
@@ -88,7 +88,7 @@ export function FilterMenu({
       >
         <Conditions sessions={unhidden} filter={filter} onFilter={onFilter} />
         <div className="flex h-10 items-center gap-2 border-b px-3">
-          <span className="font-medium text-muted-foreground text-xs">{m.projects}</span>
+          <span className="font-medium text-label text-muted-foreground">{m.projects}</span>
           {projects.length > SEARCH_FROM && (
             <input
               type="search"
@@ -107,7 +107,7 @@ export function FilterMenu({
         </div>
         <ul className="py-1">
           {shown.length === 0 && (
-            <li className="px-4 py-2 text-muted-foreground text-sm">{m.notFound}</li>
+            <li className="px-4 py-2 text-body text-muted-foreground">{m.notFound}</li>
           )}
           {shown.map(({ project, count }) => (
             <ProjectRow
@@ -156,14 +156,14 @@ function ProjectRow({
         <label
           htmlFor={`project-${project.id}`}
           className={cn(
-            "min-w-0 flex-1 truncate text-sm",
+            "min-w-0 flex-1 truncate text-body",
             project.hidden && "text-muted-foreground",
           )}
           title={project.repo ? `${project.repo}\n${project.path}` : project.path}
         >
           {project.name}
         </label>
-        <span className="font-num text-muted-foreground text-xs">{count || ""}</span>
+        <span className="font-num text-label text-muted-foreground">{count || ""}</span>
         {/* The color button sits at the row's right end with a larger hit area: next to the checkbox it was easy to mis-click */}
         <button
           type="button"

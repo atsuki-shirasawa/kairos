@@ -8,7 +8,7 @@ export function HourLabels({ hourPx }: { hourPx: number }) {
       {LABELED_HOURS.map((h) => (
         <span
           key={h}
-          className="absolute right-2 -translate-y-1/2 font-num text-[11px] text-muted-foreground"
+          className="absolute right-2 -translate-y-1/2 font-num text-meta text-muted-foreground"
           style={{ top: h * hourPx }}
         >
           {h}:00

@@ -25,7 +25,7 @@ export function Closes({
         {items.map((item) => (
           <li key={item.id} className="flex items-baseline gap-3">
             <KindTag item={item} />
-            <SummaryMarkdown baseUrl={baseUrl} className="min-w-0 flex-1 text-[15px] leading-7">
+            <SummaryMarkdown baseUrl={baseUrl} className="min-w-0 flex-1 text-read leading-7">
               {item.text}
             </SummaryMarkdown>
             <BlockLink

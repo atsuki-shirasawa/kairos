@@ -61,7 +61,7 @@ export function Done({
   return (
     <div>
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="font-medium text-muted-foreground text-xs">{m.done}</h2>
+        <h2 className="font-medium text-label text-muted-foreground">{m.done}</h2>
         {unwritten.length > 1 && (
           <Button variant="ghost" size="xs" onClick={() => unwritten.forEach(onRecap)}>
             <Sparkles />
@@ -70,7 +70,7 @@ export function Done({
         )}
       </div>
       {requestError && (
-        <p className="mb-3 text-destructive text-xs" role="alert">
+        <p className="mb-3 text-destructive text-label" role="alert">
           {m.recapFailed(requestError)}
         </p>
       )}
@@ -135,7 +135,7 @@ function IdleProject({
   const project = projectOf(projects, projectId);
   return (
     <div className="border-l-2 pl-4" style={{ borderColor: projectColor(project) }}>
-      <h3 className="mb-1.5 font-medium text-sm">{projectName(projects, projectId)}</h3>
+      <h3 className="mb-1.5 font-medium text-body">{projectName(projects, projectId)}</h3>
       <ProjectOpenItemsSection
         view={view}
         items={items}
@@ -203,9 +203,9 @@ function ProjectDone({
   const items = p.projectId !== null ? open.openItems.get(p.projectId) : undefined;
   return (
     <div className="border-l-2 pl-4" style={{ borderColor: color }}>
-      <h3 className="mb-1.5 flex items-baseline gap-2 font-medium text-sm">
+      <h3 className="mb-1.5 flex items-baseline gap-2 font-medium text-body">
         {projectName(projects, p.projectId)}
-        <span className="font-normal font-num text-muted-foreground text-xs">
+        <span className="font-normal font-num text-label text-muted-foreground">
           {durationLabel(p.busyMs)}
         </span>
       </h3>
@@ -258,7 +258,7 @@ function DoneItem({
       )}
       data-selected={selected || undefined}
     >
-      <span className="flex w-28 shrink-0 gap-1.5 font-num text-muted-foreground text-xs tabular-nums">
+      <span className="flex w-28 shrink-0 gap-1.5 font-num text-label text-muted-foreground tabular-nums">
         <span className="w-7 shrink-0 text-foreground">{showDay && weekday(start)}</span>
         {hhmm(start)}–{hhmm(b.segment.end)}
       </span>
@@ -267,7 +267,7 @@ function DoneItem({
       <button
         type="button"
         onClick={() => onSelect(b.session.id, start)}
-        className="min-w-0 text-left text-sm after:absolute after:inset-0 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+        className="min-w-0 text-left text-body after:absolute after:inset-0 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
       >
         {b.segment.headline}
       </button>
@@ -290,7 +290,7 @@ function PrNumber({ artifact: a }: { artifact: Artifact }) {
       target="_blank"
       rel="noreferrer"
       title={a.title ?? a.ref}
-      className="font-medium font-num text-primary text-xs hover:underline"
+      className="font-medium font-num text-label text-primary hover:underline"
     >
       {prLabel(a)}
     </a>

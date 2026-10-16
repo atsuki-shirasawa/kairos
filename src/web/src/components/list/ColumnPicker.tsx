@@ -26,7 +26,7 @@ export function ColumnPicker({
       </PopoverTrigger>
       <PopoverContent align="end" className="w-60 gap-0 p-0">
         <div className="flex h-10 items-center justify-between border-b px-3">
-          <span className="font-medium text-muted-foreground text-xs">{m.columnsTitle}</span>
+          <span className="font-medium text-label text-muted-foreground">{m.columnsTitle}</span>
           {!sameColumns(keys, DEFAULT_COLUMNS) && (
             <Button variant="ghost" size="xs" onClick={() => onChange(null)}>
               {m.columnsReset}
@@ -63,7 +63,7 @@ function ColumnOption({
     <li className="px-2">
       <label
         htmlFor={`column-${columnKey}`}
-        className="flex items-center gap-2.5 rounded-md px-2 py-1 text-sm hover:bg-accent"
+        className="flex items-center gap-2.5 rounded-md px-2 py-1 text-body hover:bg-accent"
         title={title}
       >
         <Checkbox

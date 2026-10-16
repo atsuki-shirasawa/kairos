@@ -88,7 +88,7 @@ export function SessionList({
       </div>
       {/* The minimum width is on the box, not the table, so its right padding survives scrolling */}
       <div className="mx-auto px-2" style={{ ...centered, minWidth: `${minRem + 1}rem` }}>
-        <table className="w-full table-fixed border-collapse text-sm">
+        <table className="w-full table-fixed border-collapse text-body">
           <ColumnWidths columns={columns} />
           <TableHead
             ref={theadRef}

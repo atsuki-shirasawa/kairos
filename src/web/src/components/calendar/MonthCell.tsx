@@ -95,7 +95,7 @@ export function MonthCell({
         {figures.shown > 0 && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="shrink-0 font-num text-[11px] text-muted-foreground">
+              <span className="shrink-0 font-num text-meta text-muted-foreground">
                 {durationLabel(figures.busy)}
               </span>
             </TooltipTrigger>
@@ -116,7 +116,7 @@ export function MonthCell({
               onClick={() => onOpenDay(day)}
               data-selected={hiddenSelected || undefined}
               className={cn(
-                "h-5 w-full rounded-sm px-1.5 text-left text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring",
+                "h-5 w-full rounded-sm px-1.5 text-left text-meta text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring",
                 hiddenSelected && "text-foreground outline-2 outline-primary",
               )}
               aria-label={calendarMessages().moreWorkAria(more, dateLabel(day))}
@@ -147,7 +147,7 @@ function DateButton({
       type="button"
       onClick={onOpen}
       className={cn(
-        "inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full px-1 font-num font-semibold text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring",
+        "inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full px-1 font-num font-semibold text-label hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring",
         today
           ? "bg-primary text-primary-foreground hover:bg-primary/90"
           : outside
@@ -198,7 +198,7 @@ function CellLine({ block, ...c }: CellContext & { block: PlacedBlock }) {
             facts.range,
           )}
           className={cn(
-            "flex h-5 w-full min-w-0 items-center gap-1 rounded-r-sm rounded-l-[2px] border-l-[3px] pr-1 pl-1.5 text-left text-xs outline-none",
+            "flex h-5 w-full min-w-0 items-center gap-1 rounded-r-sm rounded-l-[2px] border-l-[3px] pr-1 pl-1.5 text-left text-label outline-none",
             // Headless runs get the week's dashed edge here too
             session.headless && "border-dashed",
             // The same fills as the week's blocks

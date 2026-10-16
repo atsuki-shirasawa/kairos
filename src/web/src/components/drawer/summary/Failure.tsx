@@ -6,7 +6,7 @@ import { failureHint } from "../failureHint.ts";
 export function SummaryFailure({ error }: { error: string }) {
   const t = drawerMessages();
   return (
-    <div className="mt-2 space-y-1 text-xs">
+    <div className="mt-2 space-y-1 text-label">
       <p className="text-destructive">{t.summaryFailed(failureHint(summaryFailureKind(error)))}</p>
       <p className="break-words text-muted-foreground">{t.summaryFailedDetail(error)}</p>
     </div>

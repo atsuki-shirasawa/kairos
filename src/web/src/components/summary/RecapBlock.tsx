@@ -26,7 +26,7 @@ export function RecapBlock({
     // No surface: the project's colored rule already frames it
     <div className="mb-3 flex flex-col gap-1.5">
       <Markdown issueBaseUrl={baseUrl}>{r.body}</Markdown>
-      <div className="flex flex-wrap items-center gap-x-3 text-muted-foreground text-xs">
+      <div className="flex flex-wrap items-center gap-x-3 text-label text-muted-foreground">
         <Hint text={m.recapNote} focusable>
           <Sparkles className="size-3.5" role="img" aria-label={m.recapAbout} />
         </Hint>
@@ -45,7 +45,7 @@ export function RecapBlock({
 function RecapError({ error }: { error: string }) {
   const m = summaryMessages();
   return (
-    <div className="space-y-1 text-xs">
+    <div className="space-y-1 text-label">
       <p className="text-destructive">
         {m.recapFailedHint(failureHint(summaryFailureKind(error)))}
       </p>
@@ -57,7 +57,7 @@ function RecapError({ error }: { error: string }) {
 /** Shown while the recap is being written. */
 function RecapWriting() {
   return (
-    <p className="mb-2 flex items-center gap-1.5 text-muted-foreground text-xs" role="status">
+    <p className="mb-2 flex items-center gap-1.5 text-label text-muted-foreground" role="status">
       <Loader2 className="size-3.5 animate-spin" />
       {summaryMessages().recapWriting}
     </p>

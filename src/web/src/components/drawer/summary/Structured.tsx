@@ -36,7 +36,7 @@ export function StructuredSummary({
   return (
     <div className="space-y-5">
       {/* The lead sentence needs no label: it is the first thing read under the headline */}
-      <SummaryMarkdown baseUrl={baseUrl} className="text-[17px] text-foreground leading-7">
+      <SummaryMarkdown baseUrl={baseUrl} className="text-foreground text-title leading-7">
         {parts.goal}
       </SummaryMarkdown>
       {parts.outcome !== null && (
@@ -89,7 +89,7 @@ function SummaryItem({ label, children }: { label: string; children: React.React
 /** The text of one point (Outcome, Next, an Open or Resolved item) at the summary's reading size. */
 function PointText({ baseUrl, children }: { baseUrl: string | null; children: string }) {
   return (
-    <SummaryMarkdown baseUrl={baseUrl} className="min-w-0 text-[15px] leading-7">
+    <SummaryMarkdown baseUrl={baseUrl} className="min-w-0 text-read leading-7">
       {children}
     </SummaryMarkdown>
   );
@@ -112,7 +112,7 @@ function PointList({ items, baseUrl }: { items: string[]; baseUrl: string | null
     return <PointText baseUrl={baseUrl}>{items[0]}</PointText>;
   }
   return (
-    <ul className="min-w-0 list-disc pl-5 marker:text-xs">
+    <ul className="min-w-0 list-disc pl-5 marker:text-label">
       {items.map((item, i) => (
         // Points have no identity beyond their place in the list
         // biome-ignore lint/suspicious/noArrayIndexKey: see above
@@ -155,7 +155,10 @@ function DoneList({ items, baseUrl }: { items: string[]; baseUrl: string | null 
   const cut = useClampedChildren(listRef, items, expanded);
   return (
     <>
-      <ul ref={listRef} className="list-disc space-y-1 pl-5 text-muted-foreground marker:text-xs">
+      <ul
+        ref={listRef}
+        className="list-disc space-y-1 pl-5 text-muted-foreground marker:text-label"
+      >
         {items.map((item, i) => (
           // Points have no identity beyond their place in the list
           // biome-ignore lint/suspicious/noArrayIndexKey: see above

@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 export function Badge({ children, title }: { children: ReactNode; title?: string }) {
   return (
     <span
-      className="shrink-0 whitespace-nowrap rounded-md border px-1.5 text-muted-foreground text-xs"
+      className="shrink-0 whitespace-nowrap rounded-md border px-1.5 text-label text-muted-foreground"
       title={title}
     >
       {children}

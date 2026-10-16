@@ -23,7 +23,7 @@ export function PeriodSummary({
   const { usage, activity } = totalsOf(blocks);
   const m = listMessages();
   return (
-    <p className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 pt-3 pb-2 text-muted-foreground text-xs">
+    <p className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 pt-3 pb-2 text-label text-muted-foreground">
       <span>
         {m.period(
           view,

@@ -77,16 +77,16 @@ export function DatePicker({
           )}
           title={range.week ? m.isoWeekTitle(range.week.slice(1)) : undefined}
         >
-          <span className="truncate font-num font-semibold text-[17px] tracking-tight">
+          <span className="truncate font-num font-semibold text-title tracking-tight">
             {range.title}
           </span>
           {range.sub && (
-            <span className="shrink-0 whitespace-nowrap text-muted-foreground text-sm">
+            <span className="shrink-0 whitespace-nowrap text-body text-muted-foreground">
               {range.sub}
             </span>
           )}
           {range.year && (
-            <span className="shrink-0 font-num text-muted-foreground text-sm">{range.year}</span>
+            <span className="shrink-0 font-num text-body text-muted-foreground">{range.year}</span>
           )}
           <ChevronDown className="size-3.5 shrink-0 self-center text-muted-foreground" />
         </button>
@@ -100,7 +100,7 @@ export function DatePicker({
         }}
       >
         <div className="flex items-center justify-between">
-          <span className="font-medium font-num text-sm" aria-live="polite">
+          <span className="font-medium font-num text-body" aria-live="polite">
             {m.monthHeading(new Date(month).getFullYear(), new Date(month).getMonth())}
           </span>
           <div className="flex">
@@ -132,7 +132,7 @@ export function DatePicker({
           onJump={jump}
           onFocusDay={setCursor}
         />
-        <p className="flex items-center justify-end gap-1.5 text-[11px] text-muted-foreground">
+        <p className="flex items-center justify-end gap-1.5 text-meta text-muted-foreground">
           <span className="size-1 rounded-full bg-primary" aria-hidden />
           {m.legend}
         </p>
@@ -196,11 +196,11 @@ function MonthTable({
     >
       <thead>
         <tr>
-          <th className="w-7 font-normal text-[11px] text-muted-foreground" title={m.isoWeek}>
+          <th className="w-7 font-normal text-meta text-muted-foreground" title={m.isoWeek}>
             <span className="sr-only">{m.weekNumber}</span>W
           </th>
           {weekdayHeaders().map((d) => (
-            <th key={d} className="size-8 font-normal text-muted-foreground text-xs">
+            <th key={d} className="size-8 font-normal text-label text-muted-foreground">
               {d}
             </th>
           ))}
@@ -209,7 +209,7 @@ function MonthTable({
       <tbody>
         {weeks.map((week) => (
           <tr key={week[0]}>
-            <td className="text-center font-num text-[11px] text-muted-foreground">
+            <td className="text-center font-num text-meta text-muted-foreground">
               {weekNumber(week[0] ?? context.month)}
             </td>
             {week.map((day, i) => (
@@ -258,7 +258,7 @@ function DayCell({
         onClick={() => onJump(day)}
         onFocus={() => !s.cursor && onFocusDay(day)}
         className={cn(
-          "relative flex size-8 items-center justify-center rounded-md font-num text-sm hover:bg-foreground/10 focus-visible:outline-2 focus-visible:outline-ring",
+          "relative flex size-8 items-center justify-center rounded-md font-num text-body hover:bg-foreground/10 focus-visible:outline-2 focus-visible:outline-ring",
           s.outside && "text-muted-foreground/60",
           // Today is marked by color only (no fill, so it stays legible on the band)
           s.today && "font-semibold text-primary",

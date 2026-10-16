@@ -115,7 +115,7 @@ function LiveColumn({
           );
         })}
         {entries.length === 0 && (
-          <p className="text-muted-foreground text-xs">
+          <p className="text-label text-muted-foreground">
             {column === "attention" ? m.nothingOnYou : formatMessages().none}
           </p>
         )}
@@ -129,7 +129,7 @@ function ColumnHeader({ column, count }: { column: LiveColumnId; count: number }
   const m = liveMessages();
   return (
     <header>
-      <h2 id={`live-${column}`} className="flex items-baseline gap-2 font-medium text-sm">
+      <h2 id={`live-${column}`} className="flex items-baseline gap-2 font-medium text-body">
         {m.columns[column]}
         <span
           className={cn(
@@ -140,7 +140,7 @@ function ColumnHeader({ column, count }: { column: LiveColumnId; count: number }
           {count}
         </span>
       </h2>
-      <p className="text-muted-foreground text-xs">
+      <p className="text-label text-muted-foreground">
         {column === "idle" ? m.columnNote.idle(IDLE_AFTER_MS / MINUTE) : m.columnNote[column]}
       </p>
     </header>
@@ -156,7 +156,7 @@ function PageNote({ band, children }: { band: React.ReactNode; children: React.R
     <div className="flex min-h-0 flex-1 flex-col bg-card">
       {band}
       <div className="flex flex-1 items-center justify-center px-4">
-        <p className="max-w-md text-center text-muted-foreground text-sm" role="status">
+        <p className="max-w-md text-center text-body text-muted-foreground" role="status">
           {children}
         </p>
       </div>
@@ -208,7 +208,7 @@ function LiveCard({
       <CardHeading card={card} selected={selected} onOpen={open} now={now} />
       {/* A row has no room for more, but this says why it has nothing to open */}
       {compact && section === null && (
-        <p className="pl-3.5 text-muted-foreground text-xs">{m.notIngested}</p>
+        <p className="pl-3.5 text-label text-muted-foreground">{m.notIngested}</p>
       )}
       {!compact && <CardNow session={s} display={display} now={now} />}
       {!compact && <CardFooter session={s} display={display} now={now} />}
@@ -258,7 +258,7 @@ function CardHeading({
         <StateDot display={display} />
         <h3
           className={cn(
-            "min-w-0 font-medium text-sm",
+            "min-w-0 font-medium text-body",
             display === "idle" && "text-muted-foreground",
           )}
         >
@@ -283,7 +283,7 @@ function CardHeading({
         {/* The title button's description says it; a card without one has only this */}
         <span
           aria-hidden={onOpen !== null}
-          className="ml-auto flex shrink-0 gap-1 self-start pt-0.5 text-xs"
+          className="ml-auto flex shrink-0 gap-1 self-start pt-0.5 text-label"
         >
           {/* Only the waiting column holds two states; elsewhere the column already names it */}
           {columnOf(display) === "attention" && (
@@ -294,7 +294,7 @@ function CardHeading({
           <span className="font-num text-muted-foreground">{duration}</span>
         </span>
       </div>
-      <p className="mt-0.5 flex min-w-0 items-center gap-1.5 pl-3.5 text-muted-foreground text-xs">
+      <p className="mt-0.5 flex min-w-0 items-center gap-1.5 pl-3.5 text-label text-muted-foreground">
         <span className="truncate">{card.place}</span>
         {s.background && (
           <span className="shrink-0 rounded-md border px-1 leading-4">{m.background}</span>
@@ -327,8 +327,8 @@ function CardNow({
 }) {
   const m = liveMessages();
   return (
-    <div className="flex flex-col gap-1.5 text-xs">
-      {s.question && <p className="text-sm">{s.question}</p>}
+    <div className="flex flex-col gap-1.5 text-label">
+      {s.question && <p className="text-body">{s.question}</p>}
       {s.tool && (
         <p className="line-clamp-2 break-all">
           <span className="font-medium">{toolLabel(s.tool.name)}</span>{" "}

@@ -84,8 +84,8 @@ export function SessionDrawer({
           className="min-h-0 flex-1 overflow-y-auto px-5 pt-5 pb-10"
           data-drawer-scroll
         >
-          {isPending && <p className="text-muted-foreground text-sm">{t.loading}</p>}
-          {isError && <p className="text-destructive text-sm">{t.loadFailed(error.message)}</p>}
+          {isPending && <p className="text-body text-muted-foreground">{t.loading}</p>}
+          {isError && <p className="text-body text-destructive">{t.loadFailed(error.message)}</p>}
           {data && (
             <Detail
               key={data.id}

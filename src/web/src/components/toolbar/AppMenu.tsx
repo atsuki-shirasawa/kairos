@@ -100,7 +100,7 @@ function SettingRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-2 border-b p-3">
-      <span className="font-medium text-sm" title={title}>
+      <span className="font-medium text-body" title={title}>
         {label}
       </span>
       {children}
@@ -188,15 +188,15 @@ function ShortcutList() {
   const m = toolbarMessages();
   return (
     <div className="p-3">
-      <p className="mb-2 font-medium text-sm">{m.shortcuts}</p>
-      <dl className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-1.5 text-sm">
+      <p className="mb-2 font-medium text-body">{m.shortcuts}</p>
+      <dl className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-1.5 text-body">
         {shortcuts().map(([keys, label]) => (
           <div key={label} className="contents">
             <dt className="flex gap-1">
               {keys.map((k) => (
                 <kbd
                   key={k}
-                  className="min-w-6 rounded border bg-muted px-1.5 text-center font-num text-xs leading-5"
+                  className="min-w-6 rounded border bg-muted px-1.5 text-center font-num text-label leading-5"
                 >
                   {k}
                 </kbd>

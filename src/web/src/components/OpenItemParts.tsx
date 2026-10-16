@@ -44,7 +44,7 @@ export function BlockLink({
       title={title}
       onClick={onClick}
       className={cn(
-        "shrink-0 whitespace-nowrap rounded-sm text-muted-foreground text-xs hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring",
+        "shrink-0 whitespace-nowrap rounded-sm text-label text-muted-foreground hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring",
         numeric && "font-num tabular-nums",
       )}
     >

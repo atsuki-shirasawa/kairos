@@ -45,7 +45,7 @@ export function MonthGrid({ days, sessions, now, onOpenDay, ...context }: Period
         )}
       >
         {weekdayHeaders().map((name) => (
-          <div key={name} className="border-l px-2.5 py-1.5 text-[11px] text-muted-foreground">
+          <div key={name} className="border-l px-2.5 py-1.5 text-meta text-muted-foreground">
             {name}
           </div>
         ))}

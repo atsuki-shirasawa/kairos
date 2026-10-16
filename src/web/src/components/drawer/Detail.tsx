@@ -137,7 +137,7 @@ function ShowConversationButton({
     <CollapsedBlock onClick={onClick}>
       {multiSection ? t.showSectionConversation : t.showConversation}
       {s.subagents.length > 0 && (
-        <span className="ml-auto text-xs">{t.subagentCount(s.subagents.length)}</span>
+        <span className="ml-auto text-label">{t.subagentCount(s.subagents.length)}</span>
       )}
     </CollapsedBlock>
   );

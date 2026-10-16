@@ -79,11 +79,11 @@ function DayFiguresLine({ figures }: { figures: DayFigures }) {
     usage ? <span key="usage">{usageText(usage)}</span> : null,
   ].filter((d) => d !== null);
   return (
-    <div className="flex min-h-11 min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 border-l px-2.5 py-1.5 font-num text-muted-foreground text-xs">
+    <div className="flex min-h-11 min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 border-l px-2.5 py-1.5 font-num text-label text-muted-foreground">
       {figures.shown > 0 && (
         <>
           {/* Working time leads, set apart by weight; the rest is detail */}
-          <span className="font-semibold text-foreground text-sm">{durationLabel(busy)}</span>
+          <span className="font-semibold text-body text-foreground">{durationLabel(busy)}</span>
           <span className="[&>span]:whitespace-nowrap">{interleave(details, f.separator)}</span>
         </>
       )}
@@ -97,23 +97,21 @@ function DayHeading({ day, today, figures }: { day: number; today: boolean; figu
   return (
     <>
       {/* The weekday sits above the number: beside it, "5 月" reads as May in Japanese */}
-      <span
-        className={cn("text-[11px] leading-4", today ? "text-primary" : "text-muted-foreground")}
-      >
+      <span className={cn("text-meta leading-4", today ? "text-primary" : "text-muted-foreground")}>
         {weekday(day)}
       </span>
       <span className="flex min-w-0 items-center gap-2 whitespace-nowrap">
         <span className="flex shrink-0 items-baseline gap-1">
           {/* Show the month on the 1st only, so a month change mid-week stands out */}
           {d.getDate() === 1 && (
-            <span className="font-num text-muted-foreground text-xs">
+            <span className="font-num text-label text-muted-foreground">
               {dateMessages().monthShort(d.getMonth())}
             </span>
           )}
           {/* Circle today's number in indigo (the familiar calendar-app mark) */}
           <span
             className={cn(
-              "font-num font-semibold text-[17px] leading-7",
+              "font-num font-semibold text-title leading-7",
               today
                 ? "-ml-1 inline-flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground"
                 : "text-foreground",
@@ -133,7 +131,7 @@ function DayStats({ figures }: { figures: DayFigures }) {
   const { busy, commits, prs } = figures;
   const f = formatMessages();
   return (
-    <span className="@min-[9rem]:flex hidden min-w-0 items-center gap-2 overflow-hidden font-num text-[11px] text-muted-foreground leading-4">
+    <span className="@min-[9rem]:flex hidden min-w-0 items-center gap-2 overflow-hidden font-num text-meta text-muted-foreground leading-4">
       <span className="text-foreground">{durationLabel(busy)}</span>
       {/* Nodes keep narrow columns short; with room, the words say what the numbers count */}
       {commits > 0 && (

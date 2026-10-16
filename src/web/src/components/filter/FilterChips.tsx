@@ -72,7 +72,7 @@ export function FilterChips({
       {chips.map((c) => (
         <span
           key={c.key}
-          className="flex h-6 max-w-72 items-center gap-0.5 rounded-full border bg-card pr-0.5 pl-2.5 text-xs"
+          className="flex h-6 max-w-72 items-center gap-0.5 rounded-full border bg-card pr-0.5 pl-2.5 text-label"
         >
           <span className="truncate">{c.label}</span>
           <button

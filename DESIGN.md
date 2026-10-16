@@ -242,8 +242,16 @@ A work block's fill is the project color mixed into `block-base` in `oklch`:
   exceptions are the section summary's Resolved, Open and Next, its "Settled from earlier", or an
   older body's Outcome (15px, relaxed leading, because that is where you read; its Goal takes the 17px title size at
   regular weight), the
-  summary's totals (their three tiers), the live band's two figures (17px medium), the wordmark, and count
-  badges too small for 11px
+  summary's totals (their three tiers), the live band's two figures (17px medium), the wordmark, count
+  badges too small for 11px, and the labels of small toggles and buttons (12.8px, shadcn/ui's
+  small size)
+- **Sizes are tokens:** `text-meta` (11px), `text-label` (12px), `text-body` (14px), `text-read`
+  (15px) and `text-title` (17px), defined in `index.css`'s `@theme`; the exceptions above are
+  `text-figure-lg / -md / -sm` (the totals), `text-wordmark`, `text-badge`, and `text-control`
+  (the labels of small toggles and buttons). Tailwind's own sizes (`text-xs`, `text-sm`…) are
+  switched off, and `bun run check` refuses them and arbitrary sizes like `text-[13px]`. A size
+  relative to its line (`text-[0.85em]` for inline code in Markdown) isn't a step of the scale and
+  passes
 - **Two tones:** `ink` and `muted-ink`. Don't step between them with `text-foreground/80` and the
   like; if something needs to stand out from muted text, set it in `ink`. `muted-ink` at 60% is
   kept for what is absent (the dates of days outside the month, "—" in empty cells). Tooltips invert the theme,

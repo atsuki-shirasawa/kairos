@@ -30,7 +30,7 @@ export function ThroughDay({
       <div className="grid grid-cols-[minmax(6rem,10rem)_1fr] items-center gap-x-3 gap-y-1.5">
         {summary.projects.map((p) => (
           <div key={p.projectId ?? "none"} className="contents">
-            <span className="truncate text-sm">{projectName(projects, p.projectId)}</span>
+            <span className="truncate text-body">{projectName(projects, p.projectId)}</span>
             <ProjectLane
               blocks={p.clipped}
               color={projectColor(projectOf(projects, p.projectId))}
@@ -44,7 +44,7 @@ export function ThroughDay({
           {axis.hours.map((h) => (
             <span
               key={h}
-              className="absolute -translate-x-1/2 font-num text-[11px] text-muted-foreground"
+              className="absolute -translate-x-1/2 font-num text-meta text-muted-foreground"
               style={{ left: `${axis.at(h * HOUR)}%` }}
             >
               {hhmm(day + h * HOUR)}

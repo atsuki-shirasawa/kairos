@@ -45,7 +45,7 @@ export function ViewToggle({ view, onView }: { view: View; onView: (view: View) 
           <SelectItem
             key={value}
             value={value}
-            hint={<kbd className="ml-auto font-num text-[11px] text-muted-foreground">{key}</kbd>}
+            hint={<kbd className="ml-auto font-num text-meta text-muted-foreground">{key}</kbd>}
           >
             {label}
           </SelectItem>

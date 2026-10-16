@@ -19,6 +19,12 @@
   "assist": {
     "actions": { "source": { "organizeImports": "on" } }
   },
+  "overrides": [
+    {
+      "includes": ["src/web/src/lib/utils.ts"],
+      "linter": { "rules": { "style": { "noRestrictedImports": "off" } } }
+    }
+  ],
   "linter": {
     "enabled": true,
     "rules": {
@@ -27,6 +33,16 @@
         "useExhaustiveDependencies": "error",
         "noUnusedImports": "error",
         "noUnusedVariables": "error"
+      },
+      "style": {
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "paths": {
+              "cn": "Import cn from @/lib/utils.ts, which knows the type scale's size names (text-label etc.)"
+            }
+          }
+        }
       },
       "nursery": {
         "noFloatingPromises": "error",

@@ -69,7 +69,7 @@ export function TokenBand({
           <Figure label={m.tokens.today} value={tokensLabel(tokens.today)} />
           <Figure label={m.tokens.rate} value={tokensPerHourLabel(tokens.perHour)} />
         </dl>
-        <p aria-hidden className="mb-0.5 h-4 min-w-0 flex-1 text-xs">
+        <p aria-hidden className="mb-0.5 h-4 min-w-0 flex-1 text-label">
           {slot >= 0 ? (
             <SlotDetail chart={chart} slot={slot} colorOf={colorOf} nameOf={nameOf} />
           ) : (
@@ -93,7 +93,7 @@ export function TokenBand({
           )}
         </ul>
       </figure>
-      <p className="mt-1 text-muted-foreground text-xs">{m.tokens.note}</p>
+      <p className="mt-1 text-label text-muted-foreground">{m.tokens.note}</p>
     </section>
   );
 }
@@ -102,8 +102,8 @@ export function TokenBand({
 function Figure({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col">
-      <dt className="text-muted-foreground text-xs">{label}</dt>
-      <dd className="font-medium font-num text-[17px] leading-6">{value}</dd>
+      <dt className="text-label text-muted-foreground">{label}</dt>
+      <dd className="font-medium font-num text-title leading-6">{value}</dd>
     </div>
   );
 }
@@ -234,7 +234,7 @@ function EndLabels({
     LABEL_PX,
   );
   return (
-    <ul aria-hidden className="relative text-xs" style={{ height: PLOT_PX }}>
+    <ul aria-hidden className="relative text-label" style={{ height: PLOT_PX }}>
       {paths.map((p, i) => {
         const y = ys[i];
         if (y === null || y === undefined) return null;
@@ -262,7 +262,7 @@ function EndLabels({
 function Axis({ chart }: { chart: TokenChart }) {
   const m = liveMessages();
   return (
-    <div aria-hidden className="relative mt-1.5 h-4 font-num text-muted-foreground text-xs">
+    <div aria-hidden className="relative mt-1.5 h-4 font-num text-label text-muted-foreground">
       {axisTicks(chart.start, chart.end).map(({ t, at }) => (
         <span key={t} className="absolute -translate-x-1/2" style={{ left: `${at * 100}%` }}>
           {hhmm(t)}

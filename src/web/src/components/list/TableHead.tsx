@@ -34,7 +34,7 @@ export function TableHead({
   const m = listMessages();
   return (
     <thead ref={ref} className="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--border)]">
-      <tr className="text-muted-foreground text-xs [--row:var(--card)]">
+      <tr className="text-label text-muted-foreground [--row:var(--card)]">
         <SortHeader
           label={m.time}
           sortKey="start"

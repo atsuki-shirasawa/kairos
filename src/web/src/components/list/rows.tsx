@@ -28,7 +28,7 @@ export function DayRow({
 }) {
   const totals = totalsOf(blocks);
   return (
-    <tr className="border-b bg-[var(--row)] text-xs [--row:color-mix(in_srgb,var(--muted)_40%,var(--card))]">
+    <tr className="border-b bg-[var(--row)] text-label [--row:color-mix(in_srgb,var(--muted)_40%,var(--card))]">
       <th
         colSpan={2}
         scope="rowgroup"
@@ -42,7 +42,7 @@ export function DayRow({
           type="button"
           onClick={onOpen}
           className={cn(
-            "rounded-sm font-medium text-sm hover:underline focus-visible:outline-2 focus-visible:outline-ring",
+            "rounded-sm font-medium text-body hover:underline focus-visible:outline-2 focus-visible:outline-ring",
             today ? "text-primary" : "text-foreground",
           )}
           title={listMessages().showDay}
@@ -52,7 +52,7 @@ export function DayRow({
         {relativeDay(day, now) && (
           <span
             className={cn(
-              "ml-2 rounded-full px-1.5 text-[11px] leading-4",
+              "ml-2 rounded-full px-1.5 text-meta leading-4",
               today ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
             )}
           >
@@ -78,7 +78,7 @@ export function DayRow({
 export function NoRecordsRow({ span }: { span: number }) {
   return (
     <tr className="border-b">
-      <td colSpan={span} className="px-4 py-2 text-muted-foreground text-xs">
+      <td colSpan={span} className="px-4 py-2 text-label text-muted-foreground">
         {/* Pin just the text left so it stays visible while scrolling sideways */}
         <span className="sticky left-4">{listMessages().noRecords}</span>
       </td>
@@ -143,7 +143,7 @@ function TimeCell({ block, withDate }: { block: DayBlock; withDate: boolean }) {
   const { dayStart, start, end } = block;
   const m = listMessages();
   return (
-    <td className={cn("py-2 pl-4 font-num text-xs leading-5", STICKY_TIME)}>
+    <td className={cn("py-2 pl-4 font-num text-label leading-5", STICKY_TIME)}>
       {withDate && <span className="block text-muted-foreground">{dateLabel(dayStart)}</span>}
       {hhmm(dayStart + start)}–{hhmm(dayStart + end)}
       {(block.continuesBefore || block.continuesAfter) && (
@@ -190,7 +190,7 @@ function WorkCell({
               />
             )}
           </button>
-          <span className="truncate text-muted-foreground text-xs">
+          <span className="truncate text-label text-muted-foreground">
             {projectLabel(project)}
             {session.label ? f.sessionLabel(session.label) : ""}
             {session.title !== segment.headline && ` · ${session.title}`}
@@ -206,7 +206,7 @@ function Cell({ column: c, children }: { column: Column; children: React.ReactNo
   return (
     <td
       className={cn(
-        "px-2 py-2 font-num text-xs tabular-nums leading-5",
+        "px-2 py-2 font-num text-label tabular-nums leading-5",
         c.align === "left" ? "text-left" : "whitespace-nowrap text-right",
       )}
     >

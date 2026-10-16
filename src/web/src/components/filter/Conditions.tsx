@@ -54,7 +54,7 @@ export function Conditions({
   return (
     <div className="flex flex-col gap-3 border-b p-3">
       <div className="flex h-6 items-center justify-between">
-        <span className="font-medium text-muted-foreground text-xs">{m.conditions}</span>
+        <span className="font-medium text-label text-muted-foreground">{m.conditions}</span>
         {(conditionCount(filter) > 0 || filter.hideBrief) && (
           <Button
             variant="ghost"
@@ -130,7 +130,7 @@ export function Conditions({
                 value={b.name}
                 hint={
                   <span
-                    className="ml-auto pl-3 font-num text-[11px] text-muted-foreground"
+                    className="ml-auto pl-3 font-num text-meta text-muted-foreground"
                     title={m.blockCount(b.blocks)}
                   >
                     {b.blocks || ""}
@@ -144,7 +144,7 @@ export function Conditions({
         </Select>
       </Group>
 
-      <div className="flex items-start gap-2.5 text-sm">
+      <div className="flex items-start gap-2.5 text-body">
         <Checkbox
           id="filter-brief"
           className="mt-0.5"
@@ -154,7 +154,7 @@ export function Conditions({
         />
         <div className="flex flex-col">
           <label htmlFor="filter-brief">{m.hideBrief}</label>
-          <span id="filter-brief-note" className="text-muted-foreground text-xs">
+          <span id="filter-brief-note" className="text-label text-muted-foreground">
             {m.hideBriefNote(BRIEF_PROMPTS)}
           </span>
         </div>
@@ -175,7 +175,7 @@ function Group({
 }) {
   return (
     <fieldset className="flex flex-col gap-1">
-      <legend className="mb-1 flex w-full items-baseline gap-2 text-xs">
+      <legend className="mb-1 flex w-full items-baseline gap-2 text-label">
         <span className="font-medium text-muted-foreground">{label}</span>
         {note && <span className="text-muted-foreground">{note}</span>}
       </legend>
@@ -200,12 +200,12 @@ function Option({
 }) {
   const m = filterMessages();
   return (
-    <div className="flex items-center gap-2.5 text-sm">
+    <div className="flex items-center gap-2.5 text-body">
       <Checkbox id={id} checked={checked} onCheckedChange={(v) => onChange(v === true)} />
       <label htmlFor={id} className="min-w-0 flex-1 truncate">
         {label}
       </label>
-      <span className="font-num text-muted-foreground text-xs" title={m.blockCount(count)}>
+      <span className="font-num text-label text-muted-foreground" title={m.blockCount(count)}>
         {count || ""}
       </span>
     </div>

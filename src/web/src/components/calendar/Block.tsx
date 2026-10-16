@@ -255,7 +255,7 @@ function BlockHeading({
       className={cn(
         // Long ASCII words ("CLAUDE.md") break inside narrow lanes rather than being cut off
         // It keeps its lines instead of shrinking under the time range below it
-        "shrink-0 text-xs [overflow-wrap:anywhere]",
+        "shrink-0 text-label [overflow-wrap:anywhere]",
         bold ? "font-medium" : "font-normal",
         short ? "leading-4" : "leading-snug",
         LINE_CLAMP[lines],
@@ -284,7 +284,7 @@ function BlockMeta({
   return (
     <span
       className={cn(
-        "flex min-w-0 shrink-0 items-center gap-1.5 font-num text-[11px] text-muted-foreground",
+        "flex min-w-0 shrink-0 items-center gap-1.5 font-num text-meta text-muted-foreground",
         room && LANE_ROOM,
       )}
     >
@@ -305,7 +305,7 @@ function BlockBody({ body, room }: { body: string; room: boolean }) {
         room && LANE_ROOM,
       )}
     >
-      <Markdown plain className="mt-1 space-y-1 text-xs leading-relaxed [&_li+li]:mt-0.5">
+      <Markdown plain className="mt-1 space-y-1 text-label leading-relaxed [&_li+li]:mt-0.5">
         {body}
       </Markdown>
     </div>
@@ -345,7 +345,7 @@ function MomentLane({ rows, heightPx }: { rows: MomentRow[]; heightPx: number })
       {rows.map((row) => (
         <div
           key={row.kind === "more" ? "more" : `${row.moment.artifact.ref}-${row.top}`}
-          className="absolute inset-x-0 flex items-center gap-2 pl-2.5 font-num text-[11px] text-muted-foreground"
+          className="absolute inset-x-0 flex items-center gap-2 pl-2.5 font-num text-meta text-muted-foreground"
           style={{ top: row.top, height: LANE_ROW_PX }}
         >
           {row.kind === "more" ? (

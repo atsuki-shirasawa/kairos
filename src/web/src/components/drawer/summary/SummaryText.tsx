@@ -36,6 +36,8 @@ export function SummaryMarkdown({
 /** A label over one of the summary's items, in the drawer's small heading style. */
 export function SummaryLabel({ children }: { children: React.ReactNode }) {
   return (
-    <h4 className="mb-1 font-semibold text-muted-foreground text-xs tracking-wide">{children}</h4>
+    <h4 className="mb-1 font-semibold text-label text-muted-foreground tracking-wide">
+      {children}
+    </h4>
   );
 }

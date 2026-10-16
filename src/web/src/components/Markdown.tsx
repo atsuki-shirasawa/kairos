@@ -24,7 +24,7 @@ export function Markdown({
   return (
     <div
       className={cn(
-        "space-y-2 break-words text-sm leading-relaxed",
+        "space-y-2 break-words text-body leading-relaxed",
         "[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2",
         "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em]",
         "[&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0",
