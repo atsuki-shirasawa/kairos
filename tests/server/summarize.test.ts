@@ -12,6 +12,7 @@ import type { SessionDetail } from "../../src/shared/api.ts";
 import { SUMMARY_MIN_DURATION_MS, SUMMARY_MIN_PROMPTS } from "../../src/shared/sections.ts";
 import { SID } from "../fixtures/ids.ts";
 import { min, setup } from "./ingest/helpers.ts";
+import { putSummary, summaryAt } from "./summaryRows.ts";
 
 let db: Database;
 let prompts: string[];
@@ -37,27 +38,19 @@ beforeEach(() => {
   );
 });
 
-const summaryOf = (sid: string, start: number) =>
-  db
-    .query<{ headline: string; body: string; covered_until: number }, [string, number]>(
-      "SELECT headline, body, covered_until FROM summaries WHERE session_id = ? AND start = ?",
-    )
-    .get(sid, start);
+const summaryOf = (sid: string, start: number) => summaryAt(db, sid, start);
 
 /**
  * Marks the ledger scenario's full-summary section as done. It lies after the times these tests
  * set, but has a later section in its session, so it counts as finished at any time.
  */
-const skipLedger = () =>
-  db
-    .query("INSERT INTO summaries VALUES (?, ?, 'x', 'y', 'm', 1e15, 0)")
-    .run(SID.ledgerOpen, min(1700));
+const skipLedger = () => putSummary(db, SID.ledgerOpen, min(1700));
 
 /** Marks short sections as already titled, to look only at how full-summary targets are picked. */
 const skipTitles = () =>
   db.run(
-    `INSERT INTO summaries
-     SELECT session_id, start, 'x', '', 'm', end, 0 FROM segments
+    `INSERT INTO summaries (block_id, headline, body, model, covered_from, covered_until, created_at)
+     SELECT id, 'x', '', 'm', start, end, 0 FROM segments
      WHERE end - start < ${SUMMARY_MIN_DURATION_MS} AND prompt_count < ${SUMMARY_MIN_PROMPTS}`,
   );
 
@@ -86,10 +79,7 @@ describe("Summarizer", () => {
     const picked: string[] = [];
     for (let t = nextSection(); t; t = nextSection()) {
       picked.push(`${t.sessionId.slice(0, 4)}@${(t.start - min(0)) / 60_000}:${t.mode}`);
-      db.query("INSERT INTO summaries VALUES (?, ?, 'x', 'y', 'm', 1e15, 0)").run(
-        t.sessionId,
-        t.start,
-      );
+      putSummary(db, t.sessionId, t.start);
     }
     // Only basic at 45 min, compaction at 380 min, facts at 1600 min and ledger at 1700 min
     // (2 prompts each) get a full summary
@@ -203,7 +193,7 @@ describe("Summarizer", () => {
       [SID.compaction, min(380)],
       [SID.facts, min(1600)],
     ] as const)
-      db.query("INSERT INTO summaries VALUES (?, ?, 'x', 'y', 'm', 1e15, 0)").run(sid, start);
+      putSummary(db, sid, start);
     expect(nextSection()).toBeNull(); // skipped until the retry time
     now += 61_000;
     expect(nextSection()).toEqual({ ...target, mode: "summary" });
@@ -224,21 +214,9 @@ describe("Summarizer", () => {
   test("regenerates a stale summary (when the section continued)", async () => {
     skipTitles();
     skipLedger();
-    db.query("INSERT INTO summaries VALUES (?, ?, 'x', 'y', 'm', ?, 0)").run(
-      SID.compaction,
-      min(380),
-      min(381),
-    );
-    db.query("INSERT INTO summaries VALUES (?, ?, 'x', 'y', 'm', ?, 0)").run(
-      SID.basic,
-      min(45),
-      min(50.2),
-    );
-    db.query("INSERT INTO summaries VALUES (?, ?, 'x', 'y', 'm', ?, 0)").run(
-      SID.facts,
-      min(1600),
-      min(1612),
-    );
+    putSummary(db, SID.compaction, min(380), { coveredUntil: min(381) });
+    putSummary(db, SID.basic, min(45), { coveredUntil: min(50.2) });
+    putSummary(db, SID.facts, min(1600), { coveredUntil: min(1612) });
     expect(nextSection()).toEqual({
       sessionId: SID.compaction,
       start: min(380),
@@ -419,6 +397,9 @@ test("migration 8 deletes stored summaries whose headline is a code fence", () =
     old.run(`PRAGMA user_version = ${i + 1}`);
   }
   old.run("INSERT INTO sessions (id) VALUES ('s')");
+  old.run(
+    "INSERT INTO segments (session_id, start, end) VALUES ('s', 1, 1), ('s', 2, 2), ('s', 3, 3), ('s', 4, 4)",
+  );
   const insert = old.prepare(
     "INSERT INTO summaries (session_id, start, headline, body, model, covered_until, created_at) VALUES ('s', ?, ?, ?, 'haiku', 0, 0)",
   );
@@ -429,8 +410,10 @@ test("migration 8 deletes stored summaries whose headline is a code fence", () =
   old.close();
 
   const db = openDb(path);
-  expect(db.query("SELECT start, headline FROM summaries").all()).toEqual([
-    { start: 4, headline: "Fine headline" },
-  ]);
+  expect(
+    db
+      .query("SELECT g.start, sm.headline FROM summaries sm JOIN segments g ON g.id = sm.block_id")
+      .all(),
+  ).toEqual([{ start: 4, headline: "Fine headline" }]);
   db.close();
 });

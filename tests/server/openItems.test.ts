@@ -168,7 +168,7 @@ describe("PATCH /api/open-items/:id", () => {
     const issue = await idOf("The CSV");
     // As if the user dismissed it before the log showed #21 closed
     db.run(
-      "UPDATE open_items SET closed_at = ?, closed_by = 'dismissed', closed_session_id = NULL, closed_start = NULL, closed_note = NULL WHERE id = ?",
+      "UPDATE open_items SET closed_at = ?, closed_by = 'dismissed', closed_block_id = NULL, closed_note = NULL WHERE id = ?",
       [min(1750), issue],
     );
     const reopened = (await (

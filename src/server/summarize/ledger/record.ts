@@ -3,7 +3,7 @@
 import type { Database } from "bun:sqlite";
 import type { OpenItem } from "../../../shared/summaryBody.ts";
 import type { TaskState } from "../../tasks.ts";
-import type { SectionRef } from "../target.ts";
+import type { PlacedSection } from "../blocks.ts";
 import { CLOSED_BY, KEPT_CLOSERS, sqlList } from "./closers.ts";
 import { itemRefs } from "./refs.ts";
 import { closeByRefs } from "./settle.ts";
@@ -26,8 +26,7 @@ export interface LedgerUpdate {
  */
 type LaterClosure = {
   closed_at: number;
-  closed_session_id: string | null;
-  closed_start: number | null;
+  closed_block_id: number | null;
   closed_by: string;
   closed_note: string | null;
 };
@@ -40,7 +39,7 @@ const sameText = (text: string) => text.replace(/\s+/g, " ").trim().toLowerCase(
  * reopens what that summary closed, records its open items and closures, then closes whatever the
  * log shows settled. Run in the same transaction as saving the summary.
  */
-export function recordSection(db: Database, target: SectionRef, update: LedgerUpdate): void {
+export function recordSection(db: Database, target: PlacedSection, update: LedgerUpdate): void {
   reopenClosedBy(db, target);
   const kept = laterClosures(db, target);
   deleteOpenedBy(db, target);
@@ -50,12 +49,12 @@ export function recordSection(db: Database, target: SectionRef, update: LedgerUp
 }
 
 /** Reopens the items an earlier summary of the section said it settled. */
-function reopenClosedBy(db: Database, target: SectionRef): void {
+function reopenClosedBy(db: Database, target: PlacedSection): void {
   db.query(
-    `UPDATE open_items SET closed_at = NULL, closed_session_id = NULL, closed_start = NULL,
-       closed_by = NULL, closed_note = NULL
-     WHERE closed_by = '${CLOSED_BY.model}' AND closed_session_id = ? AND closed_start = ?`,
-  ).run(target.sessionId, target.start);
+    `UPDATE open_items SET closed_at = NULL, closed_block_id = NULL, closed_by = NULL,
+       closed_note = NULL
+     WHERE closed_by = '${CLOSED_BY.model}' AND closed_block_id = ?`,
+  ).run(target.blockId);
 }
 
 /**
@@ -63,51 +62,46 @@ function reopenClosedBy(db: Database, target: SectionRef): void {
  * every save anyway) and this section's own: a later section's summary or a hand edit. The rows
  * are replaced when the section is regenerated; an item worded the same keeps its closure.
  */
-function laterClosures(db: Database, target: SectionRef): Map<string, LaterClosure> {
+function laterClosures(db: Database, target: PlacedSection): Map<string, LaterClosure> {
   const rows = db
-    .query<LaterClosure & { text: string }, [string, number]>(
-      `SELECT text, closed_at, closed_session_id, closed_start, closed_by, closed_note
+    .query<LaterClosure & { text: string }, [number]>(
+      `SELECT text, closed_at, closed_block_id, closed_by, closed_note
        FROM open_items
-       WHERE session_id = ?1 AND start = ?2 AND closed_by IN ${sqlList(KEPT_CLOSERS)}
-         AND NOT (closed_by = '${CLOSED_BY.model}' AND closed_session_id = ?1 AND closed_start = ?2)`,
+       WHERE block_id = ?1 AND closed_by IN ${sqlList(KEPT_CLOSERS)}
+         AND NOT (closed_by = '${CLOSED_BY.model}' AND closed_block_id IS ?1)`,
     )
-    .all(target.sessionId, target.start);
+    .all(target.blockId);
   return new Map(rows.map((r) => [sameText(r.text), r]));
 }
 
 /** Deletes the items an earlier summary of the section opened. */
-function deleteOpenedBy(db: Database, target: SectionRef): void {
-  db.query("DELETE FROM open_items WHERE session_id = ? AND start = ?").run(
-    target.sessionId,
-    target.start,
-  );
+function deleteOpenedBy(db: Database, target: PlacedSection): void {
+  db.query("DELETE FROM open_items WHERE block_id = ?").run(target.blockId);
 }
 
 /** Inserts the section's open items, each with its refs and any closure its wording kept. */
 function insertOpened(
   db: Database,
-  target: SectionRef,
+  target: PlacedSection,
   update: LedgerUpdate,
   kept: Map<string, LaterClosure>,
 ): void {
   const insert = db.query(
-    `INSERT INTO open_items (session_id, start, opened_at, kind, text, refs, closed_at,
-       closed_session_id, closed_start, closed_by, closed_note)
-     VALUES ($sessionId, $start, $openedAt, $kind, $text, $refs, $closedAt,
-       $closedSessionId, $closedStart, $closedBy, $closedNote)`,
+    `INSERT INTO open_items (block_id, opened_at, kind, text, refs, closed_at, closed_block_id,
+       closed_by, closed_note)
+     VALUES ($blockId, $openedAt, $kind, $text, $refs, $closedAt, $closedBlockId, $closedBy,
+       $closedNote)`,
   );
   for (const item of update.opened) {
     const closure = kept.get(sameText(item.text));
     insert.run({
-      sessionId: target.sessionId,
-      start: target.start,
+      blockId: target.blockId,
       openedAt: update.end,
       kind: item.kind,
       text: item.text,
       refs: JSON.stringify(itemRefs(item.text, update.tasks)),
       closedAt: closure?.closed_at ?? null,
-      closedSessionId: closure?.closed_session_id ?? null,
-      closedStart: closure?.closed_start ?? null,
+      closedBlockId: closure?.closed_block_id ?? null,
       closedBy: closure?.closed_by ?? null,
       closedNote: closure?.closed_note ?? null,
     });
@@ -115,12 +109,11 @@ function insertOpened(
 }
 
 /** Closes the earlier items the model said the section settled, unless already closed. */
-function closeOnModelsWord(db: Database, target: SectionRef, update: LedgerUpdate): void {
+function closeOnModelsWord(db: Database, target: PlacedSection, update: LedgerUpdate): void {
   const close = db.query(
-    `UPDATE open_items SET closed_at = ?, closed_session_id = ?, closed_start = ?,
-       closed_by = '${CLOSED_BY.model}', closed_note = ?
+    `UPDATE open_items SET closed_at = ?, closed_block_id = ?, closed_by = '${CLOSED_BY.model}',
+       closed_note = ?
      WHERE id = ? AND closed_at IS NULL`,
   );
-  for (const c of update.closed)
-    close.run(update.end, target.sessionId, target.start, c.note || null, c.id);
+  for (const c of update.closed) close.run(update.end, target.blockId, c.note || null, c.id);
 }

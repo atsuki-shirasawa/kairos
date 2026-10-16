@@ -4,7 +4,7 @@
 import type { Database } from "bun:sqlite";
 import { readKv, writeKv } from "../db/kv.ts";
 import type { ProjectPlacer } from "./placement.ts";
-import { workBlocks } from "./segments.ts";
+import { carryIds, type StoredBlock, unchanged, workBlocks } from "./segments.ts";
 import type { ActivityRow, AggregateRow, Statements } from "./statements.ts";
 
 /** The kv key that holds the DERIVED_VERSION the stored derived data was computed with. */
@@ -31,7 +31,7 @@ export class DerivedData {
   refreshSession(sessionId: string): void {
     if (this.q.hasPredecessor.get(sessionId)) this.markCopies(sessionId);
     this.updateAggregates(sessionId);
-    this.rebuildSegments(sessionId);
+    this.rebuildBlocks(sessionId);
   }
 
   /** Refreshes a main session and the session continuing it, returning the IDs refreshed. */
@@ -59,12 +59,36 @@ export class DerivedData {
     this.q.updateAggregate.run({ ...agg, firstPrompt: first?.text ?? null, id: sessionId });
   }
 
-  /** Replaces the session's work blocks with ones recomputed from its activity. */
-  private rebuildSegments(sessionId: string): void {
+  /**
+   * Replaces the session's work blocks with ones recomputed from its activity, carrying each
+   * stored block's id to the new block it overlaps most (see `carryIds`).
+   */
+  private rebuildBlocks(sessionId: string): void {
     const blocks = workBlocks(this.q.activity.all(sessionId) as ActivityRow[], this.opts.gapMs);
-    this.q.clearSegments.run(sessionId);
-    for (const b of blocks)
-      this.q.insertSegment.run(sessionId, b.start, b.end, b.prompts, b.fallbackTitle);
+    const stored = this.q.storedBlocks.all(sessionId) as StoredBlock[];
+    const changes = carryIds(stored, blocks);
+    for (const { id, into } of changes.merged) this.mergeBlock(id, into);
+    for (const id of changes.dropped) this.dropBlock(id);
+    const byId = new Map(stored.map((s) => [s.id, s]));
+    const changed = changes.kept.filter(({ id, block }) => !unchanged(byId.get(id), block));
+    for (const { id, block } of changed)
+      if (byId.get(id)?.start !== block.start) this.q.parkBlock.run(id);
+    for (const { id, block } of changed) this.q.updateBlock.run({ ...block, id });
+    for (const block of changes.added) this.q.insertBlock.run({ ...block, sessionId });
+  }
+
+  /** Folds a stored block into the one it merged with, moving what references it, then drops it. */
+  private mergeBlock(id: number, into: number): void {
+    this.q.moveBlockItems.run(into, id);
+    this.q.moveBlockClosures.run(into, id);
+    this.q.moveBlockSummary.run(into, id);
+    this.q.deleteBlock.run(id);
+  }
+
+  /** Deletes a stored block nothing recomputed overlaps, reopening what its summary closed. */
+  private dropBlock(id: number): void {
+    this.q.reopenClosedIn.run(id);
+    this.q.deleteBlock.run(id);
   }
 
   /**

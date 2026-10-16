@@ -54,8 +54,9 @@ type Row = {
 const items = () =>
   db
     .query<Row, []>(
-      `SELECT text, refs, closed_by, closed_session_id, closed_start, closed_note
-       FROM open_items ORDER BY id`,
+      `SELECT i.text, i.refs, i.closed_by, c.session_id AS closed_session_id,
+              c.start AS closed_start, i.closed_note
+       FROM open_items i LEFT JOIN segments c ON c.id = i.closed_block_id ORDER BY i.id`,
     )
     .all();
 
@@ -63,7 +64,9 @@ const item = (prefix: string) => items().find((i) => i.text.startsWith(prefix));
 
 const bodyAt = (minute: number) =>
   db
-    .query<{ body: string }, [number]>("SELECT body FROM summaries WHERE start = ?")
+    .query<{ body: string }, [number]>(
+      "SELECT sm.body FROM summaries sm JOIN segments g ON g.id = sm.block_id WHERE g.start = ?",
+    )
     .get(min(minute))?.body;
 
 const summarize = (sessionId: string, minute: number, mode: "summary" | "title" = "summary") =>
@@ -188,6 +191,7 @@ test("migration 9 adds the open items table, keeping an existing DB's summaries"
     old.run(`PRAGMA user_version = ${i + 1}`);
   }
   old.run("INSERT INTO sessions (id) VALUES ('s')");
+  old.run("INSERT INTO segments (session_id, start, end) VALUES ('s', 1, 2)");
   old.run("INSERT INTO summaries VALUES ('s', 1, 'h', 'b', 'm', 2, 3)");
   old.close();
   const upgraded = openDb(path);
@@ -207,6 +211,7 @@ test("migration 11 adds the open item decision log, keeping an existing DB's ite
     old.run(`PRAGMA user_version = ${i + 1}`);
   }
   old.run("INSERT INTO sessions (id) VALUES ('s')");
+  old.run("INSERT INTO segments (session_id, start, end) VALUES ('s', 1, 2)");
   old.run(
     "INSERT INTO open_items (session_id, start, opened_at, text, closed_at, closed_by) VALUES ('s', 1, 2, 't', 3, 'dismissed')",
   );

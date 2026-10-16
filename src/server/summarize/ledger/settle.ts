@@ -4,6 +4,7 @@ import type { Database } from "bun:sqlite";
 import { issueClosedNote, prMergedNote, taskCompletedNote } from "../../../shared/closeNotes.ts";
 import { completedTask } from "../../tasks.ts";
 import { callOf, type ToolCall } from "../../toolCalls.ts";
+import { blockAt } from "../blocks.ts";
 import { closedIssues } from "../facts.ts";
 import { projectOf, successors } from "./chain.ts";
 import { CLOSED_BY } from "./closers.ts";
@@ -37,8 +38,8 @@ export function closeByRefs(db: Database, sessionId: string): void {
   const shared = [...issueEvents(db, scope, from), ...mergeEvents(db, scope, from)];
   const tasksOf = taskEventsBySession(db, from);
   const close = db.query(
-    `UPDATE open_items SET closed_at = ?, closed_session_id = ?, closed_start = ?,
-       closed_by = '${CLOSED_BY.ref}', closed_note = ?
+    `UPDATE open_items SET closed_at = ?, closed_block_id = ?, closed_by = '${CLOSED_BY.ref}',
+       closed_note = ?
      WHERE id = ?`,
   );
   for (const item of items) {
@@ -46,7 +47,7 @@ export function closeByRefs(db: Database, sessionId: string): void {
     const settlement = settlementOf(item, events);
     if (!settlement) continue;
     const { last, note } = settlement;
-    close.run(last.ts, last.sessionId, sectionAt(db, last.sessionId, last.ts), note, item.id);
+    close.run(last.ts, blockAt(db, last.sessionId, last.ts), note, item.id);
   }
 }
 
@@ -73,21 +74,6 @@ function taskEventsBySession(db: Database, from: number): (sessionId: string) =>
     }
     return events;
   };
-}
-
-/**
- * Start of the section a time falls in: the last one starting at or before it (a merge is recorded
- * up to a few minutes after its section ends), else the first one after it.
- */
-function sectionAt(db: Database, sessionId: string, ts: number): number | null {
-  return (
-    db
-      .query<{ start: number }, [string, number]>(
-        `SELECT start FROM segments WHERE session_id = ?1
-         ORDER BY start <= ?2 DESC, CASE WHEN start <= ?2 THEN -start ELSE start END LIMIT 1`,
-      )
-      .get(sessionId, ts)?.start ?? null
-  );
 }
 
 /** Main-conversation tool calls in the scope after `from`, with results, as the facts read them. */

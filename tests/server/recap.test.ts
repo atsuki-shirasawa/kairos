@@ -13,6 +13,7 @@ import { MAX_RECAP_QUEUE, Summarizer } from "../../src/server/summarize/summariz
 import type { RecapsResponse } from "../../src/shared/api.ts";
 import { SID } from "../fixtures/ids.ts";
 import { min, setup } from "./ingest/helpers.ts";
+import { putSummary } from "./summaryRows.ts";
 
 const DAY = 24 * 60 * 60_000;
 // The fixture week, wide enough to hold every fixture session
@@ -140,9 +141,7 @@ describe("Summarizer.recap", () => {
     });
 
     // A section summary arriving later changes the input
-    db.query(
-      "INSERT OR REPLACE INTO summaries VALUES (?, ?, 'New headline', 'Body', 'm', 1e15, 0)",
-    ).run(SID.basic, min(0));
+    putSummary(db, SID.basic, min(0), { headline: "New headline", body: "Body" });
     expect(q.recaps(FROM, TO).find((r) => r.projectId === APP)?.stale).toBe(true);
   });
 

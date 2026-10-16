@@ -18,6 +18,7 @@ import { TOKEN_BUCKET_MS } from "../../src/shared/constants.ts";
 import { DAY } from "../../src/shared/dates.ts";
 import { SID } from "../fixtures/ids.ts";
 import { min, setup } from "./ingest/helpers.ts";
+import { putSummary } from "./summaryRows.ts";
 
 /** Where the summarizerRun fixture was launched, standing in for Kairos's summarizer directory. */
 const SUMMARIZER_CWD = "/Users/me/tmp/scratch/kairos-data/summarizer";
@@ -426,14 +427,13 @@ describe("GET /api/sessions/:id", () => {
   });
 
   test("per-section summaries, and headlines of sections without one", async () => {
-    db.query(
-      "INSERT INTO summaries VALUES (?, ?, 'ログインフォームの実装', '- 目的: …', 'haiku', ?, ?)",
-    ).run(
-      SID.basic,
-      min(0),
-      min(4), // covers only up to before the section end (5 minutes)
-      now,
-    );
+    putSummary(db, SID.basic, min(0), {
+      headline: "ログインフォームの実装",
+      body: "- 目的: …",
+      model: "haiku",
+      coveredUntil: min(4), // covers only up to before the section end (5 minutes)
+      createdAt: now,
+    });
     const d = await json<SessionDetail>(`/api/sessions/${SID.basic}`);
     expect(d.sections.map((x) => [x.start, x.end])).toEqual([
       [min(0), min(5)],

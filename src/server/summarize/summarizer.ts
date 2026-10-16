@@ -18,6 +18,8 @@ export const MAX_RECAP_QUEUE = 20;
 
 /** Failure message for a section with no conversation in it; retrying can't help. */
 export const NO_CONVERSATION = "No conversation to summarize";
+/** Why a summary was dropped: the block moved while the model ran, so it is due at its new start. */
+export const BLOCK_MOVED = "The block moved while it was summarized";
 
 /** Answers a prompt with the LLM. Production uses `runClaude`; tests pass a stub. */
 export type Runner = (prompt: string) => Promise<string>;
@@ -223,7 +225,12 @@ export class Summarizer {
       }
       const result = interpretSection(await this.run(prepared.prompt), prepared);
       if (!result) throw new Error("Could not parse the summary output");
-      saveSection(this.db, target, result, { model: this.model, createdAt: this.now() });
+      const saved = saveSection(this.db, target, result, {
+        model: this.model,
+        createdAt: this.now(),
+      });
+      // Not "skipped", which means nothing to summarize: the work was there, but has moved
+      if (!saved) return { status: "failed", error: BLOCK_MOVED };
       this.sections.clearFailure(target);
       return { status: "saved" };
     } catch (e) {

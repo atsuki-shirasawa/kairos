@@ -1,5 +1,6 @@
 import type { Database, Statement } from "bun:sqlite";
 import { notNote } from "../db/notes.ts";
+import { CLOSED_BY } from "../summarize/ledger/closers.ts";
 
 /** Saved resume point and interpretation state of one log file (a row of ingest_state). */
 export interface StateRow {
@@ -244,9 +245,35 @@ export function prepareStatements(db: Database) {
        FROM messages WHERE session_id = ? AND agent_id IS NULL AND is_copy = 0 AND ts IS NOT NULL AND ${notNote()}
        ORDER BY ts, file_id, seq`,
     ),
-    clearSegments: p("DELETE FROM segments WHERE session_id = ?"),
-    insertSegment: p(
-      "INSERT OR IGNORE INTO segments (session_id, start, end, prompt_count, fallback_title) VALUES (?, ?, ?, ?, ?)",
+    storedBlocks: p(
+      `SELECT id, start, end, prompt_count AS prompts, fallback_title AS fallbackTitle
+       FROM segments WHERE session_id = ?`,
+    ),
+    insertBlock: p(
+      `INSERT OR IGNORE INTO segments (session_id, start, end, prompt_count, fallback_title)
+       VALUES ($sessionId, $start, $end, $prompts, $fallbackTitle)`,
+    ),
+    // A kept block's start moves out of the way first, so no two rows share a start mid-update
+    parkBlock: p("UPDATE segments SET start = -id WHERE id = ?"),
+    updateBlock: p(
+      `UPDATE segments SET start = $start, end = $end, prompt_count = $prompts,
+         fallback_title = $fallbackTitle WHERE id = $id`,
+    ),
+    deleteBlock: p("DELETE FROM segments WHERE id = ?"),
+    // A merged block's open items move to the block it joins, and its summary too when it covers
+    // more of the work than the summary already there (which it then replaces)
+    moveBlockItems: p("UPDATE open_items SET block_id = ?1 WHERE block_id = ?2"),
+    moveBlockClosures: p("UPDATE open_items SET closed_block_id = ?1 WHERE closed_block_id = ?2"),
+    moveBlockSummary: p(
+      `UPDATE OR REPLACE summaries SET block_id = ?1
+       WHERE block_id = ?2 AND covered_until - covered_from >
+         COALESCE((SELECT covered_until - covered_from FROM summaries WHERE block_id = ?1), -1)`,
+    ),
+    // A summary's word no longer stands once its block is gone; the log's closes do
+    reopenClosedIn: p(
+      `UPDATE open_items SET closed_at = NULL, closed_block_id = NULL, closed_by = NULL,
+         closed_note = NULL
+       WHERE closed_block_id = ? AND closed_by = '${CLOSED_BY.model}'`,
     ),
   };
 }

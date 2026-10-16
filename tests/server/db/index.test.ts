@@ -45,3 +45,47 @@ test("migration 12 swaps messages_time for messages_block, keeping an existing D
   expect(indexes(upgraded, "messages")).not.toContain("messages_time");
   upgraded.close();
 });
+
+test("migration 13 gives blocks ids and keys summaries and open items by them", () => {
+  const path = join(tmpdir(), `kairos-block-ids-${crypto.randomUUID()}.db`);
+  const old = new Database(path, { create: true });
+  for (const [i, sql] of MIGRATIONS.slice(0, 12).entries()) {
+    old.run(sql);
+    old.run(`PRAGMA user_version = ${i + 1}`);
+  }
+  old.run("INSERT INTO sessions (id) VALUES ('s')");
+  old.run("INSERT INTO segments (session_id, start, end) VALUES ('s', 100, 200), ('s', 300, 400)");
+  // One summary at its block's start, one written when its block started at 310 (it now starts at
+  // 300), and one overlapping no block at all
+  old.run(`INSERT INTO summaries VALUES ('s', 100, 'first', 'b', 'm', 200, 1),
+    ('s', 310, 'moved', 'b', 'm', 390, 2), ('s', 900, 'gone', 'b', 'm', 900, 3)`);
+  old.run(`INSERT INTO open_items (id, session_id, start, opened_at, text, closed_at,
+      closed_session_id, closed_start, closed_by)
+    VALUES (5, 's', 100, 200, 'left open', 350, 's', 300, 'model'),
+           (6, 's', 900, 900, 'orphan', NULL, NULL, NULL, NULL)`);
+  old.close();
+
+  const db = openDb(path);
+  expect(
+    db
+      .query(
+        `SELECT g.start, sm.headline, sm.covered_from
+         FROM summaries sm JOIN segments g ON g.id = sm.block_id ORDER BY g.start`,
+      )
+      .all(),
+  ).toEqual([
+    { start: 100, headline: "first", covered_from: 100 },
+    // Kept on the block it overlaps, and stale there, since it was written at another start
+    { start: 300, headline: "moved", covered_from: 310 },
+  ]);
+  expect(
+    db
+      .query(
+        `SELECT i.id, g.start, c.start AS closed_start FROM open_items i
+         JOIN segments g ON g.id = i.block_id LEFT JOIN segments c ON c.id = i.closed_block_id`,
+      )
+      .all(),
+  ).toEqual([{ id: 5, start: 100, closed_start: 300 }]);
+  expect(db.query("PRAGMA foreign_key_check").all()).toEqual([]);
+  db.close();
+});

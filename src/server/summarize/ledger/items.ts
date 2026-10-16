@@ -29,13 +29,18 @@ export type ItemRow = {
   headline: string | null;
 };
 
-/** Selects `ItemRow`s; aliases `i` (the item) and `s` (its session) are free for WHERE clauses. */
-export const ITEM_SELECT = `SELECT i.id, s.project_id, i.session_id, i.start, i.opened_at, i.kind,
-       i.text, i.refs, i.closed_at, i.closed_by, i.closed_session_id, i.closed_start,
-       i.closed_note, sm.headline
+/**
+ * Selects `ItemRow`s. Aliases are free for WHERE clauses: `i` (the item), `g` (the block that
+ * opened it), `s` (its session) and `c` (the block that closed it, when one did).
+ */
+export const ITEM_SELECT = `SELECT i.id, s.project_id, g.session_id, g.start, i.opened_at, i.kind,
+       i.text, i.refs, i.closed_at, i.closed_by, c.session_id AS closed_session_id,
+       c.start AS closed_start, i.closed_note, sm.headline
   FROM open_items i
-  JOIN sessions s ON s.id = i.session_id
-  LEFT JOIN summaries sm ON sm.session_id = i.session_id AND sm.start = i.start`;
+  JOIN segments g ON g.id = i.block_id
+  JOIN sessions s ON s.id = g.session_id
+  LEFT JOIN segments c ON c.id = i.closed_block_id
+  LEFT JOIN summaries sm ON sm.block_id = i.block_id`;
 
 /** A stored kind, when it is one the summary format knows. */
 function kindOf(kind: string | null): OpenKind | null {

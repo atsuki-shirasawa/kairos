@@ -34,8 +34,8 @@ const row = (over: Partial<SectionRow> = {}): SectionRow => ({
   headline: null,
   body: null,
   model: null,
-  covered_until: null,
   created_at: null,
+  stale: 0,
   ...over,
 });
 
@@ -67,8 +67,7 @@ test("a segment is summarized once it has a headline", () => {
   expect(toCalendarSegment(row({ headline: "H" }), "S", noArtifacts, facts).summarized).toBe(true);
 });
 
-test("a section is stale when the block went on after its summary", () => {
-  expect(toSection(row({ covered_until: 1500 }), "S", noState, facts).stale).toBe(true);
-  expect(toSection(row({ covered_until: 2000 }), "S", noState, facts).stale).toBe(false);
+test("a section is stale when its row says the summary no longer covers it", () => {
+  expect(toSection(row({ stale: 1 }), "S", noState, facts).stale).toBe(true);
   expect(toSection(row(), "S", noState, facts).stale).toBe(false);
 });

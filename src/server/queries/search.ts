@@ -32,9 +32,10 @@ const SNIPPET_CHARS = 120;
 /** Every place a section can match, as (session, section start, field, text) rows. */
 const SEARCH_SOURCES = `
       SELECT g.session_id AS sid, g.start, 'headline' AS field, COALESCE(sm.headline, g.fallback_title) AS text
-        FROM segments g LEFT JOIN summaries sm ON sm.session_id = g.session_id AND sm.start = g.start
+        FROM segments g LEFT JOIN summaries sm ON sm.block_id = g.id
       UNION ALL
-      SELECT session_id, start, 'summary', body FROM summaries WHERE body != ''
+      SELECT g.session_id, g.start, 'summary', sm.body
+        FROM summaries sm JOIN segments g ON g.id = sm.block_id WHERE sm.body != ''
       UNION ALL
       SELECT g.session_id, g.start, 'title',
              COALESCE(s.custom_title, '') || char(10) || COALESCE(s.agent_name, '') || char(10) ||
@@ -137,7 +138,7 @@ export function searchSql(terms: SearchTerm[], limit: number, visible: string): 
          FROM best b
          JOIN segments g ON g.session_id = b.sid AND g.start = b.start
          JOIN sessions s ON s.id = b.sid
-         LEFT JOIN summaries sm ON sm.session_id = b.sid AND sm.start = b.start
+         LEFT JOIN summaries sm ON sm.block_id = g.id
          WHERE b.n = 1
          ORDER BY b.start DESC
          LIMIT ${limit + 1}`;

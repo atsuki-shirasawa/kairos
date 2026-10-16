@@ -7,7 +7,8 @@ import {
 } from "../../../src/server/summarize/section.ts";
 import { Summarizer } from "../../../src/server/summarize/summarizer.ts";
 import type { Mode } from "../../../src/server/summarize/target.ts";
-import { setup } from "../ingest/helpers.ts";
+import { SID } from "../../fixtures/ids.ts";
+import { min, setup } from "../ingest/helpers.ts";
 
 const candidate = (id: number) => ({ id }) as LedgerItem;
 
@@ -15,6 +16,7 @@ const candidate = (id: number) => ({ id }) as LedgerItem;
 const prepared = (mode: Mode): PreparedSection => ({
   target: { sessionId: "s", start: 0, mode },
   input: {
+    blockId: 3,
     end: 99,
     prompt: { sessionTitle: "t", projectName: null, previous: [], digest: "d" },
     refs: [],
@@ -34,6 +36,7 @@ const OUTPUT =
 describe("interpretSection", () => {
   test("a full summary keeps its body, opens its Open items and closes offered labels by ID", () => {
     expect(interpretSection(OUTPUT, prepared("summary"))).toEqual({
+      blockId: 3,
       summary: { headline: "Login form", body: "- Goal: g\n- Done: d\n- Open:\n  - [todo] left" },
       ledger: {
         end: 99,
@@ -46,6 +49,7 @@ describe("interpretSection", () => {
 
   test("a headline-only summary keeps nothing but the headline", () => {
     expect(interpretSection(OUTPUT, prepared("title"))).toEqual({
+      blockId: 3,
       summary: { headline: "Login form", body: "" },
       ledger: { end: 99, opened: [], tasks: [], closed: [] },
     });
@@ -67,5 +71,33 @@ describe("prepareSection / summarize", () => {
       status: "skipped",
       error: "No conversation to summarize",
     });
+  });
+
+  test("a summary is not saved on another block that took its start while the model ran", async () => {
+    const { db, ingester } = setup();
+    ingester.scan();
+    const target = { sessionId: SID.basic, start: min(45) };
+    const summarizer = new Summarizer(
+      db,
+      async () => {
+        // As if a split gave this start to a new block, the old one keeping the larger part
+        db.query("UPDATE segments SET start = start + 1 WHERE session_id = ? AND start = ?").run(
+          SID.basic,
+          min(45),
+        );
+        db.query("INSERT INTO segments (session_id, start, end) VALUES (?, ?, ?)").run(
+          SID.basic,
+          min(45),
+          min(46),
+        );
+        return "Login screen\n\n- Goal: g\n- Done: d";
+      },
+      { quiet: true },
+    );
+    expect(await summarizer.summarize(target)).toEqual({
+      status: "failed",
+      error: "The block moved while it was summarized",
+    });
+    expect(db.query("SELECT COUNT(*) AS n FROM summaries").get()).toEqual({ n: 0 });
   });
 });

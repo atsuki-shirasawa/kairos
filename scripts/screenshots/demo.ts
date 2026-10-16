@@ -779,8 +779,8 @@ export function seedSessionSummaries(
   createdAt: number,
 ): void {
   const segments = db
-    .query<{ start: number; end: number }, [string]>(
-      "SELECT start, end FROM segments WHERE session_id = ? ORDER BY start",
+    .query<{ id: number; start: number; end: number }, [string]>(
+      "SELECT id, start, end FROM segments WHERE session_id = ? ORDER BY start",
     )
     .all(session.id);
   if (segments.length !== session.sections.length) {
@@ -791,13 +791,13 @@ export function seedSessionSummaries(
   segments.forEach((seg, i) => {
     const s = session.sections[i] as DemoSection;
     if (s.unsummarized) return;
-    const target = { sessionId: session.id, start: seg.start };
+    const target = { sessionId: session.id, start: seg.start, blockId: seg.id };
     const body = s.summary ? summaryBody(s.summary) : "";
     saveSummary(
       db,
-      target,
+      seg.id,
       { headline: s.headline, body },
-      { model: "haiku", coveredUntil: seg.end, createdAt },
+      { model: "haiku", covered: { from: seg.start, until: seg.end }, createdAt },
     );
     // The open items list reads the ledger, which the summarizer fills as it saves
     recordSection(db, target, {

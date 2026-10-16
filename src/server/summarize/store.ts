@@ -5,6 +5,7 @@ import { DAY } from "../../shared/dates.ts";
 import { AUTO_SUMMARY_DAYS, isSummarizable, SECTION_IDLE_MS } from "../../shared/sections.ts";
 import type { TaskState } from "../tasks.ts";
 import { DEFAULT_HIDDEN_CWDS, visibleSessionSql } from "../visibility.ts";
+import { STALE_SUMMARY_SQL, sectionBlock, stillStartsAt } from "./blocks.ts";
 import { buildDigest, DIGEST_KINDS, type DigestMessage } from "./digest.ts";
 import { formatFacts, loadFacts } from "./facts.ts";
 import { type LedgerUpdate, recordSection } from "./ledger/record.ts";
@@ -15,6 +16,8 @@ import type { SectionRef, Target } from "./target.ts";
 
 /** What a section summary is built from, and how far into the section it reaches. */
 export interface SectionInput {
+  /** The section's block when it was read; the summary is saved only while it still starts there. */
+  blockId: number;
   /** End of the section when it was read; saved as `covered_until`. */
   end: number;
   prompt: PromptInput;
@@ -87,12 +90,12 @@ export function findTargets(db: Database, now: number, filter: TargetFilter = {}
        FROM segments g
        JOIN sessions s ON s.id = g.session_id
        LEFT JOIN projects p ON p.id = s.project_id
-       LEFT JOIN summaries sm ON sm.session_id = g.session_id AND sm.start = g.start
+       LEFT JOIN summaries sm ON sm.block_id = g.id
        WHERE ${visibleSessionSql({ headless: true, hiddenCwds: filter.hiddenCwds ?? DEFAULT_HIDDEN_CWDS })}
          AND g.end >= ?1 AND g.end < ?6
          AND g.start >= ?2 AND g.start < ?3
          AND (g.end <= ?4 OR EXISTS (SELECT 1 FROM segments later WHERE later.session_id = g.session_id AND later.start > g.start))
-         AND (sm.session_id IS NULL OR sm.covered_until < g.end)
+         AND (sm.block_id IS NULL OR ${STALE_SUMMARY_SQL})
          -- Same messages as loadMessages / DIGEST_KINDS: a section with none (e.g. only scheduled
          -- runs) has nothing to summarize, and nothing is saved for it, so it would come back forever
          AND EXISTS (
@@ -132,7 +135,8 @@ export function loadHeadline(db: Database, target: SectionRef): string | null {
   return (
     db
       .query<{ headline: string }, [string, number]>(
-        "SELECT headline FROM summaries WHERE session_id = ? AND start = ?",
+        `SELECT sm.headline FROM summaries sm JOIN segments g ON g.id = sm.block_id
+         WHERE g.session_id = ? AND g.start = ?`,
       )
       .get(target.sessionId, target.start)?.headline ?? null
   );
@@ -140,14 +144,16 @@ export function loadHeadline(db: Database, target: SectionRef): string | null {
 
 /** The section's prompt input, or null when the section is gone or has no conversation in it. */
 export function loadSectionInput(db: Database, target: SectionRef): SectionInput | null {
-  const end = sectionEnd(db, target);
-  if (end === null) return null;
+  const block = sectionBlock(db, target);
+  if (!block) return null;
+  const { id: blockId, end } = block;
   const digest = buildDigest(loadMessages(db, target, end));
   if (!digest) return null;
   const session = loadSessionLabel(db, target.sessionId);
   const facts = loadFacts(db, target.sessionId, target.start, end);
   const factsText = formatFacts(facts);
   return {
+    blockId,
     end,
     prompt: {
       sessionTitle: session?.title?.split("\n")[0] ?? "(untitled)",
@@ -159,17 +165,6 @@ export function loadSectionInput(db: Database, target: SectionRef): SectionInput
     refs: refsOf(`${factsText}\n${digest}`),
     tasks: facts.tasks,
   };
-}
-
-/** End time of the section, or null when it no longer exists. */
-function sectionEnd(db: Database, target: SectionRef): number | null {
-  return (
-    db
-      .query<{ end: number }, [string, number]>(
-        "SELECT end FROM segments WHERE session_id = ? AND start = ?",
-      )
-      .get(target.sessionId, target.start)?.end ?? null
-  );
 }
 
 /** The session's display title and its project's name. */
@@ -191,7 +186,7 @@ function loadPreviousHeadlines(db: Database, target: SectionRef): string[] {
   return db
     .query<{ headline: string | null }, [string, number]>(
       `SELECT COALESCE(sm.headline, g.fallback_title) AS headline
-       FROM segments g LEFT JOIN summaries sm ON sm.session_id = g.session_id AND sm.start = g.start
+       FROM segments g LEFT JOIN summaries sm ON sm.block_id = g.id
        WHERE g.session_id = ? AND g.start < ? ORDER BY g.start`,
     )
     .all(target.sessionId, target.start)
@@ -211,31 +206,40 @@ function loadMessages(db: Database, target: SectionRef, end: number): DigestMess
     .all(target.sessionId, target.start, end);
 }
 
-/** Saves (or replaces) a section summary, recording how far into the section it reaches. */
+/** How far a saved summary reaches: the section's span when it was read. */
+interface Coverage {
+  from: number;
+  until: number;
+}
+
+/** Saves (or replaces) a block's summary, recording the span of the section it was written from. */
 export function saveSummary(
   db: Database,
-  target: SectionRef,
+  blockId: number,
   summary: ParsedSummary,
-  meta: { model: string; coveredUntil: number; createdAt: number },
+  meta: { model: string; covered: Coverage; createdAt: number },
 ): void {
   db.query(
-    `INSERT INTO summaries (session_id, start, headline, body, model, covered_until, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(session_id, start) DO UPDATE SET headline = excluded.headline, body = excluded.body,
-       model = excluded.model, covered_until = excluded.covered_until, created_at = excluded.created_at`,
-  ).run(
-    target.sessionId,
-    target.start,
-    summary.headline,
-    summary.body,
-    meta.model,
-    meta.coveredUntil,
-    meta.createdAt,
-  );
+    `INSERT INTO summaries (block_id, headline, body, model, covered_from, covered_until, created_at)
+     VALUES ($blockId, $headline, $body, $model, $from, $until, $createdAt)
+     ON CONFLICT(block_id) DO UPDATE SET headline = excluded.headline, body = excluded.body,
+       model = excluded.model, covered_from = excluded.covered_from,
+       covered_until = excluded.covered_until, created_at = excluded.created_at`,
+  ).run({
+    blockId,
+    headline: summary.headline,
+    body: summary.body,
+    model: meta.model,
+    from: meta.covered.from,
+    until: meta.covered.until,
+    createdAt: meta.createdAt,
+  });
 }
 
 /** What a section summary saves: the summary itself and its change to the ledger. */
 export interface SectionResult {
+  /** The block the section was read from (`SectionInput.blockId`). */
+  blockId: number;
   summary: ParsedSummary;
   ledger: LedgerUpdate;
 }
@@ -243,16 +247,22 @@ export interface SectionResult {
 /**
  * Saves a section's summary and applies it to the ledger in one transaction, so the summary and
  * the open items it recorded never disagree. The summary reaches as far as the ledger update's end.
+ * Returns false, saving nothing, when the block it was read from no longer starts where it did
+ * (its log changed while the model ran); the block is then due again as it is now.
  */
 export function saveSection(
   db: Database,
   target: SectionRef,
   result: SectionResult,
   meta: { model: string; createdAt: number },
-): void {
-  db.transaction(() => {
-    saveSummary(db, target, result.summary, { ...meta, coveredUntil: result.ledger.end });
-    recordSection(db, target, result.ledger);
+): boolean {
+  return db.transaction(() => {
+    const { blockId } = result;
+    if (!stillStartsAt(db, blockId, target.start)) return false;
+    const covered = { from: target.start, until: result.ledger.end };
+    saveSummary(db, blockId, result.summary, { ...meta, covered });
+    recordSection(db, { ...target, blockId }, result.ledger);
+    return true;
   })();
 }
 

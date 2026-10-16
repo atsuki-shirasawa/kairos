@@ -90,3 +90,83 @@ export function fallbackTitle(inside: ActivityRow[]): string | null {
     (firstPrompt ?? lastReply)?.text?.trim().split("\n")[0]?.slice(0, FALLBACK_TITLE_CHARS) ?? null
   );
 }
+
+/** A work block as stored, with the id that summaries and open items reference. */
+export interface StoredBlock extends WorkBlock {
+  id: number;
+}
+
+/** How recomputing a session's work blocks changes the stored ones. */
+export interface BlockChanges {
+  /** New blocks that keep a stored block's id; their start or end may have moved. */
+  kept: { id: number; block: WorkBlock }[];
+  /** New blocks no stored block hands an id to. */
+  added: WorkBlock[];
+  /** Stored blocks folded into a kept one (`into`): their summary and open items move there. */
+  merged: { id: number; into: number }[];
+  /** Stored blocks no new block overlaps, gone with what referenced them. */
+  dropped: number[];
+}
+
+/** A span of time, as both stored and recomputed blocks have. */
+type Span = { start: number; end: number };
+
+/**
+ * How long two spans share, or -1 when they share no work. Spans that only touch share none,
+ * unless one is a single moment (a block of one activity), which can only ever touch.
+ */
+function overlap(a: Span, b: Span): number {
+  if (a.start > b.end || b.start > a.end) return -1;
+  const shared = Math.min(a.end, b.end) - Math.max(a.start, b.start);
+  const moment = a.start === a.end || b.start === b.end;
+  return shared > 0 || moment ? shared : -1;
+}
+
+/** The index of the block that shares the most time with `stored`, or -1 when none meets it. */
+function bestMatch(stored: Span, blocks: WorkBlock[]): number {
+  let best = -1;
+  let most = -1;
+  blocks.forEach((b, i) => {
+    const shared = overlap(stored, b);
+    if (shared > most) [best, most] = [i, shared];
+  });
+  return best;
+}
+
+/**
+ * Carries stored block ids over to recomputed blocks, so a block's summary and open items follow
+ * it when its start or end moves. Each stored block goes to the new block it shares the most time
+ * with: a split keeps the id on the larger part, and a merge keeps the oldest (lowest) id and folds
+ * the others into it.
+ */
+export function carryIds(stored: (Span & { id: number })[], blocks: WorkBlock[]): BlockChanges {
+  const claims = new Map<number, number[]>();
+  const dropped: number[] = [];
+  for (const s of stored) {
+    const i = bestMatch(s, blocks);
+    if (i < 0) dropped.push(s.id);
+    else claims.set(i, [...(claims.get(i) ?? []), s.id]);
+  }
+  const changes: BlockChanges = { kept: [], added: [], merged: [], dropped };
+  blocks.forEach((block, i) => {
+    const [oldest, ...others] = (claims.get(i) ?? []).sort((a, b) => a - b);
+    if (oldest === undefined) {
+      changes.added.push(block);
+      return;
+    }
+    changes.kept.push({ id: oldest, block });
+    for (const id of others) changes.merged.push({ id, into: oldest });
+  });
+  return changes;
+}
+
+/** Whether a kept block is stored exactly as recomputed, so it needs no write. */
+export function unchanged(stored: StoredBlock | undefined, block: WorkBlock): boolean {
+  return (
+    stored !== undefined &&
+    stored.start === block.start &&
+    stored.end === block.end &&
+    stored.prompts === block.prompts &&
+    stored.fallbackTitle === block.fallbackTitle
+  );
+}

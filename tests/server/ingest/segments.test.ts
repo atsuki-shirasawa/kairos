@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  carryIds,
   drawnActivity,
   fallbackTitle,
   isPrompt,
@@ -86,4 +87,59 @@ test("workBlocks splits activity into blocks, dropping fragments that aren't wor
     { start: 0, end: 10 * m, prompts: 1, fallbackTitle: "Start" },
     { start: 120 * m, end: 120 * m, prompts: 1, fallbackTitle: "/review" },
   ]);
+});
+
+describe("carryIds", () => {
+  const block = (start: number, end: number) => ({ start, end, prompts: 1, fallbackTitle: null });
+  const stored = (id: number, start: number, end: number) => ({ id, start, end });
+
+  test("a block whose start or end moved keeps its id", () => {
+    expect(
+      carryIds([stored(1, 10, 20), stored(2, 40, 50)], [block(12, 22), block(40, 55)]),
+    ).toEqual({
+      kept: [
+        { id: 1, block: block(12, 22) },
+        { id: 2, block: block(40, 55) },
+      ],
+      added: [],
+      merged: [],
+      dropped: [],
+    });
+  });
+
+  test("a split keeps the id on the larger part, and the other part is new", () => {
+    expect(carryIds([stored(1, 10, 50)], [block(10, 15), block(30, 50)])).toEqual({
+      kept: [{ id: 1, block: block(30, 50) }],
+      added: [block(10, 15)],
+      merged: [],
+      dropped: [],
+    });
+  });
+
+  test("a merge keeps the oldest id and folds the others into it", () => {
+    expect(carryIds([stored(7, 40, 50), stored(3, 10, 20)], [block(10, 50)])).toEqual({
+      kept: [{ id: 3, block: block(10, 50) }],
+      added: [],
+      merged: [{ id: 7, into: 3 }],
+      dropped: [],
+    });
+  });
+
+  test("a stored block that only touches a new one shares no work and is dropped", () => {
+    expect(carryIds([stored(1, 10, 20), stored(2, 50, 60)], [block(20, 25)])).toEqual({
+      kept: [],
+      added: [block(20, 25)],
+      merged: [],
+      dropped: [1, 2],
+    });
+  });
+
+  test("a block of a single moment still meets the span it touches", () => {
+    expect(carryIds([stored(1, 30, 30)], [block(30, 40)])).toEqual({
+      kept: [{ id: 1, block: block(30, 40) }],
+      added: [],
+      merged: [],
+      dropped: [],
+    });
+  });
 });

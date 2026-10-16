@@ -52,7 +52,7 @@ There is only one process, `kairos serve`, which handles ingest, summaries, the 
 | Launcher | `kairos ensure`: checks `/api/health` and, if there's no response, starts `kairos serve` detached. A PID file prevents double starts | `src/cli` |
 | Watcher | Watches `~/.claude/projects` recursively and hands changed jsonl files to the Ingester. Bursts of changes are coalesced (debounce) | `fs.watch` (recursive) |
 | Ingester | Reads only the appended part from the offset in `ingest_state`. A half-written trailing line is left for next time. Classifies, normalizes and stores records | `src/server/ingest` |
-| Segmenter | Builds work blocks from the activity times of human-initiated turns (split at 15 minutes), dropping blocks with neither a request nor a tool call. Recomputed on every session update | `src/server/ingest/segments.ts` (rules), `derived.ts` (recompute) |
+| Segmenter | Builds work blocks from the activity times of human-initiated turns (split at 15 minutes), dropping blocks with neither a request nor a tool call. Recomputed on every session update. Each block has an id that recomputation carries over to the new block it overlaps most (a split keeps it on the larger part; a merge keeps the oldest and moves the other's summary and open items to it), so summaries and open items, keyed by it, follow a block whose start moves | `src/server/ingest/segments.ts` (rules), `derived.ts` (recompute) |
 | Summarizer | Queues sessions that need summaries and runs `claude -p` one at a time | `src/server/summarize` |
 | API | REST for the calendar, details, conversations, summaries and project settings, plus SSE for update notifications | Hono |
 | Web UI | Week and day calendar, detail drawer, filters (keyword, outcomes, states, length, branch, projects). English by default, Japanese selectable (`src/web/src/i18n`) | React + Tailwind + shadcn/ui |
@@ -126,13 +126,13 @@ sequenceDiagram
 
     loop every minute + on every ingest
         S->>DB: find sections to summarize (newest sessions first, each session's sections in order)
-        Note over S,DB: 10+ minutes or 2+ prompts<br/>and finished (30 minutes since last activity or a later section exists)<br/>and no summary or covered_until < end<br/>and within the last 7 days
+        Note over S,DB: 10+ minutes or 2+ prompts<br/>and finished (30 minutes since last activity or a later section exists)<br/>and no summary, or covered_until < end, or covered_from ≠ start<br/>and within the last 7 days
     end
     S->>DB: read the section's facts, and build an excerpt from its messages (up to 60k characters, head and tail first)
     S->>DB: read earlier open items this section may have settled (open_items)
     S->>C: prompt (session name, headlines of earlier sections, facts, earlier open items, excerpt)
     C-->>S: headline + body (Markdown), plus the earlier items it settled
-    S->>DB: upsert summaries (key: session_id + start, covered_until = end) and open_items
+    S->>DB: upsert summaries (key: block_id, covered_from = start, covered_until = end) and open_items
     S-->>UI: SSE: summary.updated
 ```
 

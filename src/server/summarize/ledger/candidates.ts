@@ -20,11 +20,11 @@ function openBefore(db: Database, target: SectionRef, chain: string[]): LedgerIt
     .query<ItemRow, [number, string, number, string]>(
       `${ITEM_SELECT}
        WHERE i.opened_at <= ?3
-         AND NOT (i.session_id = ?2 AND i.start = ?3)
+         AND NOT (g.session_id = ?2 AND g.start = ?3)
          AND (i.closed_at IS NULL
-              OR (i.closed_by = '${CLOSED_BY.model}' AND i.closed_session_id = ?2 AND i.closed_start = ?3))
+              OR (i.closed_by = '${CLOSED_BY.model}' AND c.session_id = ?2 AND c.start = ?3))
          AND (s.project_id = ?1 OR s.id IN (SELECT value FROM json_each(?4)))
-       ORDER BY i.start DESC, i.id`,
+       ORDER BY g.start DESC, i.id`,
     )
     .all(
       projectOf(db, target.sessionId) ?? -1,

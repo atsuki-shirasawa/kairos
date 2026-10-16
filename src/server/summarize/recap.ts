@@ -86,7 +86,7 @@ export function loadRecapInput(db: Database, t: RecapTarget): RecapInput | null 
               COALESCE(s.custom_title, s.agent_name, s.ai_title, substr(s.first_prompt, 1, 120)) AS title
        FROM segments g
        JOIN sessions s ON s.id = g.session_id
-       LEFT JOIN summaries sm ON sm.session_id = g.session_id AND sm.start = g.start
+       LEFT JOIN summaries sm ON sm.block_id = g.id
        WHERE s.project_id = ?1 AND s.prompt_count > 0 AND g.start >= ?2 AND g.start < ?3
        ORDER BY g.start, g.session_id`,
     )

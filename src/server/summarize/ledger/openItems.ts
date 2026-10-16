@@ -37,7 +37,7 @@ export function sessionCloses(db: Database, sessionId: string): Map<number, Ledg
   const rows = db
     .query<ItemRow, [string]>(
       `${ITEM_SELECT}
-       WHERE i.closed_session_id = ? AND i.closed_by IN ${sqlList(SECTION_CLOSERS)}
+       WHERE c.session_id = ? AND i.closed_by IN ${sqlList(SECTION_CLOSERS)}
        ORDER BY i.opened_at, i.id`,
     )
     .all(sessionId);
@@ -50,7 +50,7 @@ export function sessionCloses(db: Database, sessionId: string): Map<number, Ledg
  */
 export function sessionOpens(db: Database, sessionId: string): Map<number, LedgerEntry[]> {
   const rows = db
-    .query<ItemRow, [string]>(`${ITEM_SELECT} WHERE i.session_id = ? ORDER BY i.start, i.id`)
+    .query<ItemRow, [string]>(`${ITEM_SELECT} WHERE g.session_id = ? ORDER BY g.start, i.id`)
     .all(sessionId);
   return groupBySection(rows, (r) => r.start);
 }
@@ -83,16 +83,16 @@ function loadEntry(db: Database, id: number): LedgerEntry | null {
 /** Reopens an item, clearing how it was closed. */
 function reopen(db: Database, id: number): void {
   db.query(
-    `UPDATE open_items SET closed_at = NULL, closed_session_id = NULL, closed_start = NULL,
-       closed_by = NULL, closed_note = NULL WHERE id = ?`,
+    `UPDATE open_items SET closed_at = NULL, closed_block_id = NULL, closed_by = NULL,
+       closed_note = NULL WHERE id = ?`,
   ).run(id);
 }
 
 /** Closes an item by hand: done, dismissed, or mistaken. */
 function closeByHand(db: Database, id: number, state: HandClose, now: number): void {
   db.query(
-    `UPDATE open_items SET closed_at = ?, closed_session_id = NULL, closed_start = NULL,
-       closed_by = ?, closed_note = NULL WHERE id = ?`,
+    `UPDATE open_items SET closed_at = ?, closed_block_id = NULL, closed_by = ?,
+       closed_note = NULL WHERE id = ?`,
   ).run(now, HAND_CLOSES[state], id);
 }
 

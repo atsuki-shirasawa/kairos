@@ -86,6 +86,7 @@ export function interpretSection(output: string, prepared: PreparedSection): Sec
   if (!parsed) return null;
   const { body, closures } = MODES[prepared.target.mode].splitBody(parsed.body);
   return {
+    blockId: prepared.input.blockId,
     summary: { headline: parsed.headline, body },
     ledger: {
       end: prepared.input.end,

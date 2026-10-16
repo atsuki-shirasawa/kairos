@@ -3,6 +3,7 @@
 import type { Database } from "bun:sqlite";
 import type { Activity, CalendarSegment, Section, Usage } from "../../shared/api.ts";
 import { isSummarizable } from "../../shared/sections.ts";
+import { STALE_SUMMARY_SQL } from "../summarize/blocks.ts";
 import { type BlockArtifacts, blocksActivity } from "./activity.ts";
 import type { BlockLookup, BlockSet } from "./sql.ts";
 import { sectionHeadline, summaryBody } from "./titles.ts";
@@ -18,14 +19,16 @@ export interface SectionRow {
   headline: string | null;
   body: string | null;
   model: string | null;
-  covered_until: number | null;
   created_at: number | null;
+  /** 1 when the summary no longer covers the block (see `STALE_SUMMARY_SQL`). */
+  stale: number;
 }
 
 /** A section and its summary, if any; `sectionRows` adds the scope. */
 const SECTION_SELECT = `SELECT g.session_id, g.start, g.end, g.prompt_count, g.fallback_title,
-         sm.headline, sm.body, sm.model, sm.covered_until, sm.created_at
-  FROM segments g LEFT JOIN summaries sm ON sm.session_id = g.session_id AND sm.start = g.start`;
+         sm.headline, sm.body, sm.model, sm.created_at,
+         sm.block_id IS NOT NULL AND ${STALE_SUMMARY_SQL} AS stale
+  FROM segments g LEFT JOIN summaries sm ON sm.block_id = g.id`;
 
 /** What was spent and done within a work block, as both the calendar and the drawer report it. */
 export interface BlockFacts {
@@ -118,7 +121,7 @@ export function toSection(
     body: summaryBody(g),
     model: g.model,
     createdAt: g.created_at,
-    stale: g.covered_until !== null && g.covered_until < g.end,
+    stale: g.stale === 1,
     summarizable: isSummarizable({ start: g.start, end: g.end, promptCount: g.prompt_count }),
     pending: state.pending,
     error: state.error,

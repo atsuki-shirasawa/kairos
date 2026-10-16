@@ -256,6 +256,92 @@ export const MIGRATIONS: string[] = [
   CREATE INDEX messages_block ON messages(session_id, ts, is_copy, kind, tool_name, is_error, agent_id);
   DROP INDEX messages_time;
   `,
+  // 13: work blocks get an id that survives recomputation (#49). Summaries and open items were
+  // keyed by (session_id, start), so a block whose start moved left its summary behind; derived
+  // data now carries each block's id over to the new block it overlaps most. (session_id, start)
+  // stays unique: URLs and the API still name a block by its session and start.
+  // covered_from is the block's start when summarized, so a summary is stale once the block
+  // starts elsewhere as well as once it runs past covered_until.
+  // A summary or open item whose block's start had already moved goes to the block it overlaps
+  // most; one overlapping none is dropped.
+  `
+  CREATE TABLE segments_new (
+    id              INTEGER PRIMARY KEY,
+    session_id      TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    start           INTEGER NOT NULL,
+    end             INTEGER NOT NULL,
+    prompt_count    INTEGER NOT NULL DEFAULT 0,
+    fallback_title  TEXT,
+    UNIQUE (session_id, start)
+  );
+  INSERT INTO segments_new (session_id, start, end, prompt_count, fallback_title)
+    SELECT session_id, start, end, prompt_count, fallback_title FROM segments ORDER BY start;
+  DROP TABLE segments;
+  ALTER TABLE segments_new RENAME TO segments;
+  CREATE INDEX segments_time ON segments(start, end);
+
+  CREATE TABLE summaries_new (
+    block_id        INTEGER PRIMARY KEY REFERENCES segments(id) ON DELETE CASCADE,
+    headline        TEXT NOT NULL,
+    body            TEXT NOT NULL,
+    model           TEXT NOT NULL,
+    covered_from    INTEGER NOT NULL,
+    covered_until   INTEGER NOT NULL,
+    created_at      INTEGER NOT NULL
+  );
+  -- Summaries of the block at their own start go first, so one whose block moved never displaces it
+  INSERT OR IGNORE INTO summaries_new
+    (block_id, headline, body, model, covered_from, covered_until, created_at)
+    SELECT b.id, sm.headline, sm.body, sm.model, sm.start, sm.covered_until, sm.created_at
+    FROM summaries sm
+    JOIN segments b ON b.id = (
+      SELECT g.id FROM segments g
+      WHERE g.session_id = sm.session_id
+        AND (g.start = sm.start OR (g.start <= sm.covered_until AND g.end >= sm.start))
+      ORDER BY g.start = sm.start DESC, MIN(g.end, sm.covered_until) - MAX(g.start, sm.start) DESC
+      LIMIT 1)
+    ORDER BY b.start = sm.start DESC;
+  DROP TABLE summaries;
+  ALTER TABLE summaries_new RENAME TO summaries;
+
+  CREATE TABLE open_items_new (
+    id               INTEGER PRIMARY KEY,
+    block_id         INTEGER NOT NULL REFERENCES segments(id) ON DELETE CASCADE,
+    -- End of the block as summarized; only what happens after it can close the item
+    opened_at        INTEGER NOT NULL,
+    kind             TEXT,
+    text             TEXT NOT NULL,
+    -- JSON array of the issue / PR numbers ("#12"), Jira keys and task IDs ("task:3") it names
+    refs             TEXT NOT NULL DEFAULT '[]',
+    closed_at        INTEGER,
+    -- The block that closed it; null when closed by hand, outside any block, or its block is gone
+    closed_block_id  INTEGER REFERENCES segments(id) ON DELETE SET NULL,
+    closed_by        TEXT,
+    closed_note      TEXT
+  );
+  INSERT INTO open_items_new
+    (id, block_id, opened_at, kind, text, refs, closed_at, closed_block_id, closed_by, closed_note)
+    SELECT i.id,
+      (SELECT g.id FROM segments g
+       WHERE g.session_id = i.session_id
+         AND (g.start = i.start OR (g.start <= i.opened_at AND g.end >= i.start))
+       ORDER BY g.start = i.start DESC, MIN(g.end, i.opened_at) - MAX(g.start, i.start) DESC
+       LIMIT 1) AS block_id,
+      i.opened_at, i.kind, i.text, i.refs, i.closed_at,
+      (SELECT g.id FROM segments g WHERE g.session_id = i.closed_session_id
+       ORDER BY g.start <= i.closed_start DESC,
+         CASE WHEN g.start <= i.closed_start THEN -g.start ELSE g.start END
+       LIMIT 1),
+      i.closed_by, i.closed_note
+    FROM open_items i WHERE block_id IS NOT NULL;
+  -- A summary's close stands only while its block does
+  UPDATE open_items_new SET closed_at = NULL, closed_by = NULL, closed_note = NULL
+    WHERE closed_by = 'model' AND closed_block_id IS NULL;
+  DROP TABLE open_items;
+  ALTER TABLE open_items_new RENAME TO open_items;
+  CREATE INDEX open_items_block ON open_items(block_id);
+  CREATE INDEX open_items_closed_in ON open_items(closed_block_id);
+  `,
 ];
 
 /** Schema version once every migration is applied (stored in `PRAGMA user_version`). */
