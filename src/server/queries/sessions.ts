@@ -8,6 +8,7 @@ import type {
   Project,
   Section,
   SessionDetail,
+  SessionsChange,
   Subagent,
 } from "../../shared/api.ts";
 import { MINUTE } from "../../shared/dates.ts";
@@ -211,4 +212,24 @@ function sections(
       facts(sessionId, g.start),
     ),
   );
+}
+
+/**
+ * What changed when these sessions' logs did: the sessions, and the time they span together with
+ * the sessions they continue (a continuation marks its predecessor as continued). A session that
+ * is gone has no time left to bound it, so a change with none found spans all time.
+ */
+export function sessionsChange(db: Database, ids: string[]): SessionsChange {
+  const span = db
+    .query<{ from: number | null; to: number | null }, [string]>(
+      `SELECT MIN(started_at) AS "from", MAX(ended_at) AS "to" FROM sessions
+       WHERE id IN (SELECT value FROM json_each(?1))
+          OR continued_in IN (SELECT value FROM json_each(?1))`,
+    )
+    .get(JSON.stringify(ids));
+  return {
+    ids,
+    from: span?.from ?? 0,
+    to: span?.to ?? Number.MAX_SAFE_INTEGER,
+  };
 }

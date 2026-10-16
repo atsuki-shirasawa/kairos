@@ -78,7 +78,7 @@ sequenceDiagram
     I->>DB: upsert messages and artifacts (deduplicated by uuid)
     I->>DB: recompute sessions and segments
     I->>DB: update the offset
-    I-->>UI: SSE: sessions.updated [id]
+    I-->>UI: SSE: sessions.updated {ids, from, to}
     I->>S: touched(sessionId)
 ```
 

@@ -545,7 +545,7 @@ test("GET /api/events streams events over SSE", async () => {
     }
   };
   await readUntil("event: ready");
-  events.publish({ type: "sessions.updated", ids: [SID.basic] });
+  events.publish({ type: "sessions.updated", ids: [SID.basic], from: 0, to: 1 });
   await readUntil(SID.basic);
   expect(text).toContain("event: sessions.updated");
   expect(text).toContain(`"ids":["${SID.basic}"]`);

@@ -146,6 +146,7 @@ export function prepareStatements(db: Database) {
     reassignProject: p(
       "UPDATE sessions SET project_id = ?, label = COALESCE(label, ?) WHERE launch_cwd = ?",
     ),
+    sessionsLaunchedIn: p("SELECT id FROM sessions WHERE launch_cwd = ?"),
     deleteOrphanProjects: p(
       "DELETE FROM projects WHERE id NOT IN (SELECT project_id FROM sessions WHERE project_id IS NOT NULL)",
     ),

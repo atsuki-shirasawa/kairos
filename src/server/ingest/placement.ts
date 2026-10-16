@@ -149,36 +149,45 @@ export class ProjectPlacer {
   /**
    * Re-places the sessions launched where `sessionId` was when this read of its file added a PR
    * (the file had `prsBefore` PRs before it): a PR can be what tells which repository a gone or
-   * temporary directory holds.
+   * temporary directory holds. Returns the sessions it moved, which may lie in any period.
    */
-  replaceAfterPr(sessionId: string, prsBefore: number, fileId: number): void {
-    if (this.prCount(fileId) <= prsBefore) return;
+  replaceAfterPr(sessionId: string, prsBefore: number, fileId: number): string[] {
+    if (this.prCount(fileId) <= prsBefore) return [];
     const cwd = (this.q.sessionInfo.get(sessionId) as SessionInfoRow | null)?.launch_cwd;
-    if (!cwd) return;
+    if (!cwd) return [];
     const remote = this.remoteOf(cwd);
     // Only these directories take a PR's repository; skip the usual case of a live checkout
-    if (!isGoneDir(remote) && !isTemporary(cwd)) return;
+    if (!isGoneDir(remote) && !isTemporary(cwd)) return [];
     const place = this.replaceOf(cwd, remote, this.launchDirProjects());
-    if (!place) return;
-    this.q.reassignProject.run(place.id, place.label, cwd);
+    if (!place) return [];
+    const moved = this.reassign(place, cwd);
     this.q.deleteOrphanProjects.run();
+    return moved;
+  }
+
+  /** Moves every session launched in `cwd` to the place, returning their IDs. */
+  private reassign(place: Place, cwd: string): string[] {
+    this.q.reassignProject.run(place.id, place.label, cwd);
+    return (this.q.sessionsLaunchedIn.all(cwd) as { id: string }[]).map((r) => r.id);
   }
 
   /**
    * Re-places scratchpad runs that went to `TEMP_PROJECT` because their owner's log hadn't been
-   * read yet: log folders are read in name order, and the owner's may come later.
+   * read yet: log folders are read in name order, and the owner's may come later. Returns the
+   * sessions it moved.
    */
-  placeWaitingScratchpads(): void {
+  placeWaitingScratchpads(): string[] {
     const waiting = (this.q.tempLaunchDirs.all(TEMP_PROJECT.path) as { cwd: string }[]).filter(
       (r) => scratchpadOwner(r.cwd),
     );
-    if (waiting.length === 0) return;
+    if (waiting.length === 0) return [];
     const dirs = this.launchDirProjects();
-    for (const { cwd } of waiting) {
+    const moved = waiting.flatMap(({ cwd }) => {
       const place = byScratchpadOwner(cwd, dirs);
-      if (place) this.q.reassignProject.run(place.id, place.label, cwd);
-    }
+      return place ? this.reassign(place, cwd) : [];
+    });
     this.q.deleteOrphanProjects.run();
+    return moved;
   }
 
   /**

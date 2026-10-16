@@ -1,15 +1,15 @@
-import type { ServerEvent } from "@shared/api.ts";
-import { type QueryClient, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { keys } from "@/hooks/queries.ts";
 import { subscribe } from "@/lib/api.ts";
+import { isStaleAfter } from "@/lib/invalidation.ts";
 
 /** How far an import has got, or `null` when none is running. */
 export type ImportProgress = { done: number; total: number } | null;
 
 /**
- * Refetches affected data on server update events, and everything after the event stream
- * reconnects (the events sent while it was down are lost). Returns the import progress.
+ * Refetches the data a server update event makes stale (see `isStaleAfter`), and everything after
+ * the event stream reconnects (the events sent while it was down are lost). Returns the import
+ * progress.
  */
 export function useLiveUpdates(): ImportProgress {
   const client = useQueryClient();
@@ -23,7 +23,10 @@ export function useLiveUpdates(): ImportProgress {
             setProgress(
               event.done >= event.total ? null : { done: event.done, total: event.total },
             );
-          else invalidateFor(client, event);
+          else
+            void client.invalidateQueries({
+              predicate: (q) => isStaleAfter(event, q.queryKey, q.state.data),
+            });
         },
         () => void client.invalidateQueries(),
       ),
@@ -31,31 +34,4 @@ export function useLiveUpdates(): ImportProgress {
   );
 
   return progress;
-}
-
-/** Refetches what a server event says has changed. */
-function invalidateFor(
-  client: QueryClient,
-  event: Exclude<ServerEvent, { type: "ingest.progress" }>,
-): void {
-  // The registry changed (a session started, ended, or finished a turn); the log didn't
-  if (event.type === "live.updated") {
-    void client.invalidateQueries({ queryKey: keys.live });
-    return;
-  }
-  void client.invalidateQueries({ queryKey: keys.allCalendar });
-  // Recaps are listed under "calendar", so the line above already refetches them
-  if (event.type === "recap.updated") return;
-  // A new summary can close open items of other sessions (by its word or the log's refs), and
-  // every drawer lists its sections' items with their state
-  if (event.type === "summary.updated") {
-    void client.invalidateQueries({ queryKey: keys.allSessions });
-    return;
-  }
-  // The tool in flight, tasks and tests come from the log
-  void client.invalidateQueries({ queryKey: keys.live });
-  for (const id of event.ids) {
-    void client.invalidateQueries({ queryKey: keys.session(id) });
-    void client.invalidateQueries({ queryKey: keys.allMessages(id) });
-  }
 }

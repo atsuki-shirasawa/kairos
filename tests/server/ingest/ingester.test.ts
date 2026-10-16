@@ -574,8 +574,20 @@ describe("project identity (git remote)", () => {
         )
         .get(SID.scratchpadRun)?.path;
     expect(projectOf()).toBe("/tmp");
-    fresh.ingester.scan();
+    // Reported as changed, though its log wasn't read again, so the UI refetches it
+    expect(fresh.ingester.scan().sessions).toContain(SID.scratchpadRun);
     expect(projectOf()).toBe("/Users/me/dev/app");
+  });
+
+  test("a PR that re-places a directory reports every session it moved as changed", () => {
+    const fresh = setup();
+    const file = (sid: string) =>
+      fresh.ingester.listFiles().find((f) => f.endsWith(`${sid}.jsonl`));
+    const run = file(SID.containerRun);
+    const pr = file(SID.containerPr);
+    if (!run || !pr) throw new Error("no container fixtures");
+    fresh.ingester.ingestFile(run);
+    expect(fresh.ingester.ingestFile(pr)).toContain(SID.containerRun);
   });
 
   test("a PR from /tmp itself never turns the shared tmp project into a repository", () => {

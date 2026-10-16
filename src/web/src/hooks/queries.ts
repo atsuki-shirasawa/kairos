@@ -11,38 +11,10 @@ import {
 import { useEffect, useState } from "react";
 import type { Locale } from "@/i18n/index.ts";
 import { api } from "@/lib/api.ts";
+import { keys } from "@/lib/queryKeys.ts";
 
 /** Waits this long after the last keystroke before searching every period. */
 const SEARCH_DEBOUNCE_MS = 200;
-
-/**
- * React Query keys. Everything nested under "calendar" is refetched when sessions change. The
- * `all*` entries are prefixes, for invalidating every period (or every page) of a kind at once.
- */
-export const keys = {
-  allCalendar: ["calendar"] as const,
-  calendar: (from: number, to: number) => ["calendar", from, to] as const,
-  // Nested under "calendar" so a new project, or a renamed or hidden one, refreshes it
-  projects: ["calendar", "projects"] as const,
-  // Nested under "calendar" so import notifications refetch it along with the calendar
-  spans: (from: number, to: number) => ["calendar", "spans", from, to] as const,
-  allSessions: ["session"] as const,
-  session: (id: string) => ["session", id] as const,
-  // Every agent's pages of a session's conversation
-  allMessages: (id: string) => ["messages", id] as const,
-  messages: (id: string, agent: string | null) => ["messages", id, agent] as const,
-  // Nested under "calendar" so new sessions and summaries refresh the results too
-  search: (q: string) => ["calendar", "search", q] as const,
-  settings: ["settings"] as const,
-  // Not under "calendar": running sessions change on their own (live.updated) as well as with the log
-  live: ["live"] as const,
-  // Nested under "calendar" so new work marks recaps stale, and recap.updated refreshes them
-  allRecaps: ["calendar", "recaps"] as const,
-  recaps: (from: number, to: number) => ["calendar", "recaps", from, to] as const,
-  // Nested under "calendar" so a new summary, which may open or close items, refreshes it
-  allOpenItems: ["calendar", "open-items"] as const,
-  openItems: (from: number, to: number) => ["calendar", "open-items", from, to] as const,
-};
 
 /** Sessions and projects of the period [from, to), the data every layout draws. */
 export function useCalendar(from: number, to: number, enabled = true) {

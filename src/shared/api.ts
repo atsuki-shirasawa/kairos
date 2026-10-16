@@ -401,9 +401,20 @@ export interface SettingsUpdate {
   showHeadless?: boolean;
 }
 
+/**
+ * Sessions whose logs changed, and the time [from, to] (epoch ms, inclusive) they and the sessions
+ * they continue span. Their blocks, and any block that moved or went with the change, lie within
+ * it, so a view of a period outside it needs no refetch (see `lib/invalidation.ts` in the web).
+ */
+export interface SessionsChange {
+  ids: string[];
+  from: number;
+  to: number;
+}
+
 /** Events delivered on `/api/events` (Server-Sent Events). */
 export type ServerEvent =
-  | { type: "sessions.updated"; ids: string[] }
+  | ({ type: "sessions.updated" } & SessionsChange)
   | { type: "summary.updated"; sessionId: string; start: number }
   | { type: "recap.updated"; projectId: number; from: number; to: number }
   | { type: "ingest.progress"; done: number; total: number }

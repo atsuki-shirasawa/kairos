@@ -116,7 +116,7 @@ export class Ingester {
       this.scanFile(path, stats);
       onProgress?.(i + 1, files.length);
     });
-    this.placer.placeWaitingScratchpads();
+    for (const sid of this.placer.placeWaitingScratchpads()) stats.sessions.add(sid);
     return finishScan(stats, started);
   }
 
@@ -139,7 +139,7 @@ export class Ingester {
       }
     }
     onProgress?.(files.length, files.length);
-    this.placer.placeWaitingScratchpads();
+    for (const sid of this.placer.placeWaitingScratchpads()) stats.sessions.add(sid);
     return finishScan(stats, started);
   }
 
@@ -186,9 +186,10 @@ export class Ingester {
       const prsBefore = this.placer.prCount(fileId);
       this.handleLines(ctx, read.lines);
       this.fileStates.save(fileId, read, ctx.state);
-      this.placer.replaceAfterPr(file.sessionId, prsBefore, fileId);
-      if (agentId !== null) return [file.sessionId];
-      return this.derived.refreshWithContinuation(file.sessionId);
+      const moved = this.placer.replaceAfterPr(file.sessionId, prsBefore, fileId);
+      const refreshed =
+        agentId !== null ? [file.sessionId] : this.derived.refreshWithContinuation(file.sessionId);
+      return [...new Set([...refreshed, ...moved])];
     })();
   }
 

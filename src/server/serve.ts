@@ -11,6 +11,7 @@ import { Ingester } from "./ingest/ingester.ts";
 import { watchProjects } from "./ingest/watcher.ts";
 import { LiveTracker } from "./live/tracker.ts";
 import { DEFAULT_CLAUDE_DIR, DEFAULT_DB_PATH, SUMMARIZER_CWD } from "./paths.ts";
+import { sessionsChange } from "./queries/sessions.ts";
 import { type Effort, runClaude } from "./summarize/claude.ts";
 import { DEFAULT_MODEL, Summarizer } from "./summarize/summarizer.ts";
 
@@ -91,11 +92,13 @@ export async function serve(opts: ServeOptions = {}): Promise<void> {
     events.publish({ type: "ingest.progress", done, total }),
   );
   log(`ingested ${stats.changed}/${stats.files} files in ${(stats.ms / 1000).toFixed(1)}s`);
-  if (stats.sessions.size) events.publish({ type: "sessions.updated", ids: [...stats.sessions] });
+  const publishChange = (ids: string[]) =>
+    events.publish({ type: "sessions.updated", ...sessionsChange(db, ids) });
+  if (stats.sessions.size) publishChange([...stats.sessions]);
 
   const stopLive = live.start();
   const stopWatching = watchProjects(ingester, (ids) => {
-    events.publish({ type: "sessions.updated", ids });
+    publishChange(ids);
     summarizer.poke();
   });
   summarizer.start();
