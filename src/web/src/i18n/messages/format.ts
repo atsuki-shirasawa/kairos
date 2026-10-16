@@ -1,6 +1,17 @@
 import type { OpenKind } from "@shared/summaryBody.ts";
 import { defineMessages } from "../index.ts";
 
+/**
+ * An open item's kind as its tag on a row, in English in both languages, so the tags read the same
+ * whatever the UI language. Kept apart from `openKind` (the tooltip's words), which is translated.
+ */
+const OPEN_KIND_TAGS = {
+  todo: "To do",
+  issue: "Issue",
+  question: "Question",
+  waiting: "Waiting",
+} satisfies Record<OpenKind, string>;
+
 /** Labels shared by the calendar, the list, and the formatting helpers. */
 export const formatMessages = defineMessages({
   en: {
@@ -22,13 +33,15 @@ export const formatMessages = defineMessages({
     /** Snags with what kind they were, where there is no room for a tooltip of its own. */
     troubleWithDetail: (n: number, detail: string) => `Snags ${n} (${detail})`,
     copyFailed: "Couldn't copy to the clipboard",
-    /** What kind of thing an open item of a summary is; the drawer and the tooltip share them. */
+    /** What kind of thing an open item of a summary is, in a block's tooltip. */
     openKind: {
       todo: "To do",
       issue: "Issue",
       question: "Question",
       waiting: "Waiting",
     } satisfies Record<OpenKind, string>,
+    /** An open item's kind as the tag before its text, in the lists of open items. */
+    openKindTag: OPEN_KIND_TAGS,
     /** A block's open items in its tooltip, with their kinds. */
     openItems: (n: number, kinds: string) => `Open ${n}${kinds ? ` (${kinds})` : ""}`,
   },
@@ -53,6 +66,7 @@ export const formatMessages = defineMessages({
       question: "未決",
       waiting: "待ち",
     } satisfies Record<OpenKind, string>,
+    openKindTag: OPEN_KIND_TAGS,
     openItems: (n: number, kinds: string) => `残課題 ${n}${kinds ? `（${kinds}）` : ""}`,
   },
 });

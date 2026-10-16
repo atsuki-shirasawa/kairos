@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils.ts";
 import type { View } from "@/lib/view.ts";
 import { Hint } from "../Hint.tsx";
 import { Markdown } from "../Markdown.tsx";
-import { BlockLink, KindWord } from "../OpenItemParts.tsx";
+import { BlockLink, KindTag } from "../OpenItemParts.tsx";
 
 /** What a row can do: open a block, or close / reopen its item by hand. */
 interface Actions {
@@ -22,7 +22,7 @@ interface Actions {
 }
 
 /**
- * A project's open items under its recap: what is open at the end of the period (waiting first),
+ * A project's open items under its recap: what is open at the end of the period (newest first),
  * those open `OLD_WEEKS` weeks or more folded away and faded, and what was closed during it.
  */
 export function OpenItems({
@@ -177,7 +177,7 @@ function OpenRow({
   const week = weekOpen(item, at);
   return (
     <li className="flex items-baseline gap-3 py-0.5">
-      <KindWord item={item} />
+      <KindTag item={item} />
       <ItemText item={item} baseUrl={baseUrl} faded={faded} />
       <BlockLink
         label={week > 1 ? m.openWeek(week) : m.openSince(dateLabel(item.openedAt, at))}
@@ -230,7 +230,7 @@ function ClosedRow({ item, onSelect, onUpdate, busyId, baseUrl }: Actions & { it
   const byHand = item.closedBy === "user" || item.closedBy === "dismissed";
   return (
     <li className="flex items-baseline gap-3 py-0.5">
-      <KindWord item={item} />
+      <KindTag item={item} />
       <ItemText item={item} baseUrl={baseUrl} muted />
       {by !== null && at !== null ? (
         <BlockLink label={how} title={m.closedShow} onClick={() => onSelect(by, at)} />

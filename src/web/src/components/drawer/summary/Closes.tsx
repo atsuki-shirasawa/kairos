@@ -1,7 +1,7 @@
 import type { LedgerEntry } from "@shared/api.ts";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import { dateLabel } from "@/lib/dates.ts";
-import { BlockLink, KindWord } from "../../OpenItemParts.tsx";
+import { BlockLink, KindTag } from "../../OpenItemParts.tsx";
 import { SummaryLabel, SummaryMarkdown } from "./SummaryText.tsx";
 
 /**
@@ -24,7 +24,7 @@ export function Closes({
       <ul className="space-y-1">
         {items.map((item) => (
           <li key={item.id} className="flex items-baseline gap-3">
-            <KindWord item={item} />
+            <KindTag item={item} />
             <SummaryMarkdown baseUrl={baseUrl} className="min-w-0 flex-1 text-[15px] leading-7">
               {item.text}
             </SummaryMarkdown>

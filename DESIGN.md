@@ -381,27 +381,29 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   label (`summary-lead`, `ink`). What came of it is Resolved, Open and Next (an older body's single
   Outcome in their place), all `summary-body`, `ink`; Resolved (or Outcome) carries the commit or
   PR node when it names one of the section's own. Open items lead with their kind (to do, issue,
-  question, waiting) as a quiet word in a fixed-width column (12px semibold `muted-ink`, no
-  bullets), so the list scans by kind with no color of its own; the warn tone stays the snags'.
+  question, waiting) as a small tag styled like the Headless badge (12px `muted-ink`, 1px
+  `border`, `md` radius; no bullets), a label rather than a column, with no color of its own; the
+  warn tone stays the snags'. The tag is in English in either UI language.
   A single Resolved point is shown without a bullet. Done's points are 14px `muted-ink`, each
   clamped to two lines with "Show in full" when one is cut off. Every item but the Goal gets a
   label in the drawer's small heading style. A body in neither format is shown as written. The
   day view's block body shows only the Goal: the heading says what, the lane what came of it. A
   block marks nothing for its open items; its tooltip counts them with their kinds ("Open 2
-  (Question · Waiting)", kinds in a fixed order), and the filter's "Left something open" state finds them
+  (Question · Waiting)", kinds in a fixed order and, unlike the tags, in the UI language), and
+  the filter's "Left something open" state finds them
 - **Open items (summary view):** under each project's recap, inside the same colored rule, a
   label in the drawer's small heading style ("Open (5)") with the period's change at its right
   (`numeral`, `muted-ink`: "+3 / −4 this week"). Rows are the drawer's Open list again: the kind
-  as a quiet word in its fixed-width column, then the text (14px `ink`), waiting items first.
+  tag, then the text (14px `ink`), newest first and not grouped by kind.
   Each row ends with how long it has been open ("since Mon, Oct 5", then "week 2"), 12px
   `muted-ink` `numeral`, which is the link to the block that left it, and two 24px ghost icon
   buttons (done, won't do) with their names in a tooltip. Items open 4 weeks or more fold into
   "Open 4 weeks or more (n)" with their text at 60% opacity (the age and buttons stay readable); items closed in the period fold into
   "Closed this week (n)" with muted text and how each closed (the link to the block that closed
   it, when one did; undo for one closed by hand). A failed close or undo shows under the list in
-  `destructive`. No color, badge or surface of its own: it is part of the recap's frame. A
-  project with no work in the period but items still open gets its name and the list alone, under
-  its colored rule, after the projects with work
+  `destructive`. No color or surface of its own beyond the kind tags: it is part of the
+  recap's frame. A project with no work in the period but items still open gets its name and the
+  list alone, under its colored rule, after the projects with work
 - **Settled from earlier (drawer):** after the summary, the earlier open items the section
   settled, laid out like its Open list, each ending with "left open Mon, Oct 5" linking to the
   block that left it. Shown even for a section without a summary

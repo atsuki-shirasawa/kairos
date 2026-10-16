@@ -17,6 +17,7 @@ import { projectColor } from "@/lib/colors.ts";
 import type { BlockRef, RunPosition } from "@/lib/navigation.ts";
 import { projectLabel } from "@/lib/selection.ts";
 import { resumeCommand } from "@/lib/shell.ts";
+import { Badge } from "../Badge.tsx";
 import { SectionTime } from "./SectionTime.tsx";
 
 /**
@@ -145,14 +146,7 @@ function ResumeButton({ session: s }: { session: SessionDetail }) {
 /** Says the session is a headless run (claude -p / SDK), which the calendar marks with a dashed edge. */
 function HeadlessBadge() {
   const t = drawerMessages();
-  return (
-    <span
-      className="shrink-0 rounded-md border px-1.5 text-muted-foreground text-xs"
-      title={t.headlessTitle}
-    >
-      {t.headless}
-    </span>
-  );
+  return <Badge title={t.headlessTitle}>{t.headless}</Badge>;
 }
 
 /**

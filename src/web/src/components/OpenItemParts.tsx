@@ -1,20 +1,19 @@
-// Pieces shared by the lists of open items: the drawer's "Settled from earlier" and the summary
-// view's open items, so both keep the same columns.
+// Pieces shared by the lists of open items: the drawer's Open list and "Settled from earlier", and
+// the summary view's open items, so their rows look alike.
 import type { LedgerEntry } from "@shared/api.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { cn } from "@/lib/utils.ts";
+import { Badge } from "./Badge.tsx";
 
 /**
- * The kind as a quiet word in a column of its own, as in the drawer's Open list, so the rows scan
- * by kind without a color for each.
+ * The kind as a small outlined tag (`Badge`) before the item's text. Only
+ * a tag: the list isn't grouped or columned by kind, as the model's line between waiting and
+ * question is loose. English in either language (see `openKindTag`). Nothing for an item without
+ * a kind.
  */
-export function KindWord({ item }: { item: Pick<LedgerEntry, "kind"> }) {
-  return (
-    // Wide enough for the longest kind in either language ("Question", "やること")
-    <span className="w-16 shrink-0 whitespace-nowrap font-semibold text-muted-foreground text-xs">
-      {item.kind && formatMessages().openKind[item.kind]}
-    </span>
-  );
+export function KindTag({ item }: { item: Pick<LedgerEntry, "kind"> }) {
+  if (!item.kind) return null;
+  return <Badge>{formatMessages().openKindTag[item.kind]}</Badge>;
 }
 
 /**

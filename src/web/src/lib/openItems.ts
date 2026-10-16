@@ -5,7 +5,6 @@ import { type CloseNotePart, parseCloseNote } from "@shared/closeNotes.ts";
 import { OPEN_ITEM_OLD_WEEKS } from "@shared/constants.ts";
 import { WEEK } from "@shared/dates.ts";
 import { isOpenAt } from "@shared/openItems.ts";
-import type { OpenKind } from "@shared/summaryBody.ts";
 import { summaryMessages } from "@/i18n/messages/summary.ts";
 
 /** An item open this many weeks or more counts as old: faded and folded away. */
@@ -34,13 +33,12 @@ export function weekOpen(item: LedgerEntry, at: number): number {
 }
 
 /**
- * Waiting first (it needs someone else, so it is the one to chase), then undecided points,
- * problems and things to do, then items with no kind. The newest first within a kind.
+ * Newest first. Kinds are not grouped: the kind is a tag on the row, and sorting by it split the
+ * list into sections that the model's loose waiting / question line made hard to read. Items one
+ * summary left share `openedAt`, so they keep the order the summary listed them in (by id).
  */
-const KIND_ORDER: (OpenKind | null)[] = ["waiting", "question", "issue", "todo", null];
-
-function byKindThenNewest(a: LedgerEntry, b: LedgerEntry): number {
-  return KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || b.openedAt - a.openedAt;
+function newestFirst(a: LedgerEntry, b: LedgerEntry): number {
+  return b.openedAt - a.openedAt || a.id - b.id;
 }
 
 /**
@@ -79,8 +77,8 @@ export function groupOpenItems(
     } else if (isOpenAt(item, to)) (weekOpen(item, at) > OLD_WEEKS ? g.old : g.open).push(item);
   }
   for (const g of groups.values()) {
-    g.open.sort(byKindThenNewest);
-    g.old.sort(byKindThenNewest);
+    g.open.sort(newestFirst);
+    g.old.sort(newestFirst);
     g.closed.sort((a, b) => (b.closedAt ?? 0) - (a.closedAt ?? 0));
   }
   return groups;

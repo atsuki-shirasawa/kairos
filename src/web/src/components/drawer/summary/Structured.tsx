@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { useClampedChildren } from "@/hooks/useClampedChildren.ts";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import type { OutcomeNode } from "@/lib/artifacts.ts";
-import { KindWord } from "../../OpenItemParts.tsx";
+import { KindTag } from "../../OpenItemParts.tsx";
 import { SummaryLabel, SummaryMarkdown } from "./SummaryText.tsx";
 
 /**
@@ -110,19 +110,17 @@ function PointList({ items, baseUrl }: { items: string[]; baseUrl: string | null
 }
 
 /**
- * Open items, each with its kind as a quiet word in a column of its own, so the list can be
- * scanned by kind without a color for each. No bullets: the column already starts each row. The
- * column is left out when no item has a kind.
+ * Open items, each led by its kind as a small tag. No bullets: the tag already starts each row,
+ * and an item without a kind starts with its text.
  */
 function OpenList({ items, baseUrl }: { items: OpenItem[]; baseUrl: string | null }) {
-  const kinds = items.some((o) => o.kind);
   return (
     <ul className="space-y-1">
       {items.map((item, i) => (
         // Points have no identity beyond their place in the list
         // biome-ignore lint/suspicious/noArrayIndexKey: see above
         <li key={i} className="flex items-baseline gap-3">
-          {kinds && <KindWord item={item} />}
+          <KindTag item={item} />
           <PointText baseUrl={baseUrl}>{item.text}</PointText>
         </li>
       ))}

@@ -34,7 +34,7 @@ describe("weekOpen", () => {
 });
 
 describe("groupOpenItems", () => {
-  test("splits open, old and closed per project, waiting first and the newest first within a kind", () => {
+  test("splits open, old and closed per project, the newest first whatever the kind", () => {
     const items = [
       entry({ kind: "todo", text: "older todo", openedAt: FROM }),
       entry({ kind: "todo", text: "newer todo", openedAt: FROM + 2 * DAY }),
@@ -50,11 +50,11 @@ describe("groupOpenItems", () => {
     const groups = groupOpenItems(items, FROM, TO, TO);
     const g = groups.get(1);
     expect(g?.open.map((i) => i.text)).toEqual([
-      "review",
       "newer todo",
+      "review",
+      "untagged",
       "closed later", // closed after the period, so open at its end
       "older todo",
-      "untagged",
     ]);
     expect(g?.old.map((i) => i.text)).toEqual(["old"]);
     expect(g?.closed.map((i) => i.text)).toEqual(["closed last", "closed first"]);
@@ -62,6 +62,13 @@ describe("groupOpenItems", () => {
     expect(g?.opened).toBe(7);
     expect(groups.get(2)?.open).toHaveLength(1);
     expect([...groups.keys()]).toEqual([1, 2]);
+  });
+
+  test("items left at the same time keep the order their summary listed them in", () => {
+    const first = entry({ text: "first" });
+    const second = entry({ text: "second" });
+    const open = groupOpenItems([second, first], FROM, TO, TO).get(1)?.open;
+    expect(open?.map((i) => i.text)).toEqual(["first", "second"]);
   });
 
   test("an item closed by hand after the period shows as closed in it, so it can be undone", () => {
