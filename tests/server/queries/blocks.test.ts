@@ -23,7 +23,7 @@ const activity: Activity = {
 };
 const facts: BlockFacts = { usage: null, activity };
 const noArtifacts = { prs: [], commits: [] };
-const noState = { pending: false, error: null, closes: [] };
+const noState = { pending: false, error: null, closes: [], opens: [] };
 
 const row = (over: Partial<SectionRow> = {}): SectionRow => ({
   start: 1000,

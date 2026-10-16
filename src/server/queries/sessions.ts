@@ -11,7 +11,7 @@ import type {
   Subagent,
 } from "../../shared/api.ts";
 import { MINUTE } from "../../shared/dates.ts";
-import { sessionCloses } from "../summarize/ledger/openItems.ts";
+import { sessionCloses, sessionOpens } from "../summarize/ledger/openItems.ts";
 import { blockFacts, SECTION_SELECT, type SectionRow, toSection } from "./blocks.ts";
 import { projectById } from "./projects.ts";
 import { listedArtifactsSql } from "./sql.ts";
@@ -187,6 +187,7 @@ function sections(
   summaries: SummaryState,
 ): Section[] {
   const closes = sessionCloses(db, sessionId);
+  const opens = sessionOpens(db, sessionId);
   return db
     .query<SectionRow, [string]>(`${SECTION_SELECT} WHERE g.session_id = ? ORDER BY g.start`)
     .all(sessionId)
@@ -198,6 +199,7 @@ function sections(
           pending: summaries.isPending(sessionId, g.start),
           error: summaries.errorOf(sessionId, g.start),
           closes: closes.get(g.start) ?? [],
+          opens: opens.get(g.start) ?? [],
         },
         blockFacts(db, sessionId, g.start, g.end),
       ),

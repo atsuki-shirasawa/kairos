@@ -198,3 +198,27 @@ test("migration 9 adds the open items table, keeping an existing DB's summaries"
   ).toBe(SCHEMA_VERSION);
   upgraded.close();
 });
+
+test("migration 11 adds the open item decision log, keeping an existing DB's items", () => {
+  const path = join(tmpdir(), `kairos-decisions-${crypto.randomUUID()}.db`);
+  const old = new Database(path, { create: true });
+  for (const [i, sql] of MIGRATIONS.slice(0, 10).entries()) {
+    old.run(sql);
+    old.run(`PRAGMA user_version = ${i + 1}`);
+  }
+  old.run("INSERT INTO sessions (id) VALUES ('s')");
+  old.run(
+    "INSERT INTO open_items (session_id, start, opened_at, text, closed_at, closed_by) VALUES ('s', 1, 2, 't', 3, 'dismissed')",
+  );
+  old.close();
+  const upgraded = openDb(path);
+  expect(upgraded.query("SELECT text, closed_by FROM open_items").get()).toEqual({
+    text: "t",
+    closed_by: "dismissed",
+  });
+  expect(upgraded.query("SELECT COUNT(*) AS n FROM open_item_decisions").get()).toEqual({ n: 0 });
+  expect(
+    upgraded.query<{ user_version: number }, []>("PRAGMA user_version").get()?.user_version,
+  ).toBe(SCHEMA_VERSION);
+  upgraded.close();
+});

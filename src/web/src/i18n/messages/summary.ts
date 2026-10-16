@@ -72,6 +72,7 @@ export const summaryMessages = defineMessages({
     closedShow: "Open the block that closed it",
     markDone: "Mark as done",
     dismiss: "Won't do",
+    markMistaken: "Not an open item",
     reopen: "Reopen",
     /** How a closed item was closed. `what` is what the log showed (`logClosedIssue`, …). */
     closedByRef: (what: string | null) => (what ? `In the log: ${what}` : "Closed in the log"),
@@ -83,6 +84,7 @@ export const summaryMessages = defineMessages({
     closedByModel: "Settled in a later block",
     closedByUser: "Marked done",
     closedDismissed: "Won't do",
+    closedMistaken: "Not an open item",
     openUpdateFailed: (message: string) => `Couldn't update: ${message}`,
   },
   ja: {
@@ -131,6 +133,7 @@ export const summaryMessages = defineMessages({
     closedShow: "閉じたブロックを開く",
     markDone: "完了にする",
     dismiss: "やらないことにする",
+    markMistaken: "残課題ではない",
     reopen: "元に戻す",
     closedByRef: (what: string | null) => (what ? `ログ: ${what}` : "ログで完了"),
     logClosedIssue: (ref: string) => `${ref} をクローズ`,
@@ -140,6 +143,7 @@ export const summaryMessages = defineMessages({
     closedByModel: "後のブロックで解決",
     closedByUser: "完了にした",
     closedDismissed: "やらないことにした",
+    closedMistaken: "残課題ではなかった",
     openUpdateFailed: (message: string) => `更新できませんでした: ${message}`,
   },
 });

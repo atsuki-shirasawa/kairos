@@ -1,9 +1,15 @@
 // Pieces shared by the lists of open items: the drawer's Open list and "Settled from earlier", and
 // the summary view's open items, so their rows look alike.
 import type { LedgerEntry } from "@shared/api.ts";
+import { closedByHand } from "@shared/openItems.ts";
+import { Ban, Check, Undo2, X } from "lucide-react";
+import { Button } from "@/components/ui/button.tsx";
+import type { OnOpenItemUpdate } from "@/hooks/useOpenItemEdits.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
+import { summaryMessages } from "@/i18n/messages/summary.ts";
 import { cn } from "@/lib/utils.ts";
 import { Badge } from "./Badge.tsx";
+import { Hint } from "./Hint.tsx";
 
 /**
  * The kind as a small outlined tag (`Badge`) before the item's text. Only
@@ -44,5 +50,85 @@ export function BlockLink({
     >
       {label}
     </button>
+  );
+}
+
+/**
+ * The hand edits a row offers: done, won't do and not an open item while the item is open; undo
+ * once it was closed by hand. Nothing for an item the log or a later summary closed, since the
+ * next check would close it again.
+ */
+export function HandActions({
+  item,
+  busy,
+  onUpdate,
+}: {
+  item: LedgerEntry;
+  /** An edit of this item is on its way; the buttons wait. */
+  busy: boolean;
+  onUpdate: OnOpenItemUpdate;
+}) {
+  const m = summaryMessages();
+  if (item.closedAt === null)
+    return (
+      <span className="flex shrink-0 self-center">
+        <IconAction
+          label={m.markDone}
+          Icon={Check}
+          disabled={busy}
+          onClick={() => onUpdate(item.id, "done")}
+        />
+        <IconAction
+          label={m.dismiss}
+          Icon={X}
+          disabled={busy}
+          onClick={() => onUpdate(item.id, "dismissed")}
+        />
+        <IconAction
+          label={m.markMistaken}
+          Icon={Ban}
+          disabled={busy}
+          onClick={() => onUpdate(item.id, "mistaken")}
+        />
+      </span>
+    );
+  if (!closedByHand(item.closedBy)) return null;
+  return (
+    <span className="flex shrink-0 self-center">
+      <IconAction
+        label={m.reopen}
+        Icon={Undo2}
+        disabled={busy}
+        onClick={() => onUpdate(item.id, "open")}
+      />
+    </span>
+  );
+}
+
+/** An icon button with its label as a tooltip and for screen readers. */
+function IconAction({
+  label,
+  Icon,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  Icon: typeof Check;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Hint text={label}>
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        className="text-muted-foreground"
+        aria-label={label}
+        disabled={disabled}
+        onClick={onClick}
+      >
+        <Icon />
+      </Button>
+    </Hint>
   );
 }

@@ -4,7 +4,7 @@ import type { LedgerEntry } from "@shared/api.ts";
 import { type CloseNotePart, parseCloseNote } from "@shared/closeNotes.ts";
 import { OPEN_ITEM_OLD_WEEKS } from "@shared/constants.ts";
 import { WEEK } from "@shared/dates.ts";
-import { isOpenAt } from "@shared/openItems.ts";
+import { closedByHand, HAND_CLOSES, isOpenAt, neverOpen } from "@shared/openItems.ts";
 import { summaryMessages } from "@/i18n/messages/summary.ts";
 
 /** An item open this many weeks or more counts as old: faded and folded away. */
@@ -48,7 +48,7 @@ function newestFirst(a: LedgerEntry, b: LedgerEntry): number {
  */
 function isClosedIn(item: LedgerEntry, from: number, to: number): boolean {
   if (item.closedAt === null || item.closedAt < from) return false;
-  return item.closedAt < to || item.closedBy === "user" || item.closedBy === "dismissed";
+  return item.closedAt < to || closedByHand(item.closedBy);
 }
 
 /**
@@ -70,7 +70,7 @@ export function groupOpenItems(
       g = { open: [], old: [], closed: [], closedIn: 0, opened: 0 };
       groups.set(item.projectId, g);
     }
-    if (item.openedAt >= from) g.opened++;
+    if (item.openedAt >= from && !neverOpen(item.closedBy)) g.opened++;
     if (isClosedIn(item, from, to)) {
       g.closed.push(item);
       if ((item.closedAt ?? to) < to) g.closedIn++;
@@ -82,6 +82,28 @@ export function groupOpenItems(
     g.closed.sort((a, b) => (b.closedAt ?? 0) - (a.closedAt ?? 0));
   }
   return groups;
+}
+
+/**
+ * How an item was closed, in words: what the log showed, a later block, or which hand close. Empty
+ * for an item still open.
+ */
+export function closedHow(item: LedgerEntry): string {
+  const m = summaryMessages();
+  switch (item.closedBy) {
+    case "ref":
+      return m.closedByRef(logCloses(item.closedNote));
+    case "model":
+      return m.closedByModel;
+    case HAND_CLOSES.done:
+      return m.closedByUser;
+    case HAND_CLOSES.dismissed:
+      return m.closedDismissed;
+    case HAND_CLOSES.mistaken:
+      return m.closedMistaken;
+    case null:
+      return "";
+  }
 }
 
 /**

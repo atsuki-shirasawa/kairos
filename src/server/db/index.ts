@@ -229,6 +229,25 @@ export const MIGRATIONS: string[] = [
   `
   CREATE INDEX usage_ts ON usage(ts);
   `,
+  // 11: every hand edit of an open item (#40): done, dismissed, mistaken (the summary listed
+  // something that was never open) or reopened. The ledger keeps only an item's latest state and
+  // rewrites its rows when the section is summarized again, so this log is where the decisions
+  // and their undos stay, as data for judging the summaries. It copies the item's section, kind
+  // and text rather than referencing it, so a decision outlives the row it was made on.
+  `
+  CREATE TABLE open_item_decisions (
+    id          INTEGER PRIMARY KEY,
+    item_id     INTEGER NOT NULL,
+    session_id  TEXT NOT NULL,
+    start       INTEGER NOT NULL,
+    kind        TEXT,
+    text        TEXT NOT NULL,
+    -- 'done' / 'dismissed' / 'mistaken', or 'open' for an undo
+    state       TEXT NOT NULL,
+    at          INTEGER NOT NULL
+  );
+  CREATE INDEX open_item_decisions_item ON open_item_decisions(item_id);
+  `,
 ];
 
 /** Schema version once every migration is applied (stored in `PRAGMA user_version`). */

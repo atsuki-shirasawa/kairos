@@ -112,6 +112,38 @@ describe("PATCH /api/open-items/:id", () => {
     ).toMatchObject({ closedBy: "dismissed" });
   });
 
+  test("marks an item the summary listed by mistake, which only a hand edit undoes", async () => {
+    const question = await idOf("Whether");
+    const mistaken = await patch(`/api/open-items/${question}`, { state: "mistaken" });
+    expect(await mistaken.json()).toMatchObject({ closedBy: "mistaken", closedAt: now });
+    expect((await patch(`/api/open-items/${question}`, { state: "open" })).status).toBe(200);
+  });
+
+  test("logs every hand edit with a copy of its item, undos included", async () => {
+    const question = await idOf("Whether");
+    await patch(`/api/open-items/${question}`, { state: "mistaken" });
+    now += 1;
+    await patch(`/api/open-items/${question}`, { state: "open" });
+    now += 1;
+    await patch(`/api/open-items/${question}`, { state: "done" });
+    const log = db
+      .query<{ item_id: number; kind: string; text: string; state: string; at: number }, []>(
+        "SELECT item_id, kind, text, state, at FROM open_item_decisions ORDER BY id",
+      )
+      .all();
+    expect(log.map((d) => [d.item_id, d.state, d.at])).toEqual([
+      [question, "mistaken", now - 2],
+      [question, "open", now - 1],
+      [question, "done", now],
+    ]);
+    expect(log[0]).toMatchObject({ kind: "question", text: "Whether to offer UTF-16 output too" });
+  });
+
+  test("a refused edit is not logged", async () => {
+    await patch(`/api/open-items/${await idOf("The CSV")}`, { state: "done" });
+    expect(db.query("SELECT COUNT(*) AS n FROM open_item_decisions").get()).toEqual({ n: 0 });
+  });
+
   test("won't reopen what the log closed, or close what is already closed", async () => {
     const issue = await idOf("The CSV");
     expect((await patch(`/api/open-items/${issue}`, { state: "open" })).status).toBe(409);
@@ -152,6 +184,18 @@ describe("PATCH /api/open-items/:id", () => {
   });
 });
 
+test("the drawer lists what a section left open, as each stands now", async () => {
+  await patch(`/api/open-items/${await idOf("Whether")}`, { state: "mistaken" });
+  const session = await get<SessionDetail>(`/api/sessions/${SID.ledgerOpen}`);
+  const section = session.sections.find((s) => s.start === min(1700));
+  expect(section?.opens.map((o) => [o.kind, o.closedBy])).toEqual([
+    ["issue", "ref"],
+    ["todo", "ref"],
+    ["question", "mistaken"],
+    ["waiting", null],
+  ]);
+});
+
 test("the drawer lists what a section closed", async () => {
   const session = await get<SessionDetail>(`/api/sessions/${SID.ledgerClose}`);
   expect(session.sections[0]?.closes.map((c) => [c.text, c.closedBy, c.closedNote])).toEqual([
@@ -189,6 +233,20 @@ describe("recap from the ledger", () => {
     expect(buildRecapPrompt(input)).toContain(
       "- [question] Whether to offer UTF-16 output too (marked done by hand)",
     );
+  });
+
+  test("an item set aside or marked a mistake is neither open nor settled in the recap", async () => {
+    now = min(2000);
+    await patch(`/api/open-items/${await idOf("Whether")}`, { state: "mistaken" });
+    await patch(`/api/open-items/${await idOf("Design review")}`, { state: "dismissed" });
+    const input = loadRecapInput(db, target());
+    if (!input) throw new Error("no recap input");
+    const prompt = buildRecapPrompt(input);
+    // The instructions above the material name the tag too; the block is its last opening
+    const block = prompt.slice(prompt.lastIndexOf("<open_items>"), prompt.indexOf("</open_items>"));
+    expect(block).toContain("Settled during the period:");
+    expect(block).not.toContain("Whether to offer UTF-16");
+    expect(block).not.toContain("Design review of the export dialog");
   });
 
   test("a project without ledger items hashes as before, so older recaps don't turn stale", () => {

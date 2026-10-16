@@ -386,7 +386,10 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   PR node when it names one of the section's own. Open items lead with their kind (to do, issue,
   question, waiting) as a small tag styled like the Headless badge (12px `muted-ink`, 1px
   `border`, `md` radius; no bullets), a label rather than a column, with no color of its own; the
-  warn tone stays the snags'. The tag is in English in either UI language.
+  warn tone stays the snags'. The tag is in English in either UI language. When the ledger tracks
+  the section's items, each row ends with the summary view's hand edits (done, won't do, not an
+  open item); one closed since turns `muted-ink` and ends with how it closed (12px `muted-ink`,
+  the link to the block that closed it when one did), plus undo when closed by hand, so the list still reads as what the section left open.
   A single Resolved point is shown without a bullet. Done's points are 14px `muted-ink`, each
   clamped to two lines with "Show in full" when one is cut off. Every item but the Goal gets a
   label in the drawer's small heading style. A body in neither format is shown as written. The
@@ -399,8 +402,8 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   (`numeral`, `muted-ink`: "+3 / −4 this week"). Rows are the drawer's Open list again: the kind
   tag, then the text (14px `ink`), newest first and not grouped by kind.
   Each row ends with how long it has been open ("since Mon, Oct 5", then "week 2"), 12px
-  `muted-ink` `numeral`, which is the link to the block that left it, and two 24px ghost icon
-  buttons (done, won't do) with their names in a tooltip. Items open 4 weeks or more fold into
+  `muted-ink` `numeral`, which is the link to the block that left it, and three 24px ghost icon
+  buttons (done, won't do, not an open item) with their names in a tooltip. Items open 4 weeks or more fold into
   "Open 4 weeks or more (n)" with their text at 60% opacity (the age and buttons stay readable); items closed in the period fold into
   "Closed this week (n)" with muted text and how each closed (the link to the block that closed
   it, when one did; undo for one closed by hand). A failed close or undo shows under the list in

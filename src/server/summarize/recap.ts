@@ -4,7 +4,7 @@
 // fingerprints it; `recapPrompt.ts` turns it into the prompt.
 import type { Database } from "bun:sqlite";
 import { ARTIFACT_GRACE_MS } from "../../shared/constants.ts";
-import { isOpenAt } from "../../shared/openItems.ts";
+import { closedUndone, HAND_CLOSES, isOpenAt } from "../../shared/openItems.ts";
 import type { OpenKind } from "../../shared/summaryBody.ts";
 import { openItemsIn } from "./ledger/openItems.ts";
 
@@ -115,10 +115,10 @@ function loadLedger(db: Database, t: RecapTarget): RecapLedger {
   const ledger: RecapLedger = { open: [], settled: [] };
   for (const e of openItemsIn(db, t.from, t.to, t.projectId)) {
     // A hand close has no note of its own; say so, or the model can't tell it from an open item
-    const note = e.closedBy === "user" ? "marked done by hand" : e.closedNote;
+    const note = e.closedBy === HAND_CLOSES.done ? "marked done by hand" : e.closedNote;
     const item = { kind: e.kind, text: e.text, openedAt: e.openedAt, note };
     if (isOpenAt(e, t.to)) ledger.open.push({ ...item, note: null });
-    else if (e.closedBy !== "dismissed") ledger.settled.push(item);
+    else if (!closedUndone(e.closedBy)) ledger.settled.push(item);
   }
   return ledger;
 }

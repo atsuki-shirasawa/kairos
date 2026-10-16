@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { LedgerEntry } from "../../src/shared/api.ts";
 import { setLocale } from "../../src/web/src/i18n/index.ts";
-import { groupOpenItems, logCloses, weekOpen } from "../../src/web/src/lib/openItems.ts";
+import { closedHow, groupOpenItems, logCloses, weekOpen } from "../../src/web/src/lib/openItems.ts";
 
 const DAY = 24 * 3_600_000;
 const FROM = new Date(2026, 9, 5).getTime(); // Mon 2026-10-05
@@ -76,12 +76,13 @@ describe("groupOpenItems", () => {
       [
         entry({ text: "dismissed later", closedAt: TO + DAY, closedBy: "dismissed" }),
         entry({ text: "dismissed before", closedAt: FROM - DAY, closedBy: "dismissed" }),
+        entry({ text: "mistaken later", closedAt: TO + 2 * DAY, closedBy: "mistaken" }),
       ],
       FROM,
       TO,
       TO,
     );
-    expect(groups.get(1)?.closed.map((i) => i.text)).toEqual(["dismissed later"]);
+    expect(groups.get(1)?.closed.map((i) => i.text)).toEqual(["mistaken later", "dismissed later"]);
     expect(groups.get(1)?.open).toEqual([]);
     // Listed so it can be undone, but not counted as closed in the period
     expect(groups.get(1)?.closedIn).toBe(0);
@@ -112,6 +113,37 @@ describe("logCloses", () => {
       "#21 をクローズ、タスク #3 を完了、something else",
     );
     expect(logCloses(null)).toBeNull();
+    setLocale("en");
+  });
+});
+
+describe("groupOpenItems with a summary's mistake", () => {
+  test("an item marked not open after the period is neither open nor counted as opened in it", () => {
+    const g = groupOpenItems(
+      [entry({ text: "bogus", closedAt: TO + DAY, closedBy: "mistaken" })],
+      FROM,
+      TO,
+      TO,
+    ).get(1);
+    expect(g?.open).toEqual([]);
+    expect(g?.opened).toBe(0);
+    // Still listed among the closed, where it can be undone
+    expect(g?.closed.map((i) => i.text)).toEqual(["bogus"]);
+  });
+});
+
+describe("closedHow", () => {
+  test("says how an item was closed, a summary's mistake included", () => {
+    setLocale("en");
+    expect(closedHow(entry({ closedBy: "mistaken" }))).toBe("Not an open item");
+    expect(closedHow(entry({ closedBy: "model" }))).toBe("Settled in a later block");
+    expect(closedHow(entry({ closedBy: null }))).toBe("");
+    expect(closedHow(entry({ closedBy: "dismissed" }))).toBe("Won't do");
+    expect(closedHow(entry({ closedBy: "ref", closedNote: "closed #21" }))).toBe(
+      "In the log: closed #21",
+    );
+    setLocale("ja");
+    expect(closedHow(entry({ closedBy: "mistaken" }))).toBe("残課題ではなかった");
     setLocale("en");
   });
 });

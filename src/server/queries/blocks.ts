@@ -65,11 +65,12 @@ export function toCalendarSegment(
   };
 }
 
-/** Where a section's summary run stands, and the open items the section closed. */
+/** Where a section's summary run stands, and the open items the section left and closed. */
 export interface SectionState {
   pending: boolean;
   error: string | null;
   closes: Section["closes"];
+  opens: Section["opens"];
 }
 
 /** A work block as the drawer shows it, with its summary's state. */
@@ -94,5 +95,6 @@ export function toSection(
     usage: facts.usage,
     activity: facts.activity,
     closes: state.closes,
+    opens: state.opens,
   };
 }

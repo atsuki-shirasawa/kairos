@@ -226,14 +226,19 @@ export interface Section {
   activity: Activity;
   /** Items earlier work left open that this section settled, as the log or its summary showed. */
   closes: LedgerEntry[];
+  /**
+   * Items this section's summary left open, as the ledger tracks them now (open, or how they were
+   * closed since). Empty for a summary written before the ledger, whose Open item is only text.
+   */
+  opens: LedgerEntry[];
 }
 
 /**
  * How an open item was closed: the log showed its issue closed, PR merged or task completed
- * (`ref`), a later section's summary said it was settled (`model`), or by hand: done (`user`) or
- * not to be done (`dismissed`).
+ * (`ref`), a later section's summary said it was settled (`model`), or by hand: done (`user`), not
+ * to be done (`dismissed`), or never open in the first place, a summary's mistake (`mistaken`).
  */
-export type ClosedBy = "ref" | "model" | "user" | "dismissed";
+export type ClosedBy = "ref" | "model" | "user" | "dismissed" | "mistaken";
 
 /** An item a section summary left open, tracked across sections and sessions until it closes. */
 export interface LedgerEntry {
@@ -269,13 +274,16 @@ export interface OpenItemsResponse {
 }
 
 /**
- * `PATCH /api/open-items/:id` body. `done` and `dismissed` close an open item by hand; `open`
- * reopens one closed by hand. Items the log or a summary closed can't be reopened, since the next
- * check would close them again.
+ * `PATCH /api/open-items/:id` body. `done`, `dismissed` and `mistaken` close an open item by hand
+ * (see `HAND_CLOSES` in `openItems.ts`); `open` reopens one closed by hand. Items the log or a
+ * summary closed can't be reopened, since the next check would close them again.
  */
 export interface OpenItemUpdate {
-  state: "done" | "dismissed" | "open";
+  state: HandClose | "open";
 }
+
+/** How an open item can be closed by hand: finished, not to be done, or never open at all. */
+export type HandClose = "done" | "dismissed" | "mistaken";
 
 /** `GET /api/sessions/:id`: everything the session drawer shows. */
 export interface SessionDetail {

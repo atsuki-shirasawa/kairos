@@ -1,3 +1,4 @@
+import type { LedgerEntry } from "@shared/api.ts";
 import type { OpenItem, SummaryParts } from "@shared/summaryBody.ts";
 import { useRef, useState } from "react";
 import { MomentNode } from "@/components/MomentNode.tsx";
@@ -6,22 +7,30 @@ import { useClampedChildren } from "@/hooks/useClampedChildren.ts";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import type { OutcomeNode } from "@/lib/artifacts.ts";
 import { KindTag } from "../../OpenItemParts.tsx";
+import { LedgerOpenList } from "./LedgerOpenList.tsx";
 import { SummaryLabel, SummaryMarkdown } from "./SummaryText.tsx";
 
 /**
  * The summary read as Goal → what came of it → Done, each at its own weight: why the work was done
  * and what came of it come first and largest, and the details of how follow, quieter and clamped.
  * What came of it is an older body's Outcome, or Resolved, Open and Next. No surface behind any of
- * it; the type sizes alone make this the place to read.
+ * it; the type sizes alone make this the place to read. Open comes from the ledger when it tracks
+ * the section's items, so they can be closed where they are read.
  */
 export function StructuredSummary({
   parts,
+  opens,
   baseUrl,
   node,
+  onSelect,
 }: {
   parts: SummaryParts;
+  /** The ledger's entries for the section's Open items; empty for a summary from before it. */
+  opens: LedgerEntry[];
   baseUrl: string | null;
   node: OutcomeNode;
+  /** Opens a block: where an item the section left open was closed. */
+  onSelect: (id: string, at: number) => void;
 }) {
   const t = drawerMessages();
   return (
@@ -44,10 +53,16 @@ export function StructuredSummary({
           </WithNode>
         </SummaryItem>
       )}
-      {parts.open.length > 0 && (
+      {opens.length > 0 ? (
         <SummaryItem label={t.summaryOpen}>
-          <OpenList items={parts.open} baseUrl={baseUrl} />
+          <LedgerOpenList items={opens} baseUrl={baseUrl} onSelect={onSelect} />
         </SummaryItem>
+      ) : (
+        parts.open.length > 0 && (
+          <SummaryItem label={t.summaryOpen}>
+            <OpenList items={parts.open} baseUrl={baseUrl} />
+          </SummaryItem>
+        )
       )}
       {parts.next !== null && (
         <SummaryItem label={t.summaryNext}>
@@ -110,8 +125,9 @@ function PointList({ items, baseUrl }: { items: string[]; baseUrl: string | null
 }
 
 /**
- * Open items, each led by its kind as a small tag. No bullets: the tag already starts each row,
- * and an item without a kind starts with its text.
+ * Open items of a summary written before the ledger, as the body states them: each led by its kind
+ * as a small tag. No bullets: the tag already starts each row, and an item without a kind starts
+ * with its text.
  */
 function OpenList({ items, baseUrl }: { items: OpenItem[]; baseUrl: string | null }) {
   return (

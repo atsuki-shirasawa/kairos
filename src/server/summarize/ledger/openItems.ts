@@ -1,8 +1,9 @@
 // Reads and hand-edits of the open-items ledger (`open_items`) for the API and recaps. The
 // summarizer fills and closes items in `record.ts` and `settle.ts`; this is what the UI sees of them.
 import type { Database } from "bun:sqlite";
-import type { LedgerEntry, OpenItemUpdate } from "../../../shared/api.ts";
-import { CLOSED_BY, HAND_CLOSERS, SECTION_CLOSERS, sqlList } from "./closers.ts";
+import type { HandClose, LedgerEntry, OpenItemUpdate } from "../../../shared/api.ts";
+import { closedByHand, HAND_CLOSES } from "../../../shared/openItems.ts";
+import { SECTION_CLOSERS, sqlList } from "./closers.ts";
 import { entryOf, ITEM_SELECT, type ItemRow } from "./items.ts";
 import { closeByRefs } from "./settle.ts";
 
@@ -33,7 +34,6 @@ export function openItemsIn(
  * in the order they were opened. One query for the whole session: most sections settle nothing.
  */
 export function sessionCloses(db: Database, sessionId: string): Map<number, LedgerEntry[]> {
-  const closes = new Map<number, LedgerEntry[]>();
   const rows = db
     .query<ItemRow, [string]>(
       `${ITEM_SELECT}
@@ -41,13 +41,34 @@ export function sessionCloses(db: Database, sessionId: string): Map<number, Ledg
        ORDER BY i.opened_at, i.id`,
     )
     .all(sessionId);
+  return groupBySection(rows, (r) => r.closed_start);
+}
+
+/**
+ * Items each section of a session left open, by section start, in the order the summary listed
+ * them, with how each stands now. One query for the whole session, as for `sessionCloses`.
+ */
+export function sessionOpens(db: Database, sessionId: string): Map<number, LedgerEntry[]> {
+  const rows = db
+    .query<ItemRow, [string]>(`${ITEM_SELECT} WHERE i.session_id = ? ORDER BY i.start, i.id`)
+    .all(sessionId);
+  return groupBySection(rows, (r) => r.start);
+}
+
+/** Rows as entries by the section start `startOf` picks, in row order; rows without one are left out. */
+function groupBySection(
+  rows: ItemRow[],
+  startOf: (r: ItemRow) => number | null,
+): Map<number, LedgerEntry[]> {
+  const bySection = new Map<number, LedgerEntry[]>();
   for (const r of rows) {
-    if (r.closed_start === null) continue;
-    const list = closes.get(r.closed_start) ?? [];
+    const start = startOf(r);
+    if (start === null) continue;
+    const list = bySection.get(start) ?? [];
     list.push(entryOf(r));
-    closes.set(r.closed_start, list);
+    bySection.set(start, list);
   }
-  return closes;
+  return bySection;
 }
 
 /** Why a hand edit was refused: no such item, or it can't move to that state. */
@@ -67,18 +88,35 @@ function reopen(db: Database, id: number): void {
   ).run(id);
 }
 
-/** Closes an item by hand, as done or dismissed. */
-function closeByHand(db: Database, id: number, state: "done" | "dismissed", now: number): void {
+/** Closes an item by hand: done, dismissed, or mistaken. */
+function closeByHand(db: Database, id: number, state: HandClose, now: number): void {
   db.query(
     `UPDATE open_items SET closed_at = ?, closed_session_id = NULL, closed_start = NULL,
        closed_by = ?, closed_note = NULL WHERE id = ?`,
-  ).run(now, state === "done" ? CLOSED_BY.user : CLOSED_BY.dismissed, id);
+  ).run(now, HAND_CLOSES[state], id);
+}
+
+/** Records a hand edit in the decision log, with a copy of the item it was made on. */
+function logDecision(db: Database, entry: LedgerEntry, update: OpenItemUpdate, now: number): void {
+  db.query(
+    `INSERT INTO open_item_decisions (item_id, session_id, start, kind, text, state, at)
+     VALUES ($id, $sessionId, $start, $kind, $text, $state, $at)`,
+  ).run({
+    id: entry.id,
+    sessionId: entry.sessionId,
+    start: entry.start,
+    kind: entry.kind,
+    text: entry.text,
+    state: update.state,
+    at: now,
+  });
 }
 
 /**
- * Closes an open item by hand (done or dismissed), or reopens one closed by hand. An item the log
- * or a summary closed stays closed: the next check would close it again. Closing one already
- * closed is refused too, so a click on a stale list doesn't overwrite how it was closed.
+ * Closes an open item by hand (done, dismissed or mistaken), or reopens one closed by hand, and
+ * logs the decision. An item the log or a summary closed stays closed: the next check would close
+ * it again. Closing one already closed is refused too, so a click on a stale list doesn't overwrite
+ * how it was closed.
  */
 export function updateOpenItem(
   db: Database,
@@ -86,16 +124,19 @@ export function updateOpenItem(
   update: OpenItemUpdate,
   now: number,
 ): LedgerEntry | UpdateRefusal {
-  const entry = loadEntry(db, id);
-  if (!entry) return "not found";
-  if (update.state === "open") {
-    if (entry.closedBy === null || !HAND_CLOSERS.includes(entry.closedBy)) return "conflict";
-    reopen(db, id);
-    // The log may have settled it while it was closed by hand, which the check skipped
-    closeByRefs(db, entry.sessionId);
-  } else {
-    if (entry.closedAt !== null) return "conflict";
-    closeByHand(db, id, update.state, now);
-  }
-  return loadEntry(db, id) ?? "not found";
+  return db.transaction(() => {
+    const entry = loadEntry(db, id);
+    if (!entry) return "not found";
+    if (update.state === "open") {
+      if (!closedByHand(entry.closedBy)) return "conflict";
+      reopen(db, id);
+      // The log may have settled it while it was closed by hand, which the check skipped
+      closeByRefs(db, entry.sessionId);
+    } else {
+      if (entry.closedAt !== null) return "conflict";
+      closeByHand(db, id, update.state, now);
+    }
+    logDecision(db, entry, update, now);
+    return loadEntry(db, id) ?? "not found";
+  })();
 }

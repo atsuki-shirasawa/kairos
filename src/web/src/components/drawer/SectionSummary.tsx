@@ -57,7 +57,7 @@ export function SectionSummary({
       }
     >
       {section.body ? (
-        <SummaryBody session={s} section={section} />
+        <SummaryBody session={s} section={section} onSelect={onSelect} />
       ) : (
         <div className="space-y-2">
           <p className="text-muted-foreground text-sm">
@@ -107,8 +107,16 @@ function SummarizeButton({
   );
 }
 
-/** The summary text, then whether it is stale. */
-function SummaryBody({ session: s, section }: { session: SessionDetail; section: Section }) {
+/** The summary text, then whether it is stale. `onSelect` opens a block an Open item links to. */
+function SummaryBody({
+  session: s,
+  section,
+  onSelect,
+}: {
+  session: SessionDetail;
+  section: Section;
+  onSelect: (id: string, at: number | null) => void;
+}) {
   const t = drawerMessages();
   const body = section.body ?? "";
   const baseUrl = issueBaseUrl(s.project?.repo);
@@ -120,7 +128,9 @@ function SummaryBody({ session: s, section }: { session: SessionDetail; section:
           // A new section starts with its Done points clamped again
           key={section.start}
           parts={parts}
+          opens={section.opens}
           baseUrl={baseUrl}
+          onSelect={onSelect}
           node={summaryOutcomeNode(parts, s, section)}
         />
       ) : (

@@ -24,6 +24,7 @@ export const keys = {
   calendar: (from: number, to: number) => ["calendar", from, to] as const,
   // Nested under "calendar" so import notifications refetch it along with the calendar
   spans: (from: number, to: number) => ["calendar", "spans", from, to] as const,
+  allSessions: ["session"] as const,
   session: (id: string) => ["session", id] as const,
   // Every agent's pages of a session's conversation
   allMessages: (id: string) => ["messages", id] as const,
@@ -124,11 +125,13 @@ export function useUpdateOpenItem() {
   return useMutation({
     mutationFn: ({ id, update }: { id: number; update: OpenItemUpdate }) =>
       api.updateOpenItem(id, update),
-    // Every period's list, and the recaps that read the open items (one may turn stale)
+    // Every period's list, the recaps that read the open items (one may turn stale), and the
+    // drawer's sections, which list the items they left open
     onSettled: () =>
       Promise.all([
         client.invalidateQueries({ queryKey: keys.allOpenItems }),
         client.invalidateQueries({ queryKey: keys.allRecaps }),
+        client.invalidateQueries({ queryKey: keys.allSessions }),
       ]),
   });
 }

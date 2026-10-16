@@ -79,6 +79,8 @@ describe("parseOpenItemUpdate", () => {
   test.each<[string, unknown, unknown]>([
     ["done", { state: "done" }, { state: "done" }],
     ["dismissed", { state: "dismissed" }, { state: "dismissed" }],
+    ["mistaken", { state: "mistaken" }, { state: "mistaken" }],
+    ["a name inherited from Object", { state: "toString" }, null],
     ["reopened", { state: "open" }, { state: "open" }],
     ["extra fields are dropped", { state: "done", note: "x" }, { state: "done" }],
     ["an unknown state", { state: "closed" }, null],

@@ -46,8 +46,10 @@ function invalidateFor(
   void client.invalidateQueries({ queryKey: keys.allCalendar });
   // Recaps are listed under "calendar", so the line above already refetches them
   if (event.type === "recap.updated") return;
+  // A new summary can close open items of other sessions (by its word or the log's refs), and
+  // every drawer lists its sections' items with their state
   if (event.type === "summary.updated") {
-    void client.invalidateQueries({ queryKey: keys.session(event.sessionId) });
+    void client.invalidateQueries({ queryKey: keys.allSessions });
     return;
   }
   // The tool in flight, tasks and tests come from the log

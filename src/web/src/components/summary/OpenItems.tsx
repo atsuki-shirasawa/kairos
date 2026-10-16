@@ -1,20 +1,21 @@
 import type { LedgerEntry } from "@shared/api.ts";
-import { Check, ChevronRight, Undo2, X } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button.tsx";
+import type { OnOpenItemUpdate } from "@/hooks/useOpenItemEdits.ts";
 import { summaryMessages } from "@/i18n/messages/summary.ts";
 import { dateLabel } from "@/lib/dates.ts";
-import { logCloses, OLD_WEEKS, type ProjectOpenItems, weekOpen } from "@/lib/openItems.ts";
+import { closedHow, OLD_WEEKS, type ProjectOpenItems, weekOpen } from "@/lib/openItems.ts";
 import { cn } from "@/lib/utils.ts";
 import type { View } from "@/lib/view.ts";
 import { Hint } from "../Hint.tsx";
 import { Markdown } from "../Markdown.tsx";
-import { BlockLink, KindTag } from "../OpenItemParts.tsx";
+import { BlockLink, HandActions, KindTag } from "../OpenItemParts.tsx";
 
 /** What a row can do: open a block, or close / reopen its item by hand. */
 interface Actions {
   onSelect: (id: string, at: number) => void;
-  onUpdate: (id: number, state: "done" | "dismissed" | "open") => void;
+  onUpdate: OnOpenItemUpdate;
   /** The item being updated, whose buttons wait. */
   busyId: number | null;
   /** Where `#123` in item text links to, from the project's repository. */
@@ -135,35 +136,10 @@ function ItemText({
   );
 }
 
-/** An icon button with its label as a tooltip and for screen readers. */
-function IconAction({
-  label,
-  Icon,
-  disabled,
-  onClick,
-}: {
-  label: string;
-  Icon: typeof Check;
-  disabled: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <Hint text={label}>
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        className="text-muted-foreground"
-        aria-label={label}
-        disabled={disabled}
-        onClick={onClick}
-      >
-        <Icon />
-      </Button>
-    </Hint>
-  );
-}
-
-/** An open item: kind, text, how long it has been open (opens its block), and done / won't do. */
+/**
+ * An open item: kind, text, how long it has been open (opens its block), and done / won't do /
+ * not an open item.
+ */
 function OpenRow({
   item,
   at,
@@ -185,37 +161,9 @@ function OpenRow({
         numeric
         onClick={() => onSelect(item.sessionId, item.start)}
       />
-      <span className="flex shrink-0 self-center">
-        <IconAction
-          label={m.markDone}
-          Icon={Check}
-          disabled={busyId === item.id}
-          onClick={() => onUpdate(item.id, "done")}
-        />
-        <IconAction
-          label={m.dismiss}
-          Icon={X}
-          disabled={busyId === item.id}
-          onClick={() => onUpdate(item.id, "dismissed")}
-        />
-      </span>
+      <HandActions item={item} busy={busyId === item.id} onUpdate={onUpdate} />
     </li>
   );
-}
-
-/** How an item was closed, in words. */
-function closedHow(item: LedgerEntry): string {
-  const m = summaryMessages();
-  switch (item.closedBy) {
-    case "ref":
-      return m.closedByRef(logCloses(item.closedNote));
-    case "user":
-      return m.closedByUser;
-    case "dismissed":
-      return m.closedDismissed;
-    default:
-      return m.closedByModel;
-  }
 }
 
 /**
@@ -227,7 +175,6 @@ function ClosedRow({ item, onSelect, onUpdate, busyId, baseUrl }: Actions & { it
   const how = closedHow(item);
   const by = item.closedSessionId;
   const at = item.closedStart;
-  const byHand = item.closedBy === "user" || item.closedBy === "dismissed";
   return (
     <li className="flex items-baseline gap-3 py-0.5">
       <KindTag item={item} />
@@ -237,16 +184,7 @@ function ClosedRow({ item, onSelect, onUpdate, busyId, baseUrl }: Actions & { it
       ) : (
         <span className="shrink-0 whitespace-nowrap text-muted-foreground text-xs">{how}</span>
       )}
-      {byHand && (
-        <span className="flex shrink-0 self-center">
-          <IconAction
-            label={m.reopen}
-            Icon={Undo2}
-            disabled={busyId === item.id}
-            onClick={() => onUpdate(item.id, "open")}
-          />
-        </span>
-      )}
+      <HandActions item={item} busy={busyId === item.id} onUpdate={onUpdate} />
     </li>
   );
 }

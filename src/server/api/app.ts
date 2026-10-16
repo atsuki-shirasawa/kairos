@@ -154,7 +154,8 @@ export function createApp({ db, events, summarizer, live, now, hiddenCwds }: App
     withRange(c, ({ from, to }) => c.json<OpenItemsResponse>({ items: q.openItems(from, to) })),
   );
 
-  // Closes an open item by hand (done or dismissed), or reopens one closed by hand
+  // Closes an open item by hand (done, dismissed or mistaken), or reopens one closed by hand,
+  // logging the decision
   app.patch("/api/open-items/:id", async (c) => {
     const id = Number(c.req.param("id"));
     const update = parseOpenItemUpdate(await readJson(c));

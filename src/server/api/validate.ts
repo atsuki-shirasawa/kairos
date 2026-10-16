@@ -9,6 +9,7 @@ import type {
 } from "../../shared/api.ts";
 import { MIN_SEARCH_CHARS } from "../../shared/constants.ts";
 import { DAY } from "../../shared/dates.ts";
+import { isHandClose } from "../../shared/openItems.ts";
 import { isSummaryLang } from "../../shared/summaryLang.ts";
 
 /** Longest range the calendar can fetch at once (a month view plus margins). */
@@ -94,7 +95,7 @@ export function parseProjectUpdate(body: unknown): ProjectUpdate | null {
 export function parseOpenItemUpdate(body: unknown): OpenItemUpdate | null {
   if (typeof body !== "object" || body === null) return null;
   const { state } = body as Record<string, unknown>;
-  return state === "done" || state === "dismissed" || state === "open" ? { state } : null;
+  return state === "open" || isHandClose(state) ? { state } : null;
 }
 
 /** Validates a `POST /api/recaps` body; null unless the project id and range are valid. */
