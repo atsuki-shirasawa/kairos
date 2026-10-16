@@ -1,4 +1,4 @@
-import { type RefObject, useCallback, useLayoutEffect, useState } from "react";
+import { type RefObject, useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useResizeObserver } from "@/hooks/useResizeObserver.ts";
 import { type Edges, findEdges, NO_EDGES, sameEdges } from "@/lib/calendarEdges.ts";
 import type { PlacedBlock } from "@/lib/layout.ts";
@@ -51,16 +51,20 @@ interface GridScrollDeps {
   viewportPx: number;
   selectedId: string | null;
   selectedAt: number | null;
+  /** Whether the selected session is among the drawn ones; false until the period's data arrives. */
+  selectedDrawn: boolean;
 }
 
 /**
  * Keeps the grid scrolled to something worth seeing. When the period changes, centers the shown
  * hours on screen; when the selection changes, scrolls the selected block into view if it's off
- * screen (after switching from the list, moving with j / k, etc.).
+ * screen (after switching from the list, moving with j / k, etc.). A link that opens with a block
+ * selected usually renders before the period's data arrives, so a selection is revealed once it is
+ * drawn, and only once.
  */
 export function useGridScroll(
   ref: RefObject<HTMLDivElement | null>,
-  { firstDay, hourPx, viewportPx, selectedId, selectedAt }: GridScrollDeps,
+  { firstDay, hourPx, viewportPx, selectedId, selectedAt, selectedDrawn }: GridScrollDeps,
 ): void {
   const revealSelected = useCallback(() => {
     const el = ref.current?.querySelector("[data-selected]");
@@ -76,8 +80,17 @@ export function useGridScroll(
     revealSelected();
   }, [ref, firstDay, hourPx, viewportPx, revealSelected]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: run only when the selection changes
-  useLayoutEffect(revealSelected, [selectedId, selectedAt, revealSelected]);
+  // The selection last revealed, so a block hidden and drawn again (a filter, a refetch) doesn't
+  // pull the grid back from where the user scrolled
+  const revealed = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    if (!selectedId) revealed.current = null;
+    if (!selectedDrawn) return;
+    const key = `${selectedId}:${selectedAt}`;
+    if (revealed.current === key) return;
+    revealed.current = key;
+    revealSelected();
+  }, [selectedId, selectedAt, selectedDrawn, revealSelected]);
 }
 
 /** The off-screen hints, and the scroll handler that keeps them current. */

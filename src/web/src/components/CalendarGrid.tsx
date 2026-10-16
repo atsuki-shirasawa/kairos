@@ -7,6 +7,7 @@ import { HourLabels } from "@/components/calendar/HourLabels.tsx";
 import { useGridScroll, useGridSize, useOffscreenEdges } from "@/components/calendar/hooks.ts";
 import { isSameDay } from "@/lib/dates.ts";
 import { layoutDay } from "@/lib/layout.ts";
+import { selectedSegment } from "@/lib/navigation.ts";
 import type { PeriodBodyProps } from "@/lib/periodBody.ts";
 import { cn } from "@/lib/utils.ts";
 import { columnTracks, focusDayIndex } from "@/lib/weekColumns.ts";
@@ -31,7 +32,8 @@ export function CalendarGrid({
   const { hourPx, viewportPx, widthPx } = useGridSize(scrollRef);
   const columns = useMemo(() => days.map((day) => layoutDay(sessions, day)), [days, sessions]);
   const firstDay = days[0] ?? 0;
-  useGridScroll(scrollRef, { firstDay, hourPx, viewportPx, selectedId, selectedAt });
+  const selectedDrawn = selectedSegment(sessions, selectedId, selectedAt) !== null;
+  useGridScroll(scrollRef, { firstDay, hourPx, viewportPx, selectedId, selectedAt, selectedDrawn });
   const { edges, measure } = useOffscreenEdges(scrollRef, columns, hourPx, viewportPx);
   const scrollTo = (top: number) => scrollRef.current?.scrollTo({ top, behavior: "smooth" });
 
