@@ -1,4 +1,6 @@
 // The month view's grid: how a day cell fills its lines, and how weeks share the month's height.
+import type { CalendarSession } from "@shared/api.ts";
+import { addDays, addMonths, monthWeeks, type Range, startOfMonth } from "./dates.ts";
 import type { DayBlock } from "./dayBlocks.ts";
 import { runGroups } from "./marks.ts";
 
@@ -54,4 +56,54 @@ export function monthRowHeights(busy: boolean[], sizes: MonthRowSizes): number[]
   if (busyCount === 0) return busy.map(() => Math.max(emptyPx, heightPx / busy.length));
   const busyPx = Math.max(minBusyPx, (heightPx - (busy.length - busyCount) * emptyPx) / busyCount);
   return busy.map((b) => (b ? busyPx : emptyPx));
+}
+
+/**
+ * The days of the adjacent months that pad the month's first and last weeks, as ranges to fetch
+ * beside the month itself. Either is null when the month starts on a Sunday or ends on a Saturday.
+ */
+export function monthEdges(month: number): { before: Range | null; after: Range | null } {
+  const weeks = monthWeeks(month);
+  const first = startOfMonth(month);
+  const next = addMonths(first, 1);
+  const gridStart = weeks[0]?.[0] ?? first;
+  const lastWeek = weeks[weeks.length - 1]?.[0] ?? first;
+  const gridEnd = addDays(lastWeek, 7);
+  return {
+    before: gridStart < first ? { from: gridStart, to: first } : null,
+    after: next < gridEnd ? { from: next, to: gridEnd } : null,
+  };
+}
+
+/**
+ * Sessions fetched for adjoining ranges, as one list. A session whose work crosses a range's edge
+ * comes back from both, and so does a block that crosses midnight; each appears once here, with
+ * the blocks of every copy.
+ */
+export function joinSessions(lists: CalendarSession[][]): CalendarSession[] {
+  const byId = new Map<string, CalendarSession>();
+  for (const session of lists.flat()) {
+    const known = byId.get(session.id);
+    byId.set(session.id, known ? withSegmentsOf(known, session) : session);
+  }
+  return [...byId.values()].sort((a, b) => a.startedAt - b.startedAt);
+}
+
+/**
+ * The month's visible sessions with the work on its padding days, or `visible` itself when the
+ * edges hold none (so memoized consumers see no change).
+ */
+export function withEdgeSessions(
+  visible: CalendarSession[],
+  edges: CalendarSession[][],
+): CalendarSession[] {
+  return edges.some((e) => e.length > 0) ? joinSessions([visible, ...edges]) : visible;
+}
+
+/** `a` with the blocks of `b` it doesn't have yet, in time order. */
+function withSegmentsOf(a: CalendarSession, b: CalendarSession): CalendarSession {
+  const starts = new Set(a.segments.map((g) => g.start));
+  const extra = b.segments.filter((g) => !starts.has(g.start));
+  if (extra.length === 0) return a;
+  return { ...a, segments: [...a.segments, ...extra].sort((x, y) => x.start - y.start) };
 }

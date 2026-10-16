@@ -5,10 +5,12 @@ import {
   type FilteredSessions,
   type PreviousPeriod,
   useFilteredSessions,
+  useMonthEdgeSessions,
   usePreviousPeriod,
   useRecapBodies,
 } from "@/hooks/usePeriodSessions.ts";
 import { rangeOf } from "@/lib/dates.ts";
+import { withEdgeSessions } from "@/lib/monthGrid.ts";
 import type { UrlState } from "@/lib/urlState.ts";
 
 /** The shown period's data, as the toolbar, the period body and the drawer need it. */
@@ -21,6 +23,11 @@ export interface PeriodData extends FilteredSessions {
   calendar: ReturnType<typeof useCalendar>;
   projects: Project[];
   projectMap: Map<number, Project>;
+  /**
+   * `visible` plus the work on the adjacent months' days that pad a month grid. The same as
+   * `visible` for other views.
+   */
+  gridSessions: CalendarSession[];
   /** Every session of the period, before hiding and filtering. */
   sessions: CalendarSession[];
   /** The period before, for the summary's comparison. null while it loads or off the summary. */
@@ -48,8 +55,19 @@ export function usePeriodData(state: UrlState): PeriodData {
     state.layout === "summary",
   );
   const recapBodies = useRecapBodies(from, to);
+  const edges = useMonthEdgeSessions(
+    state.anchor,
+    projectMap,
+    state.filter,
+    state.view === "month" && state.layout === "calendar",
+  );
+  const gridSessions = useMemo(
+    () => withEdgeSessions(filtered.visible, edges),
+    [filtered.visible, edges],
+  );
   return {
     ...filtered,
+    gridSessions,
     from,
     to,
     days,

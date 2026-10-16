@@ -1,7 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import type { CalendarSession } from "../../src/shared/api.ts";
-import { monthCellFit, monthRowHeights, splitCellBlocks } from "../../src/web/src/lib/monthGrid.ts";
-import { DAY0, H } from "./helpers.ts";
+import {
+  joinSessions,
+  monthCellFit,
+  monthEdges,
+  monthRowHeights,
+  splitCellBlocks,
+  withEdgeSessions,
+} from "../../src/web/src/lib/monthGrid.ts";
+import { at, DAY0, H, session } from "./helpers.ts";
 
 describe("splitCellBlocks", () => {
   /** A block starting at hour `h`; `headless` runs of one project seconds apart group up. */
@@ -74,5 +81,62 @@ describe("monthRowHeights", () => {
       heightPx: 300,
     });
     expect(rows).toEqual([94, 94, 94, 94, 94, 36]);
+  });
+});
+
+describe("monthEdges", () => {
+  const day = (y: number, m: number, d: number) => new Date(y, m - 1, d).getTime();
+
+  test("covers the adjacent months' days in the first and last weeks", () => {
+    // September 2026 starts on a Tuesday and ends on a Wednesday
+    expect(monthEdges(day(2026, 9, 15))).toEqual({
+      before: { from: day(2026, 8, 30), to: day(2026, 9, 1) },
+      after: { from: day(2026, 10, 1), to: day(2026, 10, 4) },
+    });
+  });
+
+  test("has no range on a side the month fills by itself", () => {
+    // February 2026 starts on a Sunday and ends on a Saturday
+    expect(monthEdges(day(2026, 2, 10))).toEqual({ before: null, after: null });
+  });
+});
+
+describe("joinSessions", () => {
+  test("keeps one copy of a session found in two ranges, with the blocks of both", () => {
+    const night = session("n", [at(-2), at(-1)], [at(23), at(25)]);
+    const inMonth = { ...night, segments: night.segments.slice(0, 1) };
+    const inEdge = { ...night, segments: night.segments.slice(1) };
+    const joined = joinSessions([[inMonth], [inEdge]]);
+    expect(joined).toHaveLength(1);
+    expect(joined[0]?.segments.map((g) => g.start)).toEqual([at(-2), at(23)]);
+  });
+
+  test("lists a block that crosses midnight once", () => {
+    const crossing = session("c", [at(23), at(25)]);
+    expect(joinSessions([[crossing], [crossing]])[0]?.segments).toHaveLength(1);
+  });
+
+  test("orders sessions by start across the ranges", () => {
+    const early = session("early", [at(-30), at(-29)]);
+    const late = session("late", [at(30), at(31)]);
+    const mid = session("mid", [at(1), at(2)]);
+    expect(joinSessions([[mid], [early], [late]]).map((s) => s.id)).toEqual([
+      "early",
+      "mid",
+      "late",
+    ]);
+  });
+});
+
+describe("withEdgeSessions", () => {
+  test("hands back the month's own list when the edges hold no work", () => {
+    const visible = [session("a", [at(1), at(2)])];
+    expect(withEdgeSessions(visible, [[], []])).toBe(visible);
+  });
+
+  test("adds the edges' work otherwise", () => {
+    const visible = [session("a", [at(1), at(2)])];
+    const edge = session("b", [at(30), at(31)]);
+    expect(withEdgeSessions(visible, [[], [edge]]).map((s) => s.id)).toEqual(["a", "b"]);
   });
 });

@@ -27,9 +27,17 @@ export const CELL_LINE_PX = 22;
  * work lines below (and "+n more" when those run out) rather than being clipped out of sight.
  */
 const MAX_MARKS = 6;
+/**
+ * Work on a day of the adjacent months: as muted as the day's date, but still there to click. Set
+ * per block rather than on the list, so it doesn't stack with the filter's fade or fade the
+ * selection's outline.
+ */
+const OUTSIDE = "opacity-60";
 
 /** What a cell needs to draw a block and react to it. */
 interface CellContext {
+  /** The cell is a day of the adjacent months: its work is dimmed like its date. */
+  outside: boolean;
   projects: Map<number, Project>;
   selectedId: string | null;
   selectedAt: number | null;
@@ -40,11 +48,11 @@ interface CellContext {
 /**
  * One day of the month view: the date (opens the day) with the day's short work as marks and its
  * working time, then its work as one line each in time order, as many as `slots` allows. Days of
- * the adjacent months are drawn empty and muted; the month is what was fetched.
+ * the adjacent months show their work too, at 60% like their date: work late on the 31st often
+ * runs on into the 1st, and a blank cell there reads as a day without work.
  */
 export function MonthCell({
   day,
-  outside,
   today,
   blocks,
   slots,
@@ -52,8 +60,6 @@ export function MonthCell({
   ...context
 }: CellContext & {
   day: number;
-  /** A day of the previous or next month, padding the first or last week. */
-  outside: boolean;
   today: boolean;
   blocks: PlacedBlock[];
   /** Work lines that fit under the date line. */
@@ -75,7 +81,12 @@ export function MonthCell({
       )}
     >
       <div className="flex shrink-0 items-center gap-1.5 px-1" style={{ height: CELL_HEAD_PX }}>
-        <DateButton day={day} outside={outside} today={today} onOpen={() => onOpenDay(day)} />
+        <DateButton
+          day={day}
+          outside={context.outside}
+          today={today}
+          onOpen={() => onOpenDay(day)}
+        />
         <span className="flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden">
           {shownMarks.map((runs) => (
             <CellMark key={`${runs[0]?.session.id}-${runs[0]?.start}`} runs={runs} {...context} />
@@ -196,6 +207,7 @@ function CellLine({ block, ...c }: CellContext & { block: PlacedBlock }) {
             "focus-visible:outline-2 focus-visible:outline-ring",
             selected && "font-medium text-foreground outline-2 outline-primary",
             faded && !selected && FADED.line,
+            c.outside && !selected && !faded && OUTSIDE,
           )}
           style={
             { "--c": projectColor(project), borderLeftColor: "var(--c)" } as React.CSSProperties
@@ -219,6 +231,8 @@ function CellMark({ runs, ...c }: CellContext & { runs: PlacedBlock[] }) {
     0,
     states.findIndex((s) => !s.faded),
   );
+  const selected = states.some((s) => s.selected);
+  const faded = states.every((s) => s.faded);
   return (
     <Mark
       runs={runs}
@@ -226,10 +240,11 @@ function CellMark({ runs, ...c }: CellContext & { runs: PlacedBlock[] }) {
       hourPx={MIN_HOUR_PX}
       lead={runs[leadIndex] ?? first}
       project={states[0]?.project}
-      selected={states.some((s) => s.selected)}
-      faded={states.every((s) => s.faded)}
+      selected={selected}
+      faded={faded}
       dim={states[leadIndex]?.dim ?? false}
       onSelect={c.onSelect}
+      className={cn(c.outside && !selected && !faded && OUTSIDE)}
     />
   );
 }

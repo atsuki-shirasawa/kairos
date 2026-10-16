@@ -76,5 +76,9 @@ export function PeriodBody({
         tabs={summaryTabs}
       />
     );
-  return state.view === "month" ? <MonthGrid {...body} /> : <CalendarGrid {...body} />;
+  return state.view === "month" ? (
+    <MonthGrid {...body} sessions={data.gridSessions} />
+  ) : (
+    <CalendarGrid {...body} />
+  );
 }

@@ -23,8 +23,14 @@ export function periodStart(view: View, anchor: number): number {
   return startOfDay(anchor);
 }
 
+/** A half-open range [from, to) in epoch ms. */
+export interface Range {
+  from: number;
+  to: number;
+}
+
 /** The displayed period [from, to) and the midnight of each day in it. */
-export function rangeOf(view: View, anchor: number): { from: number; to: number; days: number[] } {
+export function rangeOf(view: View, anchor: number): Range & { days: number[] } {
   const from = periodStart(view, anchor);
   const to = view === "month" ? addMonths(from, 1) : addDays(from, view === "week" ? 7 : 1);
   const days: number[] = [];

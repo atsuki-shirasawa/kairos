@@ -12,6 +12,7 @@ import {
   searchQuery,
   segmentMatcher,
 } from "@/lib/filter.ts";
+import { monthEdges } from "@/lib/monthGrid.ts";
 import { hideSessions, withProjects } from "@/lib/projectVisibility.ts";
 import type { View } from "@/lib/view.ts";
 
@@ -96,5 +97,28 @@ export function useRecapBodies(from: number, to: number): Map<number, string> {
   return useMemo(
     () => new Map((recaps ?? []).flatMap((r) => (r.body ? [[r.projectId, r.body]] : []))),
     [recaps],
+  );
+}
+
+/**
+ * Work on the adjacent months' days that pad the month grid's first and last weeks, hidden the
+ * same way as the month's. Fetched only when `enabled` (the month calendar is the only view that
+ * shows those days); empty otherwise.
+ */
+export function useMonthEdgeSessions(
+  anchor: number,
+  projects: Map<number, Project>,
+  filter: Filter,
+  enabled: boolean,
+): CalendarSession[][] {
+  const { before, after } = useMemo(() => monthEdges(anchor), [anchor]);
+  const head = useCalendar(before?.from ?? 0, before?.to ?? 0, enabled && before !== null);
+  const tail = useCalendar(after?.from ?? 0, after?.to ?? 0, enabled && after !== null);
+  // Placeholder data would show the previous month's edges on this month's padding days
+  const headSessions = enabled && !head.isPlaceholderData ? head.data?.sessions : undefined;
+  const tailSessions = enabled && !tail.isPlaceholderData ? tail.data?.sessions : undefined;
+  return useMemo(
+    () => [headSessions ?? [], tailSessions ?? []].map((s) => hideSessions(s, projects, filter)),
+    [headSessions, tailSessions, projects, filter],
   );
 }

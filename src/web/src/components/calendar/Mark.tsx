@@ -32,6 +32,7 @@ export function Mark({
   faded,
   dim,
   onSelect,
+  className,
 }: {
   /** The block it stands for, or every run of a burst in time order (never empty). */
   runs: PlacedBlock[];
@@ -45,6 +46,8 @@ export function Mark({
   faded: boolean;
   dim: boolean;
   onSelect: (id: string, at: number) => void;
+  /** Classes for a state the caller adds, such as a month cell's adjacent-month dim. */
+  className?: string;
 }) {
   const first = runs[0];
   if (!first) return null;
@@ -70,6 +73,7 @@ export function Mark({
             top === null ? "shrink-0" : "absolute left-0.5 z-[1] -translate-y-1/2",
             selected && "outline-2 outline-primary outline-offset-1",
             faded && !selected && "opacity-30 hover:opacity-100 focus-visible:opacity-100",
+            className,
           )}
           style={{ top: top ?? undefined, "--c": projectColor(project) } as React.CSSProperties}
         >

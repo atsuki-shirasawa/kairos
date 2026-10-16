@@ -20,9 +20,10 @@ const EMPTY_ROW_PX = CELL_HEAD_PX + 8;
 export function MonthGrid({ days, sessions, now, onOpenDay, ...context }: PeriodBodyProps) {
   const month = days[0] ?? now;
   const weeks = useMemo(() => monthWeeks(month), [month]);
+  // Every day on the grid, the adjacent months' padding days included
   const blocks = useMemo(
-    () => new Map<number, PlacedBlock[]>(days.map((d) => [d, layoutDay(sessions, d)])),
-    [days, sessions],
+    () => new Map<number, PlacedBlock[]>(weeks.flat().map((d) => [d, layoutDay(sessions, d)])),
+    [weeks, sessions],
   );
   const bodyRef = useRef<HTMLDivElement>(null);
   const heightPx = useElementHeight(bodyRef);

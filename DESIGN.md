@@ -246,7 +246,7 @@ A work block's fill is the project color mixed into `block-base` in `oklch`:
   badges too small for 11px
 - **Two tones:** `ink` and `muted-ink`. Don't step between them with `text-foreground/80` and the
   like; if something needs to stand out from muted text, set it in `ink`. `muted-ink` at 60% is
-  kept for what is absent (days outside the month, "—" in empty cells). Tooltips invert the theme,
+  kept for what is absent (the dates of days outside the month, "—" in empty cells). Tooltips invert the theme,
   so there the second tone is 70% opacity. Opacity for states (loading, disabled, faded blocks) is
   not a text tone and is separate
 
@@ -280,7 +280,10 @@ A work block's fill is the project color mixed into `block-base` in `oklch`:
 - **Weeks start on Sunday**, as on a wall calendar, in the week view, the month view and the date
   picker. Week numbers stay ISO, taken from the week's Monday (the six days Monday–Saturday share one)
 - **Month view** is a Sunday-first grid of the month's weeks (padded with the adjacent months'
-  days, drawn empty with their dates at 60% `muted-ink`). Time of day doesn't fit there, so each
+  days, their dates at 60% `muted-ink`; their work is shown too, dimmed to 60% as a state opacity
+  that doesn't stack: a block already faded by the filter keeps its own fade, and a selected one
+  stays at full strength. Work late on the 31st often runs into the 1st, and a blank cell there
+  would read as a day without work). Time of day doesn't fit there, so each
   block is a 20px line in time order: the block's 3px project edge and fill (dim when
   unsummarized, by the Work block rule below), its heading on one line, and a node at the end when it made commits (filled for a
   PR). The date line holds the date (circled in indigo on today; opens the day), up to six marks
