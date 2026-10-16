@@ -3,6 +3,7 @@ import type { ImportProgress } from "@/hooks/useLiveUpdates.ts";
 import type { Theme } from "@/hooks/useTheme.ts";
 import { liveMessages } from "@/i18n/messages/live.ts";
 import type { Filter } from "@/lib/filter.ts";
+import { LAYOUTS } from "@/lib/layouts.ts";
 import type { Layout, View } from "@/lib/view.ts";
 import { DatePicker } from "./DatePicker.tsx";
 import { FilterMenu } from "./FilterMenu.tsx";
@@ -93,6 +94,7 @@ export function Toolbar({
   menu,
 }: Props) {
   const { view } = period;
+  const { hasPeriod, lit } = LAYOUTS[layout];
   return (
     // Below lg (a half-screen or small laptop window; the full bar needs ~940px with a two-month
     // week label) the bar tightens instead of overflowing: the wordmark goes and search shrinks to
@@ -101,7 +103,7 @@ export function Toolbar({
       <Brand progress={progress} />
       <span className="w-3 shrink-0 max-lg:hidden" aria-hidden />
       {/* The live page shows the present, so it has no period to move through or pick */}
-      {layout === "live" ? (
+      {!hasPeriod ? (
         <h1 className="min-w-0 truncate font-semibold text-[17px] tracking-tight">
           {liveMessages().heading}
         </h1>
@@ -122,7 +124,7 @@ export function Toolbar({
 
       <div className="ml-auto flex shrink-0 items-center gap-2 max-lg:gap-1">
         {/* Search narrows the shown period, which the live page doesn't have */}
-        {layout !== "live" && (
+        {hasPeriod && (
           <SearchField
             inputRef={search.ref}
             value={filter.value.q}
@@ -136,11 +138,11 @@ export function Toolbar({
             onPanel={search.onPanel}
           />
         )}
-        {layout !== "live" && <ViewToggle view={view} onView={period.onView} />}
-        <LayoutToggle layout={layout} onLayout={onLayout} />
-        <LiveButton live={live} active={layout === "live"} onOpen={() => onLayout("live")} />
+        {hasPeriod && <ViewToggle view={view} onView={period.onView} />}
+        <LayoutToggle lit={lit} onLayout={onLayout} />
+        <LiveButton live={live} active={lit === "live"} onOpen={() => onLayout("live")} />
         <span className="w-2 shrink-0 max-lg:hidden" aria-hidden />
-        {layout !== "live" && (
+        {hasPeriod && (
           <>
             <CopyReportButton view={view} report={report.build} hasWork={report.hasWork} />
             <FilterMenu

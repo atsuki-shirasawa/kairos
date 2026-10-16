@@ -61,7 +61,7 @@ describe("serializeUrlState", () => {
     expect(
       serialize({
         view: "day",
-        layout: "list",
+        layout: "table",
         anchor: new Date(2026, 9, 1).getTime(),
         session: "abc",
         at: 42,

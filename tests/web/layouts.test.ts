@@ -1,0 +1,69 @@
+import { describe, expect, test } from "bun:test";
+import { LAYOUTS, layoutOfParam, layoutOfShortcut } from "../../src/web/src/lib/layouts.ts";
+import type { Layout, View } from "../../src/web/src/lib/view.ts";
+
+describe("drawerOverlay", () => {
+  test.each([
+    ["calendar", "month", true],
+    ["calendar", "week", true],
+    ["calendar", "day", false],
+    ["live", "day", true],
+    ["live", "week", true],
+    ["table", "week", false],
+    ["summary", "month", false],
+  ] as [Layout, View, boolean][])("%s / %s → %p", (layout, view, expected) => {
+    expect(LAYOUTS[layout].drawerOverlay(view)).toBe(expected);
+  });
+});
+
+describe("stepping", () => {
+  test("steps through blocks everywhere but the live page", () => {
+    expect(LAYOUTS.calendar.stepping.blocks).toBe(true);
+    expect(LAYOUTS.table.stepping.blocks).toBe(true);
+    expect(LAYOUTS.summary.stepping.blocks).toBe(true);
+    expect(LAYOUTS.live.stepping.blocks).toBe(false);
+  });
+
+  test("steps through a burst of runs only on the calendar", () => {
+    expect(LAYOUTS.calendar.stepping.runs).toBe(true);
+    expect(LAYOUTS.table.stepping.runs).toBe(false);
+    expect(LAYOUTS.summary.stepping.runs).toBe(false);
+    expect(LAYOUTS.live.stepping.runs).toBe(false);
+  });
+});
+
+describe("layoutOfParam", () => {
+  test("reads each layout's URL value, the table under its old name", () => {
+    expect(layoutOfParam("summary")).toBe("summary");
+    expect(layoutOfParam("list")).toBe("table");
+    expect(layoutOfParam("live")).toBe("live");
+  });
+
+  test("anything else is the calendar", () => {
+    for (const v of [null, "", "calendar", "table", "grid"])
+      expect(layoutOfParam(v)).toBe("calendar");
+  });
+
+  test("every layout round-trips through its URL value", () => {
+    for (const [layout, { param }] of Object.entries(LAYOUTS))
+      expect(layoutOfParam(param)).toBe(layout as Layout);
+  });
+});
+
+describe("layoutOfShortcut", () => {
+  test("maps each layout's key to it, and other shortcuts to none", () => {
+    expect(layoutOfShortcut("calendar")).toBe("calendar");
+    expect(layoutOfShortcut("summary")).toBe("summary");
+    expect(layoutOfShortcut("table")).toBe("table");
+    expect(layoutOfShortcut("live")).toBe("live");
+    expect(layoutOfShortcut("week")).toBeNull();
+  });
+});
+
+test("only the live page has no period", () => {
+  expect(
+    Object.entries(LAYOUTS)
+      .filter(([, t]) => !t.hasPeriod)
+      .map(([l]) => l),
+  ).toEqual(["live"]);
+});

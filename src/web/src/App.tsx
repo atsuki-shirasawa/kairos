@@ -1,7 +1,7 @@
 import { startOfDay } from "@shared/dates.ts";
 import { useCallback, useRef, useState } from "react";
+import { LayoutBody } from "@/components/app/LayoutBody.tsx";
 import { PeriodNotices } from "@/components/app/Notices.tsx";
-import { PeriodBody } from "@/components/app/PeriodBody.tsx";
 import { FilterChips } from "@/components/filter/FilterChips.tsx";
 import { SessionDrawer } from "@/components/SessionDrawer.tsx";
 import { Toolbar } from "@/components/Toolbar.tsx";
@@ -17,13 +17,14 @@ import { useTheme } from "@/hooks/useTheme.ts";
 import { useUrlState } from "@/hooks/useUrlState.ts";
 import { useLocale } from "@/i18n/index.ts";
 import { shift } from "@/lib/dates.ts";
-import { drawerOverlay, drawerStepping } from "@/lib/drawerPlacement.ts";
 import type { Filter } from "@/lib/filter.ts";
+import { LAYOUTS } from "@/lib/layouts.ts";
 import { buildReport } from "@/lib/report.ts";
 
 /**
- * Root component: owns the URL-synced view state and wires the toolbar, the period body
- * (calendar, summary or table) and the session drawer together, plus the global shortcuts.
+ * Root component: owns the URL-synced view state and wires the toolbar, the layout's body
+ * (calendar, summary, table or the live page) and the session drawer together, plus the global
+ * shortcuts.
  */
 export function App() {
   const [theme, setTheme] = useTheme();
@@ -63,7 +64,8 @@ export function App() {
     focusSearch: () => searchRef.current?.focus(),
   });
 
-  const stepping = drawerStepping(state.layout);
+  const layout = LAYOUTS[state.layout];
+  const { stepping } = layout;
 
   return (
     <div className="flex h-full flex-col">
@@ -106,10 +108,10 @@ export function App() {
         }}
         menu={{ open: menuOpen, onOpenChange: setMenuOpen, theme, onTheme: setTheme }}
       />
-      {state.layout !== "live" && <FilterChips filter={state.filter} onFilter={setFilter} />}
+      {layout.hasPeriod && <FilterChips filter={state.filter} onFilter={setFilter} />}
       <div className="relative flex min-h-0 flex-1">
         <main className="relative flex min-w-0 flex-1 flex-col">
-          <PeriodBody state={state} update={update} data={data} live={live} now={now} />
+          <LayoutBody state={state} update={update} data={data} live={live} now={now} />
           <PeriodNotices
             state={state}
             data={data}
@@ -129,7 +131,7 @@ export function App() {
             onNext={next && stepping.blocks ? () => goTo(next) : null}
             run={stepping.runs ? run : null}
             onRun={goTo}
-            overlay={drawerOverlay(state.layout, state.view)}
+            overlay={layout.drawerOverlay(state.view)}
           />
         )}
       </div>

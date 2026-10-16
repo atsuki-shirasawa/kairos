@@ -5,6 +5,7 @@ import { DAY_VIEW, readSessionTarget, UI_PARAMS, writeSessionTarget } from "@sha
 import { fromISODate, periodStart } from "./dates.ts";
 import type { Filter } from "./filter.ts";
 import { readFilter, writeFilter } from "./filterUrl.ts";
+import { LAYOUTS, layoutOfParam } from "./layouts.ts";
 import type { ListSort } from "./listTable.ts";
 import type { Layout, View } from "./view.ts";
 
@@ -40,16 +41,11 @@ function readView(v: string | null): View {
   return v === "month" || v === DAY_VIEW ? v : "week";
 }
 
-/** How the period is drawn; anything unknown is the calendar. */
-function readLayout(v: string | null): Layout {
-  return v === "list" || v === "summary" || v === "live" ? v : "calendar";
-}
-
 /** Reads the view state from URL parameters. A missing or invalid date means today (from `now`). */
 export function parseUrlState(q: URLSearchParams, now: number): UrlState {
   return {
     view: readView(q.get(UI_PARAMS.view)),
-    layout: readLayout(q.get(PARAMS.layout)),
+    layout: layoutOfParam(q.get(PARAMS.layout)),
     anchor: fromISODate(q.get(UI_PARAMS.date)) ?? startOfDay(now),
     ...readSessionTarget(q),
     sort: readSort(q.get(PARAMS.sort)),
@@ -64,7 +60,8 @@ export function parseUrlState(q: URLSearchParams, now: number): UrlState {
 export function serializeUrlState(s: UrlState, now: number): URLSearchParams {
   const q = new URLSearchParams();
   if (s.view !== "week") q.set(UI_PARAMS.view, s.view);
-  if (s.layout !== "calendar") q.set(PARAMS.layout, s.layout);
+  const layout = LAYOUTS[s.layout].param;
+  if (layout !== null) q.set(PARAMS.layout, layout);
   if (startOfDay(s.anchor) !== startOfDay(now)) q.set(UI_PARAMS.date, isoDay(s.anchor));
   writeSessionTarget(s, q);
   if (s.sort.key !== "start") q.set(PARAMS.sort, `${s.sort.desc ? "-" : ""}${s.sort.key}`);

@@ -1,6 +1,7 @@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import type { PreviousPeriod } from "@/hooks/usePeriodSessions.ts";
 import { summaryMessages } from "@/i18n/messages/summary.ts";
+import { LAYOUTS } from "@/lib/layouts.ts";
 import type { PeriodBodyProps } from "@/lib/periodBody.ts";
 import { keyCap } from "@/lib/shortcuts.ts";
 import type { View } from "@/lib/view.ts";
@@ -123,11 +124,15 @@ export function SummaryTabs({
       <ToggleGroupItem
         value="overview"
         className={SEGMENT}
-        title={`${m.overview} (${keyCap("summary")})`}
+        title={`${m.overview} (${keyCap(LAYOUTS.summary.shortcut)})`}
       >
         {m.overview}
       </ToggleGroupItem>
-      <ToggleGroupItem value="table" className={SEGMENT} title={`${m.table} (${keyCap("list")})`}>
+      <ToggleGroupItem
+        value="table"
+        className={SEGMENT}
+        title={`${m.table} (${keyCap(LAYOUTS.table.shortcut)})`}
+      >
         {m.table}
       </ToggleGroupItem>
     </ToggleGroup>

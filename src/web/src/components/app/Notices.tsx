@@ -7,6 +7,7 @@ import type { UrlStateUpdate } from "@/hooks/useUrlState.ts";
 import { appMessages } from "@/i18n/messages/app.tsx";
 import { dateLabel } from "@/lib/dates.ts";
 import { type Filter, isFocused, withoutConditions } from "@/lib/filter.ts";
+import { LAYOUTS } from "@/lib/layouts.ts";
 import { hiddenReason } from "@/lib/projectVisibility.ts";
 import type { UrlState } from "@/lib/urlState.ts";
 import type { View } from "@/lib/view.ts";
@@ -37,11 +38,11 @@ export function PeriodNotices({
 }) {
   const m = appMessages();
   const { calendar, visible, focused } = data;
-  const isLive = state.layout === "live";
+  const { hasPeriod } = LAYOUTS[state.layout];
   return (
     <>
       {calendar.isError && <Notice>{m.disconnected(<code>kairos ensure</code>)}</Notice>}
-      {!isLive && calendar.isSuccess && visible.length === 0 && (
+      {hasPeriod && calendar.isSuccess && visible.length === 0 && (
         <EmptyNotice
           period={state.view}
           progress={progress}
@@ -51,7 +52,7 @@ export function PeriodNotices({
           onJump={(t) => update({ anchor: startOfDay(t) })}
         />
       )}
-      {!isLive &&
+      {hasPeriod &&
         visible.length > 0 &&
         focused.length === 0 &&
         isFocused(state.filter) &&

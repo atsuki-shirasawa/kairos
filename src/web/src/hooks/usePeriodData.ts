@@ -10,6 +10,7 @@ import {
   useRecapBodies,
 } from "@/hooks/usePeriodSessions.ts";
 import { rangeOf } from "@/lib/dates.ts";
+import { LAYOUTS } from "@/lib/layouts.ts";
 import { withEdgeSessions } from "@/lib/monthGrid.ts";
 import type { UrlState } from "@/lib/urlState.ts";
 
@@ -38,6 +39,7 @@ export interface PeriodData extends FilteredSessions {
 
 /** Fetches the period the URL state shows and derives what each part of the screen draws. */
 export function usePeriodData(state: UrlState): PeriodData {
+  const layout = LAYOUTS[state.layout];
   const { from, to, days } = useMemo(
     () => rangeOf(state.view, state.anchor),
     [state.view, state.anchor],
@@ -52,14 +54,14 @@ export function usePeriodData(state: UrlState): PeriodData {
     state.anchor,
     projectMap,
     state.filter,
-    state.layout === "summary",
+    layout.comparesPrevious,
   );
   const recapBodies = useRecapBodies(from, to);
   const edges = useMonthEdgeSessions(
     state.anchor,
     projectMap,
     state.filter,
-    state.view === "month" && state.layout === "calendar",
+    state.view === "month" && layout.padsMonth,
   );
   const gridSessions = useMemo(
     () => withEdgeSessions(filtered.visible, edges),

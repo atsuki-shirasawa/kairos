@@ -6,7 +6,7 @@ describe("keyCap", () => {
     expect(keyCap("prevPeriod")).toBe("←");
     expect(keyCap("nextPeriod")).toBe("→");
     expect(keyCap("today")).toBe("t");
-    expect(keyCap("list")).toBe("l");
+    expect(keyCap("table")).toBe("l");
     expect(keyCap("search")).toBe("/");
     expect(keyCap("close")).toBe("Esc");
     expect(keyCap("menu")).toBe("?");

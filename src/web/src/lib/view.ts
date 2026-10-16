@@ -4,7 +4,7 @@
 export type View = "month" | "week" | "day";
 
 /**
- * `list` is the summary's table tab (kept under its old name so existing URLs still open it).
- * `live` is the page of sessions running now, which has no period.
+ * How the main area draws: the calendar, the summary, its table tab, or the page of sessions
+ * running now (which has no period). What sets each apart is in `layouts.ts`.
  */
-export type Layout = "calendar" | "list" | "summary" | "live";
+export type Layout = "calendar" | "summary" | "table" | "live";

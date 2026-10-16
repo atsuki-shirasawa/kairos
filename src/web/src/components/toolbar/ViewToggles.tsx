@@ -1,4 +1,4 @@
-import { CalendarDays, ChartColumn } from "lucide-react";
+import { CalendarDays, ChartColumn, type LucideIcon } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/select.tsx";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import { toolbarMessages } from "@/i18n/messages/toolbar.ts";
+import { LAYOUT_IDS, LAYOUTS } from "@/lib/layouts.ts";
 import { keyCap } from "@/lib/shortcuts.ts";
 import type { Layout, View } from "@/lib/view.ts";
 import { SEGMENT, SEGMENTED } from "./segmented.ts";
@@ -54,12 +55,30 @@ export function ViewToggle({ view, onView }: { view: View; onView: (view: View) 
   );
 }
 
-/** Switches the main area between the calendar and the summary. */
+/** How a layout's segment looks: its icon, and its name read from the toolbar's messages. */
+interface SegmentLook {
+  Icon: LucideIcon;
+  label: (m: ReturnType<typeof toolbarMessages>) => string;
+}
+
+/**
+ * The toggle's segments, one per layout that has one: the table is a tab of the summary, and the
+ * live page has its own button. Every layout is listed, so a new one has to choose.
+ */
+const SEGMENTS: Record<Layout, SegmentLook | null> = {
+  calendar: { Icon: CalendarDays, label: (m) => m.calendar },
+  summary: { Icon: ChartColumn, label: (m) => m.summary },
+  table: null,
+  live: null,
+};
+
+/** Switches the main area between the layouts that have a segment (the calendar and the summary). */
 export function LayoutToggle({
-  layout,
+  lit,
   onLayout,
 }: {
-  layout: Layout;
+  /** The layout whose control the shown one lights (see `LAYOUTS`). */
+  lit: Layout;
   onLayout: (layout: Layout) => void;
 }) {
   const m = toolbarMessages();
@@ -68,29 +87,31 @@ export function LayoutToggle({
       type="single"
       size="sm"
       spacing={0.5}
-      // The table is a tab of the summary, so it lights the summary button. On the live page
-      // neither is lit; its own button is
-      value={layout === "list" ? "summary" : layout === "live" ? "" : layout}
-      onValueChange={(v) => v && onLayout(v as Layout)}
+      // A layout lit elsewhere (the live page lights its own button) leaves every segment off
+      value={SEGMENTS[lit] ? lit : ""}
+      onValueChange={(v) => {
+        const layout = LAYOUT_IDS.find((l) => l === v);
+        if (layout) onLayout(layout);
+      }}
       aria-label={m.layoutToggle}
       className={`shrink-0 ${SEGMENTED}`}
     >
-      <ToggleGroupItem
-        value="calendar"
-        className={SEGMENT}
-        aria-label={m.calendar}
-        title={`${m.calendar} (${keyCap("calendar")})`}
-      >
-        <CalendarDays />
-      </ToggleGroupItem>
-      <ToggleGroupItem
-        value="summary"
-        className={SEGMENT}
-        aria-label={m.summary}
-        title={`${m.summary} (${keyCap("summary")})`}
-      >
-        <ChartColumn />
-      </ToggleGroupItem>
+      {LAYOUT_IDS.map((layout) => {
+        const look = SEGMENTS[layout];
+        if (!look) return null;
+        const label = look.label(m);
+        return (
+          <ToggleGroupItem
+            key={layout}
+            value={layout}
+            className={SEGMENT}
+            aria-label={label}
+            title={`${label} (${keyCap(LAYOUTS[layout].shortcut)})`}
+          >
+            <look.Icon />
+          </ToggleGroupItem>
+        );
+      })}
     </ToggleGroup>
   );
 }

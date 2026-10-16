@@ -5,6 +5,7 @@ import { useEffect, useEffectEvent } from "react";
 import type { BlockStepping } from "@/hooks/useBlockNavigation.ts";
 import type { UrlStateUpdate } from "@/hooks/useUrlState.ts";
 import { shift } from "@/lib/dates.ts";
+import { DEFAULT_LAYOUT, LAYOUTS, layoutOfShortcut } from "@/lib/layouts.ts";
 import { type Shortcut, shortcutFor } from "@/lib/shortcuts.ts";
 import type { UrlState } from "@/lib/urlState.ts";
 
@@ -54,13 +55,18 @@ const PERIODLESS_IGNORED: ReadonlySet<Shortcut> = new Set([
 /** Runs a shortcut. Returns false when it doesn't apply now, so the key press passes through. */
 function run(shortcut: Shortcut, t: ShortcutTargets): boolean {
   const { state, update } = t;
-  // The live page has no period: moving through periods or stepping through their blocks would
-  // change a calendar nobody sees, so those keys pass through, and picking a period goes back to
-  // the calendar with it
-  if (state.layout === "live") {
+  const layout = layoutOfShortcut(shortcut);
+  if (layout) {
+    update({ layout });
+    return true;
+  }
+  // A layout without a period (the live page): moving through periods or stepping through their
+  // blocks would change a calendar nobody sees, so those keys pass through, and picking a period
+  // goes back to the calendar with it
+  if (!LAYOUTS[state.layout].hasPeriod) {
     if (PERIODLESS_IGNORED.has(shortcut)) return false;
     if (shortcut === "month" || shortcut === "week" || shortcut === "day") {
-      update({ layout: "calendar", view: shortcut });
+      update({ layout: DEFAULT_LAYOUT, view: shortcut });
       return true;
     }
   }
@@ -82,18 +88,6 @@ function run(shortcut: Shortcut, t: ShortcutTargets): boolean {
       break;
     case "day":
       update({ view: "day" });
-      break;
-    case "calendar":
-      update({ layout: "calendar" });
-      break;
-    case "list":
-      update({ layout: "list" });
-      break;
-    case "summary":
-      update({ layout: "summary" });
-      break;
-    case "live":
-      update({ layout: "live" });
       break;
     case "nextBlock":
       t.goTo(t.next);
