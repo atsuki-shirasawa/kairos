@@ -51,16 +51,3 @@ export function hiddenReason(
   if (sessions.length === 0) return null;
   return hideSessions(sessions, projects, NO_FILTER).length === 0 ? "project" : "brief";
 }
-
-/**
- * `projects` plus those in `extra` it doesn't know yet. Sessions from another period may belong to
- * projects not seen in this one, and those still need their hidden flag.
- */
-export function withProjects(
-  projects: Map<number, Project>,
-  extra: Project[],
-): Map<number, Project> {
-  const all = new Map(projects);
-  for (const p of extra) if (!all.has(p.id)) all.set(p.id, p);
-  return all;
-}

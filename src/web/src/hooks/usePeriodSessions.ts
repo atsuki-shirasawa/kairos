@@ -13,7 +13,7 @@ import {
   segmentMatcher,
 } from "@/lib/filter.ts";
 import { monthEdges } from "@/lib/monthGrid.ts";
-import { hideSessions, withProjects } from "@/lib/projectVisibility.ts";
+import { hideSessions } from "@/lib/projectVisibility.ts";
 import type { View } from "@/lib/view.ts";
 
 /** The period's sessions as each part of the screen needs them. */
@@ -28,20 +28,30 @@ export interface FilteredSessions {
   search: ReturnType<typeof useSearch>;
 }
 
+/** What `useFilteredSessions` filters, and whether the server search may run for it. */
+export interface FilterInput {
+  sessions: CalendarSession[] | undefined;
+  projects: Map<number, Project>;
+  filter: Filter;
+  /** Only a page with a period has the search field; elsewhere the keyword isn't searched. */
+  searchable: boolean;
+}
+
 /**
  * Applies hiding and the filter to the period's sessions. The keyword also matches blocks the
  * server found in text the calendar doesn't hold (summary body, prompts, PRs...).
  */
-export function useFilteredSessions(
-  sessions: CalendarSession[] | undefined,
-  projects: Map<number, Project>,
-  filter: Filter,
-): FilteredSessions {
+export function useFilteredSessions({
+  sessions,
+  projects,
+  filter,
+  searchable,
+}: FilterInput): FilteredSessions {
   const visible = useMemo(
     () => hideSessions(sessions ?? [], projects, filter),
     [sessions, projects, filter],
   );
-  const search = useSearch(searchQuery(filter));
+  const search = useSearch(searchQuery(filter), searchable);
   const hitKeys = useMemo(
     () =>
       new Set(
@@ -83,17 +93,16 @@ export function usePreviousPeriod(
       : null;
   return useMemo(() => {
     if (!data) return null;
-    const all = withProjects(projects, data.projects);
-    return { days: before.days, sessions: hideSessions(data.sessions, all, filter) };
+    return { days: before.days, sessions: hideSessions(data.sessions, projects, filter) };
   }, [data, projects, before.days, filter]);
 }
 
 /**
- * Written recap bodies by project ID for the period. Wanted in the copied report from any layout,
- * so always fetched (shared with the summary view's query).
+ * Written recap bodies by project ID for the period. Wanted in the copied report from any layout
+ * with a period, so fetched whenever `enabled` (shared with the summary view's query).
  */
-export function useRecapBodies(from: number, to: number): Map<number, string> {
-  const recaps = useRecaps(from, to, true).data?.recaps;
+export function useRecapBodies(from: number, to: number, enabled: boolean): Map<number, string> {
+  const recaps = useRecaps(from, to, enabled).data?.recaps;
   return useMemo(
     () => new Map((recaps ?? []).flatMap((r) => (r.body ? [[r.projectId, r.body]] : []))),
     [recaps],

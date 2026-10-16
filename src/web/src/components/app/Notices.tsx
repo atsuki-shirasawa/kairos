@@ -41,8 +41,8 @@ export function PeriodNotices({
   const { hasPeriod } = LAYOUTS[state.layout];
   return (
     <>
-      {calendar.isError && <Notice>{m.disconnected(<code>kairos ensure</code>)}</Notice>}
-      {hasPeriod && calendar.isSuccess && visible.length === 0 && (
+      {data.disconnected && <Notice>{m.disconnected(<code>kairos ensure</code>)}</Notice>}
+      {hasPeriod && data.loaded && calendar.data && visible.length === 0 && (
         <EmptyNotice
           period={state.view}
           progress={progress}

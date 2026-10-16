@@ -1,6 +1,6 @@
 import type { CalendarSession, Project } from "@shared/api.ts";
 import { useMemo } from "react";
-import { useCalendar } from "@/hooks/queries.ts";
+import { useCalendar, useProjects } from "@/hooks/queries.ts";
 import {
   type FilteredSessions,
   type PreviousPeriod,
@@ -22,6 +22,13 @@ export interface PeriodData extends FilteredSessions {
   days: number[];
   /** The period's query, for its loading and error state and the nearest days with work. */
   calendar: ReturnType<typeof useCalendar>;
+  /** Whether the server stopped answering (the period's or the projects' request failed). */
+  disconnected: boolean;
+  /**
+   * Whether the period and the projects have both arrived. Until then the period's work is held
+   * back: a session of a hidden project would show until its project said it was hidden.
+   */
+  loaded: boolean;
   projects: Project[];
   projectMap: Map<number, Project>;
   /**
@@ -37,31 +44,42 @@ export interface PeriodData extends FilteredSessions {
   recapBodies: Map<number, string>;
 }
 
-/** Fetches the period the URL state shows and derives what each part of the screen draws. */
+/**
+ * Fetches the period the URL state shows and derives what each part of the screen draws. A layout
+ * without a period fetches only the projects, which every page colors and names its work by.
+ */
 export function usePeriodData(state: UrlState): PeriodData {
   const layout = LAYOUTS[state.layout];
   const { from, to, days } = useMemo(
     () => rangeOf(state.view, state.anchor),
     [state.view, state.anchor],
   );
-  const calendar = useCalendar(from, to);
-  const projects = calendar.data?.projects ?? [];
+  const calendar = useCalendar(from, to, layout.hasPeriod);
+  const projectsQuery = useProjects();
+  const projects = useMemo(() => projectsQuery.data ?? [], [projectsQuery.data]);
   const projectMap = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
-  const sessions = calendar.data?.sessions ?? [];
-  const filtered = useFilteredSessions(calendar.data?.sessions, projectMap, state.filter);
+  const projectsKnown = projectsQuery.isSuccess;
+  const periodSessions = projectsKnown ? calendar.data?.sessions : undefined;
+  const sessions = periodSessions ?? [];
+  const filtered = useFilteredSessions({
+    sessions: periodSessions,
+    projects: projectMap,
+    filter: state.filter,
+    searchable: layout.hasPeriod,
+  });
   const previous = usePreviousPeriod(
     state.view,
     state.anchor,
     projectMap,
     state.filter,
-    layout.comparesPrevious,
+    layout.comparesPrevious && projectsKnown,
   );
-  const recapBodies = useRecapBodies(from, to);
+  const recapBodies = useRecapBodies(from, to, layout.hasPeriod);
   const edges = useMonthEdgeSessions(
     state.anchor,
     projectMap,
     state.filter,
-    state.view === "month" && layout.padsMonth,
+    state.view === "month" && layout.padsMonth && projectsKnown,
   );
   const gridSessions = useMemo(
     () => withEdgeSessions(filtered.visible, edges),
@@ -74,6 +92,8 @@ export function usePeriodData(state: UrlState): PeriodData {
     to,
     days,
     calendar,
+    disconnected: calendar.isError || projectsQuery.isError,
+    loaded: calendar.isSuccess && projectsKnown,
     projects,
     projectMap,
     sessions,

@@ -22,6 +22,8 @@ const SEARCH_DEBOUNCE_MS = 200;
 export const keys = {
   allCalendar: ["calendar"] as const,
   calendar: (from: number, to: number) => ["calendar", from, to] as const,
+  // Nested under "calendar" so a new project, or a renamed or hidden one, refreshes it
+  projects: ["calendar", "projects"] as const,
   // Nested under "calendar" so import notifications refetch it along with the calendar
   spans: (from: number, to: number) => ["calendar", "spans", from, to] as const,
   allSessions: ["session"] as const,
@@ -53,6 +55,13 @@ export function useCalendar(from: number, to: number, enabled = true) {
 }
 
 /**
+ * Every project, for each page's colors and names (the live page too, which fetches no period).
+ */
+export function useProjects() {
+  return useQuery({ queryKey: keys.projects, queryFn: api.projects });
+}
+
+/**
  * How often the live data is refetched with no event: the token band's rate and chart are as of the
  * fetch, so a quiet hour would otherwise keep showing the last busy minutes as "now".
  */
@@ -76,8 +85,11 @@ export function useSpans(from: number, to: number, enabled: boolean) {
   });
 }
 
-/** Work matching the keyword across every period. Idle until the query is long enough. */
-export function useSearch(q: string) {
+/**
+ * Work matching the keyword across every period. Idle until the query is long enough, and while
+ * not `enabled` (a page without the search field).
+ */
+export function useSearch(q: string, enabled: boolean) {
   const query = q.trim();
   const [debounced, setDebounced] = useState(query);
   useEffect(() => {
@@ -87,7 +99,7 @@ export function useSearch(q: string) {
   const result = useQuery({
     queryKey: keys.search(debounced),
     queryFn: () => api.search(debounced),
-    enabled: [...debounced].length >= MIN_SEARCH_CHARS,
+    enabled: enabled && [...debounced].length >= MIN_SEARCH_CHARS,
     placeholderData: keepPreviousData, // Keep the list steady while typing
   });
   // Results for an earlier query (while typing or debouncing) must not filter the calendar

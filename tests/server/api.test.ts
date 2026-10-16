@@ -225,7 +225,7 @@ describe("headless sessions", () => {
     });
     expect(res.sessions.find((s) => s.id === SID.basic)?.headless).toBe(false);
     // Their projects join the filter too
-    expect(res.projects.map((p) => p.name)).toContain("probe");
+    expect((await json<Project[]>("/api/projects")).map((p) => p.name)).toContain("probe");
     await showHeadless(false);
     expect(await calendarIds()).not.toContain(SID.headless);
   });
@@ -292,7 +292,10 @@ describe("GET /api/calendar", () => {
     expect(ids).not.toContain(SID.headless);
     expect(ids).not.toContain(SID.blog); // the next day
     // A project with only headless sessions (probe) is left out of the filter too
-    expect(res.projects.map((p) => p.name).sort()).toEqual(["app", "blog"]);
+    expect((await json<Project[]>("/api/projects")).map((p) => p.name).sort()).toEqual([
+      "app",
+      "blog",
+    ]);
   });
 
   test("returns the nearest work blocks before and after, so an empty range can jump", async () => {

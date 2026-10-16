@@ -121,12 +121,14 @@ export interface CalendarSession {
   segments: CalendarSegment[];
 }
 
-/** `GET /api/calendar`: sessions with work blocks in [from, to), plus the projects to filter by. */
+/**
+ * `GET /api/calendar`: sessions with work blocks in [from, to). The projects they belong to come
+ * from `GET /api/projects`, which every page reads.
+ */
 export interface CalendarResponse {
   from: number;
   to: number;
   sessions: CalendarSession[];
-  projects: Project[];
   /** Start of the nearest work block before the range, so an empty range can jump to it. */
   prev: number | null;
   /** Start of the nearest work block after the range. */

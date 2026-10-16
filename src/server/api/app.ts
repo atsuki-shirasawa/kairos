@@ -81,7 +81,6 @@ export function createApp({ db, events, summarizer, live, now, hiddenCwds }: App
         from,
         to,
         sessions: q.calendar(from, to),
-        projects: q.projects(),
         ...q.neighbors(from, to),
       }),
     ),

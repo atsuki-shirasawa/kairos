@@ -5,9 +5,8 @@ import {
   hideSessions,
   inShownProjects,
   isBrief,
-  withProjects,
 } from "../../src/web/src/lib/projectVisibility.ts";
-import { project, projects, session } from "./filterHelpers.ts";
+import { projects, session } from "./filterHelpers.ts";
 
 describe("isBrief", () => {
   test("a session with few prompts, no edits and no outcome is a quick question", () => {
@@ -65,20 +64,5 @@ describe("hiddenReason", () => {
   test("some sessions outside hidden projects: hiding quick questions hid them", () => {
     const sessions = [session("a", { projectId: 2 }), session("b", { promptCount: 1 })];
     expect(hiddenReason(sessions, projects)).toBe("brief");
-  });
-});
-
-describe("withProjects", () => {
-  test("adds unknown projects and keeps the known ones as they are", () => {
-    const stale = project(1, "renamed", true);
-    const all = withProjects(projects, [stale, project(3, "docs", true)]);
-    expect(all.get(1)?.name).toBe("app");
-    expect(all.get(3)?.hidden).toBe(true);
-    expect(all.size).toBe(3);
-  });
-
-  test("leaves the original map untouched", () => {
-    withProjects(projects, [project(3, "docs")]);
-    expect(projects.has(3)).toBe(false);
   });
 });
