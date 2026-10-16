@@ -1,6 +1,7 @@
-// The fictional data and a `kairos serve` on it, for the captures: the docs screenshots and the
-// visual baseline. Runs on a spare port with a throwaway data dir and a stopped clock, so the
-// everyday `kairos` and its DB are untouched, and the stand-ins the live page needs.
+// The fictional data and a `kairos serve` on it, for the captures (the docs screenshots and the
+// visual baseline) and the end-to-end tests (tests/e2e). Runs on a spare port with a throwaway
+// data dir and a stopped clock, so the everyday `kairos` and its DB are untouched, and the
+// stand-ins the live page needs.
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -69,22 +70,40 @@ export class DemoServer {
   /**
    * Sets the registry to `state` and waits until the live page's data says so. `running` starts a
    * stand-in process per running demo session (the page lists an entry only while its PID exists);
-   * `on-you` keeps only those waiting on you.
+   * `on-you` keeps only those waiting on you. Resolves to the number of sessions registered.
    */
-  async setRegistry(state: RegistryState): Promise<void> {
+  async setRegistry(state: RegistryState): Promise<number> {
     this.clearRegistry();
     if (state === "unreadable") {
       // A directory it may not list, as for a Claude Code that keeps the registry elsewhere
       mkdirSync(this.registryDir, { recursive: true });
       chmodSync(this.registryDir, 0o000);
       await waitForLive((live) => !live.available);
-      return;
+      return 0;
     }
     mkdirSync(this.registryDir, { recursive: true });
     const entries =
       state === "empty" ? [] : this.live.filter((e) => state === "running" || e.onYou);
     for (const entry of entries) this.register(entry);
     await waitForLive((live) => live.available && live.sessions.length === entries.length);
+    return entries.length;
+  }
+
+  /**
+   * Stops the server, runs `whileDown` with the logs' directory (to write what it should find
+   * when it comes back), and starts it again on the same data and port.
+   */
+  async restart(whileDown: (claudeDir: string) => void): Promise<void> {
+    const server = this.server;
+    this.server = null;
+    server?.kill();
+    await server?.exited;
+    whileDown(join(this.work, "claude"));
+    try {
+      this.server = await startServer(this.work);
+    } catch (e) {
+      throw new Error(`restarting the demo server: ${(e as Error).message}`);
+    }
   }
 
   /** Removes the registry directory, readable or not. */

@@ -83,7 +83,7 @@ export class Browser {
       for (const source of [frozenDateScript(DEMO_NOW), STILL_SCRIPT, SETTLED_SCRIPT])
         await chrome.send("Page.addScriptToEvaluateOnNewDocument", { source });
     } catch (e) {
-      chrome.close();
+      await chrome.close();
       throw e;
     }
     return browser;
@@ -116,13 +116,32 @@ export class Browser {
 
   /** Opens `query` on the demo server and returns a PNG of the viewport. */
   async shoot(query: string): Promise<Buffer> {
-    await this.chrome.open(BASE_URL + query, 0);
-    await this.settled();
+    await this.open(query);
     return this.chrome.screenshot();
   }
 
+  /** Opens `query` on the demo server and waits until the page has settled. */
+  async open(query: string): Promise<void> {
+    await this.chrome.open(BASE_URL + query, 0);
+    await this.settled();
+  }
+
+  /** Reloads the page, as the browser's reload button does, and waits until it has settled. */
+  async reload(): Promise<void> {
+    await this.chrome.reload();
+    await this.settled();
+  }
+
+  /**
+   * Sends a DevTools Protocol command to the page, for the end-to-end tests, which drive it
+   * (keys, clicks, the accessibility tree) beyond what the captures need.
+   */
+  send(method: string, params: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
+    return this.chrome.send(method, params);
+  }
+
   /** Waits until the page says it has settled (see `SETTLED_SCRIPT`). */
-  private async settled(): Promise<void> {
+  async settled(): Promise<void> {
     try {
       await waitFor(
         "the page to settle",
@@ -144,7 +163,7 @@ export class Browser {
   }
 
   /** Stops Chrome. */
-  close(): void {
-    this.chrome.close();
+  close(): Promise<void> {
+    return this.chrome.close();
   }
 }

@@ -1,0 +1,23 @@
+{
+  "week": {
+    "color-contrast": 1
+  },
+  "drawer": {
+    "color-contrast": 2
+  },
+  "day": {
+    "color-contrast": 2
+  },
+  "month": {
+    "color-contrast": 10
+  },
+  "summary": {
+    "color-contrast": 44
+  },
+  "table": {
+    "color-contrast": 2
+  },
+  "live": {
+    "color-contrast": 18
+  }
+}

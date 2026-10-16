@@ -14,6 +14,7 @@ bun run dev        # API :4319 + Vite :5173. Run `kairos stop` first (same port)
 bun tests/fixtures/generate.ts                  # regenerate the fixtures
 bun run screenshots   # retake docs/images/screen-*.png from a fictional week (after `bun run build`)
 bun run visual        # visual regression: every view × light/dark × en/ja × 1440/1024 against .visual/baseline
+bun run e2e           # behaviour tests in headless Chrome (tests/e2e) and the axe accessibility ratchet
 ```
 
 Finished work goes to main without a PR: when asked to merge, use `/land` (review → fix → fast-forward merge; push only on request). To deploy to the locally running server, use `/ship-local` (check → build → `kairos restart`). To check a UI change in the browser against the fixtures, use `/verify-ui`.
@@ -30,7 +31,7 @@ Finished work goes to main without a PR: when asked to merge, use `/land` (revie
 - `src/shared/` — API types, constants, and rules the server, CLI and UI must agree on (dates, PR refs, open items, close notes, summary failures, the UI's URL parameters). Put a rule here once a second layer needs it
 - `src/web/` — React 19 + Tailwind v4 + shadcn/ui (`@/` is `src/web/src`)
 - `src/web/src/i18n/` — UI language (English by default, Japanese selectable from the "⋯" menu, saved per browser). Messages live in `messages/*.ts` via `defineMessages`
-- `tests/` mirrors `src/` (`cli/`, `server/`, `web/`). `tests/web` covers pure `lib/` logic without a DOM and imports by relative path (the `@/` alias is not used in tests); call `setLocale` when a test checks copy
+- `tests/` mirrors `src/` (`cli/`, `server/`, `web/`). `tests/web` covers pure `lib/` logic without a DOM and imports by relative path (the `@/` alias is not used in tests); call `setLocale` when a test checks copy. `tests/e2e/` (`*.e2e.ts`, left out of `bun test`) drives the built UI by role and name with `bun run e2e`
 
 ## Data
 

@@ -147,6 +147,8 @@ bun run format   # auto-fix with Biome
 
 `bun run visual` shoots every view of the same week and a crowded stress day in light / dark, English / Japanese and two widths, and compares them with the baseline in `.visual/baseline` (needs Google Chrome; it builds the UI itself). When a change is intended, look at `.visual/diff`, then run `bun run visual --update`.
 
+`bun run e2e` drives the built UI in the same headless Chrome on the same week: the keyboard alone, search fading, a reload keeping the URL's state, the Live count on every page, and new work after the server restarts. It also counts axe-core's accessibility violations per page, which may not grow past `tests/e2e/axe-baseline.json`.
+
 The fictional test logs can be regenerated with `bun tests/fixtures/generate.ts` ([details](tests/fixtures/README.md)).
 
 ## License

@@ -26,3 +26,4 @@ Log text is untrusted (it may contain text copied from web pages). `src/web/src/
 - To see a change in the browser, use `/verify-ui` (runs against the fixtures)
 - When the UI changes visibly, retake the docs screenshots with `bun run build && bun run screenshots` (a fictional week in `scripts/screenshots/demo.ts`)
 - `bun run visual` compares every view with the local baseline (`/land` runs it). A structural change (moves, renames, routing) must give a zero diff, so land it apart from a visual one; after a visual change, look at `.visual/diff` before `bun run visual --update`
+- `bun run e2e` drives the UI by role and name (`tests/e2e/`, `/land` runs it too). When a change renames a control or moves a key, update the test's expectation, not its way of finding things; a new axe violation is fixed, not added to `tests/e2e/axe-baseline.json`

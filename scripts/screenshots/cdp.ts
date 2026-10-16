@@ -7,6 +7,8 @@ import { join } from "node:path";
 
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const DEBUG_PORT = 9334;
+/** How long a navigation may take to fire its load event; the demo server answers at once. */
+const LOAD_TIMEOUT_MS = 15_000;
 
 type Params = Record<string, unknown>;
 
@@ -67,10 +69,28 @@ export class HeadlessChrome {
 
   /** Navigates and waits for the load event, then `settleMs` more for data and fonts. */
   async open(url: string, settleMs = 1500): Promise<void> {
-    const loaded = new Promise<void>((resolve) => this.waiters.set("Page.loadEventFired", resolve));
-    await this.send("Page.navigate", { url });
-    await loaded;
+    await this.untilLoaded(() => this.send("Page.navigate", { url }));
     await Bun.sleep(settleMs);
+  }
+
+  /** Reloads the page and waits for the load event. */
+  reload(): Promise<void> {
+    return this.untilLoaded(() => this.send("Page.reload"));
+  }
+
+  /**
+   * Runs `start` (a navigation) and resolves once the page it starts has loaded; throws if it
+   * never does, rather than leaving the caller waiting for good.
+   */
+  private async untilLoaded(start: () => Promise<unknown>): Promise<void> {
+    const loaded = new Promise<void>((resolve) => this.waiters.set("Page.loadEventFired", resolve));
+    await start();
+    // The losing timer resolves to nothing rather than rejecting, so no rejection goes unhandled
+    const inTime = await Promise.race([
+      loaded.then(() => true),
+      Bun.sleep(LOAD_TIMEOUT_MS).then(() => false),
+    ]);
+    if (!inTime) throw new Error("timed out waiting for the page to load");
   }
 
   /** A PNG of the viewport. */
@@ -79,10 +99,14 @@ export class HeadlessChrome {
     return Buffer.from(String(data), "base64");
   }
 
-  /** Stops Chrome and removes its profile. */
-  close(): void {
+  /**
+   * Stops Chrome and removes its profile once it has exited, so the next launch doesn't find the
+   * old one still answering on the debugging port.
+   */
+  async close(): Promise<void> {
     this.ws.close();
     this.proc.kill();
+    await this.proc.exited;
     rmSync(this.profile, { recursive: true, force: true });
   }
 

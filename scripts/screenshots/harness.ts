@@ -14,7 +14,7 @@ export async function withDemo<T>(
   const demo = await DemoServer.start();
   let browser: Browser | null = null;
   const stop = async () => {
-    browser?.close();
+    await browser?.close();
     await demo.close();
   };
   process.on("SIGINT", () => void stop().finally(() => process.exit(130)));

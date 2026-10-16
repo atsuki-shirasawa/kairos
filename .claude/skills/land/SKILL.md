@@ -20,6 +20,7 @@ This is a personal project, so finished work goes straight to main: review → f
 3. **Fix** — address every finding worth fixing, adding tests for the cases a finding exposed. Fold each fix into the commit it belongs to: `git commit --amend` for a single commit, or `git commit --fixup=<sha>` then `GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash main` for several. Update the commit message if the approach changed. Skip a finding only with a reason you can state, and list it in the report
 4. **Check** — `bun run check` must pass. If it fails, fix and repeat; never merge red
    - When the branch touches `src/web` or `scripts/screenshots`, also run `bun run visual` (if `.visual/baseline` is missing, first make one on main: `bun run visual; bun run visual --update`). A structural change must give a zero diff. For a visual change, look at every image in `.visual/diff` and say in the report what changed and whether it was intended
+   - With the same paths, also run `bun run e2e` (keyboard, search, URL, Live count, SSE resync, axe ratchet). It must pass; a new axe violation is fixed, not written into the baseline
 5. **Merge**
    ```sh
    git fetch -q origin
