@@ -6,11 +6,12 @@ import { AUTO_SUMMARY_DAYS, isSummarizable, SECTION_IDLE_MS } from "../../shared
 import type { TaskState } from "../tasks.ts";
 import { DEFAULT_HIDDEN_CWDS, visibleSessionSql } from "../visibility.ts";
 import { STALE_SUMMARY_SQL, sectionBlock, stillStartsAt } from "./blocks.ts";
+import type { RunStats } from "./claude.ts";
 import { buildDigest, DIGEST_KINDS, type DigestMessage } from "./digest.ts";
 import { formatFacts, loadFacts } from "./facts.ts";
 import { type LedgerUpdate, recordSection } from "./ledger/record.ts";
 import { refsOf } from "./ledger/refs.ts";
-import type { ParsedSummary, PromptInput } from "./prompt.ts";
+import type { PromptInput } from "./prompt.ts";
 import { type RecapInput, type RecapTarget, recapHash } from "./recap.ts";
 import type { SectionRef, Target } from "./target.ts";
 
@@ -212,27 +213,58 @@ interface Coverage {
   until: number;
 }
 
-/** Saves (or replaces) a block's summary, recording the span of the section it was written from. */
+/** A summary's text: its headline, the short title for week blocks, and its Markdown body. */
+export interface SummaryText {
+  headline: string;
+  /** Null for a summary written before short titles, or when the model gave none. */
+  short: string | null;
+  body: string;
+}
+
+/** How a summary was written: which prompt, from which input, and what it cost. */
+export interface SummaryRun extends RunStats {
+  /** `PROMPT_VERSION` of the prompt that wrote it. */
+  promptVersion: number;
+  /** Hash of the prompt, so summaries written from the same input can be told apart. */
+  inputHash: string;
+}
+
+/**
+ * Saves (or replaces) a block's summary, recording the span of the section it was written from and,
+ * when the model wrote it, how (a summary put in by other means leaves those columns null).
+ */
 export function saveSummary(
   db: Database,
   blockId: number,
-  summary: ParsedSummary,
-  meta: { model: string; covered: Coverage; createdAt: number },
+  summary: SummaryText,
+  meta: { model: string; covered: Coverage; createdAt: number; run?: SummaryRun },
 ): void {
   db.query(
-    `INSERT INTO summaries (block_id, headline, body, model, covered_from, covered_until, created_at)
-     VALUES ($blockId, $headline, $body, $model, $from, $until, $createdAt)
-     ON CONFLICT(block_id) DO UPDATE SET headline = excluded.headline, body = excluded.body,
-       model = excluded.model, covered_from = excluded.covered_from,
-       covered_until = excluded.covered_until, created_at = excluded.created_at`,
+    `INSERT INTO summaries (block_id, headline, short, body, model, covered_from, covered_until,
+       created_at, prompt_version, input_hash, input_tokens, output_tokens, cost_usd, latency_ms)
+     VALUES ($blockId, $headline, $short, $body, $model, $from, $until, $createdAt, $promptVersion,
+       $inputHash, $inputTokens, $outputTokens, $costUsd, $latencyMs)
+     ON CONFLICT(block_id) DO UPDATE SET headline = excluded.headline, short = excluded.short,
+       body = excluded.body, model = excluded.model, covered_from = excluded.covered_from,
+       covered_until = excluded.covered_until, created_at = excluded.created_at,
+       prompt_version = excluded.prompt_version, input_hash = excluded.input_hash,
+       input_tokens = excluded.input_tokens, output_tokens = excluded.output_tokens,
+       cost_usd = excluded.cost_usd, latency_ms = excluded.latency_ms`,
   ).run({
     blockId,
     headline: summary.headline,
+    short: summary.short,
     body: summary.body,
     model: meta.model,
     from: meta.covered.from,
     until: meta.covered.until,
     createdAt: meta.createdAt,
+    promptVersion: meta.run?.promptVersion ?? null,
+    inputHash: meta.run?.inputHash ?? null,
+    inputTokens: meta.run?.inputTokens ?? null,
+    outputTokens: meta.run?.outputTokens ?? null,
+    costUsd: meta.run?.costUsd ?? null,
+    latencyMs: meta.run?.latencyMs ?? null,
   });
 }
 
@@ -240,7 +272,8 @@ export function saveSummary(
 export interface SectionResult {
   /** The block the section was read from (`SectionInput.blockId`). */
   blockId: number;
-  summary: ParsedSummary;
+  summary: SummaryText;
+  run: SummaryRun;
   ledger: LedgerUpdate;
 }
 
@@ -260,7 +293,7 @@ export function saveSection(
     const { blockId } = result;
     if (!stillStartsAt(db, blockId, target.start)) return false;
     const covered = { from: target.start, until: result.ledger.end };
-    saveSummary(db, blockId, result.summary, { ...meta, covered });
+    saveSummary(db, blockId, result.summary, { ...meta, covered, run: result.run });
     recordSection(db, { ...target, blockId }, result.ledger);
     return true;
   })();

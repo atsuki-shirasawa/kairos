@@ -33,7 +33,7 @@ export function putSummary(
   saveSummary(
     db,
     blockId,
-    { headline, body },
+    { headline, short: null, body },
     { model, covered: { from: start, until: coveredUntil }, createdAt },
   );
 }

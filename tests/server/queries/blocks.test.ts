@@ -32,6 +32,7 @@ const row = (over: Partial<SectionRow> = {}): SectionRow => ({
   prompt_count: 2,
   fallback_title: null,
   headline: null,
+  short: null,
   body: null,
   model: null,
   created_at: null,
@@ -43,7 +44,7 @@ describe("a block's calendar segment and drawer section agree", () => {
   test.each<[string, Partial<SectionRow>]>([
     ["unsummarized, titled by the session", {}],
     ["unsummarized, titled by the block", { fallback_title: "Block" }],
-    ["summarized", { headline: "Head", body: "Body", fallback_title: "Block" }],
+    ["summarized", { headline: "Head", short: "H", body: "Body", fallback_title: "Block" }],
     ["headline only", { headline: "Head", body: "" }],
   ])("%s", (_, over) => {
     const g = row(over);
@@ -54,6 +55,7 @@ describe("a block's calendar segment and drawer section agree", () => {
       "end",
       "promptCount",
       "headline",
+      "short",
       "body",
       "usage",
       "activity",

@@ -35,6 +35,7 @@ function session(
     active: false,
     segments: segments.map((g) => ({
       ...g,
+      short: null,
       summarized: true,
       body: null,
       prs: g.prs ?? [],

@@ -342,6 +342,20 @@ export const MIGRATIONS: string[] = [
   CREATE INDEX open_items_block ON open_items(block_id);
   CREATE INDEX open_items_closed_in ON open_items(closed_block_id);
   `,
+  // 14: how each summary was written (#50). The model now answers in JSON checked against a schema,
+  // with a short title for week blocks. prompt_version is PROMPT_VERSION of the prompt that wrote
+  // it, null for the free-Markdown summaries before it; input_hash is the prompt's hash; tokens,
+  // cost (list price, a gauge like pricing.ts) and latency come from claude -p's JSON envelope.
+  // All stay null for summaries written before, which can't be measured after the fact.
+  `
+  ALTER TABLE summaries ADD COLUMN short TEXT;
+  ALTER TABLE summaries ADD COLUMN prompt_version INTEGER;
+  ALTER TABLE summaries ADD COLUMN input_hash TEXT;
+  ALTER TABLE summaries ADD COLUMN input_tokens INTEGER;
+  ALTER TABLE summaries ADD COLUMN output_tokens INTEGER;
+  ALTER TABLE summaries ADD COLUMN cost_usd REAL;
+  ALTER TABLE summaries ADD COLUMN latency_ms INTEGER;
+  `,
 ];
 
 /** Schema version once every migration is applied (stored in `PRAGMA user_version`). */

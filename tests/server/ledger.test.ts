@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { MIGRATIONS, openDb, SCHEMA_VERSION } from "../../src/server/db/index.ts";
 import { Summarizer } from "../../src/server/summarize/summarizer.ts";
 import { SID } from "../fixtures/ids.ts";
+import { markdownRunner } from "./answers.ts";
 import { min, setup } from "./ingest/helpers.ts";
 
 /** What the first section of the ledger scenario leaves open, as the model would write it. */
@@ -31,12 +32,12 @@ beforeEach(() => {
   replies = new Map();
   summarizer = new Summarizer(
     db,
-    async (p) => {
+    markdownRunner(async (p) => {
       prompts.push(p);
       // Each section's reply is picked by a phrase from its transcript
       for (const [phrase, reply] of replies) if (p.includes(phrase)) return reply;
       return "Some work\n\n- Goal: work\n- Done: worked";
-    },
+    }),
     { now: () => min(10_000), model: "test-model", quiet: true },
   );
   replies.set("[User] CSV エクスポート", OPENING);
@@ -121,7 +122,7 @@ describe("open items ledger", () => {
       "- [O1] [question] Whether to offer UTF-16 output too (from earlier in this session)",
     );
     expect(p).not.toContain("[O2]");
-    expect(p).toContain("- Closed:");
+    expect(p).toContain("- closed: the items from <open_items> this section settled");
     expect(item("Whether")).toMatchObject({
       closed_by: "model",
       closed_session_id: SID.ledgerOpen,
@@ -129,7 +130,7 @@ describe("open items ledger", () => {
       closed_note: "the user settled on UTF-8 with a BOM",
     });
     // The Closed item isn't saved with the summary
-    expect(bodyAt(1740)).toBe("- Goal: add a BOM\n- Done: added it");
+    expect(bodyAt(1740)).toBe("- Goal: add a BOM\n- Done:\n  - added it");
   });
 
   test("another session of the project sees an item only when it names the same ref", async () => {

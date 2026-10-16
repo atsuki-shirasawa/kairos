@@ -38,6 +38,7 @@ export function session(
     start: i * HOUR * 3,
     end: i * HOUR * 3 + (g.minutes ?? 1) * 60_000,
     headline: g.headline,
+    short: null,
     summarized: true,
     body: g.body ?? null,
     prs: [],

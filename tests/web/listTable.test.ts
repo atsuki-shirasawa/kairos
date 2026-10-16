@@ -34,6 +34,7 @@ function session(id: string, ...segments: [number, number][]): CalendarSession {
       start,
       end,
       headline: id,
+      short: null,
       summarized: true,
       body: null,
       prs: [],

@@ -8,6 +8,7 @@ import { buildRecapPrompt } from "../../src/server/summarize/recapPrompt.ts";
 import { Summarizer } from "../../src/server/summarize/summarizer.ts";
 import type { LedgerEntry, OpenItemsResponse, SessionDetail } from "../../src/shared/api.ts";
 import { SID } from "../fixtures/ids.ts";
+import { markdownRunner } from "./answers.ts";
 import { min, setup } from "./ingest/helpers.ts";
 
 /** What the first section of the ledger scenario leaves open, as the model would write it. */
@@ -40,10 +41,10 @@ beforeEach(async () => {
   replies = new Map([["[User] CSV エクスポート", OPENING]]);
   summarizer = new Summarizer(
     db,
-    async (p) => {
+    markdownRunner(async (p) => {
       for (const [phrase, reply] of replies) if (p.includes(phrase)) return reply;
       return "Some work\n\n- Goal: work\n- Done: worked";
-    },
+    }),
     { now: () => now, model: "test-model", quiet: true },
   );
   app = createApp({ db, events: new EventHub(), now: () => now });

@@ -6,11 +6,16 @@ import { createApp } from "../../src/server/api/app.ts";
 import { MIGRATIONS, openDb } from "../../src/server/db/index.ts";
 import { EventHub } from "../../src/server/events.ts";
 import { buildDigest } from "../../src/server/summarize/digest.ts";
-import { buildPrompt, buildTitlePrompt, parseSummary } from "../../src/server/summarize/prompt.ts";
+import {
+  buildPrompt,
+  buildTitlePrompt,
+  PROMPT_VERSION,
+} from "../../src/server/summarize/prompt.ts";
 import { Summarizer } from "../../src/server/summarize/summarizer.ts";
 import type { SessionDetail } from "../../src/shared/api.ts";
 import { SUMMARY_MIN_DURATION_MS, SUMMARY_MIN_PROMPTS } from "../../src/shared/sections.ts";
 import { SID } from "../fixtures/ids.ts";
+import { markdownRunner, STUB_STATS } from "./answers.ts";
 import { min, setup } from "./ingest/helpers.ts";
 import { putSummary, summaryAt } from "./summaryRows.ts";
 
@@ -30,10 +35,10 @@ beforeEach(() => {
   now = min(10_000);
   summarizer = new Summarizer(
     db,
-    (p) => {
+    markdownRunner((p) => {
       prompts.push(p);
       return reply(p);
-    },
+    }),
     { now: () => now, model: "test-model" },
   );
 });
@@ -100,11 +105,32 @@ describe("Summarizer", () => {
     expect(await summarizer.summarize(target)).toEqual({ status: "saved" });
     expect(summaryOf(SID.basic, min(45))).toEqual({
       headline: "Creating the PR and renaming it",
-      body: "- Goal: open a PR\n- Done: ran e2e and created PR #42\n- Outcome: finished",
+      body: "- Goal: open a PR\n- Done:\n  - ran e2e and created PR #42",
       covered_until: min(50.2),
     });
     // Newest first: the ledger scenario's first section, which has a later one in its session
     expect(nextSection()).toMatchObject({ sessionId: SID.ledgerOpen });
+  });
+
+  test("records which prompt wrote a summary, from which input, and what it cost", async () => {
+    skipTitles();
+    await summarizer.summarize({ sessionId: SID.basic, start: min(45) });
+    expect(
+      db
+        .query(
+          `SELECT short, prompt_version, input_hash, input_tokens, output_tokens, cost_usd, latency_ms
+           FROM summaries sm JOIN segments g ON g.id = sm.block_id WHERE g.start = ?`,
+        )
+        .get(min(45)),
+    ).toEqual({
+      short: null,
+      prompt_version: PROMPT_VERSION,
+      input_hash: Bun.hash(prompts[0] ?? "").toString(16),
+      input_tokens: STUB_STATS.inputTokens,
+      output_tokens: STUB_STATS.outputTokens,
+      cost_usd: STUB_STATS.costUsd,
+      latency_ms: STUB_STATS.latencyMs,
+    });
   });
 
   test("the prompt includes the section's conversation and the earlier sections' headlines", async () => {
@@ -203,7 +229,7 @@ describe("Summarizer", () => {
     reply = async () => "Login screen research\n\n- extra body";
     const target = { sessionId: SID.basic, start: min(0), mode: "title" as const };
     expect(await summarizer.summarize(target)).toEqual({ status: "saved" });
-    expect(prompts[0]).toContain("single-line headline in English");
+    expect(prompts[0]).toContain("Write a headline in English");
     expect(summaryOf(SID.basic, min(0))).toMatchObject({
       headline: "Login screen research",
       body: "",
@@ -243,84 +269,12 @@ test("API: requesting a summary returns 202 and is pending while in progress", a
   ).json()) as SessionDetail;
   expect(d.sections[0]?.pending).toBe(true);
   const done = summarizer.summarize(nextSection() ?? { sessionId: "", start: 0 });
-  release("Login form implementation\n\n- Goal: …");
+  release("Login form implementation\n\n- Goal: …\n- Done: built it");
   expect(await done).toEqual({ status: "saved" });
   expect(summaryOf(SID.basic, min(0))?.headline).toBe("Login form implementation");
 });
 
 describe("prompt", () => {
-  test("parseSummary strips headline decorations", () => {
-    expect(parseSummary("# 「API 層の整理」\n\n- 目的: x")).toEqual({
-      headline: "API 層の整理",
-      body: "- 目的: x",
-    });
-    expect(parseSummary("Headline: **Login implementation**\n- Outcome: done")).toEqual({
-      headline: "Login implementation",
-      body: "- Outcome: done",
-    });
-    expect(parseSummary("見出し: **ログイン実装**\n- 結果: 完了")).toEqual({
-      headline: "ログイン実装",
-      body: "- 結果: 完了",
-    });
-    expect(parseSummary("   \n")).toBeNull();
-  });
-
-  test("parseSummary keeps an issue number at the start of the headline", () => {
-    expect(parseSummary("#1542 probe and runner design\n- Goal: x")?.headline).toBe(
-      "#1542 probe and runner design",
-    );
-    expect(parseSummary("## #1542 probe\n- Goal: x")?.headline).toBe("#1542 probe");
-  });
-
-  test("parseSummary skips a label line above the real headline", () => {
-    expect(parseSummary("サマリー\nまとめ画面の実装\n\n- 目的: x")?.headline).toBe(
-      "まとめ画面の実装",
-    );
-    expect(parseSummary("**Summary:**\nRecap queue\n- Goal: x")?.headline).toBe("Recap queue");
-    expect(parseSummary("サマリー")).toBeNull();
-  });
-
-  test("parseSummary takes the headline from inside a code fence", () => {
-    expect(parseSummary("```\nWeather pages\n```\n- Goal: g\n- Outcome: o")).toEqual({
-      headline: "Weather pages",
-      body: "- Goal: g\n- Outcome: o",
-    });
-    expect(parseSummary("```text\n\nWeather pages\n\n```\n\n- Goal: g")).toEqual({
-      headline: "Weather pages",
-      body: "- Goal: g",
-    });
-    // The whole output fenced: the closing fence is the last line
-    expect(parseSummary("```markdown\nWeather pages\n\n- Goal: g\n- Outcome: o\n```")).toEqual({
-      headline: "Weather pages",
-      body: "- Goal: g\n- Outcome: o",
-    });
-    expect(parseSummary("````\nWeather pages\n````\n- Goal: g")?.headline).toBe("Weather pages");
-    expect(parseSummary("```c++\nWeather pages\n```\n- Goal: g")?.headline).toBe("Weather pages");
-    expect(parseSummary("~~~\nWeather pages\n~~~\n- Goal: g")?.body).toBe("- Goal: g");
-    expect(parseSummary("```\n```")).toBeNull();
-  });
-
-  test("parseSummary keeps the body's own code blocks when the headline is fenced", () => {
-    // Whole output fenced and the body opens with a code block: only the last fence is the stray one
-    expect(parseSummary("```\nH\n```sh\nbun test\n```\n- Outcome: o\n```")?.body).toBe(
-      "```sh\nbun test\n```\n- Outcome: o",
-    );
-    // Headline fence never closed: the body's fences pair up, so none is dropped
-    expect(parseSummary("```\nH\n- Done:\n```sh\nbun test\n```")?.body).toBe(
-      "- Done:\n```sh\nbun test\n```",
-    );
-  });
-
-  test("parseSummary keeps code fences in the body when the headline isn't fenced", () => {
-    expect(parseSummary("Weather pages\n```\nbun test\n```")?.body).toBe("```\nbun test\n```");
-  });
-
-  test("parseSummary drops blank lines between bullets but keeps nesting", () => {
-    expect(parseSummary("H\n\n- Goal: g\n\n- Done:\n  - a\n\n  - b\n\n- Outcome: o")?.body).toBe(
-      "- Goal: g\n- Done:\n  - a\n  - b\n- Outcome: o",
-    );
-  });
-
   test("buildDigest keeps the start and the end when too long", () => {
     const messages = [
       { kind: "prompt", text: "最初の依頼", tool_name: null },
@@ -346,22 +300,19 @@ describe("prompt", () => {
   test("summaries are in English by default, in Japanese with lang ja", () => {
     const input = { sessionTitle: "t", projectName: "app", previous: ["x"], digest: "d" };
     const en = buildPrompt(input);
-    expect(en).toContain("Write a summary in English");
-    expect(en).toContain("- Goal: …");
-    expect(en).toContain("- Resolved:");
-    expect(en).toContain("  - [waiting] …");
-    expect(en).toContain("- Next: …");
+    expect(en).toContain("Summarize it in English");
+    expect(en).toContain("- resolved: what got settled");
+    expect(en).toContain("  - waiting: blocked on something outside the work");
+    expect(en).toContain("- next: the step about to happen");
+    expect(en).toContain("(2–4 words)");
     expect(en).not.toContain("Outcome");
     expect(en).toContain("Project: app");
     const ja = buildPrompt(input, "ja");
-    expect(ja).toContain("Write a summary in Japanese");
+    expect(ja).toContain("Summarize it in Japanese");
+    expect(ja).toContain("every text in Japanese");
     expect(ja).toContain("15〜35 字、体言止め");
-    expect(ja).toContain("- 目的: …");
-    expect(ja).toContain("- やったこと:");
-    expect(ja).toContain("- 解決:");
-    expect(ja).toContain("- 残課題:\n  - [todo] …");
-    expect(ja).toContain("- 次の一手: …");
-    expect(buildTitlePrompt(input, "ja")).toContain("single-line headline in Japanese");
+    expect(ja).toContain("12〜20 字、体言止め");
+    expect(buildTitlePrompt(input, "ja")).toContain("Write a headline in Japanese");
     expect(buildTitlePrompt(input)).toContain("3–8 words");
   });
 
@@ -377,16 +328,16 @@ describe("prompt", () => {
 test("Summarizer passes its language to the prompt", async () => {
   const ja = new Summarizer(
     db,
-    (p) => {
+    markdownRunner((p) => {
       prompts.push(p);
       return reply(p);
-    },
+    }),
     { now: () => now, lang: "ja" },
   );
   expect(ja.lang).toBe("ja");
   expect(summarizer.lang).toBe("en");
   await ja.summarize({ sessionId: SID.basic, start: min(45) });
-  expect(prompts[0]).toContain("Write a summary in Japanese");
+  expect(prompts[0]).toContain("Summarize it in Japanese");
 });
 
 test("migration 8 deletes stored summaries whose headline is a code fence", () => {

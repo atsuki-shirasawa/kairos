@@ -81,6 +81,8 @@ export interface CalendarSegment {
   end: number;
   /** AI summary headline; otherwise the first line of the first prompt (or of Claude's last reply). */
   headline: string;
+  /** The summary's short title for narrow blocks; null without one (older summaries, none yet). */
+  short: string | null;
   summarized: boolean;
   /** AI summary body (Markdown), shown inside wide blocks of the day view. null if not generated yet. */
   body: string | null;
@@ -211,6 +213,8 @@ export interface Section {
   promptCount: number;
   /** AI summary headline; otherwise the first line of the first prompt (or of Claude's last reply). */
   headline: string;
+  /** The summary's short title for narrow blocks; null without one (older summaries, none yet). */
+  short: string | null;
   /** AI summary body (Markdown); null if not generated yet. */
   body: string | null;
   model: string | null;

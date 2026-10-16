@@ -21,6 +21,7 @@ const section = (start: number, end = start + H): Section => ({
   end,
   promptCount: 1,
   headline: "",
+  short: null,
   body: null,
   model: null,
   createdAt: null,

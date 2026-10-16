@@ -88,14 +88,14 @@ export function describeTargets(selection: Selection, narrowed: boolean): string
 
 /** A summarizer that runs `claude -p` with the given options, quietly (the status bar reports). */
 async function createSummarizer(db: Database, options: SummaryOptions): Promise<Summarizer> {
-  const { runClaude } = await import("../../server/summarize/claude.ts");
+  const { claudeRunner } = await import("../../server/summarize/claude.ts");
   const { DEFAULT_MODEL, Summarizer } = await import("../../server/summarize/summarizer.ts");
   const model = options.model ?? DEFAULT_MODEL;
   const cwd = SUMMARIZER_CWD;
   // This may run inside a Claude Code session (e.g. via `!`), whose variables must not reach claude -p
   const env = serverEnv();
   const effort = options.effort ? { effort: options.effort } : {};
-  return new Summarizer(db, (prompt) => runClaude(prompt, { model, cwd, env, ...effort }), {
+  return new Summarizer(db, claudeRunner({ model, cwd, env, ...effort }), {
     model,
     quiet: true,
     ...(options.lang ? { lang: options.lang } : {}),

@@ -1,7 +1,13 @@
-// Prompts for section summaries, and parsing of the output (headline, body and closures).
-import { OPEN_KINDS, type OpenKind, SUMMARY_LABELS } from "../../shared/summaryBody.ts";
+// Prompts for section summaries. The model answers in the JSON `output.ts` defines.
+import { OPEN_KINDS, type OpenKind } from "../../shared/summaryBody.ts";
 import { DEFAULT_SUMMARY_LANG, type SummaryLang } from "../../shared/summaryLang.ts";
-import { HEADLINE_LENGTH } from "./headline.ts";
+import { HEADLINE_LENGTH, SHORT_LENGTH } from "./headline.ts";
+
+/**
+ * Which prompt wrote a summary, saved with it. Raise it when a change to the prompts or the answer
+ * schema should be told apart in the stored summaries; null marks one written as free Markdown.
+ */
+export const PROMPT_VERSION = 1;
 
 /** What a section summary prompt is built from. */
 export interface PromptInput {
@@ -28,24 +34,20 @@ export interface EarlierOpen {
 interface LangRules {
   name: string;
   headline: string;
-  goal: string;
-  done: string;
-  resolved: string;
-  open: string;
-  next: string;
+  short: string;
 }
 
 const RULES: Record<SummaryLang, LangRules> = {
   en: {
     name: "English",
     headline: `a short noun phrase of about ${HEADLINE_LENGTH.en.min}–${HEADLINE_LENGTH.en.max} words, no trailing period, no quotes or symbols`,
-    ...SUMMARY_LABELS.en,
+    short: `${SHORT_LENGTH.en.min}–${SHORT_LENGTH.en.max} words`,
   },
   // A Japanese headline reads best as a short noun-ending phrase (体言止め)
   ja: {
     name: "Japanese",
     headline: `${HEADLINE_LENGTH.ja.min}〜${HEADLINE_LENGTH.ja.max} 字、体言止め（「〜した」「〜し、〜」で終えない）、記号や引用符なし`,
-    ...SUMMARY_LABELS.ja,
+    short: `${SHORT_LENGTH.ja.min}〜${SHORT_LENGTH.ja.max} 字、体言止め`,
   },
 };
 
@@ -105,16 +107,17 @@ ${defuseTags(items.join("\n"))}
 `;
 }
 
-/** How to report earlier items this section settled, only when there are any. */
-function closedRules(input: PromptInput, r: LangRules): { format: string; rules: string } {
-  if (!input.earlierOpen?.length) return { format: "", rules: "" };
+/** How to report earlier items this section settled; with none offered, `closed` stays empty. */
+function closedRules(input: PromptInput): { format: string; rules: string } {
+  if (!input.earlierOpen?.length) {
+    return { format: "always empty: there are no earlier open items to settle", rules: "" };
+  }
   return {
-    format: `
-- Closed:
-  - [O1] … (an item from <open_items> this section settled, with its evidence; leave the item out when none was)`,
+    format:
+      "the items from <open_items> this section settled, each by its label (O1, O2, …) with its evidence; empty when none was",
     rules: `
-- Closed: an item listed in <open_items> that this section settled, under its label as given, with the same kind of evidence ${r.resolved} needs. Being mentioned or worked on doesn't settle it. Write the label "Closed" in English as shown.
-- An item in <open_items> that is still open after this section is not repeated under ${r.open}. If the section settled part of it, put it under Closed and what is left of it under ${r.open}.`,
+- closed: an item listed in <open_items> that this section settled, under its label as given, with the same kind of evidence resolved needs. Being mentioned or worked on doesn't settle it.
+- An item in <open_items> that is still open after this section is not repeated under open. If the section settled part of it, put it under closed and what is left of it under open.`,
   };
 }
 
@@ -129,7 +132,8 @@ function headlineRules(r: LangRules): string {
 - Keep names (projects, files, commands, tickets) as written in the transcript; don't translate or transliterate them.
 - Describe the work, not its progress: leave out words like done, completed, started, progress or achieved.
 - If the section holds several pieces of work, name the main one or two, not a "from A to B" span.
-- Write the headline itself, with no label such as "Headline" or "Summary" before it.`;
+- Write the headline itself, never words about this task, the summary or the format.
+- short: the same work named for a narrow calendar block (${r.short}).`;
 }
 
 /**
@@ -148,42 +152,39 @@ const OPEN_KIND_RULES: Record<(typeof OPEN_KINDS)[number], string> = {
  * left numbers bare, wrote "the remaining findings" without saying which, recorded the project's
  * backlog order as a leftover, and buried a blocker at the end of a file list.
  */
-function bodyRules(r: LangRules): string {
-  return `Item rules:
-- ${r.goal}: what the user explicitly asked for in this section, not what Claude chose to do on its own.
-- ${r.done}: what happened, outcome first. Something only planned or about to happen is not done. A commit, merge or test run that ${r.resolved} cites as evidence is left out of ${r.done}.
-- ${r.resolved}: only what the facts or the transcript show as settled, each with its evidence: a commit, a PR or merge, a test run that passed, the user confirming it works. A decision made in the section (a question the user answered, an option chosen over another) goes here too, with its reason. Name the evidence itself (the commit, the PR, the test result), not where in this prompt you saw it. Without such evidence it stays under ${r.done}. A test that failed last, or work cut off by an interrupt, is not resolved.
-- ${r.open}: what the transcript or the facts leave unfinished, unhandled, undecided or waiting; don't add doubts of your own. Each item names the specific thing left (which finding, which page, which question), not "the rest" or "remaining items". Put a blocker here even when it was mentioned in passing.
-- The project's backlog or the order of upcoming issues ("next up is #6") is not an open item of this section; if work on it was about to start, it is the ${r.next} step.
-- ${r.next}: the step that was about to happen when the section ended, in one line. Leave the item out when nothing was, rather than saying so.
+function bodyRules(): string {
+  return `Field rules:
+- goal: what the user explicitly asked for in this section, not what Claude chose to do on its own.
+- done: what happened, outcome first. Something only planned or about to happen is not done. A commit, merge or test run that resolved cites as evidence is left out of done.
+- resolved: only what the facts or the transcript show as settled, each with its evidence: a commit, a PR or merge, a test run that passed, the user confirming it works. A decision made in the section (a question the user answered, an option chosen over another) goes here too, with its reason as the evidence. Name the evidence itself (the commit, the PR, the test result), not where in this prompt you saw it. Without such evidence it stays under done. A test that failed last, or work cut off by an interrupt, is not resolved.
+- open: what the transcript or the facts leave unfinished, unhandled, undecided or waiting; don't add doubts of your own. Each item names the specific thing left (which finding, which page, which question), not "the rest" or "remaining items". Put a blocker here even when it was mentioned in passing.
+- The project's backlog or the order of upcoming issues ("next up is #6") is not an open item of this section; if work on it was about to start, it is the next step.
+- next: the step that was about to happen when the section ended, in one line. Leave the field out when nothing was, rather than saying so.
 - Give every number what it counts ("517 of 610 cases pass", not "517/610").
-- State each fact in one item only.
-- Leave an item out rather than invent content for it; never write "none" or "nothing pending" in its place. ${r.goal} and ${r.done} are always present.`;
+- State each fact in one field only, and each entry on one line without Markdown lists.
+- Leave an entry out rather than invent content for it; never write "none" or "nothing pending" in its place.`;
 }
 
-/** Prompt asking for a headline plus a goal / done / resolved / open / next body for one section. */
+/** Prompt asking for a headline plus a goal / done / resolved / open / next summary for one section. */
 export function buildPrompt(input: PromptInput, lang: SummaryLang = DEFAULT_SUMMARY_LANG): string {
   const r = RULES[lang];
-  const kinds = OPEN_KINDS.map((k) => `  - [${k}] … (${OPEN_KIND_RULES[k]})`).join("\n");
-  const closed = closedRules(input, r);
+  const kinds = OPEN_KINDS.map((k) => `  - ${k}: ${OPEN_KIND_RULES[k]}`).join("\n");
+  const closed = closedRules(input);
   return `Below is an excerpt from one continuous stretch of work (a section) in a Claude Code session.
-Write a summary in ${r.name} so that, looking back later on a calendar, it is clear what was done during this time, what got resolved and what was left open.
+Summarize it in ${r.name} so that, looking back later on a calendar, it is clear what was done during this time, what got resolved and what was left open.
 
-Output format (Markdown; no preamble or closing remarks):
-Line 1: the headline
-Blank line
-- ${r.goal}: …
-- ${r.done}:
-  - … (the main work, 1–3 points; a long section with several distinct pieces of work may have up to 5, in the order they happened)
-- ${r.resolved}:
-  - … (what got settled, with its evidence)
-- ${r.open}:
+Answer with the JSON the schema describes, every text in ${r.name}:
+- headline: the headline (rules below)
+- short: a shorter title for the same work
+- goal: what was asked for
+- done: the main work, 1–3 points; a long section with several distinct pieces of work may have up to 5, in the order they happened
+- resolved: what got settled, each as its text and its evidence; empty when nothing was
+- open: what was left, each with one of these kinds; empty when nothing was
 ${kinds}
-- ${r.next}: … (only when a next step was about to happen; otherwise no ${r.next} line at all)${closed.format}
+- next: the step about to happen (only when one was; otherwise leave the field out)
+- closed: ${closed.format}
 
-Use only these top-level items, in this order, as plain "- " bullets with no bold, numbering or blank lines between them. ${r.resolved}, ${r.open} and ${r.next} are left out when there is nothing for them. Each open item starts with one of the tags above, written in English as shown.
-
-${bodyRules(r)}${closed.rules}
+${bodyRules()}${closed.rules}
 
 ${headlineRules(r)}
 
@@ -207,8 +208,8 @@ export function buildTitlePrompt(
 ): string {
   const r = RULES[lang];
   return `Below is a short stretch of work (a section) in a Claude Code session.
-Write a single-line headline in ${r.name} for looking back at it later on a calendar.
-Write nothing other than the headline. If the excerpt shows only a request and no result, describe what was asked.
+Write a headline in ${r.name} for looking back at it later on a calendar, and a short title for a narrow calendar block, as the JSON the schema describes.
+If the excerpt shows only a request and no result, describe what was asked.
 
 ${headlineRules(r)}
 
@@ -220,122 +221,4 @@ ${factsOf(input)}
 ${defuseTags(input.digest)}
 </transcript>
 `;
-}
-
-/** A summary split into its headline and Markdown body. */
-export interface ParsedSummary {
-  headline: string;
-  body: string;
-}
-
-/**
- * Drops blank lines before list items. The model often spaces its bullets out, which renders as a
- * loose list with paragraph gaps; summaries side by side read better when they all look the same.
- */
-function tightenList(body: string): string {
-  return body.replace(/\n[ \t]*\n+(?=[ \t]*(?:[-*+]|\d+\.)\s)/g, "\n");
-}
-
-/** A line holding only a label, which the model sometimes writes above the real headline. */
-const LABEL_LINE =
-  /^\s*#*\s*\**(?:見出し|サマリー|要約|まとめ|headline|summary)\s*[:：]?\s*\**\s*[:：]?\s*$/i;
-
-/**
- * A line holding only a code fence, which haiku sometimes wraps its headline in. Fences can be
- * longer than three characters and carry any info string (```text, ```c++, ```ts title=x).
- */
-const FENCE_LINE = /^\s*(?:`{3,}[^`]*|~{3,}.*)$/;
-
-/** A fence with no info string. Only this can close a block; "```sh" always opens one. */
-const BARE_FENCE_LINE = /^\s*(?:`{3,}|~{3,})\s*$/;
-
-/**
- * Drops the fence that closes one opened above the headline. It is left over only when the body's
- * fences don't pair up; then it is right after the headline (only the headline was fenced) or the
- * last line (the whole output was). Balanced fences are the body's own code blocks.
- */
-function dropClosingFence(rest: string[]): string[] {
-  if (rest.filter((l) => FENCE_LINE.test(l)).length % 2 === 0) return rest;
-  const next = rest.findIndex((l) => l.trim());
-  if (BARE_FENCE_LINE.test(rest[next] ?? "")) return rest.toSpliced(next, 1);
-  const last = rest.findLastIndex((l) => l.trim());
-  if (BARE_FENCE_LINE.test(rest[last] ?? "")) return rest.toSpliced(last, 1);
-  return rest;
-}
-
-/** Reads the first line as the headline and the rest as the body. Strips headline decorations (#, quotes, code fences). */
-export function parseSummary(output: string): ParsedSummary | null {
-  const lines = output.trim().split("\n");
-  const first = lines.findIndex((l) => l.trim() && !LABEL_LINE.test(l) && !FENCE_LINE.test(l));
-  if (first === -1) return null;
-  const fenced = lines.slice(0, first).some((l) => FENCE_LINE.test(l));
-  const rest = lines.slice(first + 1);
-  const headline = (lines[first] ?? "")
-    // A Markdown heading needs the space; without it, "#1542 ..." is an issue number to keep
-    .replace(/^#+\s+/, "")
-    .replace(/^(?:見出し|headline)[:：]\s*/i, "")
-    .replace(/^[「『"“]|[」』"”]$/g, "")
-    .replace(/\*\*/g, "")
-    .trim()
-    .slice(0, 80);
-  const body = tightenList((fenced ? dropClosingFence(rest) : rest).join("\n").trim());
-  return headline ? { headline, body } : null;
-}
-
-/** Cap on a model's note on how an item was closed. */
-const NOTE_CHARS = 300;
-
-/** An earlier item the model said the section settled, by its label, with the evidence it gave. */
-export interface Closure {
-  label: string;
-  note: string;
-}
-
-/**
- * A top-level "Closed" item, written in English in either summary language. The model sometimes
- * adds words before the colon ("Closed items:", "Closed (from open_items):"); left in the body, the
- * line would cost the summary its structured view.
- */
-const CLOSED_LINE = /^[-*+]\s+\**closed\b[^:：\n]*[:：]\**\s*(.*)$/i;
-/** A label as the model writes it: "O2" or "[O2]". */
-const LABEL = /\[?\b(O\d+)\b\]?/g;
-
-/**
- * The closures one line names. A line may name several ("O1, O3", "O1 and O3",
- * "[O1] merged #40; [O2] issue closed"); each label's note is the text up to the next label.
- */
-function closuresIn(line: string): Closure[] {
-  const found = [...line.matchAll(LABEL)];
-  return found.map((m, n) => {
-    const end = (m.index ?? 0) + m[0].length;
-    const note = line
-      .slice(end, found[n + 1]?.index ?? line.length)
-      .replace(/^[\s:：\-–—]+/, "")
-      .replace(/(?:[\s,;、]|\band\b|と)+$/i, "")
-      .trim();
-    return { label: m[1] ?? "", note: note.slice(0, NOTE_CHARS) };
-  });
-}
-
-/**
- * Splits the "Closed:" item off a summary body: the earlier items the model said this section
- * settled. The item isn't part of the body's format, so it is never saved with the summary.
- */
-export function takeClosures(body: string): { body: string; closures: Closure[] } {
-  const kept: string[] = [];
-  const lines: string[] = [];
-  let inside = false;
-  for (const line of body.split("\n")) {
-    const head = CLOSED_LINE.exec(line);
-    if (head) {
-      inside = true;
-      lines.push(head[1] ?? "");
-    } else if (inside && (line.trim() === "" || /^\s/.test(line))) {
-      lines.push(line.trim().replace(/^[-*+]\s+/, ""));
-    } else {
-      inside = false;
-      kept.push(line);
-    }
-  }
-  return { body: kept.join("\n").trim(), closures: lines.flatMap(closuresIn) };
 }

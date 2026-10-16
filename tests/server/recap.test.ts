@@ -12,6 +12,7 @@ import { buildRecapPrompt, RECAP_LIMIT } from "../../src/server/summarize/recapP
 import { MAX_RECAP_QUEUE, Summarizer } from "../../src/server/summarize/summarizer.ts";
 import type { RecapsResponse } from "../../src/shared/api.ts";
 import { SID } from "../fixtures/ids.ts";
+import { markdownRunner } from "./answers.ts";
 import { min, setup } from "./ingest/helpers.ts";
 import { putSummary } from "./summaryRows.ts";
 
@@ -42,10 +43,10 @@ beforeEach(() => {
     "Built the login form and opened its PRs.\n\n- Added validation (#42)\n- Split the password reset into three PRs (#43 #44 #45)";
   summarizer = new Summarizer(
     db,
-    (p) => {
+    markdownRunner((p) => {
       prompts.push(p);
       return reply(p);
-    },
+    }),
     { model: "test-model", onRecapUpdated: (t) => updated.push(t) },
   );
 });

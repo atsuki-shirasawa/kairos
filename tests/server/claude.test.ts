@@ -4,6 +4,7 @@ import {
   claudeArgs,
   DEFAULT_EFFORT,
   interpretExit,
+  readEnvelope,
   SummaryError,
 } from "../../src/server/summarize/claude.ts";
 import { summaryFailureKind } from "../../src/shared/summaryFailure.ts";
@@ -52,6 +53,16 @@ describe("claudeArgs", () => {
       "project",
     ]);
   });
+
+  test("asks for a JSON envelope that follows the schema only when one is given", () => {
+    const schema = { type: "object", properties: { headline: { type: "string" } } };
+    const withSchema = claudeArgs("c", { model: "haiku", schema });
+    expect(withSchema.slice(0, claudeArgs("c", { model: "haiku" }).length)).toEqual(
+      claudeArgs("c", { model: "haiku" }),
+    );
+    expect(valueAfter(withSchema, "--output-format")).toBe("json");
+    expect(JSON.parse(valueAfter(withSchema, "--json-schema") ?? "")).toEqual(schema);
+  });
 });
 
 describe("interpretExit", () => {
@@ -86,9 +97,55 @@ describe("interpretExit", () => {
     expect(failure({ code: 1, err: "x".repeat(600) })).toHaveLength(500);
   });
 
+  test("reports the error an envelope carries on a failed run, over stray stderr", () => {
+    const out = JSON.stringify({ is_error: true, result: "Not logged in · Please run /login" });
+    const message = failure({ code: 1, out, err: "warning: something unrelated" });
+    expect(message).toBe("Not logged in · Please run /login");
+    expect(summaryFailureKind(message)).toBe("login");
+  });
+
   test("says it timed out, even when the killed process wrote output", () => {
     const message = failure({ timedOut: true, timeoutMs: 180_000, code: 143, out: "partial" });
     expect(message).toBe("Did not finish within 180 seconds");
     expect(summaryFailureKind(message)).toBe("timeout");
+  });
+});
+
+describe("readEnvelope", () => {
+  const envelope = {
+    type: "result",
+    is_error: false,
+    structured_output: { headline: "Login form" },
+    total_cost_usd: 0.0021,
+    duration_ms: 2875,
+    usage: {
+      input_tokens: 2,
+      cache_creation_input_tokens: 3934,
+      cache_read_input_tokens: 100,
+      output_tokens: 90,
+    },
+  };
+
+  test("reads the structured answer, counting cached input with the rest", () => {
+    expect(readEnvelope(JSON.stringify(envelope))).toEqual({
+      output: { headline: "Login form" },
+      stats: { inputTokens: 4036, outputTokens: 90, costUsd: 0.0021, latencyMs: 2875 },
+    });
+  });
+
+  test("counts what the envelope leaves out as zero", () => {
+    expect(readEnvelope(JSON.stringify({ structured_output: 1 })).stats).toEqual({
+      inputTokens: 0,
+      outputTokens: 0,
+      costUsd: 0,
+      latencyMs: 0,
+    });
+  });
+
+  test("throws on an error envelope or output that isn't one", () => {
+    expect(() => readEnvelope(JSON.stringify({ is_error: true, result: "rate limit" }))).toThrow(
+      new SummaryError("rate limit"),
+    );
+    expect(() => readEnvelope("Login form\n\n- Goal: g")).toThrow(SummaryError);
   });
 });

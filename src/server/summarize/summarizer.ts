@@ -2,10 +2,11 @@ import type { Database } from "bun:sqlite";
 import { MINUTE } from "../../shared/dates.ts";
 import { DEFAULT_SUMMARY_LANG, type SummaryLang } from "../../shared/summaryLang.ts";
 import { storedSummaryLang } from "../settings.ts";
+import type { Runner } from "./claude.ts";
 import { JobTracker } from "./jobs.ts";
 import { loadRecapInput, type RecapTarget, recapKey } from "./recap.ts";
 import { buildRecapPrompt, parseRecap } from "./recapPrompt.ts";
-import { interpretSection, prepareSection } from "./section.ts";
+import { answerSection, interpretSection, prepareSection } from "./section.ts";
 import { findAutoTargets, saveRecap, saveSection } from "./store.ts";
 import type { Mode, SectionRef, Target } from "./target.ts";
 
@@ -20,9 +21,6 @@ export const MAX_RECAP_QUEUE = 20;
 export const NO_CONVERSATION = "No conversation to summarize";
 /** Why a summary was dropped: the block moved while the model ran, so it is due at its new start. */
 export const BLOCK_MOVED = "The block moved while it was summarized";
-
-/** Answers a prompt with the LLM. Production uses `runClaude`; tests pass a stub. */
-export type Runner = (prompt: string) => Promise<string>;
 
 /**
  * How summarizing one section went: saved, skipped for good (nothing to summarize), or failed
@@ -223,8 +221,7 @@ export class Summarizer {
         this.sections.giveUp(target, NO_CONVERSATION);
         return { status: "skipped", error: NO_CONVERSATION };
       }
-      const result = interpretSection(await this.run(prepared.prompt), prepared);
-      if (!result) throw new Error("Could not parse the summary output");
+      const result = interpretSection(await answerSection(this.run, prepared), prepared);
       const saved = saveSection(this.db, target, result, {
         model: this.model,
         createdAt: this.now(),

@@ -1,6 +1,6 @@
 // An `open_items` row as every ledger query reads it, and its one mapping to the domain types.
 import type { LedgerEntry } from "../../../shared/api.ts";
-import { OPEN_KINDS, type OpenKind } from "../../../shared/summaryBody.ts";
+import { isOpenKind, type OpenKind } from "../../../shared/summaryBody.ts";
 import { isClosedBy } from "./closers.ts";
 
 /** An item as the summarizer reads it: the API's entry plus its refs and its section's headline. */
@@ -45,7 +45,7 @@ export const ITEM_SELECT = `SELECT i.id, s.project_id, g.session_id, g.start, i.
 /** A stored kind, when it is one the summary format knows. */
 function kindOf(kind: string | null): OpenKind | null {
   // Rows hold what the summary parser wrote, but a value from elsewhere shouldn't reach the UI
-  return (OPEN_KINDS as readonly string[]).includes(kind ?? "") ? (kind as OpenKind) : null;
+  return isOpenKind(kind) ? kind : null;
 }
 
 /** The refs column (a JSON array of strings), tolerating a damaged value as no refs. */

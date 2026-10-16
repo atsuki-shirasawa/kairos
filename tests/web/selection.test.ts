@@ -19,6 +19,7 @@ function session(active: boolean): CalendarSession {
     start,
     end,
     headline: "x",
+    short: null,
     summarized: true,
     body: null,
     prs: [],

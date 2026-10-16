@@ -21,6 +21,7 @@ function segment(start: number, end: number, headline: string, extra = {}): Cale
     start,
     end,
     headline,
+    short: null,
     summarized: true,
     body: null,
     prs: [],

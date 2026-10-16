@@ -796,7 +796,7 @@ export function seedSessionSummaries(
     saveSummary(
       db,
       seg.id,
-      { headline: s.headline, body },
+      { headline: s.headline, short: null, body },
       { model: "haiku", covered: { from: seg.start, until: seg.end }, createdAt },
     );
     // The open items list reads the ledger, which the summarizer fills as it saves

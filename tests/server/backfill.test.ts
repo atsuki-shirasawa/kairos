@@ -8,6 +8,7 @@ import {
 import { findTargets } from "../../src/server/summarize/store.ts";
 import { Summarizer } from "../../src/server/summarize/summarizer.ts";
 import { SID } from "../fixtures/ids.ts";
+import { markdownRunner } from "./answers.ts";
 import { min, setup } from "./ingest/helpers.ts";
 
 let db: Database;
@@ -20,8 +21,12 @@ beforeEach(() => {
   const s = setup();
   s.ingester.scan();
   db = s.db;
-  reply = async () => "# A headline\n\n- Done: something";
-  summarizer = new Summarizer(db, () => reply(), { now: () => now, model: "test-model" });
+  reply = async () => "# A headline\n\n- Goal: something\n- Done: something";
+  summarizer = new Summarizer(
+    db,
+    markdownRunner(() => reply()),
+    { now: () => now, model: "test-model" },
+  );
 });
 
 const summarized = () =>

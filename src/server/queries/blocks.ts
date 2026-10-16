@@ -17,6 +17,7 @@ export interface SectionRow {
   prompt_count: number;
   fallback_title: string | null;
   headline: string | null;
+  short: string | null;
   body: string | null;
   model: string | null;
   created_at: number | null;
@@ -26,7 +27,7 @@ export interface SectionRow {
 
 /** A section and its summary, if any; `sectionRows` adds the scope. */
 const SECTION_SELECT = `SELECT g.session_id, g.start, g.end, g.prompt_count, g.fallback_title,
-         sm.headline, sm.body, sm.model, sm.created_at,
+         sm.headline, sm.short, sm.body, sm.model, sm.created_at,
          sm.block_id IS NOT NULL AND ${STALE_SUMMARY_SQL} AS stale
   FROM segments g LEFT JOIN summaries sm ON sm.block_id = g.id`;
 
@@ -88,6 +89,7 @@ export function toCalendarSegment(
     start: g.start,
     end: g.end,
     headline: sectionHeadline(g, sessionTitle),
+    short: g.short,
     summarized: g.headline !== null,
     body: summaryBody(g),
     prs: artifacts.prs,
@@ -118,6 +120,7 @@ export function toSection(
     end: g.end,
     promptCount: g.prompt_count,
     headline: sectionHeadline(g, sessionTitle),
+    short: g.short,
     body: summaryBody(g),
     model: g.model,
     createdAt: g.created_at,

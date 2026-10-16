@@ -1,6 +1,6 @@
-// Summarizes the fictional cases in tests/fixtures/summary-eval.ts with `claude -p` and scores the
-// summaries: open items found, false "resolved", leftovers that aren't, too many open items, unfit
-// headlines, and format adherence.
+// Summarizes the fictional cases in tests/fixtures/summary-eval.ts with `claude -p`, through the
+// same ask-and-check as the summarizer, and scores the summaries: open items found, false
+// "resolved", leftovers that aren't, too many open items, unfit headlines, and format adherence.
 // Not part of `bun run check`, since it calls the model. Usage:
 //   bun run eval:summary [--model haiku] [--effort low] [--runs 1] [--case <id>] [--out <file.json>]
 import { mkdirSync } from "node:fs";
@@ -8,12 +8,51 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { serverEnv } from "../src/cli/daemon.ts";
-import { DEFAULT_EFFORT, isEffort, runClaude } from "../src/server/summarize/claude.ts";
+import {
+  claudeRunner,
+  DEFAULT_EFFORT,
+  isEffort,
+  type RunStats,
+} from "../src/server/summarize/claude.ts";
 import { type HeadlineFlaw, headlineFlaws } from "../src/server/summarize/headline.ts";
-import { buildPrompt, type ParsedSummary, parseSummary } from "../src/server/summarize/prompt.ts";
+import { buildPrompt } from "../src/server/summarize/prompt.ts";
+import {
+  type AnsweredSection,
+  answerSection,
+  UnfitAnswerError,
+} from "../src/server/summarize/section.ts";
+import type { SummaryText } from "../src/server/summarize/store.ts";
 import { DEFAULT_MODEL } from "../src/server/summarize/summarizer.ts";
 import { type OpenItem, parseSummaryBody } from "../src/shared/summaryBody.ts";
 import { EVAL_CASES, type EvalCase, MAX_OPEN } from "../tests/fixtures/summary-eval.ts";
+
+/** A summary as scored: its headline and its stored Markdown body. */
+export type ScoredSummary = Pick<SummaryText, "headline" | "body">;
+
+/** One case's run as the report keeps it: the summary, or why none could be saved. */
+interface Outcome extends ScoredSummary {
+  id: string;
+  run: number;
+  asks: number;
+  stats: RunStats;
+  error?: string;
+}
+
+/**
+ * A case's answer as an outcome. One the summarizer would fail to save has no summary, and scores
+ * as one that didn't parse.
+ */
+function outcomeOf(
+  answered: AnsweredSection | UnfitAnswerError,
+  at: { id: string; run: number },
+): Outcome {
+  if (answered instanceof UnfitAnswerError) {
+    const { stats, asks, message } = answered;
+    return { ...at, headline: "", body: "", asks, stats, error: message };
+  }
+  const { headline, body } = answered.answer.summary;
+  return { ...at, headline, body, asks: answered.asks, stats: answered.stats };
+}
 
 /** How one summary did against its case. */
 export interface CaseScore {
@@ -72,7 +111,7 @@ function wrongLead(c: EvalCase, open: OpenItem[]): string | null {
 }
 
 /** Scores one summary against its case. Pure, so the tests can check it on the ideal summaries. */
-export function scoreCase(c: EvalCase, { headline, body }: ParsedSummary): CaseScore {
+export function scoreCase(c: EvalCase, { headline, body }: ScoredSummary): CaseScore {
   const parts = parseSummaryBody(body);
   const open = parts?.open ?? [];
   const resolved = parts?.resolved ?? [];
@@ -152,20 +191,34 @@ async function main() {
   // This usually runs inside a Claude Code session, whose variables must not reach claude -p
   const opts = { model: values.model, effort, cwd, env: serverEnv() };
 
+  const ask = claudeRunner(opts);
+
   const scores: CaseScore[] = [];
-  const outputs: { id: string; run: number; output: string }[] = [];
+  const outputs: Outcome[] = [];
   for (let run = 1; run <= Number(values.runs); run++) {
     // One case at a time: claude -p runs on the plan's usage, and the cases are few
     for (const c of cases) {
-      const output = await runClaude(buildPrompt(c.input, c.lang), opts);
-      outputs.push({ id: c.id, run, output });
-      const summary = parseSummary(output) ?? { headline: "", body: "" };
-      const score = scoreCase(c, summary);
+      const req = { prompt: buildPrompt(c.input, c.lang), mode: "summary" as const, lang: c.lang };
+      const answered = await answerSection(ask, req).catch((e: unknown) => {
+        if (e instanceof UnfitAnswerError) return e;
+        throw e;
+      });
+      const outcome = outcomeOf(answered, { id: c.id, run });
+      outputs.push(outcome);
+      if (outcome.error) console.log(`${c.id}: FAILED ${outcome.error}`);
+      const score = scoreCase(c, outcome);
       scores.push(score);
-      console.log(report(score, summary.headline));
+      console.log(report(score, outcome.headline));
     }
   }
-  console.log("\n", totals(scores));
+  const sum = (f: (s: RunStats) => number) => outputs.reduce((n, o) => n + f(o.stats), 0);
+  console.log("\n", {
+    ...totals(scores),
+    askedAgain: outputs.filter((o) => o.asks > 1).length,
+    failed: outputs.filter((o) => o.error).length,
+    costUsd: Number(sum((s) => s.costUsd).toFixed(4)),
+    meanLatencyMs: Math.round(sum((s) => s.latencyMs) / Math.max(1, outputs.length)),
+  });
   if (values.out) {
     await Bun.write(values.out, JSON.stringify({ opts: values, scores, outputs }, null, 2));
     console.log(`wrote ${values.out}`);

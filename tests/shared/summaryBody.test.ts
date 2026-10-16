@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { openItemsOf, parseSummaryBody } from "../../src/shared/summaryBody.ts";
+import { formatSummaryBody, openItemsOf, parseSummaryBody } from "../../src/shared/summaryBody.ts";
 
 /** What an older three-item body parses to: no Resolved, Open or Next. */
 const older = (goal: string, done: string[], outcome: string) => ({
@@ -200,5 +200,29 @@ describe("openItemsOf", () => {
     expect(openItemsOf(body)).toBe(openItemsOf(body));
     expect(openItemsOf("- Goal: a\n- Done: b\n- Outcome: left: CI")).toEqual([]);
     expect(openItemsOf(null)).toEqual([]);
+  });
+});
+
+describe("formatSummaryBody", () => {
+  const fields = {
+    goal: "Add a CSV export",
+    done: ["Added the export button", "Streamed the rows"],
+    resolved: ["Export of 10k rows: commit 2a4b6c8"],
+    open: [
+      { kind: "question" as const, text: "Whether Excel needs a BOM" },
+      { kind: null, text: "Docs" },
+    ],
+    next: "Ask about the BOM",
+  };
+
+  test("leaves out the optional items when they are empty", () => {
+    expect(formatSummaryBody({ ...fields, resolved: [], open: [], next: null }, "ja")).toBe(
+      "- 目的: Add a CSV export\n- やったこと:\n  - Added the export button\n  - Streamed the rows",
+    );
+  });
+
+  // The writer and the reader share one format; what is written must read as written
+  test.each(["en", "ja"] as const)("reads back as the same items (%s)", (lang) => {
+    expect(parseSummaryBody(formatSummaryBody(fields, lang))).toEqual({ ...fields, outcome: null });
   });
 });

@@ -13,6 +13,15 @@ export const HEADLINE_LENGTH: Record<SummaryLang, { min: number; max: number }> 
 };
 
 /**
+ * How long the short title is, in the same units: it heads a block in the week view, where a
+ * headline is cut off after a few words.
+ */
+export const SHORT_LENGTH: Record<SummaryLang, { min: number; max: number }> = {
+  en: { min: 2, max: 4 },
+  ja: { min: 12, max: 20 },
+};
+
+/**
  * A way a headline fails: it talks about the task or the model's own process (`meta`), reads as a
  * sentence rather than a title (`sentence`), or is outside `HEADLINE_LENGTH` (`length`).
  */

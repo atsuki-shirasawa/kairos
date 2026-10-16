@@ -12,7 +12,7 @@ import { watchProjects } from "./ingest/watcher.ts";
 import { LiveTracker } from "./live/tracker.ts";
 import { DEFAULT_CLAUDE_DIR, DEFAULT_DB_PATH, SUMMARIZER_CWD } from "./paths.ts";
 import { sessionsChange } from "./queries/sessions.ts";
-import { type Effort, runClaude } from "./summarize/claude.ts";
+import { claudeRunner, type Effort } from "./summarize/claude.ts";
 import { DEFAULT_MODEL, Summarizer } from "./summarize/summarizer.ts";
 
 const WEB_DIST = join(import.meta.dir, "../../dist/web");
@@ -45,12 +45,11 @@ export async function serve(opts: ServeOptions = {}): Promise<void> {
   const model = opts.summaryModel ?? DEFAULT_MODEL;
   const summarizer = new Summarizer(
     db,
-    (prompt) =>
-      runClaude(prompt, {
-        model,
-        cwd: SUMMARIZER_CWD,
-        ...(opts.summaryEffort ? { effort: opts.summaryEffort } : {}),
-      }),
+    claudeRunner({
+      model,
+      cwd: SUMMARIZER_CWD,
+      ...(opts.summaryEffort ? { effort: opts.summaryEffort } : {}),
+    }),
     {
       model,
       auto: opts.autoSummary ?? true,

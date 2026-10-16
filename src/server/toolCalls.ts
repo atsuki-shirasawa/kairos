@@ -1,6 +1,7 @@
 // Main-conversation tool calls read back from the DB with their results. Shared by the summaries'
 // facts, the open-items ledger and the live page, so none of them imports another's internals.
 import type { Database } from "bun:sqlite";
+import { asRecord } from "./json.ts";
 
 /** A main-conversation tool call with its result. */
 export interface ToolCall {
@@ -29,7 +30,7 @@ export function toolInput(c: Pick<ToolCall, "input">): Record<string, unknown> |
   if (!c.input) return null;
   try {
     const v: unknown = JSON.parse(c.input);
-    return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+    return asRecord(v);
   } catch {
     return null;
   }

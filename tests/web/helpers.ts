@@ -19,6 +19,7 @@ export function segment(
     start,
     end,
     headline,
+    short: null,
     summarized,
     body: null,
     prs: [],

@@ -89,3 +89,37 @@ test("migration 13 gives blocks ids and keys summaries and open items by them", 
   expect(db.query("PRAGMA foreign_key_check").all()).toEqual([]);
   db.close();
 });
+
+test("migration 14 adds how a summary was written, null for the summaries before it", () => {
+  const path = join(tmpdir(), `kairos-summary-runs-${crypto.randomUUID()}.db`);
+  const old = new Database(path, { create: true });
+  for (const [i, sql] of MIGRATIONS.slice(0, 13).entries()) {
+    old.run(sql);
+    old.run(`PRAGMA user_version = ${i + 1}`);
+  }
+  old.run("INSERT INTO sessions (id) VALUES ('s')");
+  old.run("INSERT INTO segments (id, session_id, start, end) VALUES (1, 's', 100, 200)");
+  old.run("INSERT INTO summaries VALUES (1, 'Login form', '- Goal: g', 'haiku', 100, 200, 5)");
+  old.close();
+
+  const db = openDb(path);
+  expect(db.query("SELECT * FROM summaries").all()).toEqual([
+    {
+      block_id: 1,
+      headline: "Login form",
+      body: "- Goal: g",
+      model: "haiku",
+      covered_from: 100,
+      covered_until: 200,
+      created_at: 5,
+      short: null,
+      prompt_version: null,
+      input_hash: null,
+      input_tokens: null,
+      output_tokens: null,
+      cost_usd: null,
+      latency_ms: null,
+    },
+  ]);
+  db.close();
+});

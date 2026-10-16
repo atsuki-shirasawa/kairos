@@ -32,6 +32,11 @@ export const OPEN_KINDS = ["todo", "issue", "question", "waiting"] as const;
 /** One of `OPEN_KINDS`: asked for but not finished, found but not handled, undecided, or blocked. */
 export type OpenKind = (typeof OPEN_KINDS)[number];
 
+/** Whether a value is one of `OPEN_KINDS`: a tag in a body, a stored kind, or a model's answer. */
+export function isOpenKind(value: unknown): value is OpenKind {
+  return (OPEN_KINDS as readonly unknown[]).includes(value);
+}
+
 /** One open item. The kind is null when the model left the tag out or wrote an unknown one. */
 export interface OpenItem {
   kind: OpenKind | null;
@@ -110,6 +115,29 @@ function splitBullets(lines: string[]): string[] | null {
   return entries.map((e) => e.join("\n").trim()).filter(Boolean);
 }
 
+/** What `formatSummaryBody` writes: a summary's items, without the older format's Outcome. */
+export type BodyFields = Omit<SummaryParts, "outcome">;
+
+/**
+ * Writes the items as a body in the format `parseSummaryBody` reads, under the labels of the
+ * summary's language: one line per item or point, the optional items left out when empty.
+ */
+export function formatSummaryBody(f: BodyFields, lang: keyof typeof SUMMARY_LABELS): string {
+  const labels = SUMMARY_LABELS[lang];
+  const nested = (label: string, points: string[]) =>
+    points.length ? [`- ${label}:`, ...points.map((p) => `  - ${p}`)] : [];
+  return [
+    `- ${labels.goal}: ${f.goal}`,
+    ...nested(labels.done, f.done),
+    ...nested(labels.resolved, f.resolved),
+    ...nested(
+      labels.open,
+      f.open.map((i) => (i.kind ? `[${i.kind}] ${i.text}` : i.text)),
+    ),
+    ...(f.next ? [`- ${labels.next}: ${f.next}`] : []),
+  ].join("\n");
+}
+
 /**
  * Reads a body written to the summary prompt's format, current or older: Goal and Done, then any of
  * Resolved, Open, Next (or the older Outcome), each top-level item at most once. Returns null for
@@ -176,12 +204,17 @@ function textOf(item: Item | undefined): string | null {
 const NOTHING =
   /^(?:(?:none|nothing)(?: (?:pending|left|open|remaining|further))?(?: (?:in|for) this section)?|not (?:stated|recorded|mentioned|given)(?: in (?:the|this) (?:transcript|section))?|n\/a|-|なし|特になし|記載なし|無し|ありません|特にありません)[.。]?$/i;
 
+/** Whether text only says there is nothing ("none", "なし"), standing in for an entry left out. */
+export function saysNothingText(text: string): boolean {
+  return NOTHING.test(text.trim());
+}
+
 /**
  * Whether an item holds only a "none", inline or as its one nested bullet, so it reads as absent
  * rather than as one point.
  */
 function saysNothing(item: Item): boolean {
-  return NOTHING.test(joinItem(item).replace(/^[-*+]\s+/, ""));
+  return saysNothingText(joinItem(item).replace(/^[-*+]\s+/, ""));
 }
 
 /** An item's text with any lines under it (continuations, or a nested list in place of text). */
@@ -229,6 +262,6 @@ const KIND_TAG = /^\**[[［]\s*([A-Za-z]+)\s*[\]］](?!\()\**\s*/;
 function openItem(point: string): OpenItem {
   const tag = KIND_TAG.exec(point);
   const kind = (tag?.[1] ?? "").toLowerCase();
-  if (!tag || !(OPEN_KINDS as readonly string[]).includes(kind)) return { kind: null, text: point };
-  return { kind: kind as OpenKind, text: point.slice(tag[0].length).trim() };
+  if (!tag || !isOpenKind(kind)) return { kind: null, text: point };
+  return { kind, text: point.slice(tag[0].length).trim() };
 }

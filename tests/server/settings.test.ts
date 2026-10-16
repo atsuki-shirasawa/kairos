@@ -5,6 +5,7 @@ import { EventHub } from "../../src/server/events.ts";
 import { Summarizer } from "../../src/server/summarize/summarizer.ts";
 import type { Settings } from "../../src/shared/api.ts";
 import { SID } from "../fixtures/ids.ts";
+import { markdownRunner } from "./answers.ts";
 import { min, setup } from "./ingest/helpers.ts";
 
 const URL_BASE = "http://127.0.0.1:4319";
@@ -21,10 +22,10 @@ beforeEach(() => {
 const summarizer = (lang?: "en" | "ja") =>
   new Summarizer(
     db,
-    async (p) => {
+    markdownRunner(async (p) => {
       prompts.push(p);
-      return "Headline\n\n- Goal: x";
-    },
+      return "Login form validation\n\n- Goal: x\n- Done: y";
+    }),
     lang ? { lang } : {},
   );
 

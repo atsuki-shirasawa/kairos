@@ -21,7 +21,7 @@ The server returns conversation logs from every project, so assume another site 
 ## Summaries (`src/server/summarize/`)
 
 - `claude -p` runs in a dedicated empty working directory with `--tools ""`, `--strict-mcp-config`, `--no-session-persistence` and `--setting-sources project`. Keep all of them
-- Log text (possible prompt injection) goes in via stdin, never into arguments or a shell
+- Log text (possible prompt injection) goes in via stdin, never into arguments or a shell. The only other argument a summary adds is its answer schema (`--json-schema`), a constant of Kairos's own
 - The output language follows the UI language (stored on the server via `PATCH /api/settings`); `--summary-lang <en|ja>` fixes it instead. Existing summaries are kept and can be regenerated from the drawer
 
 When you change any of this, check with the `security-reviewer` agent.

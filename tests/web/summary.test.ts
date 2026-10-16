@@ -60,6 +60,7 @@ function session(id: string, projectId: number | null, ...segments: Seg[]): Cale
       start: g.start,
       end: g.end,
       headline: g.headline ?? id,
+      short: null,
       summarized: true,
       body: null,
       prs: g.prs ?? [],
