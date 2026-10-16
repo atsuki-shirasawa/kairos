@@ -13,7 +13,10 @@ type Params = Record<string, unknown>;
 /** A headless Chrome with one page, driven over the DevTools Protocol. */
 export class HeadlessChrome {
   private seq = 0;
-  private readonly pending = new Map<number, (result: Params) => void>();
+  private readonly pending = new Map<
+    number,
+    { resolve: (result: Params) => void; reject: (e: Error) => void }
+  >();
   private readonly waiters = new Map<string, () => void>();
 
   private constructor(
@@ -36,6 +39,9 @@ export class HeadlessChrome {
         `--user-data-dir=${profile}`,
         "--hide-scrollbars",
         "--no-first-run",
+        // A page kept for the back button keeps its event stream open; enough of them use up the
+        // six connections Chrome allows a host, and the next page's requests never start
+        "--disable-features=BackForwardCache",
         "about:blank",
       ],
       { stdout: "ignore", stderr: "ignore" },
@@ -51,12 +57,12 @@ export class HeadlessChrome {
     return chrome;
   }
 
-  /** Sends a protocol command and resolves with its result. */
+  /** Sends a protocol command and resolves with its result, or rejects with Chrome's error. */
   send(method: string, params: Params = {}): Promise<Params> {
     this.seq += 1;
     const id = this.seq;
     this.ws.send(JSON.stringify({ id, method, params }));
-    return new Promise((resolve) => this.pending.set(id, resolve));
+    return new Promise((resolve, reject) => this.pending.set(id, { resolve, reject }));
   }
 
   /** Navigates and waits for the load event, then `settleMs` more for data and fonts. */
@@ -82,9 +88,11 @@ export class HeadlessChrome {
 
   private receive(msg: { id?: number; method?: string; result?: Params; error?: Params }): void {
     if (msg.id !== undefined) {
-      if (msg.error) throw new Error(`CDP: ${JSON.stringify(msg.error)}`);
-      this.pending.get(msg.id)?.(msg.result ?? {});
+      const call = this.pending.get(msg.id);
       this.pending.delete(msg.id);
+      // Rejected rather than thrown: a throw in the socket's listener never reaches the caller
+      if (msg.error) call?.reject(new Error(`CDP: ${JSON.stringify(msg.error)}`));
+      else call?.resolve(msg.result ?? {});
     } else if (msg.method) {
       this.waiters.get(msg.method)?.();
       this.waiters.delete(msg.method);

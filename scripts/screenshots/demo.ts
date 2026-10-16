@@ -3,7 +3,7 @@
 // summarizer would have written. Nothing here comes from real logs.
 import type { Database } from "bun:sqlite";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { recordSection } from "../../src/server/summarize/ledger/record.ts";
 import { loadRecapInput } from "../../src/server/summarize/recap.ts";
 import { saveRecap, saveSummary } from "../../src/server/summarize/store.ts";
@@ -12,7 +12,8 @@ import { at, LogBuilder, type Rec, type TokenUsage } from "../../tests/fixtures/
 
 /** Time zone the demo week is laid out in; the capture renders in the same zone. */
 export const DEMO_TZ = "Asia/Tokyo";
-const OFFSET = "+09:00";
+/** `DEMO_TZ`'s offset, for writing the demo's local times as instants. */
+export const DEMO_OFFSET = "+09:00";
 
 /**
  * Sunday of the demo week, `YYYY-MM-DD`. Weeks start on Sunday in the app, and recaps are keyed by
@@ -21,6 +22,12 @@ const OFFSET = "+09:00";
 export const DEMO_WEEK = "2026-09-27";
 /** The day for the day-view screenshot: a long block there shows its summary body. */
 export const DEMO_DAY = "2026-09-30";
+/**
+ * The time the capture's server and browser are frozen at, so relative times and the live page read
+ * the same on every run. After the demo week and the month view's days around it (September 2026),
+ * so the sessions running then stay out of the calendar shots.
+ */
+export const DEMO_NOW = Date.parse(`2026-10-14T15:00:00${DEMO_OFFSET}`);
 
 const PROJECTS = {
   atlas: "/Users/me/dev/atlas",
@@ -31,7 +38,8 @@ const PROJECTS = {
 
 type ProjectKey = keyof typeof PROJECTS;
 
-interface DemoSection {
+/** One work block of a demo session, written as a section of its log. */
+export interface DemoSection {
   /** `MM-DD` in 2026. */
   day: string;
   /** Local start time, `HH:MM`. */
@@ -45,6 +53,8 @@ interface DemoSection {
   /** A failing test run partway through, counted as a snag. */
   snag?: boolean;
   headline: string;
+  /** No summary at all, not even the headline: one still to write, or one the capture asks for. */
+  unsummarized?: boolean;
   /** Left out for a short section, which gets only a headline. */
   summary?: {
     goal: string;
@@ -64,7 +74,8 @@ interface DemoSession {
   sections: DemoSection[];
 }
 
-const sid = (n: number) => `d0000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+/** A demo session ID, numbered so each group of sessions can keep its own range. */
+export const sid = (n: number) => `d0000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 
 /** The session opened in the drawer for the week screenshot. */
 export const DRAWER_SESSION = sid(9);
@@ -638,13 +649,13 @@ const minuteBase = Date.parse(at(0));
 
 /** Minutes after the fixture base time for a local `MM-DD` and `HH:MM`, as `LogBuilder` expects. */
 function minuteOf(day: string, time: string): number {
-  return (Date.parse(`2026-${day}T${time}:00${OFFSET}`) - minuteBase) / 60_000;
+  return (Date.parse(`2026-${day}T${time}:00${DEMO_OFFSET}`) - minuteBase) / 60_000;
 }
 
 let commitSeq = 0;
 
 /** Writes one section: its prompts, tool calls every few minutes, commits, an optional PR. */
-function writeSection(b: LogBuilder, s: DemoSection, project: ProjectKey): void {
+function writeSection(b: LogBuilder, s: DemoSection, cwd: string): void {
   const start = minuteOf(s.day, s.start);
   const end = start + s.minutes;
   const turn = s.minutes / s.prompts.length;
@@ -660,12 +671,12 @@ function writeSection(b: LogBuilder, s: DemoSection, project: ProjectKey): void 
       const file = files[step % Math.max(files.length, 1)];
       if (file && step % 2 === 0) {
         const id = b.toolUse(t, "Edit", {
-          file_path: `${PROJECTS[project]}/${file}`,
+          file_path: `${cwd}/${file}`,
           old_string: "",
           new_string: "// …",
         });
         b.toolResult(t, id, "The file has been updated.", {
-          result: { filePath: `${PROJECTS[project]}/${file}` },
+          result: { filePath: `${cwd}/${file}` },
         });
       } else if (s.snag && i === 0 && step === 3) {
         b.bash(t, "bun test", "1 fail\n  expected 200, received 429", true);
@@ -679,7 +690,7 @@ function writeSection(b: LogBuilder, s: DemoSection, project: ProjectKey): void 
     }
     if (i === s.prompts.length - 1) {
       for (const [k, c] of commits.entries()) writeCommit(b, c.message, end - 3 + k * 0.3);
-      writePr(b, s, project, end);
+      writePr(b, s, cwd, end);
     }
     b.text(to, "Done.");
     b.turnEnd(to, Math.round(turn * 60_000 * 0.6));
@@ -711,27 +722,39 @@ function writeCommit(b: LogBuilder, message: string, at: number): void {
 }
 
 /** The section's PR, just before it ends. */
-function writePr(b: LogBuilder, s: DemoSection, project: ProjectKey, end: number): void {
+function writePr(b: LogBuilder, s: DemoSection, cwd: string, end: number): void {
   if (s.pr) {
     b.ghPrCreate(end - 1.5, `gh pr create --title "${s.pr.title}" --body "…"`, {
       number: s.pr.number,
-      repository: `me/${project}`,
+      repository: `me/${basename(cwd)}`,
     });
   }
 }
 
-/** Writes the demo sessions as jsonl under `<claudeDir>/projects`, laid out like `~/.claude`. */
+/** A session to write as a log: where it ran and its sections in order. */
+export interface SessionLog {
+  id: string;
+  cwd: string;
+  branch: string;
+  title: string;
+  sections: DemoSection[];
+}
+
+/** Writes one session as jsonl under `<claudeDir>/projects`, laid out like `~/.claude`. */
+export function writeSessionLog(claudeDir: string, session: SessionLog): void {
+  const b = new LogBuilder(session.id, session.cwd, session.branch);
+  b.meta("mode", { mode: "normal" });
+  for (const section of session.sections) writeSection(b, section, session.cwd);
+  b.meta("ai-title", { aiTitle: session.title });
+  const dir = join(claudeDir, "projects", session.cwd.replace(/[/.]/g, "-"));
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, `${session.id}.jsonl`), b.toJsonl());
+}
+
+/** Writes the demo sessions as jsonl under `<claudeDir>/projects`. */
 export function writeDemoLogs(claudeDir: string): void {
-  for (const session of [...PREVIOUS_WEEK, ...SESSIONS]) {
-    const cwd = PROJECTS[session.project];
-    const b = new LogBuilder(session.id, cwd, session.branch);
-    b.meta("mode", { mode: "normal" });
-    for (const section of session.sections) writeSection(b, section, session.project);
-    b.meta("ai-title", { aiTitle: session.title });
-    const path = join(claudeDir, "projects", cwd.replace(/[/.]/g, "-"), `${session.id}.jsonl`);
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, b.toJsonl());
-  }
+  for (const session of [...PREVIOUS_WEEK, ...SESSIONS])
+    writeSessionLog(claudeDir, { ...session, cwd: PROJECTS[session.project] });
 }
 
 /**
@@ -740,38 +763,50 @@ export function writeDemoLogs(claudeDir: string): void {
  * Run after ingesting the demo logs.
  */
 export function seedDemoSummaries(db: Database): void {
-  const createdAt = Date.parse(`2026-10-02T18:00:00${OFFSET}`);
-  for (const session of [...PREVIOUS_WEEK, ...SESSIONS]) {
-    const segments = db
-      .query<{ start: number; end: number }, [string]>(
-        "SELECT start, end FROM segments WHERE session_id = ? ORDER BY start",
-      )
-      .all(session.id);
-    if (segments.length !== session.sections.length) {
-      throw new Error(
-        `${session.id}: ${segments.length} blocks ingested, ${session.sections.length} written`,
-      );
-    }
-    segments.forEach((seg, i) => {
-      const s = session.sections[i] as DemoSection;
-      const target = { sessionId: session.id, start: seg.start };
-      const body = s.summary ? summaryBody(s.summary) : "";
-      saveSummary(
-        db,
-        target,
-        { headline: s.headline, body },
-        { model: "haiku", coveredUntil: seg.end, createdAt },
-      );
-      // The open items list reads the ledger, which the summarizer fills as it saves
-      recordSection(db, target, {
-        end: seg.end,
-        opened: parseSummaryBody(body)?.open ?? [],
-        tasks: [],
-        closed: [],
-      });
-    });
-  }
+  const createdAt = Date.parse(`2026-10-02T18:00:00${DEMO_OFFSET}`);
+  for (const session of [...PREVIOUS_WEEK, ...SESSIONS])
+    seedSessionSummaries(db, session, createdAt);
   seedRecaps(db, createdAt);
+}
+
+/**
+ * Stores a session's summaries as the summarizer would have written them, section by section in
+ * the order the log has them, and fills the open-items ledger from them. Run after ingesting it.
+ */
+export function seedSessionSummaries(
+  db: Database,
+  session: Pick<SessionLog, "id" | "sections">,
+  createdAt: number,
+): void {
+  const segments = db
+    .query<{ start: number; end: number }, [string]>(
+      "SELECT start, end FROM segments WHERE session_id = ? ORDER BY start",
+    )
+    .all(session.id);
+  if (segments.length !== session.sections.length) {
+    throw new Error(
+      `${session.id}: ${segments.length} blocks ingested, ${session.sections.length} written`,
+    );
+  }
+  segments.forEach((seg, i) => {
+    const s = session.sections[i] as DemoSection;
+    if (s.unsummarized) return;
+    const target = { sessionId: session.id, start: seg.start };
+    const body = s.summary ? summaryBody(s.summary) : "";
+    saveSummary(
+      db,
+      target,
+      { headline: s.headline, body },
+      { model: "haiku", coveredUntil: seg.end, createdAt },
+    );
+    // The open items list reads the ledger, which the summarizer fills as it saves
+    recordSection(db, target, {
+      end: seg.end,
+      opened: parseSummaryBody(body)?.open ?? [],
+      tasks: [],
+      closed: [],
+    });
+  });
 }
 
 /** A section summary body in the summarizer's shape, leaving out the items a section has none of. */
@@ -789,7 +824,7 @@ function summaryBody(s: NonNullable<DemoSection["summary"]>): string {
 
 /** Recaps for the demo week, keyed by the same period the summary view asks for. */
 function seedRecaps(db: Database, createdAt: number): void {
-  const from = Date.parse(`${DEMO_WEEK}T00:00:00${OFFSET}`);
+  const from = Date.parse(`${DEMO_WEEK}T00:00:00${DEMO_OFFSET}`);
   const to = from + 7 * 86_400_000;
   for (const [key, body] of Object.entries(RECAPS)) {
     const name = key;
@@ -813,6 +848,8 @@ export interface LiveDemoEntry {
   statusUpdatedAt: number;
   startedAt: number;
   name: string;
+  /** Not part of the registry entry: whether the live page shows it under On you. */
+  onYou: boolean;
 }
 
 /**
@@ -835,6 +872,8 @@ interface LiveDemo {
   write: (b: LogBuilder, m: (ago: number) => number) => void;
   /** Subagents it launched in the background; `write` calls `launch` for each. */
   agents?: DemoAgent[];
+  /** Waits on you (a question, or a finished turn): the live page's On you column. */
+  onYou?: true;
 }
 
 /** A background subagent of a running demo session, with its own log and meta file. */
@@ -957,6 +996,7 @@ const LIVE: LiveDemo[] = [
     title: "Highlight matches in search results",
     kind: "interactive",
     status: "busy",
+    onYou: true,
     startedAgo: 48,
     sinceAgo: 3,
     write: (b, m) => {
@@ -973,6 +1013,7 @@ const LIVE: LiveDemo[] = [
     title: "Dark mode for the settings pages (#91)",
     kind: "interactive",
     status: "idle",
+    onYou: true,
     startedAgo: 95,
     sinceAgo: 6,
     write: (b, m) => {
@@ -1099,9 +1140,8 @@ function writeAgentLog(
 
 /**
  * Writes the logs of the sessions running at `now` and returns their registry entries, for the
- * capture to pair with stand-in processes. Their blocks fall in the few hours before the capture,
- * so they stay out of the other screenshots as long as it isn't run during the demo week or the
- * month view's days around it (September 2026).
+ * capture to pair with stand-in processes. Their blocks fall in the few hours before `now`
+ * (`DEMO_NOW` in the capture), so they stay out of the calendar shots.
  */
 export function writeLiveDemoLogs(claudeDir: string, now: number): LiveDemoEntry[] {
   const nowMinute = (now - minuteBase) / 60_000;
@@ -1124,6 +1164,7 @@ export function writeLiveDemoLogs(claudeDir: string, now: number): LiveDemoEntry
       statusUpdatedAt: now - live.sinceAgo * 60_000,
       startedAt: now - live.startedAgo * 60_000,
       name: live.title,
+      onYou: live.onYou === true,
     };
   });
 }

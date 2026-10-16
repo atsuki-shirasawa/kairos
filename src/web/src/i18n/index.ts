@@ -5,18 +5,14 @@
 // so every render after a switch sees the new locale.
 import { useSyncExternalStore } from "react";
 
-/** A supported UI language. */
-export type Locale = "en" | "ja";
+import { LOCALE_STORAGE_KEY, type Locale } from "./locale.ts";
 
-/** Languages offered in the "⋯" menu, in display order. */
-export const LOCALES: Locale[] = ["en", "ja"];
-
-const KEY = "kairos.locale";
+export { LOCALE_STORAGE_KEY, LOCALES, type Locale } from "./locale.ts";
 
 /** Reads the saved choice. Falls back to English when storage is unavailable (private windows). */
 function load(): Locale {
   try {
-    return localStorage.getItem(KEY) === "ja" ? "ja" : "en";
+    return localStorage.getItem(LOCALE_STORAGE_KEY) === "ja" ? "ja" : "en";
   } catch {
     return "en";
   }
@@ -35,8 +31,8 @@ export function setLocale(next: Locale): void {
   if (next === current) return;
   current = next;
   try {
-    if (next === "en") localStorage.removeItem(KEY);
-    else localStorage.setItem(KEY, next);
+    if (next === "en") localStorage.removeItem(LOCALE_STORAGE_KEY);
+    else localStorage.setItem(LOCALE_STORAGE_KEY, next);
   } catch {
     // Not persisted, but the switch still applies while the page stays open
   }

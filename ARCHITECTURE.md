@@ -216,7 +216,9 @@ The page of running sessions: what waits on you, what is working, and idle sessi
 
 ![Running sessions](docs/images/screen-live.png)
 
-The screenshots are taken from a fictional week (`scripts/screenshots/demo.ts`) with `bun run screenshots`. The sessions shown as running get logs in the few hours before the capture and stand-in processes registered just before the live shot, since the page lists a session only while its PID exists. Retake them when the UI changes visibly.
+The screenshots are taken from a fictional week (`scripts/screenshots/demo.ts`) with `bun run screenshots`. The server, the capture and the page run on a clock stopped at a fixed time after that week (`clock.ts`), so relative times and the live page come out the same on every run. The sessions shown as running get logs in the few hours before that time and stand-in processes registered just before the live shot, since the page lists a session only while its PID exists. Retake them when the UI changes visibly.
+
+`bun run visual` is the visual regression check built on the same harness (`demoServer.ts` for the data and server, `browser.ts` for the page): every view (week, drawer, day, month, summary, table, the live page with sessions running, only waiting on you, none, and an unreadable registry) in light and dark, English and Japanese, 1440 and 1024 wide, plus a crowded stress day (`stress.ts`: 23 blocks with overlaps, a 1-minute and an 8-hour block, work across midnight, 12 projects, long titles in both languages, and summaries missing, failed and in progress; a stand-in `claude` on the server's PATH fails or holds the last two). Shots are compared pixel by pixel in the same Chrome against `.visual/baseline`, which is local (fonts render per machine) and updated with `--update` only after looking at `.visual/diff`. For identical runs the page holds its requests until the first frame's fonts load, waits until nothing is fetching, changing or scrolling, and has animations off.
 
 - Blocks that overlap in time are placed side by side, as in Google Calendar
 - Blocks show the summary headline. If there isn't enough height, only the headline is shown, with the full text on hover. Blocks with commits or PRs carry a small mark
@@ -234,7 +236,7 @@ kairos/
 ├── docs/images/        # architecture diagram (rendered PNG and its Archify source) and screenshots
 ├── ARCHITECTURE.md     # this file
 ├── DESIGN.md           # visual design for agents (DESIGN.md format)
-├── scripts/            # check-jsdoc.ts; screenshots/ (fictional demo week and the capture)
+├── scripts/            # check-jsdoc.ts; screenshots/ (fictional demo week, stress day, docs capture, visual check)
 ├── src/
 │   ├── cli/            # the kairos command: index.ts (entry: parse → context → command → exit code), args.ts
 │   │                   #   (validation into a typed context), options.ts (every flag once), errors.ts,

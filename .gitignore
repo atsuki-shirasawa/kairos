@@ -7,3 +7,6 @@ dist/
 coverage/
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
+
+# Visual baseline and its last run (bun run visual)
+.visual/

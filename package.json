@@ -21,6 +21,7 @@
     "test": "bun test",
     "check": "biome check . && bun run typecheck && bun run jsdoc && bun test",
     "screenshots": "bun scripts/screenshots/capture.ts",
+    "visual": "bun scripts/screenshots/visual.ts",
     "eval:summary": "bun scripts/summary-eval.ts"
   },
   "dependencies": {

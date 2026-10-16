@@ -19,6 +19,7 @@ This is a personal project, so finished work goes straight to main: review → f
 2. **Review** — run the `code-review` skill on `main..<branch>` at the chosen level. In parallel, run each reviewer agent whose paths the branch touches; the `remind_once` calls in `.claude/hooks/rules-check.sh` are the source of truth for which paths need `security-reviewer`, `i18n-reviewer` and `design-reviewer`
 3. **Fix** — address every finding worth fixing, adding tests for the cases a finding exposed. Fold each fix into the commit it belongs to: `git commit --amend` for a single commit, or `git commit --fixup=<sha>` then `GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash main` for several. Update the commit message if the approach changed. Skip a finding only with a reason you can state, and list it in the report
 4. **Check** — `bun run check` must pass. If it fails, fix and repeat; never merge red
+   - When the branch touches `src/web` or `scripts/screenshots`, also run `bun run visual` (if `.visual/baseline` is missing, first make one on main: `bun run visual; bun run visual --update`). A structural change must give a zero diff. For a visual change, look at every image in `.visual/diff` and say in the report what changed and whether it was intended
 5. **Merge**
    ```sh
    git fetch -q origin
@@ -27,6 +28,7 @@ This is a personal project, so finished work goes straight to main: review → f
    git branch -d <branch>
    ```
    If main or `origin/main` moved since step 1, switch back, rebase the branch onto it, rerun `bun run check`, and repeat the review when the new commits touch the same files. Don't create a merge commit
+   - If `bun run visual` showed intended changes, run `bun run visual --update` now, so the baseline matches main
 6. **Push** — only when `$ARGUMENTS` contains `push`; otherwise say main is ahead of origin and ask. After pushing:
    - Delete the branch on origin if it was pushed earlier (`git push origin --delete <branch>`)
    - Confirm any `Closes #N` issue is closed (`gh issue view N --json state`)

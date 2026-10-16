@@ -25,3 +25,4 @@ Log text is untrusted (it may contain text copied from web pages). `src/web/src/
 - Keyboard shortcuts are mapped in `lib/shortcuts.ts` and handled in `hooks/useKeyboardShortcuts.ts`. The "⋯" menu's list and the key hints in tooltips are derived from `SHORTCUT_GROUPS` / `keyCap` there, so add a new shortcut to the map and its group rather than to the menu
 - To see a change in the browser, use `/verify-ui` (runs against the fixtures)
 - When the UI changes visibly, retake the docs screenshots with `bun run build && bun run screenshots` (a fictional week in `scripts/screenshots/demo.ts`)
+- `bun run visual` compares every view with the local baseline (`/land` runs it). A structural change (moves, renames, routing) must give a zero diff, so land it apart from a visual one; after a visual change, look at `.visual/diff` before `bun run visual --update`

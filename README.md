@@ -145,6 +145,8 @@ bun run format   # auto-fix with Biome
 
 `bun run screenshots` retakes the screenshots in `docs/images/` from a fictional week, plus a few sessions shown as running (stand-in `sleep` processes registered like Claude Code's; needs `bun run build` and Google Chrome).
 
+`bun run visual` shoots every view of the same week and a crowded stress day in light / dark, English / Japanese and two widths, and compares them with the baseline in `.visual/baseline` (needs Google Chrome; it builds the UI itself). When a change is intended, look at `.visual/diff`, then run `bun run visual --update`.
+
 The fictional test logs can be regenerated with `bun tests/fixtures/generate.ts` ([details](tests/fixtures/README.md)).
 
 ## License

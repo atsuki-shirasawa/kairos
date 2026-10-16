@@ -13,6 +13,7 @@ bun test tests/server/ingest/ingester.test.ts   # a single test file
 bun run dev        # API :4319 + Vite :5173. Run `kairos stop` first (same port)
 bun tests/fixtures/generate.ts                  # regenerate the fixtures
 bun run screenshots   # retake docs/images/screen-*.png from a fictional week (after `bun run build`)
+bun run visual        # visual regression: every view × light/dark × en/ja × 1440/1024 against .visual/baseline
 ```
 
 Finished work goes to main without a PR: when asked to merge, use `/land` (review → fix → fast-forward merge; push only on request). To deploy to the locally running server, use `/ship-local` (check → build → `kairos restart`). To check a UI change in the browser against the fixtures, use `/verify-ui`.
