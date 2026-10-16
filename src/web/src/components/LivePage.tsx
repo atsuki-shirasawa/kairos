@@ -1,5 +1,7 @@
 import type { LiveResponse, LiveSession, Project } from "@shared/api.ts";
 import { MINUTE } from "@shared/dates.ts";
+import { StatusDot } from "@/components/ui/status-dot.tsx";
+import { Tag } from "@/components/ui/tag.tsx";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { liveMessages } from "@/i18n/messages/live.ts";
 import { projectColor } from "@/lib/colors.ts";
@@ -297,7 +299,9 @@ function CardHeading({
       <p className="mt-0.5 flex min-w-0 items-center gap-1.5 pl-3.5 text-label text-muted-foreground">
         <span className="truncate">{card.place}</span>
         {s.background && (
-          <span className="shrink-0 rounded-md border px-1 leading-4">{m.background}</span>
+          <Tag variant="compact" className="shrink-0">
+            {m.background}
+          </Tag>
         )}
         {compact && <AgentCount session={s} />}
         {compact && s.section !== null && <RowCache session={s} now={now} />}
@@ -388,9 +392,9 @@ function Clamped({ compact, children }: { compact: boolean; children: React.Reac
  * dot in the warn tone, since it holds the turn until answered; waiting and idle are a ring.
  */
 function StateDot({ display }: { display: LiveDisplay }) {
-  const base = "size-1.5 shrink-0 rounded-full";
   if (display === "working")
-    return <span className={cn(base, "animate-pulse bg-[var(--c)] motion-reduce:animate-none")} />;
-  if (display === "asking") return <span className={cn(base, "bg-warn")} />;
-  return <span className={cn(base, "border border-muted-foreground")} />;
+    return <StatusDot look={{ state: "pulse", tone: "project" }} className="shrink-0" />;
+  if (display === "asking")
+    return <StatusDot look={{ state: "solid", tone: "warn" }} className="shrink-0" />;
+  return <StatusDot look={{ state: "ring" }} className="shrink-0" />;
 }

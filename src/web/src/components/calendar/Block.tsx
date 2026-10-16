@@ -2,6 +2,7 @@ import type { Project } from "@shared/api.ts";
 import { useId } from "react";
 import { Markdown } from "@/components/Markdown.tsx";
 import { MomentNode } from "@/components/MomentNode.tsx";
+import { StatusDot } from "@/components/ui/status-dot.tsx";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip.tsx";
 import { calendarMessages } from "@/i18n/messages/calendar.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
@@ -375,8 +376,9 @@ function MomentsDescription({ id, moments }: { id: string; moments: Moment[] }) 
 /** A pulsing dot marking the work still in progress. */
 function WorkingDot() {
   return (
-    <span
-      className="absolute right-1.5 bottom-1.5 size-1.5 animate-pulse rounded-full bg-[var(--c)] motion-reduce:animate-none"
+    <StatusDot
+      look={{ state: "pulse", tone: "project" }}
+      className="absolute right-1.5 bottom-1.5"
       title={formatMessages().working}
     />
   );

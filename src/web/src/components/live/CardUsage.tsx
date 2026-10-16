@@ -1,5 +1,6 @@
 import type { LiveSession, LiveUsage } from "@shared/api.ts";
 import { MINUTE } from "@shared/dates.ts";
+import { Tag } from "@/components/ui/tag.tsx";
 import { liveMessages } from "@/i18n/messages/live.ts";
 import { durationLabel } from "@/lib/dates.ts";
 import { modelLabel, tokensLabel, tokensPerHourLabel, windowLabel } from "@/lib/format.ts";
@@ -44,7 +45,7 @@ export function CardFooter({
           <ContextGauge tokens={s.contextTokens} usage={usage} display={display} />
         )}
         {usage && <span className="ml-auto">{modelLabel(usage.model)}</span>}
-        {usage?.fast && <span className="rounded-md border px-1 leading-4">{m.fast}</span>}
+        {usage?.fast && <Tag variant="compact">{m.fast}</Tag>}
       </p>
       {usage && (
         <p className="flex items-baseline gap-x-1.5">

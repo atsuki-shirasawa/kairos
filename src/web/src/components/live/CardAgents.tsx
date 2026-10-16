@@ -1,4 +1,5 @@
 import type { LiveSession } from "@shared/api.ts";
+import { StatusDot } from "@/components/ui/status-dot.tsx";
 import { liveMessages } from "@/i18n/messages/live.ts";
 import { agentRows, type LiveAgentRow, runningAgents, toolLabel } from "@/lib/live.ts";
 import { cn } from "@/lib/utils.ts";
@@ -57,8 +58,9 @@ function AgentRow({ row }: { row: LiveAgentRow }) {
 
 /** A running subagent pulses in the project color like the card's own dot; a done one is a ring. */
 function AgentDot({ running }: { running: boolean }) {
-  const base = "size-1.5 shrink-0 rounded-full";
-  if (running)
-    return <span className={cn(base, "animate-pulse bg-[var(--c)] motion-reduce:animate-none")} />;
-  return <span className={cn(base, "border border-muted-foreground")} />;
+  return running ? (
+    <StatusDot look={{ state: "pulse", tone: "project" }} className="shrink-0" />
+  ) : (
+    <StatusDot look={{ state: "ring" }} className="shrink-0" />
+  );
 }

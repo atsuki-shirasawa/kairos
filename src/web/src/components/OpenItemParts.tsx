@@ -4,22 +4,22 @@ import type { LedgerEntry } from "@shared/api.ts";
 import { closedByHand } from "@shared/openItems.ts";
 import { Ban, Check, Undo2, X } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
+import { Tag } from "@/components/ui/tag.tsx";
 import type { OnOpenItemUpdate } from "@/hooks/useOpenItemEdits.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { summaryMessages } from "@/i18n/messages/summary.ts";
 import { cn } from "@/lib/utils.ts";
-import { Badge } from "./Badge.tsx";
 import { Hint } from "./Hint.tsx";
 
 /**
- * The kind as a small outlined tag (`Badge`) before the item's text. Only
+ * The kind as a small outlined tag (`Tag`) before the item's text. Only
  * a tag: the list isn't grouped or columned by kind, as the model's line between waiting and
  * question is loose. English in either language (see `openKindTag`). Nothing for an item without
  * a kind.
  */
 export function KindTag({ item }: { item: Pick<LedgerEntry, "kind"> }) {
   if (!item.kind) return null;
-  return <Badge>{formatMessages().openKindTag[item.kind]}</Badge>;
+  return <Tag>{formatMessages().openKindTag[item.kind]}</Tag>;
 }
 
 /**

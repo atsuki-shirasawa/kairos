@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
+import { Tag } from "@/components/ui/tag.tsx";
 import { useCopy } from "@/hooks/useCopy.ts";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
@@ -17,7 +18,6 @@ import { projectColor } from "@/lib/colors.ts";
 import type { BlockRef, RunPosition } from "@/lib/navigation.ts";
 import { projectLabel } from "@/lib/selection.ts";
 import { resumeCommand } from "@/lib/shell.ts";
-import { Badge } from "../Badge.tsx";
 import { SectionTime } from "./SectionTime.tsx";
 
 /**
@@ -49,7 +49,7 @@ export function DrawerHeader({
           {session && (
             <ProjectLine project={session.project} label={session.label} branch={session.branch} />
           )}
-          {session?.headless && <HeadlessBadge />}
+          {session?.headless && <HeadlessTag />}
         </div>
         <DrawerControls session={session} onClose={onClose} onPrev={onPrev} onNext={onNext} />
       </div>
@@ -144,9 +144,9 @@ function ResumeButton({ session: s }: { session: SessionDetail }) {
 }
 
 /** Says the session is a headless run (claude -p / SDK), which the calendar marks with a dashed edge. */
-function HeadlessBadge() {
+function HeadlessTag() {
   const t = drawerMessages();
-  return <Badge title={t.headlessTitle}>{t.headless}</Badge>;
+  return <Tag title={t.headlessTitle}>{t.headless}</Tag>;
 }
 
 /**

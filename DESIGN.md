@@ -165,6 +165,14 @@ components:
   wordmark:
     textColor: "{colors.ink}"
     typography: "{typography.wordmark}"
+  tag:
+    textColor: "{colors.muted-ink}"
+    typography: "{typography.label}"
+    rounded: "{rounded.md}"
+  status-dot:
+    rounded: "{rounded.full}"
+    height: 6px
+    width: 6px
 ---
 
 # Kairos Design
@@ -345,6 +353,14 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
 
 ## Components
 
+- **Tag** (`components/ui/tag.tsx`): a small label beside text in a 1px `border` outline with `md`
+  radius. `outline` (the default) is 12px `muted-ink`, for the drawer's Headless and the open items'
+  kinds; `compact` keeps the size and tone of its line with tighter padding, for the live page's
+  Background and Fast. Use it rather than restyling a span, so the badges can't drift apart
+- **StatusDot** (`components/ui/status-dot.tsx`): the 6px state dot. `pulse` is work going on now
+  (in the project color on the calendar, the table and the live page, `ink` on the Live button,
+  `primary` for the drawer's active section), `solid` a state that holds (`warn` for asking,
+  `muted-ink` for sessions running), `ring` one that waits or is done (always `muted-ink`)
 - **Work block:** heading (summary headline, or the first prompt before summarizing). The time
   range in `numeral` follows when there is room, but in the week view only on the selected block:
   the grid already places the block in time, and the tooltip and drawer give the exact range, so
@@ -357,8 +373,7 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   turned on in the "⋯" menu) keeps its project's color and fill but gets a dashed left edge: the
   solid edge is the branch of work you prompted (in the week, day and month views alike; a mark
   breaks into two dashes instead). The tooltip says why, and the drawer heading carries a
-  "Headless" badge: 12px `muted-ink` text in a 1px `border` outline with `md` radius, beside the
-  project line. Filtered-out blocks fade to 30% opacity and drop behind matching ones where they
+  "Headless" `Tag` beside the project line. Filtered-out blocks fade to 30% opacity and drop behind matching ones where they
   overlap; hover or focus brings one back in full and on top
 - **Moments (commit and PR nodes):** read like a git graph: the block's colored edge is the branch,
   and each commit is a 7px `ink` ring (filled with `surface`) hanging just inside it at the height
@@ -392,8 +407,7 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   label (`summary-lead`, `ink`). What came of it is Resolved, Open and Next (an older body's single
   Outcome in their place), all `summary-body`, `ink`; Resolved (or Outcome) carries the commit or
   PR node when it names one of the section's own. Open items lead with their kind (to do, issue,
-  question, waiting) as a small tag styled like the Headless badge (12px `muted-ink`, 1px
-  `border`, `md` radius; no bullets), a label rather than a column, with no color of its own; the
+  question, waiting) as a `Tag` (no bullets), a label rather than a column, with no color of its own; the
   warn tone stays the snags'. The tag is in English in either UI language. When the ledger tracks
   the section's items, each row ends with the summary view's hand edits (done, won't do, not an
   open item); one closed since turns `muted-ink` and ends with how it closed (12px `muted-ink`,
@@ -456,7 +470,7 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   the edge with no fill (`muted` on hover), the dot, the title on one line with how long it has
   idled at its right, and the place under it (and "Not in the log yet" when there is nothing to open); its details are in the drawer. A full card shows a 6px state dot and the title (14px
   medium, two lines at most; `muted-ink` when idle), the project, worktree and branch (12px
-  `muted-ink`, with a "Background" badge styled like the drawer's Headless one); at the right of the
+  `muted-ink`, with a compact "Background" `Tag`); at the right of the
   title the state word (only in On you, which holds two states; elsewhere the column names it) and
   how long it has lasted, coarsening to whole hours from 3h and days from 24h, with the start time
   under it at the right of the place line (`numeral`, with the date when not today), then what it
@@ -473,7 +487,7 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   window ("Context 148k / 1M") with a short 48px 4px bar after it in `muted-ink` on `input` (short
   and neutral, so it doesn't read as the tasks' bar), `warn` (bar and words) from 80% of the window
   in On you only, where the next prompt is the time to compact or clear, with the model and a
-  "Fast" badge (styled like the Background one) at the right when fast mode multiplies it; then the
+  compact "Fast" `Tag` at the right when fast mode multiplies it; then the
   current block's tokens ("This block 2.1M"), with the rate in tokens per hour at the right while
   working, or the prompt cache while not: how long it stays warm ("Cache 57m left"), or "Cache
   expired", when a reply rewrites the whole context. In On you its countdown turns `warn` in the

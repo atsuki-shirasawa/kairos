@@ -1,5 +1,6 @@
 // Rows of the table: a day's heading with its totals, and one row per work block.
 import type { Project } from "@shared/api.ts";
+import { StatusDot } from "@/components/ui/status-dot.tsx";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { listMessages } from "@/i18n/messages/list.tsx";
 import { projectColor } from "@/lib/colors.ts";
@@ -184,8 +185,9 @@ function WorkCell({
           >
             {segment.headline}
             {working && (
-              <span
-                className="ml-1.5 inline-block size-1.5 animate-pulse rounded-full bg-[var(--c)] align-middle motion-reduce:animate-none"
+              <StatusDot
+                look={{ state: "pulse", tone: "project" }}
+                className="ml-1.5 inline-block align-middle"
                 title={f.working}
               />
             )}

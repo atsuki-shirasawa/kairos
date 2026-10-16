@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button.tsx";
+import { type DotLook, StatusDot } from "@/components/ui/status-dot.tsx";
 import { liveMessages } from "@/i18n/messages/live.ts";
 import { cn } from "@/lib/utils.ts";
 
@@ -40,21 +41,21 @@ export function LiveButton({
         active && "bg-muted text-foreground hover:bg-muted",
       )}
     >
-      <span
-        aria-hidden
-        className={cn(
-          "size-1.5 rounded-full",
-          live.running === 0
-            ? "border border-muted-foreground"
-            : live.working
-              ? "animate-pulse bg-foreground motion-reduce:animate-none"
-              : "bg-muted-foreground",
-        )}
-      />
+      <StatusDot aria-hidden look={liveDot(live)} />
       {m.button}
       {live.attention > 0 && (
         <span className="font-num font-semibold text-warn">{live.attention}</span>
       )}
     </Button>
   );
+}
+
+/**
+ * The button's dot: a ring when nothing runs, `ink` pulsing while a session works, `muted-ink`
+ * otherwise. Not indigo, which would mark it selected, nor a project color, since it stands for
+ * every project.
+ */
+function liveDot(live: LiveSummary): DotLook {
+  if (live.running === 0) return { state: "ring" };
+  return live.working ? { state: "pulse", tone: "ink" } : { state: "solid", tone: "muted" };
 }

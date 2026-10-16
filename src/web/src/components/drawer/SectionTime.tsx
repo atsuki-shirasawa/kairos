@@ -1,5 +1,6 @@
 import type { Activity, Section, SessionDetail, Usage } from "@shared/api.ts";
 import { OutcomeTally } from "@/components/MomentNode.tsx";
+import { StatusDot } from "@/components/ui/status-dot.tsx";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import { dateLabel, durationLabel, hhmm, isSameDay, relativeDay } from "@/lib/dates.ts";
 import { approxCostLabel, tokensLabel, troubleCount, troubleDetail } from "@/lib/format.ts";
@@ -39,7 +40,7 @@ function SectionWhen({ section, active }: { section: Section; active: boolean })
       <span className="whitespace-nowrap">{durationLabel(section.end - section.start)}</span>
       {active && (
         <span className="inline-flex items-center gap-1 whitespace-nowrap text-primary">
-          <span className="size-1.5 animate-pulse rounded-full bg-primary motion-reduce:animate-none" />
+          <StatusDot look={{ state: "pulse", tone: "primary" }} />
           {t.active}
         </span>
       )}
