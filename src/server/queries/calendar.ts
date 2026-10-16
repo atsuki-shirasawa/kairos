@@ -2,21 +2,33 @@
 // fall, and the nearest work outside it. `visible` is a `visibleSessionSql` condition on alias `s`.
 import type { Database } from "bun:sqlite";
 import type { CalendarSegment, CalendarSession, Span } from "../../shared/api.ts";
-import { blockArtifacts } from "./activity.ts";
-import { blockFacts, SECTION_SELECT, type SectionRow, toCalendarSegment } from "./blocks.ts";
-import { isActive, predecessorOf, type SessionRow, toCalendarSession } from "./sessions.ts";
+import { blocksArtifacts } from "./activity.ts";
+import {
+  type BlockScope,
+  blockSetOf,
+  blocksFacts,
+  sectionRows,
+  toCalendarSegment,
+} from "./blocks.ts";
+import { hasPredecessorSql, isActive, type SessionRow, toCalendarSession } from "./sessions.ts";
 import { title } from "./titles.ts";
 
 /** A half-open period [from, to) in epoch ms, as the API's `?from=&to=` gives it. */
 type Period = { from: number; to: number };
 
 /**
- * Overlap with [?from, ?to): a block that ends exactly at `from` still shows, as `spans` and
+ * Overlap with [?1, ?2): a block that ends exactly at `from` still shows, as `spans` and
  * `calendarSessions` agree.
  */
 const OVERLAPS = "g.start < ?2 AND g.end >= ?1";
 
-/** Visible sessions whose work blocks overlap the period, with those blocks, by start time. */
+/** A session row with whether another session continues from it, asked for in the same query. */
+type CalendarRow = SessionRow & { has_predecessor: number };
+
+/**
+ * Visible sessions whose work blocks overlap the period, with those blocks, by start time. Every
+ * block's facts are gathered in one query per kind for the whole period, not per block.
+ */
 export function calendarSessions(
   db: Database,
   visible: string,
@@ -24,38 +36,54 @@ export function calendarSessions(
   now: number,
 ): CalendarSession[] {
   const rows = db
-    .query<SessionRow, [number, number]>(
-      `SELECT s.* FROM sessions s
+    .query<CalendarRow, number[]>(
+      `SELECT s.*, ${hasPredecessorSql("s")} AS has_predecessor
+       FROM sessions s
        WHERE ${visible}
          AND EXISTS (SELECT 1 FROM segments g WHERE g.session_id = s.id AND ${OVERLAPS})
        ORDER BY s.started_at`,
     )
     .all(period.from, period.to);
+  const segments = segmentsIn(db, visible, period, rows);
   return rows.map((r) =>
     toCalendarSession(r, {
-      continued: r.continued_in !== null || predecessorOf(db, r.id) !== null,
+      continued: r.continued_in !== null || r.has_predecessor === 1,
       active: isActive(r.ended_at, now),
-      segments: segmentsIn(db, r, period),
+      segments: segments.get(r.id) ?? [],
     }),
   );
 }
 
-/** The session's work blocks overlapping the period, as the calendar shows them. */
-function segmentsIn(db: Database, r: SessionRow, period: Period): CalendarSegment[] {
-  const sessionTitle = title(r);
-  return db
-    .query<SectionRow, [string, number, number]>(
-      `${SECTION_SELECT} WHERE g.session_id = ?1 AND g.start < ?3 AND g.end >= ?2 ORDER BY g.start`,
-    )
-    .all(r.id, period.from, period.to)
-    .map((g) =>
-      toCalendarSegment(
-        g,
-        sessionTitle,
-        blockArtifacts(db, r.id, g.start, g.end),
-        blockFacts(db, r.id, g.start, g.end),
-      ),
-    );
+/** The visible sessions' work blocks overlapping the period, as the calendar shows them, by session. */
+function segmentsIn(
+  db: Database,
+  visible: string,
+  period: Period,
+  sessions: SessionRow[],
+): Map<string, CalendarSegment[]> {
+  const scope: BlockScope = {
+    joins: "JOIN sessions s ON s.id = g.session_id",
+    where: `${visible} AND ${OVERLAPS}`,
+    params: [period.from, period.to],
+  };
+  const artifacts = blocksArtifacts(db, blockSetOf(scope));
+  const facts = blocksFacts(db, blockSetOf(scope));
+  const titles = new Map(sessions.map((r) => [r.id, title(r)]));
+  const segments = sectionRows(db, scope).map((g) => ({
+    sessionId: g.session_id,
+    segment: toCalendarSegment(
+      g,
+      titles.get(g.session_id) ?? "",
+      artifacts(g.session_id, g.start),
+      facts(g.session_id, g.start),
+    ),
+  }));
+  return new Map(
+    [...Map.groupBy(segments, (s) => s.sessionId)].map(([id, list]) => [
+      id,
+      list.map((s) => s.segment),
+    ]),
+  );
 }
 
 /** Starts of the nearest work blocks before and after the period (from visible sessions). */

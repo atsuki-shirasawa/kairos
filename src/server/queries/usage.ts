@@ -4,6 +4,16 @@
 import type { Database } from "bun:sqlite";
 import type { Usage } from "../../shared/api.ts";
 import { costOf } from "../pricing.ts";
+import {
+  BLOCK_COLUMNS,
+  type BlockLookup,
+  type BlockRef,
+  type BlockSet,
+  groupByBlock,
+  lookupByBlock,
+  ownRowsInBlock,
+  withBlocks,
+} from "./sql.ts";
 
 /** Token totals for one model and speed, as the usage queries group them. */
 export interface UsageRow {
@@ -102,23 +112,79 @@ export function toUsage(rows: UsageRow[]): Usage | null {
 }
 
 /**
- * A session's token usage within a time range, subagents included and copies from a continued
- * session left out. Shared by the drawer's blocks and the live page, so their costs agree.
- * Automatic-run turns are outside work blocks, so a block's range never includes them.
+ * A session's whole token usage, subagents included and copies from a continued session left out.
+ * Automatic runs outside work blocks count here, so it can exceed the sum of its blocks.
  */
-export function sessionUsage(
-  db: Database,
-  sessionId: string,
-  from = 0,
-  to = Number.MAX_SAFE_INTEGER,
-): Usage | null {
+export function sessionUsage(db: Database, sessionId: string): Usage | null {
   return toUsage(
     db
-      .query<UsageRow, [string, number, number]>(
+      .query<UsageRow, [string]>(
         `SELECT model, speed, ${usageSums()}
-         FROM usage WHERE session_id = ? AND is_copy = 0 AND COALESCE(ts, 0) BETWEEN ? AND ?
+         FROM usage WHERE session_id = ? AND is_copy = 0
          GROUP BY model, speed`,
       )
-      .all(sessionId, from, to),
+      .all(sessionId),
   );
+}
+
+/** What each block of a set spent, from one pass over the usage table. */
+export interface BlocksTokens {
+  /** Token usage, counted like `sessionUsage` but within the block; null for a block that used none. */
+  usage: BlockLookup<Usage | null>;
+  /** The effort level behind most of the block's output, or null if none was recorded. */
+  effort: BlockLookup<string | null>;
+}
+
+/**
+ * Token usage and dominant effort of each block in the set, in one query (they read the same rows).
+ * Automatic-run turns are outside work blocks, so a block never includes them.
+ */
+export function blocksTokens(db: Database, set: BlockSet): BlocksTokens {
+  const rows = db
+    .query<UsageRow & BlockRef & { effort: string | null }, (string | number)[]>(
+      `${withBlocks(set)}
+       SELECT ${BLOCK_COLUMNS}, u.model, u.speed, u.effort, ${usageSums("u")}
+       FROM b CROSS JOIN usage u ON ${ownRowsInBlock("u")}
+       GROUP BY b.session_id, b.start, u.model, u.speed, u.effort`,
+    )
+    .all(...set.params);
+  const usage = new Map<string, Usage | null>();
+  const effort = new Map<string, string | null>();
+  for (const [key, group] of groupByBlock(rows)) {
+    usage.set(key, toUsage(byModelAndSpeed(group)));
+    effort.set(key, dominantEffort(group));
+  }
+  return { usage: lookupByBlock(usage, null), effort: lookupByBlock(effort, null) };
+}
+
+/**
+ * Rows split by effort merged back into one per model and speed, so cost is computed from the same
+ * totals as `sessionUsage` (summing per-effort costs would round differently).
+ */
+function byModelAndSpeed(rows: UsageRow[]): UsageRow[] {
+  const merged = new Map<string, UsageRow>();
+  for (const r of rows) {
+    const key = `${r.model} ${r.speed}`;
+    const m = merged.get(key);
+    if (!m) merged.set(key, { ...r });
+    else for (const c of USAGE_COLUMNS) m[c] += r[c];
+  }
+  return [...merged.values()].map(
+    ({ model, speed, input, output, cache_read, cache_write_5m, cache_write_1h }) => ({
+      model,
+      speed,
+      input,
+      output,
+      cache_read,
+      cache_write_5m,
+      cache_write_1h,
+    }),
+  );
+}
+
+/** The effort level with the most output among the rows, or null if none was recorded. */
+function dominantEffort(rows: (UsageRow & { effort: string | null })[]): string | null {
+  const output = new Map<string, number>();
+  for (const r of rows) if (r.effort) output.set(r.effort, (output.get(r.effort) ?? 0) + r.output);
+  return [...output].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 }

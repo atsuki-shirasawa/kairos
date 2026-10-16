@@ -3,12 +3,14 @@
 import type { Database } from "bun:sqlite";
 import type { Activity, CalendarSegment, Section, Usage } from "../../shared/api.ts";
 import { isSummarizable } from "../../shared/sections.ts";
-import { type BlockArtifacts, blockActivity } from "./activity.ts";
+import { type BlockArtifacts, blocksActivity } from "./activity.ts";
+import type { BlockLookup, BlockSet } from "./sql.ts";
 import { sectionHeadline, summaryBody } from "./titles.ts";
-import { sessionUsage } from "./usage.ts";
+import { blocksTokens } from "./usage.ts";
 
 /** A work block joined with its summary, if any (selected by `SECTION_SELECT`). */
 export interface SectionRow {
+  session_id: string;
   start: number;
   end: number;
   prompt_count: number;
@@ -20,8 +22,8 @@ export interface SectionRow {
   created_at: number | null;
 }
 
-/** A section and its summary, if any; callers add the WHERE and ORDER BY. */
-export const SECTION_SELECT = `SELECT g.start, g.end, g.prompt_count, g.fallback_title,
+/** A section and its summary, if any; `sectionRows` adds the scope. */
+const SECTION_SELECT = `SELECT g.session_id, g.start, g.end, g.prompt_count, g.fallback_title,
          sm.headline, sm.body, sm.model, sm.covered_until, sm.created_at
   FROM segments g LEFT JOIN summaries sm ON sm.session_id = g.session_id AND sm.start = g.start`;
 
@@ -31,17 +33,45 @@ export interface BlockFacts {
   activity: Activity;
 }
 
-/** The usage and activity of the session's work block from `start` to `end`. */
-export function blockFacts(
-  db: Database,
-  sessionId: string,
-  start: number,
-  end: number,
-): BlockFacts {
+/**
+ * Which work blocks a caller reads: joins after `segments g` (with `summaries sm` for the
+ * sections) and a WHERE condition, with the parameters they bind. One scope selects both the
+ * blocks' rows and the set their facts are counted over, so the two can't drift apart.
+ */
+export interface BlockScope {
+  joins: string;
+  where: string;
+  params: (string | number)[];
+}
+
+/** The scope's blocks as the set the batched fact queries run over. */
+export function blockSetOf(scope: BlockScope): BlockSet {
   return {
-    usage: sessionUsage(db, sessionId, start, end),
-    activity: blockActivity(db, sessionId, start, end),
+    sql: `SELECT g.session_id, g.start, g.end FROM segments g ${scope.joins} WHERE ${scope.where}`,
+    params: scope.params,
   };
+}
+
+/** The scope's blocks with their summaries, in time order. */
+export function sectionRows(db: Database, scope: BlockScope): SectionRow[] {
+  return db
+    .query<SectionRow, (string | number)[]>(
+      `${SECTION_SELECT} ${scope.joins} WHERE ${scope.where} ORDER BY g.start`,
+    )
+    .all(...scope.params);
+}
+
+/**
+ * The usage and activity of every block in the set, one query per kind of fact however many
+ * blocks there are. This is where a block's `Activity` gets its effort, from the usage rows.
+ */
+export function blocksFacts(db: Database, set: BlockSet): BlockLookup<BlockFacts> {
+  const tokens = blocksTokens(db, set);
+  const activity = blocksActivity(db, set);
+  return (sessionId, start) => ({
+    usage: tokens.usage(sessionId, start),
+    activity: { ...activity(sessionId, start), effort: tokens.effort(sessionId, start) },
+  });
 }
 
 /** A work block as the calendar shows it, headed by the session's title when it has no other. */

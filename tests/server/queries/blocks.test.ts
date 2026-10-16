@@ -26,6 +26,7 @@ const noArtifacts = { prs: [], commits: [] };
 const noState = { pending: false, error: null, closes: [], opens: [] };
 
 const row = (over: Partial<SectionRow> = {}): SectionRow => ({
+  session_id: "s1",
   start: 1000,
   end: 2000,
   prompt_count: 2,

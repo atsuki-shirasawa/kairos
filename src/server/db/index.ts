@@ -248,6 +248,14 @@ export const MIGRATIONS: string[] = [
   );
   CREATE INDEX open_item_decisions_item ON open_item_decisions(item_id);
   `,
+  // 12: the calendar counts every block's tool calls, errors and the like in one query over the
+  // period (#46). With the columns those counts read in the index, it runs on the index alone
+  // instead of reading each message's row, text and all. It starts with (session_id, ts), so it
+  // also serves every lookup messages_time did, which goes.
+  `
+  CREATE INDEX messages_block ON messages(session_id, ts, is_copy, kind, tool_name, is_error, agent_id);
+  DROP INDEX messages_time;
+  `,
 ];
 
 /** Schema version once every migration is applied (stored in `PRAGMA user_version`). */

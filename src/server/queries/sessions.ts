@@ -12,7 +12,7 @@ import type {
 } from "../../shared/api.ts";
 import { MINUTE } from "../../shared/dates.ts";
 import { sessionCloses, sessionOpens } from "../summarize/ledger/openItems.ts";
-import { blockFacts, SECTION_SELECT, type SectionRow, toSection } from "./blocks.ts";
+import { type BlockScope, blockSetOf, blocksFacts, sectionRows, toSection } from "./blocks.ts";
 import { projectById } from "./projects.ts";
 import { listedArtifactsSql } from "./sql.ts";
 import type { SummaryState } from "./summaryState.ts";
@@ -148,6 +148,14 @@ export function hasSection(db: Database, id: string, start: number): boolean {
   );
 }
 
+/**
+ * SQL condition: another session continues the one aliased `alias` (it is marked as continued).
+ * `predecessorOf` asks the same for one session by ID.
+ */
+export function hasPredecessorSql(alias: string): string {
+  return `EXISTS (SELECT 1 FROM sessions p WHERE p.continued_in = ${alias}.id)`;
+}
+
 /** The session this one was continued from, or null. */
 export function predecessorOf(db: Database, sessionId: string): string | null {
   return (
@@ -188,20 +196,19 @@ function sections(
 ): Section[] {
   const closes = sessionCloses(db, sessionId);
   const opens = sessionOpens(db, sessionId);
-  return db
-    .query<SectionRow, [string]>(`${SECTION_SELECT} WHERE g.session_id = ? ORDER BY g.start`)
-    .all(sessionId)
-    .map((g) =>
-      toSection(
-        g,
-        sessionTitle,
-        {
-          pending: summaries.isPending(sessionId, g.start),
-          error: summaries.errorOf(sessionId, g.start),
-          closes: closes.get(g.start) ?? [],
-          opens: opens.get(g.start) ?? [],
-        },
-        blockFacts(db, sessionId, g.start, g.end),
-      ),
-    );
+  const scope: BlockScope = { joins: "", where: "g.session_id = ?1", params: [sessionId] };
+  const facts = blocksFacts(db, blockSetOf(scope));
+  return sectionRows(db, scope).map((g) =>
+    toSection(
+      g,
+      sessionTitle,
+      {
+        pending: summaries.isPending(sessionId, g.start),
+        error: summaries.errorOf(sessionId, g.start),
+        closes: closes.get(g.start) ?? [],
+        opens: opens.get(g.start) ?? [],
+      },
+      facts(sessionId, g.start),
+    ),
+  );
 }
