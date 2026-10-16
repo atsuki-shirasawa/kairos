@@ -4,8 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   encodeDir,
+  isClaudeDir,
   isGoneDir,
   isTemporary,
+  isTempRoot,
+  logDirOwner,
   MAX_GIT_FILE,
   parseRemote,
   readGitRemote,
@@ -72,6 +75,22 @@ describe("temporary directories", () => {
       expect(isTemporary(dir)).toBe(true);
     for (const dir of ["/Users/me/tmp/probe", "/tmpfiles", "/work/clone", "/Users/me/.claude/jobs"])
       expect(isTemporary(dir)).toBe(false);
+  });
+
+  test("isTempRoot: only the system temp directory itself", () => {
+    expect(isTempRoot("/tmp")).toBe(true);
+    expect(isTempRoot("/private/tmp")).toBe(true);
+    expect(isTempRoot("/tmp/probe")).toBe(false);
+    expect(isTempRoot("/Users/me/tmp")).toBe(false);
+  });
+
+  test("isClaudeDir / logDirOwner: Claude Code's configuration and the owner of a log folder", () => {
+    expect(isClaudeDir("/Users/me/.claude")).toBe(true);
+    expect(isClaudeDir("/Users/me/.claude/projects/-Users-me-dev-app")).toBe(true);
+    expect(isClaudeDir("/Users/me/.claude-backup")).toBe(false);
+    expect(isClaudeDir("/Users/me/dev/app/.claude/hooks")).toBe(false);
+    expect(logDirOwner("/Users/me/.claude/projects/-Users-me-dev-app")).toBe("-Users-me-dev-app");
+    expect(logDirOwner("/Users/me/.claude/jobs/0a1b")).toBeNull();
   });
 
   test("scratchpadOwner: the encoded launch directory of a scratchpad's session", () => {
@@ -146,6 +165,33 @@ describe("readGitRemote", () => {
     mkdirSync(wt);
     writeFileSync(join(wt, ".git"), `gitdir: ${wtGit}\n`);
     expect(readGitRemote(wt)).toBe("https://github.com/o/main.git");
+  });
+  test("follows an origin that is a local clone to that clone's origin", () => {
+    const clone = (name: string, url: string) => {
+      const dir = join(root, name);
+      mkdirSync(join(dir, ".git"), { recursive: true });
+      writeFileSync(join(dir, ".git", "config"), config(url));
+      return dir;
+    };
+    const upstream = clone("upstream", "https://github.com/o/r.git");
+    expect(readGitRemote(clone("copy", upstream))).toBe("https://github.com/o/r.git");
+    expect(readGitRemote(clone("copy-file", `file://${upstream}`))).toBe(
+      "https://github.com/o/r.git",
+    );
+    expect(readGitRemote(clone("copy-rel", "../upstream"))).toBe("https://github.com/o/r.git");
+    const bare = join(root, "bare.git");
+    mkdirSync(join(bare, "objects"), { recursive: true });
+    writeFileSync(join(bare, "HEAD"), "ref: refs/heads/main\n");
+    writeFileSync(join(bare, "config"), config("git@github.com:o/bare.git"));
+    expect(readGitRemote(clone("copy-bare", bare))).toBe("git@github.com:o/bare.git");
+    // A malformed file:// origin is kept as it is rather than stopping the read
+    expect(readGitRemote(clone("copy-bad", "file:///a%zz"))).toBe("file:///a%zz");
+    // A clone of a clone that leads nowhere keeps its local path, which groups with nothing
+    const missing = join(root, "missing");
+    expect(readGitRemote(clone("orphan", missing))).toBe(missing);
+    // Clones of each other end after a few hops instead of looping
+    const loopA = clone("loop-a", join(root, "loop-b"));
+    expect([loopA, join(root, "loop-b")]).toContain(readGitRemote(clone("loop-b", loopA)) ?? "");
   });
   test("does not read FIFOs or oversized files (so synchronous reads cannot hang)", () => {
     const fifo = join(root, "fifo");

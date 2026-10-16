@@ -136,9 +136,16 @@ export function prepareStatements(db: Database) {
       `SELECT p.repo FROM sessions s JOIN projects p ON p.id = s.project_id
        WHERE s.launch_cwd = ? AND p.repo IS NOT NULL LIMIT 1`,
     ),
-    tempLaunchDirs: p(
+    // Launch directories left unassigned or in a project without a repository: the ones whose
+    // place can depend on projects read after them
+    unsettledLaunchDirs: p(
+      `SELECT DISTINCT s.launch_cwd AS cwd, s.project_id AS projectId
+       FROM sessions s LEFT JOIN projects p ON p.id = s.project_id
+       WHERE s.launch_cwd IS NOT NULL AND p.repo IS NULL`,
+    ),
+    repoLaunchDirs: p(
       `SELECT DISTINCT s.launch_cwd AS cwd FROM sessions s JOIN projects p ON p.id = s.project_id
-       WHERE p.path = ? AND s.launch_cwd IS NOT NULL`,
+       WHERE p.repo IS NOT NULL AND s.launch_cwd IS NOT NULL`,
     ),
     projectByPath: p("SELECT id FROM projects WHERE path = ?"),
     launchCwds: p("SELECT DISTINCT launch_cwd AS cwd FROM sessions WHERE launch_cwd IS NOT NULL"),

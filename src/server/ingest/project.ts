@@ -51,12 +51,6 @@ export function resolveProject(cwd: string, lookup: RemoteLookup = readGitRemote
   };
 }
 
-/**
- * The project that collects headless runs launched in temporary directories. Each throwaway
- * directory became a project of its own, taking one of eight colors and a row in the filter.
- */
-export const TEMP_PROJECT = { path: "/tmp", name: "tmp" } as const;
-
 /** System temp directories (`/tmp`, `$TMPDIR` under `/var/folders`) and Claude Code's job directories. */
 const TEMP_RE =
   /^(?:\/private)?\/(?:tmp|var\/folders)(?:\/|$)|\/\.claude\/jobs\/[^/]+\/tmp(?:\/|$)/;
@@ -64,6 +58,33 @@ const TEMP_RE =
 /** Whether the directory is a temporary one, whose name says nothing about the work. */
 export function isTemporary(cwd: string): boolean {
   return TEMP_RE.test(cwd);
+}
+
+/** The system temp directory itself, which every throwaway run shares. */
+const TEMP_ROOT_RE = /^(?:\/private)?\/tmp$/;
+
+/** Whether the path is the system temp directory itself rather than one made inside it. */
+export function isTempRoot(path: string): boolean {
+  return TEMP_ROOT_RE.test(path);
+}
+
+/**
+ * A directory inside Claude Code's own configuration (`~/.claude`), such as a log folder. Only a
+ * home directory's: a repository's `.claude` folder belongs to the repository.
+ */
+const CLAUDE_DIR_RE = /^(?:\/Users|\/home)\/[^/]+\/\.claude(?:\/|$)/;
+
+/** Whether the directory belongs to Claude Code's configuration rather than to any work. */
+export function isClaudeDir(path: string): boolean {
+  return CLAUDE_DIR_RE.test(path);
+}
+
+/** A session's log folder: `~/.claude/projects/<launch dir, encoded>`. */
+const LOG_DIR_RE = /\/\.claude\/projects\/(-[^/]+)/;
+
+/** The encoded launch directory whose logs a log folder holds, or null for other paths. */
+export function logDirOwner(path: string): string | null {
+  return LOG_DIR_RE.exec(path)?.[1] ?? null;
 }
 
 /**
@@ -146,15 +167,50 @@ export function parseRemote(url: string): { key: string; name: string } | null {
   return { key, name };
 }
 
+/** How many local clones `readGitRemote` follows to reach a remote (a clone of a clone of …). */
+const MAX_LOCAL_HOPS = 3;
+
 /**
  * Reads the origin URL from `<dir>/.git/config`. Does not run git (to stay read-only).
- * Also handles the `.git` file (`gitdir: …`) of worktrees and submodules.
+ * Also handles the `.git` file (`gitdir: …`) of worktrees and submodules. An origin that is
+ * another clone on this machine is followed to that clone's origin, so a copy made from a local
+ * clone joins the same repository; when it leads nowhere, the local path is returned.
  */
 export function readGitRemote(dir: string): RemoteReading {
+  return followLocalOrigin(dir, readOrigin(dir), 0);
+}
+
+/** `url`, the origin of `dir`, or the origin it leads to when it is a local clone. */
+function followLocalOrigin(dir: string, url: RemoteReading, hops: number): RemoteReading {
+  const local = url ? localPathOf(url, dir) : null;
+  if (!local || hops >= MAX_LOCAL_HOPS) return url;
+  return followLocalOrigin(local, readOrigin(local), hops + 1) || url;
+}
+
+/** The directory a local-path remote points to (absolute, relative or `file://`), or null. */
+function localPathOf(url: string, dir: string): string | null {
+  if (url.startsWith("file://")) return fileUrlPath(url);
+  if (url.startsWith("/") || url.startsWith("./") || url.startsWith("../"))
+    return resolve(dir, url);
+  return null;
+}
+
+/** The path of a `file://` URL, or null when it is malformed (a config may hold anything). */
+function fileUrlPath(url: string): string | null {
+  try {
+    return decodeURIComponent(new URL(url).pathname);
+  } catch {
+    return null;
+  }
+}
+
+/** The origin URL in the directory's own git config (see `RemoteReading`). */
+function readOrigin(dir: string): RemoteReading {
   if (!existsSync(dir)) return undefined;
   try {
     const dotGit = join(dir, ".git");
-    if (!existsSync(dotGit)) return null;
+    // A bare repository (often what a local clone was made from) is its own git directory
+    if (!existsSync(dotGit)) return isBareRepo(dir) ? configOrigin(dir) : null;
     let gitDir = dotGit;
     if (!statSync(dotGit).isDirectory()) {
       const m = /^gitdir:\s*(.+)$/m.exec(readSmallFile(dotGit) ?? "");
@@ -164,11 +220,21 @@ export function readGitRemote(dir: string): RemoteReading {
       const common = readSmallFile(join(gitDir, "commondir"));
       if (common) gitDir = resolve(gitDir, common.trim());
     }
-    const config = readSmallFile(join(gitDir, "config"));
-    return config === null ? null : originUrl(config);
+    return configOrigin(gitDir);
   } catch {
     return null;
   }
+}
+
+/** Whether the directory is a bare git repository: its git files sit at its root. */
+function isBareRepo(dir: string): boolean {
+  return existsSync(join(dir, "HEAD")) && existsSync(join(dir, "objects"));
+}
+
+/** The origin URL in a git directory's config, or null when it has none. */
+function configOrigin(gitDir: string): string | null {
+  const config = readSmallFile(join(gitDir, "config"));
+  return config === null ? null : originUrl(config);
 }
 
 /**

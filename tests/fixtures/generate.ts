@@ -555,6 +555,21 @@ function containerRuns(): void {
   write(cwd, run);
 }
 
+// ---------------------------------------------------------------- 23. runs outside any project
+function outsideRuns(): void {
+  // The home directory and a folder of clones hold many projects; a log folder is Claude Code's own
+  const runs: [string, string, number, string][] = [
+    [SID.homeRun, "/Users/me", 1900, "Which repositories here have uncommitted changes?"],
+    [SID.clonesRun, "/Users/me/dev", 1902, "Pull every repository in this folder"],
+    [SID.logDirRun, `/Users/me/.claude/projects/${projectDirName(APP)}`, 1904, "Count the logs"],
+  ];
+  for (const [id, cwd, minute, request] of runs) {
+    const b = probeRun(id, cwd, minute, request);
+    launchedBySdk(b);
+    write(cwd, b);
+  }
+}
+
 // ---------------------------------------------------------------- 21. facts for summaries
 function facts(): void {
   const b = new LogBuilder(SID.facts, APP);
@@ -708,6 +723,7 @@ if (import.meta.main) {
     containerRuns,
     facts,
     ledger,
+    outsideRuns,
   ]) {
     scenario();
   }

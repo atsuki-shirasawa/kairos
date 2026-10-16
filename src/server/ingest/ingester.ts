@@ -40,7 +40,7 @@ export const PARSER_VERSION = 10;
  * Bump when the calculation of derived data that can be recomputed from the DB (aggregates, work blocks,
  * project assignment from the startup cwd) changes. All sessions are recomputed, even those whose logs are gone.
  */
-export const DERIVED_VERSION = 6;
+export const DERIVED_VERSION = 7;
 
 const RECAP_SUFFIX = /\s*\(disable recaps in \/config\)\s*$/;
 
@@ -116,7 +116,7 @@ export class Ingester {
       this.scanFile(path, stats);
       onProgress?.(i + 1, files.length);
     });
-    for (const sid of this.placer.placeWaitingScratchpads()) stats.sessions.add(sid);
+    for (const sid of this.placer.placeWaiting()) stats.sessions.add(sid);
     return finishScan(stats, started);
   }
 
@@ -139,7 +139,7 @@ export class Ingester {
       }
     }
     onProgress?.(files.length, files.length);
-    for (const sid of this.placer.placeWaitingScratchpads()) stats.sessions.add(sid);
+    for (const sid of this.placer.placeWaiting()) stats.sessions.add(sid);
     return finishScan(stats, started);
   }
 

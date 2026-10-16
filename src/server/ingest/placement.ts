@@ -4,8 +4,11 @@
 import { basename } from "node:path";
 import {
   encodeDir,
+  isClaudeDir,
   isGoneDir,
   isTemporary,
+  isTempRoot,
+  logDirOwner,
   type ProjectRef,
   projectDir,
   type RemoteLookup,
@@ -13,13 +16,15 @@ import {
   repoOfPrUrl,
   resolveProject,
   scratchpadOwner,
-  TEMP_PROJECT,
 } from "./project.ts";
 import type { SessionInfoRow, Statements } from "./statements.ts";
 
-/** Where a session belongs: its project row, and the secondary label shown beside the name. */
+/**
+ * Where a session belongs: its project row, or null for none (a directory that is never a
+ * project), and the secondary label shown beside the name.
+ */
 export interface Place {
-  id: number;
+  id: number | null;
   label: string | null;
 }
 
@@ -28,6 +33,21 @@ export interface Place {
  * `encodeDir`), as `ProjectPlacer.launchDirProjects` reads it for placing scratchpads.
  */
 export type LaunchDirProjects = Map<string, number>;
+
+/** A launch directory as the rules see it: its git remote reading and the project it resolves to. */
+interface DirReading {
+  cwd: string;
+  remote: RemoteReading;
+  own: ProjectRef;
+}
+
+/** The other projects the rules compare a directory against, read once per placement run. */
+interface PlacementContext {
+  /** From `launchDirProjects`, for scratchpads and log folders. */
+  dirs: LaunchDirProjects;
+  /** The launch directories of projects with a repository (every clone), for folders holding them. */
+  repoPaths: readonly string[];
+}
 
 /**
  * Places sessions in projects and keeps the project rows: creates them, merges rows of the same
@@ -47,24 +67,42 @@ export class ProjectPlacer {
 
   /** Where a session launched in `cwd` belongs, when its launch is first recorded. */
   placeLaunch(cwd: string): Place {
-    return this.placeOf(cwd, this.remoteOf(cwd), this.launchDirProjects());
+    return this.placeOf(this.read(cwd, this.remoteOf(cwd)), this.context());
+  }
+
+  /** A launch directory with its git remote reading and the project it resolves to on its own. */
+  private read(cwd: string, remote: RemoteReading): DirReading {
+    return { cwd, remote, own: resolveProject(cwd, () => remote) };
+  }
+
+  /** What the rules compare a directory against, read once per placement run. */
+  private context(): PlacementContext {
+    const repoPaths = (this.q.repoLaunchDirs.all() as { cwd: string }[]).map((r) => r.cwd);
+    return { dirs: this.launchDirProjects(), repoPaths };
   }
 
   /**
-   * Where sessions launched in `cwd` belong: the project row and secondary label. `remote` is the
-   * directory's git remote as `lookupRemote` reads it, and `dirs` comes from `launchDirProjects`.
-   * The first rule that places it wins, in order: the git remote, the repository of its PRs, the
-   * scratchpad's owner, the shared temporary project, and the directory itself.
+   * Where sessions launched in a directory belong: the project row and secondary label. The git
+   * remote wins, then the rules of `byRule`, and otherwise the directory is its own project.
    */
-  private placeOf(cwd: string, remote: RemoteReading, dirs: LaunchDirProjects): Place {
-    const own = resolveProject(cwd, () => remote);
-    const temp = isTemporary(cwd);
+  private placeOf(dir: DirReading, ctx: PlacementContext): Place {
+    return this.byRemote(dir.own) ?? this.byRule(dir, ctx) ?? this.placeByDir(dir.own);
+  }
+
+  /**
+   * Placement of a directory without a git remote by the rules that don't read it, or null when
+   * none applies. The first that places it wins, in order: the repository of its PRs, the
+   * scratchpad's owner, a temporary directory, Claude Code's configuration, and a directory
+   * holding repositories.
+   */
+  private byRule(dir: DirReading, ctx: PlacementContext): Place | null {
+    const temp = isTemporary(dir.cwd);
     return (
-      this.byRemote(own) ??
-      this.byPrRepo(cwd, remote, own, temp) ??
-      byScratchpadOwner(cwd, dirs) ??
-      this.byTemporaryDir(cwd, temp) ??
-      this.placeByDir(own)
+      this.byPrRepo(dir, temp) ??
+      byScratchpadOwner(dir.cwd, ctx.dirs) ??
+      byTemporaryDir(dir.cwd, temp) ??
+      byClaudeDir(dir.own.path, ctx.dirs) ??
+      byHeldRepos(dir.own, ctx.repoPaths)
     );
   }
 
@@ -77,39 +115,24 @@ export class ProjectPlacer {
    * Placement for a directory gone from this machine (a container's checkout) or a temporary one
    * (`temp`): the repository of the PRs opened from it, when they all point to one. Null otherwise.
    */
-  private byPrRepo(
-    cwd: string,
-    remote: RemoteReading,
-    own: ProjectRef,
-    temp: boolean,
-  ): Place | null {
-    // `/tmp` itself is the shared project's path, which a repository must never take over
-    const eligible = (isGoneDir(remote) || temp) && own.path !== TEMP_PROJECT.path;
+  private byPrRepo({ cwd, remote, own }: DirReading, temp: boolean): Place | null {
+    // Unrelated runs share `/tmp` itself, so a PR from one of them says nothing about the others
+    const eligible = (isGoneDir(remote) || temp) && !isTempRoot(own.path);
     const repo = eligible ? this.prRepoOf(cwd) : null;
     if (!repo) return null;
     // Resolved as if the PRs' repository were the directory's remote, so it merges the same way
     return this.placeByDir(resolveProject(cwd, () => `https://${repo}`));
   }
 
-  /** Placement of a temporary directory (`temp`) in the shared `TEMP_PROJECT`, or null for any other. */
-  private byTemporaryDir(cwd: string, temp: boolean): Place | null {
-    if (!temp) return null;
-    return {
-      id: this.projectId({ ...TEMP_PROJECT, label: null, repo: null }),
-      label: runLabel(cwd),
-    };
-  }
-
   /**
-   * `placeOf` for sessions already assigned, or null to leave them where they are. A directory that
-   * is gone can't have its remote read any more, so only the rules that don't need it (PRs,
-   * scratchpad, temporary) may move it, and never away from a repository it was already placed in.
+   * `placeOf` for a directory that already has sessions, or null to leave them where they are. A
+   * directory that is gone can't have its remote read any more, so only the rules that don't need
+   * it (`byRule`) may move it, and never away from a repository it was already placed in.
    */
-  private replaceOf(cwd: string, remote: RemoteReading, dirs: LaunchDirProjects): Place | null {
-    if (!isGoneDir(remote)) return this.placeOf(cwd, remote, dirs);
-    if (this.q.repoOfCwd.get(cwd)) return null;
-    if (!isTemporary(cwd) && !scratchpadOwner(cwd) && !this.prRepoOf(cwd)) return null;
-    return this.placeOf(cwd, remote, dirs);
+  private replaceOf(dir: DirReading, ctx: PlacementContext): Place | null {
+    if (!isGoneDir(dir.remote)) return this.placeOf(dir, ctx);
+    if (this.q.repoOfCwd.get(dir.cwd)) return null;
+    return this.byRule(dir, ctx);
   }
 
   /** The project row of a resolved directory, with its label. */
@@ -158,11 +181,23 @@ export class ProjectPlacer {
     const remote = this.remoteOf(cwd);
     // Only these directories take a PR's repository; skip the usual case of a live checkout
     if (!isGoneDir(remote) && !isTemporary(cwd)) return [];
-    const place = this.replaceOf(cwd, remote, this.launchDirProjects());
+    const place = this.replaceOf(this.read(cwd, remote), this.context());
     if (!place) return [];
     const moved = this.reassign(place, cwd);
     this.q.deleteOrphanProjects.run();
     return moved;
+  }
+
+  /**
+   * The projects (null for none) of the sessions in each launch directory `placeWaiting` looks at.
+   * A directory can be split across several when its sessions were placed at different times.
+   */
+  private unsettledDirs(): Map<string, Set<number | null>> {
+    const rows = this.q.unsettledLaunchDirs.all() as { cwd: string; projectId: number | null }[];
+    const dirs = new Map<string, Set<number | null>>();
+    for (const { cwd, projectId } of rows)
+      dirs.set(cwd, (dirs.get(cwd) ?? new Set()).add(projectId));
+    return dirs;
   }
 
   /** Moves every session launched in `cwd` to the place, returning their IDs. */
@@ -172,21 +207,19 @@ export class ProjectPlacer {
   }
 
   /**
-   * Re-places scratchpad runs that went to `TEMP_PROJECT` because their owner's log hadn't been
-   * read yet: log folders are read in name order, and the owner's may come later. Returns the
-   * sessions it moved.
+   * Re-places the directories whose place depends on projects that may have been read after them
+   * (log folders are read in name order, so `~/` comes before `~/dev/app`): unassigned ones, such
+   * as a scratchpad waiting for its owner, and ones in a project without a repository, such as a
+   * folder of clones read before the clones. Returns the sessions it moved.
    */
-  placeWaitingScratchpads(): string[] {
-    const waiting = (this.q.tempLaunchDirs.all(TEMP_PROJECT.path) as { cwd: string }[]).filter(
-      (r) => scratchpadOwner(r.cwd),
-    );
-    if (waiting.length === 0) return [];
-    const dirs = this.launchDirProjects();
-    const moved = waiting.flatMap(({ cwd }) => {
-      const place = byScratchpadOwner(cwd, dirs);
-      return place ? this.reassign(place, cwd) : [];
+  placeWaiting(): string[] {
+    const ctx = this.context();
+    const moved = [...this.unsettledDirs()].flatMap(([cwd, projectIds]) => {
+      const place = this.replaceOf(this.read(cwd, this.remoteOf(cwd)), ctx);
+      const settled = projectIds.size === 1 && projectIds.has(place?.id ?? null);
+      return place && !settled ? this.reassign(place, cwd) : [];
     });
-    this.q.deleteOrphanProjects.run();
+    if (moved.length > 0) this.q.deleteOrphanProjects.run();
     return moved;
   }
 
@@ -197,26 +230,36 @@ export class ProjectPlacer {
    */
   reassignProjects(): void {
     const cwds = this.q.launchCwds.all() as { cwd: string }[];
-    const dirs = this.launchDirProjects();
+    const ctx = this.context();
     for (const { cwd } of cwds) {
-      const place = this.replaceOf(cwd, this.remoteOf(cwd), dirs);
+      const place = this.replaceOf(this.read(cwd, this.remoteOf(cwd)), ctx);
       if (place) this.q.reassignProject.run(place.id, place.label, cwd);
     }
+    // The pass may have found repositories the rules compare against, so settle on what it found
+    this.placeWaiting();
     this.q.deleteOrphanProjects.run();
   }
 
   /** Returns the project row (creating it if needed). With a remote, rows of the same repository are merged. */
   private projectId(p: ProjectRef): number {
-    if (p.repo) {
-      const byRepo = this.q.projectByRepo.get(p.repo) as { id: number } | null;
-      if (byRepo) return byRepo.id;
-      // If a row was created before the remote was known, take it over, keeping its color and hidden setting
-      const byPath = this.q.projectByPath.get(p.path) as { id: number } | null;
-      if (byPath) {
-        this.q.adoptRepo.run(p.repo, p.name, byPath.id);
-        return byPath.id;
-      }
-    }
+    // Looked up first so re-placing a directory in its own project (`placeWaiting`) writes nothing
+    if (!p.repo) return this.projectIdByPath(p.path) ?? this.createProject(p);
+    const byRepo = this.q.projectByRepo.get(p.repo) as { id: number } | null;
+    if (byRepo) return byRepo.id;
+    // If a row was created before the remote was known, take it over, keeping its color and hidden setting
+    const byPath = this.projectIdByPath(p.path);
+    if (byPath === null) return this.createProject(p);
+    this.q.adoptRepo.run(p.repo, p.name, byPath);
+    return byPath;
+  }
+
+  /** The project row whose path is `path`, or null when there is none. */
+  private projectIdByPath(path: string): number | null {
+    return (this.q.projectByPath.get(path) as { id: number } | null)?.id ?? null;
+  }
+
+  /** Creates the project row of a directory (or returns the one already at its path). */
+  private createProject(p: ProjectRef): number {
     return (this.q.upsertProject.get(p.path, p.name, p.repo) as { id: number }).id;
   }
 }
@@ -229,6 +272,32 @@ export function byScratchpadOwner(cwd: string, dirs: LaunchDirProjects): Place |
   const owner = scratchpadOwner(cwd);
   const parent = owner ? dirs.get(owner) : undefined;
   return parent !== undefined ? { id: parent, label: runLabel(cwd) } : null;
+}
+
+/**
+ * Placement of a directory in Claude Code's configuration: a log folder joins the project of the
+ * sessions it holds (`dirs` from `launchDirProjects`), and anything else there is no project. Null
+ * for a directory outside it.
+ */
+export function byClaudeDir(path: string, dirs: LaunchDirProjects): Place | null {
+  if (!isClaudeDir(path)) return null;
+  const owner = logDirOwner(path);
+  return { id: (owner ? dirs.get(owner) : undefined) ?? null, label: null };
+}
+
+/**
+ * No project for a directory that holds another project's repository (`repoPaths`), such as the
+ * home directory or a folder of clones: work launched there may be about any of them. Null for any
+ * other.
+ */
+export function byHeldRepos(own: ProjectRef, repoPaths: readonly string[]): Place | null {
+  const holds = repoPaths.some((path) => path.startsWith(`${own.path}/`));
+  return holds ? { id: null, label: own.label } : null;
+}
+
+/** No project for a temporary directory (`temp`), labelled with its name; null for any other. */
+function byTemporaryDir(cwd: string, temp: boolean): Place | null {
+  return temp ? { id: null, label: runLabel(cwd) } : null;
 }
 
 /**

@@ -200,12 +200,34 @@ describe("README scenarios", () => {
     });
   });
 
-  test("19. tempRuns: runs in temporary directories share one tmp project", () => {
-    expect(session(SID.tmpRun)).toMatchObject({ project: "/tmp", label: "retry-probe.Qx7Lm2" });
-    expect(session(SID.jobRun)).toMatchObject({ project: "/tmp", label: "probe-7" });
-    expect(count("SELECT COUNT(*) AS n FROM projects WHERE path = '/tmp' AND name = 'tmp'")).toBe(
-      1,
+  test("19. tempRuns: runs in temporary directories belong to no project", () => {
+    expect(session(SID.tmpRun)).toMatchObject({ project: null, label: "retry-probe.Qx7Lm2" });
+    expect(session(SID.jobRun)).toMatchObject({ project: null, label: "probe-7" });
+    const temporary = "path = '/tmp' OR path LIKE '/private/%' OR path LIKE '%/.claude/%'";
+    expect(count(`SELECT COUNT(*) AS n FROM projects WHERE ${temporary}`)).toBe(0);
+  });
+
+  test("23. outsideRuns: the home directory, a folder of clones and Claude's config are no project", () => {
+    const fresh = setup((dir) =>
+      dir === "/Users/me/dev/app" ? "git@github.com:me/webapp.git" : noRemotes(dir),
     );
+    fresh.ingester.scan();
+    const place = (id: string) =>
+      fresh.db
+        .query<{ project: string | null; label: string | null }, [string]>(
+          "SELECT p.path AS project, s.label FROM sessions s LEFT JOIN projects p ON p.id = s.project_id WHERE s.id = ?",
+        )
+        .get(id);
+    expect(place(SID.homeRun)).toEqual({ project: null, label: null });
+    expect(place(SID.clonesRun)).toEqual({ project: null, label: null });
+    // The log folder of app's sessions joins app
+    expect(place(SID.logDirRun)).toEqual({ project: "/Users/me/dev/app", label: null });
+  });
+
+  test("23. outsideRuns: without a repository under them, folders stay projects of their own", () => {
+    expect(session(SID.homeRun).project).toBe("/Users/me");
+    expect(session(SID.clonesRun).project).toBe("/Users/me/dev");
+    expect(session(SID.logDirRun).project).toBe("/Users/me/dev/app");
   });
 
   test("20. containerRuns: a gone directory takes the repository of the PRs opened in it", () => {
@@ -473,8 +495,6 @@ describe("project identity (git remote)", () => {
     const fresh = setup(lookup);
     fresh.ingester.scan();
     expect(projects(fresh.db)).toEqual([
-      // The jobs directory's log folder sorts first, so the shared tmp project is made first
-      { path: "/tmp", name: "tmp", repo: null, color: null },
       { path: "/Users/me/dev/app", name: "webapp", repo: "github.com/me/webapp", color: null },
       // Directories without a remote (the SDK scenarios) keep their directory name
       { path: "/Users/me/tmp/probe", name: "probe", repo: null, color: null },
@@ -508,7 +528,6 @@ describe("project identity (git remote)", () => {
     );
     // The blog project is now empty, so it is deleted
     expect(projects(db)).toEqual([
-      { path: "/tmp", name: "tmp", repo: null, color: null },
       { path: "/Users/me/dev/app", name: "webapp", repo: "github.com/me/webapp", color: "p3" },
       { path: "/Users/me/tmp/probe", name: "probe", repo: null, color: null },
       { path: "/Users/me/tmp/release", name: "release", repo: null, color: null },
@@ -573,7 +592,7 @@ describe("project identity (git remote)", () => {
           "SELECT p.path FROM sessions s JOIN projects p ON p.id = s.project_id WHERE s.id = ?",
         )
         .get(SID.scratchpadRun)?.path;
-    expect(projectOf()).toBe("/tmp");
+    expect(projectOf()).toBeUndefined();
     // Reported as changed, though its log wasn't read again, so the UI refetches it
     expect(fresh.ingester.scan().sessions).toContain(SID.scratchpadRun);
     expect(projectOf()).toBe("/Users/me/dev/app");
@@ -590,14 +609,47 @@ describe("project identity (git remote)", () => {
     expect(fresh.ingester.ingestFile(pr)).toContain(SID.containerRun);
   });
 
-  test("a PR from /tmp itself never turns the shared tmp project into a repository", () => {
+  test("a PR from /tmp itself never places the runs there in its repository", () => {
     db.query("UPDATE sessions SET launch_cwd = '/tmp' WHERE id = ?").run(SID.containerPr);
     resetDerived();
     new Ingester(db, projectsDir, { lookupRemote: noRemotes }).refreshAllIfOutdated();
-    expect(db.query("SELECT name, repo FROM projects WHERE path = '/tmp'").get()).toEqual({
-      name: "tmp",
-      repo: null,
-    });
+    expect(session(SID.containerPr).project).toBeNull();
+    expect(count("SELECT COUNT(*) AS n FROM projects WHERE path = '/tmp'")).toBe(0);
+  });
+
+  test("a directory whose sessions were placed apart is brought together once the scan ends", () => {
+    const fresh = setup(lookup);
+    fresh.ingester.scan();
+    // The folder's run as if placed in the probe project at another time, beside home's run
+    fresh.db
+      .query(
+        "UPDATE sessions SET launch_cwd = '/Users/me', project_id = (SELECT id FROM projects WHERE path = '/Users/me/tmp/probe') WHERE id = ?",
+      )
+      .run(SID.clonesRun);
+    expect(fresh.ingester.scan().sessions).toContain(SID.clonesRun);
+    const ids = fresh.db
+      .query<{ id: number | null }, []>(
+        "SELECT DISTINCT project_id AS id FROM sessions WHERE launch_cwd = '/Users/me'",
+      )
+      .all();
+    expect(ids).toEqual([{ id: null }]);
+  });
+
+  test("a folder of clones read before the clones gives up its project once the scan ends", () => {
+    const fresh = setup(lookup);
+    const home = fresh.ingester.listFiles().find((f) => f.endsWith(`${SID.homeRun}.jsonl`));
+    if (!home) throw new Error("no home fixture");
+    fresh.ingester.ingestFile(home);
+    const projectOf = () =>
+      fresh.db
+        .query<{ project: number | null }, [string]>(
+          "SELECT project_id AS project FROM sessions WHERE id = ?",
+        )
+        .get(SID.homeRun)?.project;
+    expect(projectOf()).not.toBeNull();
+    expect(fresh.ingester.scan().sessions).toContain(SID.homeRun);
+    expect(projectOf()).toBeNull();
+    expect(projects(fresh.db)).not.toContainEqual(expect.objectContaining({ path: "/Users/me" }));
   });
 
   test("PRs to more than one repository leave a gone directory to its own name", () => {
