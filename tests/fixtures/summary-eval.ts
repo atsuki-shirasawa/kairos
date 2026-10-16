@@ -1,8 +1,9 @@
 // Fictional sections with known answers, for measuring section summaries (`bun run eval:summary`).
 // Real logs can't go into the repo, so each case is written from a pattern seen in them: a plan
 // listed as done, a bare number, a vague leftover, the backlog recorded as an open item, a blocker
-// buried in a file list, and "resolved" claimed against the facts. A bad summary found in real use
-// becomes a new case here.
+// buried in a file list, "resolved" claimed against the facts, a headline that talks about the task,
+// a deliberate skip or the model's own doubt written as an open item, and too many open items. A bad
+// summary found in real use becomes a new case here.
 import type { PromptInput } from "../../src/server/summarize/prompt.ts";
 import type { OpenKind } from "../../src/shared/summaryBody.ts";
 import type { SummaryLang } from "../../src/shared/summaryLang.ts";
@@ -17,6 +18,14 @@ export interface ExpectedOpen {
   kinds: OpenKind[];
 }
 
+/**
+ * The most open items a section's summary should list, the most important first: about 50 were
+ * written a day and few were closed, so a longer list buries the ones that matter. The prompt
+ * doesn't state it yet (#51 adds it); when it does, the cap moves next to `HEADLINE_LENGTH` and
+ * both the prompt and this read it.
+ */
+export const MAX_OPEN = 3;
+
 /** One fictional section and what its summary must and must not say. */
 export interface EvalCase {
   id: string;
@@ -30,9 +39,17 @@ export interface EvalCase {
   /** Terms that must not appear under Open: things that aren't this section's leftovers. */
   notOpen: string[];
   /**
-   * A body that meets every expectation. It documents the case, and the tests check that it
-   * scores perfectly, so a case can't ask for something no summary could give.
+   * The most open items allowed, when it is fewer than `MAX_OPEN`: 0 when nothing in the section is
+   * left, 1 when one fair leftover (a pending question, a denied action) may be listed.
    */
+  maxOpen?: number;
+  /** Terms the first open item must contain: the leftover that matters most. */
+  leadOpen?: string[];
+  /**
+   * A headline and body that meet every expectation. They document the case, and the tests check
+   * that they score perfectly, so a case can't ask for something no summary could give.
+   */
+  idealHeadline: string;
   ideal: string;
 }
 
@@ -71,6 +88,7 @@ export const EVAL_CASES: EvalCase[] = [
     ],
     notResolved: ["マージ済", "merged", "#41"],
     notOpen: [],
+    idealHeadline: "日本語検索修正の PR #57 作成と CI 待ち",
     ideal: [
       "- 目的: 日本語検索の修正を PR にし、CI 通過後にマージして #41 を閉じる",
       "- やったこと:",
@@ -121,6 +139,7 @@ export const EVAL_CASES: EvalCase[] = [
     ],
     notResolved: ["N+1", "user_id", "インデックス"],
     notOpen: [],
+    idealHeadline: "PR #210 のレビュー指摘 3 件の修正",
     ideal: [
       "- 目的: PR #210 のレビュー指摘 5 件に対応する",
       "- やったこと:",
@@ -162,6 +181,7 @@ export const EVAL_CASES: EvalCase[] = [
     open: [],
     notResolved: [],
     notOpen: ["#6", "色出力"],
+    idealHeadline: "--output の末尾改行の修正と #5 のクローズ",
     ideal: [
       "- 目的: #5（--output のファイル末尾の改行）を直す",
       "- やったこと:",
@@ -201,6 +221,7 @@ export const EVAL_CASES: EvalCase[] = [
     ],
     notResolved: ["アップロード済", "公開済", "uploaded", "published"],
     notOpen: [],
+    idealHeadline: "記事 why-sqlite の図版 2 枚とアップロード先待ち",
     ideal: [
       "- 目的: 記事 2026-10-why-sqlite に図を 2 枚つける",
       "- やったこと:",
@@ -238,6 +259,7 @@ export const EVAL_CASES: EvalCase[] = [
     ],
     notResolved: ["green", "all pass", "suite pass", "week"],
     notOpen: [],
+    idealHeadline: "Date parser port down to 10 failures",
     ideal: [
       "- Goal: Port the remaining parser cases from the old library and get the suite passing",
       "- Done:",
@@ -276,6 +298,7 @@ export const EVAL_CASES: EvalCase[] = [
     ],
     notResolved: ["DST", "timezone", "midnight"],
     notOpen: [],
+    idealHeadline: "Local-time fix for midnight DST reminders",
     ideal: [
       "- Goal: Fix reminders set for midnight firing an hour early after the DST change",
       "- Done:",
@@ -313,6 +336,7 @@ export const EVAL_CASES: EvalCase[] = [
     ],
     notResolved: ["example", "rename complete", "renamed across"],
     notOpen: [],
+    idealHeadline: "Partial rename of the timeout_s config key",
     ideal: [
       "- Goal: Rename `timeout_s` to `timeout` across the config loader, docs and examples",
       "- Done:",
@@ -353,6 +377,7 @@ export const EVAL_CASES: EvalCase[] = [
     open: [],
     notResolved: [],
     notOpen: ["Redis", "#12"],
+    idealHeadline: "SQLite job queue for outgoing emails",
     ideal: [
       "- Goal: Send emails through a job queue so a slow SMTP server doesn't block requests",
       "- Done:",
@@ -360,6 +385,207 @@ export const EVAL_CASES: EvalCase[] = [
       "- Resolved:",
       "  - Queue backend: SQLite rather than Redis, so there is no extra service to run",
       "  - Email queue: PR #12 merged, go test passes",
+    ].join("\n"),
+  },
+  {
+    id: "meta-one-denied-read",
+    pattern: "a tiny section whose headline talks about the task (「…を記録する見出し」)",
+    lang: "ja",
+    input: {
+      sessionTitle: "設定ファイルの確認",
+      projectName: "billing",
+      previous: [],
+      digest: [
+        "[User] .env.example の1行目だけ見せて",
+        "  → Read: .env.example",
+        "    ✗ failed: Permission to read .env.example was denied by a deny rule (Read(.env*))",
+        "[Claude] 設定の拒否ルールで .env* の読み取りが禁止されているため、.env.example を開けませんでした。",
+      ].join("\n"),
+    },
+    open: [],
+    notResolved: ["確認済", "読み取った", "表示した"],
+    notOpen: [],
+    maxOpen: 1,
+    idealHeadline: ".env.example の読み取りが拒否ルールで不可",
+    ideal: [
+      "- 目的: .env.example の 1 行目を確認する",
+      "- やったこと:",
+      "  - .env.example の読み取りを試みたが、拒否ルール Read(.env*) で拒否された",
+    ].join("\n"),
+  },
+  {
+    id: "meta-summary-request",
+    pattern: 'work that is itself a summary, which invites "Here is the summary" as the headline',
+    lang: "en",
+    input: {
+      sessionTitle: "Release notes for 1.4",
+      projectName: "exporter",
+      previous: [],
+      facts: [
+        "Commits and PRs:",
+        "- commit 2a4b6c8 docs: note streaming exports in the changelog",
+      ].join("\n"),
+      digest: [
+        "[User] Write a short summary of PR #88 for the release notes",
+        "  → Bash: gh pr view 88",
+        "  → Edit: CHANGELOG.md",
+        "  → Bash: git commit -m 'docs: note streaming exports in the changelog'",
+        '[Claude] Here is the summary I added under 1.4.0 in CHANGELOG.md: "Exports now stream rows instead of loading them all into memory (#88)."',
+      ].join("\n"),
+    },
+    open: [],
+    notResolved: [],
+    notOpen: [],
+    maxOpen: 1,
+    idealHeadline: "Changelog entry for streaming exports in PR #88",
+    ideal: [
+      "- Goal: Write a short release-notes entry for PR #88",
+      "- Done:",
+      "  - Added an entry on streaming exports under 1.4.0 in CHANGELOG.md (commit 2a4b6c8)",
+    ].join("\n"),
+  },
+  {
+    id: "greeting-only",
+    pattern:
+      "a section with no work in it, whose headline explained itself (「作業の実体はなく…」)",
+    lang: "ja",
+    input: {
+      sessionTitle: "こんにちは",
+      projectName: null,
+      previous: [],
+      digest: [
+        "[User] こんにちは。明日の天気はどうかな",
+        "[Claude] こんにちは。どの地域の天気を知りたいですか？",
+      ].join("\n"),
+    },
+    open: [],
+    notResolved: [],
+    notOpen: [],
+    maxOpen: 1,
+    idealHeadline: "明日の天気についての質問と地域の聞き返し",
+    ideal: ["- 目的: 明日の天気を知る", "- やったこと:", "  - どの地域の天気かを聞き返した"].join(
+      "\n",
+    ),
+  },
+  {
+    id: "deliberate-skip",
+    pattern: "work deliberately left alone written as an open item (「X は対応しない」)",
+    lang: "ja",
+    input: {
+      sessionTitle: "lint 警告の整理",
+      projectName: "admin-ui",
+      previous: [],
+      facts: [
+        "Commits and PRs:",
+        "- commit 7e8f9a0 chore: remove unused imports and any types",
+        "",
+        "Tests:",
+        "last run `npm run lint` passed (0 errors, 30 warnings)",
+      ].join("\n"),
+      digest: [
+        "[User] lint の警告を片付けて",
+        "  → Bash: npm run lint",
+        "[Claude] 警告は3種類です: 未使用 import 12件、any 型 4件、legacy/ 配下の命名規則違反 30件。",
+        "[User] legacy/ は来月まるごと消すから触らなくていい",
+        "  → Edit: src/pages/users.tsx",
+        "  → Edit: src/api/client.ts",
+        "  → Bash: npm run lint",
+        "  → Bash: git commit -m 'chore: remove unused imports and any types'",
+        "[Claude] 未使用 import と any 型を直してコミットしました。legacy/ の命名規則違反 30 件は、来月削除するとのことなので対応していません。",
+      ].join("\n"),
+    },
+    open: [],
+    notResolved: [],
+    notOpen: ["legacy", "命名規則"],
+    maxOpen: 0,
+    idealHeadline: "未使用 import と any 型の lint 警告の解消",
+    ideal: [
+      "- 目的: lint の警告を片付ける",
+      "- やったこと:",
+      "  - 未使用 import 12 件と any 型 4 件を修正",
+      "- 解決:",
+      "  - 未使用 import と any 型の警告: コミット 7e8f9a0、lint はエラー 0",
+      "  - legacy/ の命名規則違反 30 件: 来月 legacy/ ごと削除するため対応しないと決定",
+    ].join("\n"),
+  },
+  {
+    id: "model-doubt",
+    pattern: "the model's own doubt written as an open item (「判断の経緯が記録されていない」)",
+    lang: "ja",
+    input: {
+      sessionTitle: "キャッシュ設定",
+      projectName: "catalog",
+      previous: [],
+      facts: [
+        "Commits and PRs:",
+        "- commit 3c4d5e6 chore: set cache TTL to 300 seconds",
+        "",
+        "Tests:",
+        "last run `npm test` passed (148 passed)",
+      ].join("\n"),
+      digest: [
+        "[User] 商品キャッシュの TTL を 300 秒にして",
+        "  → Edit: config/cache.yml",
+        "  → Bash: npm test",
+        "  → Bash: git commit -m 'chore: set cache TTL to 300 seconds'",
+        "[Claude] 商品キャッシュの TTL を 300 秒に変更してコミットしました。テストも通っています。",
+      ].join("\n"),
+    },
+    open: [],
+    notResolved: [],
+    notOpen: ["理由", "経緯", "根拠", "記録されて", "不明"],
+    maxOpen: 0,
+    idealHeadline: "商品キャッシュの TTL を 300 秒に変更",
+    ideal: [
+      "- 目的: 商品キャッシュの TTL を 300 秒にする",
+      "- やったこと:",
+      "  - config/cache.yml の TTL を 300 秒に変更",
+      "- 解決:",
+      "  - キャッシュ TTL の変更: コミット 3c4d5e6、テスト 148 件成功",
+    ].join("\n"),
+  },
+  {
+    id: "many-leftovers",
+    pattern: "a long list of leftovers with the blocker among them, every one written as open",
+    lang: "ja",
+    input: {
+      sessionTitle: "v2.3.0 リリース",
+      projectName: "status-page",
+      previous: ["v2.3.0 の変更点の取りまとめ"],
+      facts: [
+        "Commits and PRs:",
+        "- commit 8d9e0f1 chore: release v2.3.0",
+        "",
+        "Tests:",
+        "last run `make test` passed (ok)",
+      ].join("\n"),
+      digest: [
+        "[User] v2.3.0 を出して、本番にもデプロイして",
+        "  → Bash: git commit -m 'chore: release v2.3.0'",
+        "  → Bash: git tag v2.3.0 && git push origin v2.3.0",
+        "  → Bash: make deploy ENV=production",
+        "    ✗ failed: 403 Forbidden: the deploy role cannot update the production service",
+        "[Claude] v2.3.0 のタグを付けて push しました。本番デプロイは権限エラー (403) で止まっています。ほかに残っているのは、リリースノートの英訳、ドキュメントのスクリーンショット更新、CHANGELOG の誤字修正、古い v1 ブランチの削除、Slack での告知です。",
+      ].join("\n"),
+    },
+    open: [
+      {
+        what: "the production deploy stopped by a 403",
+        match: ["デプロイ", "403"],
+        kinds: ["issue", "waiting"],
+      },
+    ],
+    notResolved: ["デプロイ", "403"],
+    notOpen: [],
+    leadOpen: ["デプロイ", "403"],
+    idealHeadline: "v2.3.0 のタグ付けと本番デプロイの権限エラー",
+    ideal: [
+      "- 目的: v2.3.0 をリリースし、本番にデプロイする",
+      "- やったこと:",
+      "  - リリースをコミットし、v2.3.0 のタグを付けて push",
+      "- 残課題:",
+      "  - [issue] 本番デプロイがデプロイ用ロールの権限エラー (403) で停止",
+      "- 次の一手: デプロイ用ロールの権限を確認して本番デプロイをやり直す",
     ].join("\n"),
   },
 ];

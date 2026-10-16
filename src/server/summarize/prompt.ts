@@ -1,6 +1,7 @@
 // Prompts for section summaries, and parsing of the output (headline, body and closures).
 import { OPEN_KINDS, type OpenKind, SUMMARY_LABELS } from "../../shared/summaryBody.ts";
 import { DEFAULT_SUMMARY_LANG, type SummaryLang } from "../../shared/summaryLang.ts";
+import { HEADLINE_LENGTH } from "./headline.ts";
 
 /** What a section summary prompt is built from. */
 export interface PromptInput {
@@ -37,13 +38,13 @@ interface LangRules {
 const RULES: Record<SummaryLang, LangRules> = {
   en: {
     name: "English",
-    headline: "a short noun phrase of about 3–8 words, no trailing period, no quotes or symbols",
+    headline: `a short noun phrase of about ${HEADLINE_LENGTH.en.min}–${HEADLINE_LENGTH.en.max} words, no trailing period, no quotes or symbols`,
     ...SUMMARY_LABELS.en,
   },
   // A Japanese headline reads best as a short noun-ending phrase (体言止め)
   ja: {
     name: "Japanese",
-    headline: "15〜35 字、体言止め（「〜した」「〜し、〜」で終えない）、記号や引用符なし",
+    headline: `${HEADLINE_LENGTH.ja.min}〜${HEADLINE_LENGTH.ja.max} 字、体言止め（「〜した」「〜し、〜」で終えない）、記号や引用符なし`,
     ...SUMMARY_LABELS.ja,
   },
 };

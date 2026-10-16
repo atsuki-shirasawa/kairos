@@ -1,5 +1,6 @@
 // Summarizes the fictional cases in tests/fixtures/summary-eval.ts with `claude -p` and scores the
-// summaries: open items found, false "resolved", leftovers that aren't, and format adherence.
+// summaries: open items found, false "resolved", leftovers that aren't, too many open items, unfit
+// headlines, and format adherence.
 // Not part of `bun run check`, since it calls the model. Usage:
 //   bun run eval:summary [--model haiku] [--effort low] [--runs 1] [--case <id>] [--out <file.json>]
 import { mkdirSync } from "node:fs";
@@ -8,10 +9,11 @@ import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { serverEnv } from "../src/cli/daemon.ts";
 import { DEFAULT_EFFORT, isEffort, runClaude } from "../src/server/summarize/claude.ts";
-import { buildPrompt, parseSummary } from "../src/server/summarize/prompt.ts";
+import { type HeadlineFlaw, headlineFlaws } from "../src/server/summarize/headline.ts";
+import { buildPrompt, type ParsedSummary, parseSummary } from "../src/server/summarize/prompt.ts";
 import { DEFAULT_MODEL } from "../src/server/summarize/summarizer.ts";
-import { parseSummaryBody } from "../src/shared/summaryBody.ts";
-import { EVAL_CASES, type EvalCase } from "../tests/fixtures/summary-eval.ts";
+import { type OpenItem, parseSummaryBody } from "../src/shared/summaryBody.ts";
+import { EVAL_CASES, type EvalCase, MAX_OPEN } from "../tests/fixtures/summary-eval.ts";
 
 /** How one summary did against its case. */
 export interface CaseScore {
@@ -38,6 +40,12 @@ export interface CaseScore {
   extraOpen: string[];
   /** Items that only say there is nothing for them ("Next: not stated"), which should be left out. */
   filler: string[];
+  /** Open items beyond what the case allows (`maxOpen`, else `MAX_OPEN`). */
+  overOpen: number;
+  /** The first open item, when the case names the one that should lead and it doesn't. */
+  wrongLead: string | null;
+  /** How the headline fails the rules (see `headlineFlaws`). */
+  headline: HeadlineFlaw[];
 }
 
 /** "The rest", "remaining items" and the like: a leftover that doesn't say which. */
@@ -56,8 +64,15 @@ function* items(body: string): Generator<string> {
   for (const m of body.matchAll(/^[-*+]\s+[^:：\n]+[:：]\s*(.+)$/gm)) if (m[1]) yield m[1].trim();
 }
 
-/** Scores one summary body against its case. Pure, so the tests can check it on the ideal bodies. */
-export function scoreCase(c: EvalCase, body: string): CaseScore {
+/** The first open item when the case names the one that should lead and it isn't that one. */
+function wrongLead(c: EvalCase, open: OpenItem[]): string | null {
+  const [first] = open;
+  if (!c.leadOpen || !first) return null;
+  return has(first.text, c.leadOpen) ? null : first.text;
+}
+
+/** Scores one summary against its case. Pure, so the tests can check it on the ideal summaries. */
+export function scoreCase(c: EvalCase, { headline, body }: ParsedSummary): CaseScore {
   const parts = parseSummaryBody(body);
   const open = parts?.open ?? [];
   const resolved = parts?.resolved ?? [];
@@ -74,6 +89,10 @@ export function scoreCase(c: EvalCase, body: string): CaseScore {
     missed: c.open.filter((_, i) => !found[i]).map((e) => e.what),
     extraOpen: open.filter((o) => !c.open.some((e) => has(o.text, e.match))).map((o) => o.text),
     filler: [...items(body)].filter((t) => FILLER.test(t)),
+    overOpen: Math.max(0, open.length - (c.maxOpen ?? MAX_OPEN)),
+    wrongLead: wrongLead(c, open),
+    // An output that didn't parse has no headline; it already counts as not parsed
+    headline: headline ? headlineFlaws(headline, c.lang) : [],
   };
 }
 
@@ -91,10 +110,13 @@ export function totals(scores: CaseScore[]) {
     vagueOpen: sum((s) => s.vagueOpen.length),
     extraOpen: sum((s) => s.extraOpen.length),
     filler: sum((s) => s.filler.length),
+    overOpen: sum((s) => s.overOpen),
+    wrongLead: sum((s) => (s.wrongLead ? 1 : 0)),
+    badHeadlines: sum((s) => (s.headline.length > 0 ? 1 : 0)),
   };
 }
 
-function report(s: CaseScore): string {
+function report(s: CaseScore, headline: string): string {
   const flags = [
     s.parsed ? null : "NOT PARSED",
     ...s.missed.map((m) => `missed open: ${m}`),
@@ -102,9 +124,12 @@ function report(s: CaseScore): string {
     ...s.falseOpen.map((o) => `not a leftover: ${o}`),
     ...s.vagueOpen.map((o) => `vague: ${o}`),
     ...s.filler.map((f) => `filler: ${f}`),
+    s.overOpen > 0 ? `${s.overOpen} open item(s) over the limit` : null,
+    s.wrongLead ? `should not lead: ${s.wrongLead}` : null,
+    s.headline.length > 0 ? `headline (${s.headline.join(", ")})` : null,
     ...s.extraOpen.map((o) => `(extra open: ${o})`),
   ].filter(Boolean);
-  const head = `${s.id}: open ${s.openFound}/${s.openExpected}, kind ${s.kindFit}`;
+  const head = `${s.id}: open ${s.openFound}/${s.openExpected}, kind ${s.kindFit}, headline "${headline}"`;
   return [head, ...flags.map((f) => `    ${f}`)].join("\n");
 }
 
@@ -134,9 +159,10 @@ async function main() {
     for (const c of cases) {
       const output = await runClaude(buildPrompt(c.input, c.lang), opts);
       outputs.push({ id: c.id, run, output });
-      const score = scoreCase(c, parseSummary(output)?.body ?? "");
+      const summary = parseSummary(output) ?? { headline: "", body: "" };
+      const score = scoreCase(c, summary);
       scores.push(score);
-      console.log(report(score));
+      console.log(report(score, summary.headline));
     }
   }
   console.log("\n", totals(scores));

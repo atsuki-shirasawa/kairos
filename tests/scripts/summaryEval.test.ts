@@ -9,8 +9,8 @@ describe("summary evaluation cases", () => {
   });
 
   for (const c of EVAL_CASES) {
-    test(`${c.id}: the ideal body scores perfectly`, () => {
-      expect(scoreCase(c, c.ideal)).toEqual({
+    test(`${c.id}: the ideal summary scores perfectly`, () => {
+      expect(scoreCase(c, { headline: c.idealHeadline, body: c.ideal })).toEqual({
         id: c.id,
         parsed: true,
         openFound: c.open.length,
@@ -22,6 +22,9 @@ describe("summary evaluation cases", () => {
         missed: [],
         extraOpen: [],
         filler: [],
+        overOpen: 0,
+        wrongLead: null,
+        headline: [],
       });
       // The facts reach the prompt, so a case is measured on what the summarizer really sends
       if (c.input.facts) expect(buildPrompt(c.input, c.lang)).toContain("<facts>");
@@ -41,7 +44,7 @@ describe("scoreCase", () => {
       "- 残課題:",
       "  - [issue] 残りの指摘",
     ].join("\n");
-    expect(scoreCase(vague, body)).toMatchObject({
+    expect(scoreCase(vague, { headline: "", body })).toMatchObject({
       parsed: true,
       openFound: 0,
       falseResolved: ["N+1 クエリを含む全指摘"],
@@ -53,13 +56,34 @@ describe("scoreCase", () => {
 
   test("flags an item that only says there is nothing for it", () => {
     const body = "- 目的: a\n- やったこと: b\n- 次の一手: 記載なし";
-    expect(scoreCase(vague, body).filler).toEqual(["記載なし"]);
+    expect(scoreCase(vague, { headline: "", body }).filler).toEqual(["記載なし"]);
   });
 
   test("an unparsed body finds nothing", () => {
-    expect(scoreCase(vague, "Fixed three review findings.")).toMatchObject({
+    expect(scoreCase(vague, { headline: "", body: "Fixed three review findings." })).toMatchObject({
       parsed: false,
       openFound: 0,
+    });
+  });
+
+  const many = EVAL_CASES.find((c) => c.id === "many-leftovers");
+  if (!many) throw new Error("case missing");
+
+  test("flags open items over the limit, a wrong lead and an unfit headline", () => {
+    const body = [
+      "- 目的: リリース",
+      "- やったこと: タグ付け",
+      "- 残課題:",
+      "  - [todo] リリースノートの英訳",
+      "  - [todo] スクリーンショット更新",
+      "  - [issue] 本番デプロイが 403 で停止",
+      "  - [todo] Slack での告知",
+    ].join("\n");
+    expect(scoreCase(many, { headline: "セクションの要約をまとめます。", body })).toMatchObject({
+      openFound: 1,
+      overOpen: 1,
+      wrongLead: "リリースノートの英訳",
+      headline: ["meta", "sentence"],
     });
   });
 });
