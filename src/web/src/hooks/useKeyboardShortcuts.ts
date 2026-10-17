@@ -5,7 +5,7 @@ import { useEffect, useEffectEvent } from "react";
 import type { BlockStepping } from "@/hooks/useBlockNavigation.ts";
 import type { UrlStateUpdate } from "@/hooks/useUrlState.ts";
 import { shift } from "@/lib/dates.ts";
-import { DEFAULT_LAYOUT, LAYOUTS, layoutOfShortcut } from "@/lib/layouts.ts";
+import { LAYOUTS, layoutOfShortcut } from "@/lib/layouts.ts";
 import { type Shortcut, shortcutFor } from "@/lib/shortcuts.ts";
 import type { UrlState } from "@/lib/urlState.ts";
 
@@ -62,11 +62,11 @@ function run(shortcut: Shortcut, t: ShortcutTargets): boolean {
   }
   // A layout without a period (the live page): moving through periods or stepping through their
   // blocks would change a calendar nobody sees, so those keys pass through, and picking a period
-  // goes back to the calendar with it
+  // goes to the calendar with it
   if (!LAYOUTS[state.layout].hasPeriod) {
     if (PERIODLESS_IGNORED.has(shortcut)) return false;
     if (shortcut === "month" || shortcut === "week" || shortcut === "day") {
-      update({ layout: DEFAULT_LAYOUT, view: shortcut });
+      update({ layout: "calendar", view: shortcut });
       return true;
     }
   }
