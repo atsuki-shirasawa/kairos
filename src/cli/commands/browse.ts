@@ -51,13 +51,21 @@ function reportDay(ctx: CliContext): number | undefined {
 export async function reportCommand(ctx: CliContext): Promise<undefined> {
   const day = reportDay(ctx);
   const { from, to } = reportPeriod(day, ctx.period.since, ctx.period.until, Date.now());
-  const { buildReport, renderReport } = await import("../views.ts");
+  const { buildReport, renderReport, reportOpenItemsRange } = await import(
+    "../../shared/report.ts"
+  );
   const { db, q } = await openForRead(ctx);
-  const projects = projectsById(q.projects());
-  // Items open at the period's last moment; buildReport drops the ones closed by then
-  const r = buildReport(from, to, q.calendar(from, to), projects, q.openItems(to - 1, to));
+  const openAt = reportOpenItemsRange(to);
+  const r = buildReport({
+    from,
+    to,
+    sessions: q.calendar(from, to),
+    projects: projectsById(q.projects()),
+    openItems: q.openItems(openAt.from, openAt.to),
+    recaps: q.recaps(from, to),
+  });
   db.close();
-  console.log(ctx.json ? JSON.stringify(r, null, 2) : renderReport(r, ctx.full));
+  console.log(ctx.json ? JSON.stringify(r, null, 2) : renderReport(r, { full: ctx.full }));
 }
 
 /**

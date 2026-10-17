@@ -1,6 +1,6 @@
 import type { View } from "@/lib/view.ts";
 import { defineMessages } from "../index.ts";
-import { THIS_EN, THIS_JA, UNIT_EN, UNIT_JA } from "../period.ts";
+import { UNIT_EN, UNIT_JA } from "../period.ts";
 
 type Unit = View;
 
@@ -43,10 +43,19 @@ export const toolbarMessages = defineMessages({
     shortcutClose: "Close details",
     shortcutMenu: "This menu",
     importing: (percent: number) => `Importing ${percent}%`,
-    copyReport: (u: Unit) =>
-      `Copy ${THIS_EN[u]}'s work as Markdown (for a stand-up note or report)`,
+    /** The button copying a work report; its menu picks the period. */
+    standup: "Standup",
+    standupTitle: "Copy a work report as Markdown, for a stand-up note or a weekly report",
+    standupPeriods: "Period to copy",
+    standupLastWorkday: "Last workday",
+    standupWeek: "This week",
+    /** No work in the weeks the last workday is looked for in. */
+    standupNoWorkday: (days: number) => `None in ${days} days`,
+    /** The page's own period, which the filters narrow. */
+    standupShown: (u: Unit) => `The ${UNIT_EN[u]} on screen`,
+    standupShownNote: "Filters apply",
     copiedReport: "Copied as Markdown",
-    nothingToReport: (u: Unit) => `No work ${THIS_EN[u]} to copy`,
+    nothingToReport: "No work to copy",
   },
   ja: {
     prev: (u: Unit) => `前の${UNIT_JA[u]}`,
@@ -84,9 +93,15 @@ export const toolbarMessages = defineMessages({
     shortcutClose: "詳細を閉じる",
     shortcutMenu: "このメニュー",
     importing: (percent: number) => `取り込み中 ${percent}%`,
-    copyReport: (u: Unit) =>
-      `${THIS_JA[u]}の作業を Markdown でコピー（日報・朝会・週報・月報などに）`,
+    standup: "レポート",
+    standupTitle: "作業レポートを Markdown でコピー（日報・朝会・週報などに）",
+    standupPeriods: "コピーする期間",
+    standupLastWorkday: "前回の作業日",
+    standupWeek: "今週",
+    standupNoWorkday: (days: number) => `直近 ${days} 日はなし`,
+    standupShown: (_u: Unit) => "表示中の期間",
+    standupShownNote: "フィルタを適用",
     copiedReport: "Markdown でコピーしました",
-    nothingToReport: (u: Unit) => `${THIS_JA[u]}はコピーする作業がありません`,
+    nothingToReport: "コピーする作業がありません",
   },
 });

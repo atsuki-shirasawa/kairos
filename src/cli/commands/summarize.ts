@@ -7,10 +7,11 @@ import type { NamedTarget, TargetFilter } from "../../server/summarize/store.ts"
 import type { Summarizer } from "../../server/summarize/summarizer.ts";
 import { DAY } from "../../shared/dates.ts";
 import { AUTO_SUMMARY_DAYS } from "../../shared/sections.ts";
+import { printable } from "../../shared/text.ts";
 import { type CliContext, periodRange, type SummaryOptions } from "../args.ts";
 import { health, serverEnv } from "../daemon.ts";
 import { CliError } from "../errors.ts";
-import { formatTime, printable } from "../format.ts";
+import { formatTime } from "../format.ts";
 import { colorFor } from "../style.ts";
 import { catchUp } from "./ingest.ts";
 

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { oneLine, parseDay, uiLink } from "../../src/cli/format.ts";
+import { parseDay, uiLink } from "../../src/cli/format.ts";
 
 const NOW = new Date(2026, 9, 13, 15, 30).getTime();
 
@@ -18,8 +18,4 @@ test("uiLink opens a day in the day view, and a session's drawer at a block", ()
     `${base}?view=day&date=2026-10-01`,
   );
   expect(uiLink(base, { session: "abc", start: 42 })).toBe(`${base}?session=abc&at=42`);
-});
-
-test("oneLine strips control characters that could drive the terminal", () => {
-  expect(oneLine("a\x1b]52;c;ZXZpbA==\x07b\n\n  c")).toBe("a ]52;c;ZXZpbA== b c");
 });

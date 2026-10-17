@@ -19,7 +19,6 @@ import { useLocale } from "@/i18n/index.ts";
 import { shift } from "@/lib/dates.ts";
 import type { Filter } from "@/lib/filter.ts";
 import { LAYOUTS } from "@/lib/layouts.ts";
-import { buildReport } from "@/lib/report.ts";
 
 /**
  * Root component: owns the URL-synced view state and wires the toolbar, the layout's body
@@ -33,7 +32,7 @@ export function App() {
   useSummaryLangSync(useLocale());
   const progress = useLiveUpdates();
   const data = usePeriodData(state);
-  const { from, to, days, projectMap, visible, focused, search } = data;
+  const { from, to, projectMap, visible, focused, search } = data;
   const setFilter = useCallback((filter: Filter) => update({ filter }), [update]);
   const live = useLiveSummary(projectMap, now);
   useDocumentTitle(live.summary.attention);
@@ -102,9 +101,11 @@ export function App() {
           onPanel: setSearchPanel,
         }}
         report={{
-          // The report follows what's on screen: hidden projects and filters apply
-          build: () => buildReport(days, focused, projectMap, data.recapBodies),
-          hasWork: focused.length > 0,
+          // The page's own period follows what's on screen: hidden projects and filters apply
+          ready: data.projectsKnown,
+          shown: layout.hasPeriod
+            ? { view: state.view, from, to, sessions: data.loaded ? focused : null }
+            : null,
         }}
         menu={{ open: menuOpen, onOpenChange: setMenuOpen, theme, onTheme: setTheme }}
       />

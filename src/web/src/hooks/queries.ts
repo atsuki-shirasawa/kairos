@@ -3,6 +3,7 @@ import { MIN_SEARCH_CHARS } from "@shared/constants.ts";
 import { MINUTE } from "@shared/dates.ts";
 import {
   keepPreviousData,
+  queryOptions,
   useInfiniteQuery,
   useMutation,
   useQuery,
@@ -16,11 +17,25 @@ import { keys } from "@/lib/queryKeys.ts";
 /** Waits this long after the last keystroke before searching every period. */
 const SEARCH_DEBOUNCE_MS = 200;
 
+/**
+ * The period's sessions as cached: one definition for the hook and for a fetch on demand (the
+ * copied report), so both share the cache entry.
+ */
+export const calendarQuery = (from: number, to: number) =>
+  queryOptions({ queryKey: keys.calendar(from, to), queryFn: () => api.calendar(from, to) });
+
+/** The period's recaps as cached (see `calendarQuery`). */
+export const recapsQuery = (from: number, to: number) =>
+  queryOptions({ queryKey: keys.recaps(from, to), queryFn: () => api.recaps(from, to) });
+
+/** Items open at some point in the period, as cached (see `calendarQuery`). */
+export const openItemsQuery = (from: number, to: number) =>
+  queryOptions({ queryKey: keys.openItems(from, to), queryFn: () => api.openItems(from, to) });
+
 /** Sessions and projects of the period [from, to), the data every layout draws. */
 export function useCalendar(from: number, to: number, enabled = true) {
   return useQuery({
-    queryKey: keys.calendar(from, to),
-    queryFn: () => api.calendar(from, to),
+    ...calendarQuery(from, to),
     enabled,
     placeholderData: keepPreviousData, // Keep the previous week on screen while the next one loads
   });
@@ -84,11 +99,7 @@ export function useSearch(q: string, enabled: boolean) {
 
 /** Recaps of the period's projects. Fetched only for the summary view. */
 export function useRecaps(from: number, to: number, enabled: boolean) {
-  return useQuery({
-    queryKey: keys.recaps(from, to),
-    queryFn: () => api.recaps(from, to),
-    enabled,
-  });
+  return useQuery({ ...recapsQuery(from, to), enabled });
 }
 
 /** Asks the server to (re)write a project's recap for a period. Runs in the background. */
@@ -103,7 +114,7 @@ export function useRequestRecap() {
 
 /** Open items of the period's projects. Fetched only for the summary view. */
 export function useOpenItems(from: number, to: number) {
-  return useQuery({ queryKey: keys.openItems(from, to), queryFn: () => api.openItems(from, to) });
+  return useQuery(openItemsQuery(from, to));
 }
 
 /** Sessions with work left to pick up, for the home page (ranked there by `pickUp`). */

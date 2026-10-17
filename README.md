@@ -11,7 +11,7 @@ A personal web app that keeps the memory of your Claude Code work: what is runni
 - Automatically summarizes each work block (section) with `claude -p` (haiku): what was asked, what got settled and what was left open, and keeps the open items until the log or you close them
 - Searches every period by summaries, prompts and replies, PR and commit titles, and branches; `file:<path>` finds the work that edited a file
 - A summary view with working time, PRs, commits, tokens and estimated cost against the previous period, and per-project recaps written on request
-- Copies the shown period as a Markdown report (by day and project, with PR links) for a stand-up or a weekly report, and copies `claude --resume` for any session
+- Copies a Markdown report (recaps, then each day's work by project with PR links, then what is still open) from any page: the last workday, today, this week, or the period on screen with its filters. It is the same text `kairos report` prints. Also copies `claude --resume` for any session
 - Starts in the background whenever you launch Claude Code
 - The UI is in English by default; Japanese can be selected from the "⋯" menu (saved per browser)
 
@@ -76,7 +76,7 @@ No hooks are needed: Kairos reads Claude Code's own record of running sessions (
 | `kairos status` | Whether it's running, the PID, its options, and where the log is |
 | `kairos stop` / `kairos restart` | Stop / stop and start again (after updating Kairos). `restart` keeps the options the running server was started with (except `--port`) unless you give new ones |
 | `kairos rebuild` | Build the web UI and restart, so local changes to Kairos take effect |
-| `kairos report [day]` | A day's work (default: today) as Markdown, per project, with what is still open. `--since` / `--until` for a period, `--full` adds the summaries, `--json` for scripts |
+| `kairos report [day]` | A day's work (default: today) as Markdown: the period's recaps, the work per project, and what is still open (the text the UI's Standup menu copies). `--since` / `--until` for a period, `--full` adds the summaries, `--json` for scripts |
 | `kairos open-items` | What summaries left open and nothing has closed yet, per project. `--project .` for the one you're in |
 | `kairos search <terms>` | Find work blocks by summary, title, branch, PR, commit or conversation (`file:<path>` for edited files), with links into Kairos |
 | `kairos doctor` | Check the setup: session logs, `claude`, the web build, the server and its port, the DB, the SessionStart hook, and the record of running sessions |

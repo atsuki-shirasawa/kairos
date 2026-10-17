@@ -22,8 +22,6 @@ export const formatMessages = defineMessages({
     separator: " · ",
     none: "None",
     unknownProject: "Unknown project",
-    /** Heading of the copied report's recap section. */
-    reportSummary: "Summary",
     working: "In progress",
     /** The session's label (e.g. a worktree name) after the project name. */
     sessionLabel: (label: string) => ` (${label})`,
@@ -54,7 +52,6 @@ export const formatMessages = defineMessages({
     separator: "・",
     none: "なし",
     unknownProject: "プロジェクト不明",
-    reportSummary: "まとめ",
     working: "作業中",
     sessionLabel: (label: string) => `（${label}）`,
     blocks: (n: number) => `${n} 件`,

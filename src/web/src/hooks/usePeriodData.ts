@@ -7,7 +7,6 @@ import {
   useFilteredSessions,
   useMonthEdgeSessions,
   usePreviousPeriod,
-  useRecapBodies,
 } from "@/hooks/usePeriodSessions.ts";
 import { rangeOf } from "@/lib/dates.ts";
 import { LAYOUTS } from "@/lib/layouts.ts";
@@ -29,6 +28,8 @@ export interface PeriodData extends FilteredSessions {
    * back: a session of a hidden project would show until its project said it was hidden.
    */
   loaded: boolean;
+  /** Whether the projects have arrived, without which hidden work can't be told apart. */
+  projectsKnown: boolean;
   projects: Project[];
   projectMap: Map<number, Project>;
   /**
@@ -40,8 +41,6 @@ export interface PeriodData extends FilteredSessions {
   sessions: CalendarSession[];
   /** The period before, for the summary's comparison. null while it loads or off the summary. */
   previous: PreviousPeriod | null;
-  /** Written recap bodies by project ID, quoted in the copied report. */
-  recapBodies: Map<number, string>;
 }
 
 /**
@@ -74,7 +73,6 @@ export function usePeriodData(state: UrlState): PeriodData {
     state.filter,
     layout.comparesPrevious && projectsKnown,
   );
-  const recapBodies = useRecapBodies(from, to, layout.hasPeriod);
   const edges = useMonthEdgeSessions(
     state.anchor,
     projectMap,
@@ -94,10 +92,10 @@ export function usePeriodData(state: UrlState): PeriodData {
     calendar,
     disconnected: calendar.isError || projectsQuery.isError,
     loaded: calendar.isSuccess && projectsKnown,
+    projectsKnown,
     projects,
     projectMap,
     sessions,
     previous,
-    recapBodies,
   };
 }

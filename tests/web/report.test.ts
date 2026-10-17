@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import type { Artifact, CalendarSession, Project } from "../../src/shared/api.ts";
+import { buildReport, renderReport } from "../../src/shared/report.ts";
 import { setLocale } from "../../src/web/src/i18n/index.ts";
-import { blocksOfDay } from "../../src/web/src/lib/dayBlocks.ts";
-import { blockLine, buildReport, recapSection } from "../../src/web/src/lib/report.ts";
+import { reportText, standupRange } from "../../src/web/src/lib/report.ts";
 
 const DAY0 = new Date(2026, 9, 5).getTime(); // 2026-10-05 (Mon) 00:00
 const DAY1 = new Date(2026, 9, 6).getTime();
@@ -75,118 +75,54 @@ const projects = new Map([
 
 afterEach(() => setLocale("en"));
 
-describe("buildReport", () => {
-  test("groups by day, then project in the order work started, with PR links", () => {
-    const sessions = [
-      session("a", 1, { start: at(9), end: at(10, 30), headline: "Add login", prs: [pr(42)] }),
-      session("b", 2, { start: at(11), end: at(12), headline: "Write a post" }),
-      session("c", 1, { start: at(14), end: at(15), headline: "Fix\n  the build" }),
-    ];
-    expect(buildReport([DAY0, DAY1], sessions, projects)).toBe(
-      [
-        "## Mon, Oct 5",
-        "",
-        "### app",
-        "",
-        "- 9:00–10:30 Add login ([#42](https://github.com/me/app/pull/42))",
-        "- 14:00–15:00 Fix the build",
-        "",
-        "### blog",
-        "",
-        "- 11:00–12:00 Write a post",
-      ].join("\n"),
-    );
+const sessions = [
+  session("a", 1, { start: at(9), end: at(10, 30), headline: "Add login", prs: [pr(42)] }),
+  session("b", 2, { start: at(11), end: at(12), headline: "Write a post" }),
+];
+const input = {
+  from: DAY0,
+  to: DAY1,
+  sessions,
+  projects,
+  recaps: [{ projectId: 1, body: "Built the login." }],
+};
+
+describe("reportText", () => {
+  test("in English is exactly what kairos report prints for the same range", () => {
+    expect(reportText(input)).toBe(renderReport(buildReport(input)));
   });
 
-  test("lists work crossing midnight only on the day it started", () => {
-    const sessions = [session("a", 1, { start: at(23), end: at(25), headline: "Late fix" })];
-    const report = buildReport([DAY0, DAY1], sessions, projects);
-    expect(report).toContain("- 23:00–1:00 Late fix");
-    expect(report).not.toContain("Tue");
-  });
-
-  test("puts written recaps first, only for projects in the report", () => {
-    const sessions = [
-      session("a", 2, { start: at(9), end: at(10), headline: "Write a post" }),
-      session("b", 1, { start: at(11), end: at(12), headline: "Add login" }),
-    ];
-    const recaps = new Map([
-      [1, "Built the login.\n\n- Added validation"],
-      [2, "  "],
-      [3, "Not shown"],
-    ]);
-    expect(buildReport([DAY0], sessions, projects, recaps)).toBe(
-      [
-        "## Summary",
-        "",
-        "### app",
-        "",
-        "Built the login.",
-        "",
-        "- Added validation",
-        "",
-        "## Mon, Oct 5",
-        "",
-        "### blog",
-        "",
-        "- 9:00–10:00 Write a post",
-        "",
-        "### app",
-        "",
-        "- 11:00–12:00 Add login",
-      ].join("\n"),
-    );
-  });
-
-  test("is empty when there is no work", () => {
-    expect(buildReport([DAY0], [], projects)).toBe("");
-  });
-
-  test("follows the UI language for dates", () => {
+  test("follows the UI language for its labels, not for the work", () => {
     setLocale("ja");
-    const sessions = [session("a", null, { start: at(9), end: at(10), headline: "調査" })];
-    expect(buildReport([DAY0], sessions, projects)).toMatch(/^## 10\/5（月）\n/);
-  });
-});
-
-describe("recapSection", () => {
-  test("lists recaps under their project, in the given order, skipping blank ones", () => {
-    const recaps = new Map([
-      [1, " Built the login. "],
-      [2, "Wrote a post."],
-      [3, "  "],
-    ]);
-    expect(recapSection([2, null, 3, 1], projects, recaps)).toEqual([
-      "## Summary",
-      "",
-      "### blog",
-      "",
-      "Wrote a post.",
-      "",
-      "### app",
-      "",
-      "Built the login.",
-      "",
-    ]);
-  });
-
-  test("has no lines without a recap", () => {
-    expect(recapSection([1, null], projects, new Map())).toEqual([]);
-  });
-});
-
-describe("blockLine", () => {
-  test("time, the headline on one line, then the PR links", () => {
-    const s = session("a", 1, {
-      start: at(9),
-      end: at(10, 30),
-      headline: " Add\n  login ",
-      prs: [pr(42), pr(43)],
-    });
-    const [block] = blocksOfDay([s], DAY0);
-    if (!block) throw new Error("no block");
-    expect(blockLine(block)).toBe(
-      "- 9:00–10:30 Add login ([#42](https://github.com/me/app/pull/42), [#43](https://github.com/me/app/pull/43))",
+    const text = reportText(input) ?? "";
+    expect(text).toStartWith(
+      "# 作業レポート: 2026-10-05\n\n## まとめ\n\n### app\n\nBuilt the login.",
     );
+    expect(text).toContain("## 2026-10-05（月）\n\n### app\n\n- 09:00–10:30 Add login");
+  });
+
+  test("is null for a period without work, so nothing is copied", () => {
+    expect(reportText({ ...input, from: DAY1, to: DAY1 + 86_400_000 })).toBeNull();
+  });
+});
+
+describe("standupRange", () => {
+  const now = at(15);
+
+  test("today and this week run from local midnight, the week from Sunday as on the calendar", () => {
+    expect(standupRange("today", now, null)).toEqual({ from: DAY0, to: DAY1 });
+    expect(standupRange("week", now, null)).toEqual({
+      from: new Date(2026, 9, 4).getTime(),
+      to: new Date(2026, 9, 11).getTime(),
+    });
+  });
+
+  test("the last workday is the day found from the work, or nothing while unknown", () => {
+    const friday = new Date(2026, 9, 2).getTime();
+    expect(standupRange("lastWorkday", now, friday)).toEqual({
+      from: friday,
+      to: new Date(2026, 9, 3).getTime(),
+    });
+    expect(standupRange("lastWorkday", now, null)).toBeNull();
   });
 });

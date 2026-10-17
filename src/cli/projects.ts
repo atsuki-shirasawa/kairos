@@ -9,8 +9,8 @@ export function projectsById(list: readonly Project[]): Map<number, Project> {
 
 /**
  * The items whose project is shown. Each read command applies it once to what it read, so the
- * views and the JSON output get the same list. `buildReport` applies it to its sessions itself,
- * so a report can't list hidden work whoever calls it.
+ * views and the JSON output get the same list. The report (`shared/report.ts`) leaves hidden work
+ * out itself, so it can't list it whoever calls it.
  */
 export function visibleOnly<T extends { projectId: number | null }>(
   items: readonly T[],

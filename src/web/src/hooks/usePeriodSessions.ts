@@ -1,8 +1,8 @@
 // What the shown period puts on screen once hidden projects, filters and the keyword apply, plus
-// the data the summary and the copied report compare or quote alongside it.
+// the data the summary compares alongside it.
 import type { CalendarSession, Project } from "@shared/api.ts";
 import { useMemo } from "react";
-import { useCalendar, useRecaps, useSearch } from "@/hooks/queries.ts";
+import { useCalendar, useSearch } from "@/hooks/queries.ts";
 import { rangeOf, shift } from "@/lib/dates.ts";
 import {
   type Filter,
@@ -95,18 +95,6 @@ export function usePreviousPeriod(
     if (!data) return null;
     return { days: before.days, sessions: hideSessions(data.sessions, projects, filter) };
   }, [data, projects, before.days, filter]);
-}
-
-/**
- * Written recap bodies by project ID for the period. Wanted in the copied report from any layout
- * with a period, so fetched whenever `enabled` (shared with the summary view's query).
- */
-export function useRecapBodies(from: number, to: number, enabled: boolean): Map<number, string> {
-  const recaps = useRecaps(from, to, enabled).data?.recaps;
-  return useMemo(
-    () => new Map((recaps ?? []).flatMap((r) => (r.body ? [[r.projectId, r.body]] : []))),
-    [recaps],
-  );
 }
 
 /**

@@ -124,8 +124,16 @@ English in both languages like "Live", in place of the period controls.
   the spacing go, search shrinks to its icon until focused, and its results span the screen. No
   control is dropped. Between `lg` and `xl` the open search field is 192px rather than 256px, so the
   period label beside it keeps its full width
-- **Toolbar** holds only view switching, date navigation, search, report copy, filters and the
-  live page's button. Theme, language and the shortcut list live in the "⋯" menu
+- **Toolbar** holds only view switching, date navigation, search, the standup menu, filters and
+  the live page's button. Theme, language and the shortcut list live in the "⋯" menu
+- **Standup menu:** a small ghost button on every page, a clipboard icon, "Standup" (the icon alone
+  below `xl`, so the period label keeps its width) and a chevron, whose icon and tooltip say for a
+  moment how the copy went (a `primary` check, "Copied as Markdown"; a struck circle, "No work to
+  copy"), keeping its width. Its popover lists the periods as small ghost rows, each with a note in
+  12px `muted-ink` at the right: Last workday (its date, found from the work like Today's; disabled
+  when there is none in four weeks), Today, This week, and on a page with a period, the period on
+  screen ("Filters apply"), set apart by a rule. The report is fetched on click and built by
+  `shared/report.ts`, as `kairos report` is
 - **Filters** are edited in the toolbar's popover (384px wide, scrolling within the window) and,
   while any applies, listed as chips in a row under the toolbar, so what narrows the view stays in
   sight with the popover closed. ([Not a
@@ -207,7 +215,8 @@ The sessions running now, on a page of its own (`?layout=live`, `n`), opened fro
   every project), the word "Live", and the number of sessions waiting on you in `numeral` `warn`.
   The tab title leads with the same number ("(2) Kairos"), so a background tab still says so
 - **Header:** the page has no period, so the period navigation, date picker, period dropdown,
-  search, report copy and filters give way to its 17px heading (search narrows a period too)
+  search and filters give way to its 17px heading (search narrows a period too); the standup
+  menu stays
 - **Columns:** the body sits on `surface` in three columns (one below `lg`): On you (asking or done
   with a turn), Working, Idle (nothing for 15 minutes or more). The column names are short
   status-board words kept in English in both languages, like "Live"; their notes are translated. A

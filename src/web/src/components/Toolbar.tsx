@@ -9,9 +9,9 @@ import { FilterMenu } from "./FilterMenu.tsx";
 import { SearchField, type SearchState } from "./SearchField.tsx";
 import { AppMenu } from "./toolbar/AppMenu.tsx";
 import { Brand } from "./toolbar/Brand.tsx";
-import { CopyReportButton } from "./toolbar/CopyReportButton.tsx";
 import { LiveButton, type LiveSummary } from "./toolbar/LiveButton.tsx";
 import { PeriodNav } from "./toolbar/PeriodNav.tsx";
+import { type ShownPeriod, StandupMenu } from "./toolbar/StandupMenu.tsx";
 import { LayoutToggle, ViewToggle } from "./toolbar/ViewToggles.tsx";
 
 /** The shown period and how to move through it or pick another. */
@@ -42,11 +42,12 @@ export interface ToolbarSearch {
   onPanel: (open: boolean) => void;
 }
 
-/** The copy-report button. */
+/** The standup menu: besides its fixed periods, the page's own period as shown. */
 export interface ToolbarReport {
-  /** The shown work as Markdown (empty when there is none). Built only when copying. */
-  build: () => string;
-  hasWork: boolean;
+  /** Whether the projects are known; until then a report could list hidden work. */
+  ready: boolean;
+  /** null on a page without a period. */
+  shown: ShownPeriod | null;
 }
 
 /** The "⋯" menu (theme, language, shortcuts). App owns its open state because `?` opens it too. */
@@ -139,9 +140,9 @@ export function Toolbar({
         <LayoutToggle lit={lit} onLayout={onLayout} />
         <LiveButton live={live} active={lit === "live"} onOpen={() => onLayout("live")} />
         <span className="w-2 shrink-0 max-lg:hidden" aria-hidden />
+        <StandupMenu now={now} projects={projectMap} {...report} />
         {hasPeriod && (
           <>
-            <CopyReportButton view={view} report={report.build} hasWork={report.hasWork} />
             <FilterMenu
               projects={projects}
               projectMap={projectMap}
