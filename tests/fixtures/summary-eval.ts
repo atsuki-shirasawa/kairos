@@ -18,14 +18,6 @@ export interface ExpectedOpen {
   kinds: OpenKind[];
 }
 
-/**
- * The most open items a section's summary should list, the most important first: about 50 were
- * written a day and few were closed, so a longer list buries the ones that matter. The prompt
- * doesn't state it yet (#51 adds it); when it does, the cap moves next to `HEADLINE_LENGTH` and
- * both the prompt and this read it.
- */
-export const MAX_OPEN = 3;
-
 /** One fictional section and what its summary must and must not say. */
 export interface EvalCase {
   id: string;
@@ -39,8 +31,9 @@ export interface EvalCase {
   /** Terms that must not appear under Open: things that aren't this section's leftovers. */
   notOpen: string[];
   /**
-   * The most open items allowed, when it is fewer than `MAX_OPEN`: 0 when nothing in the section is
-   * left, 1 when one fair leftover (a pending question, a denied action) may be listed.
+   * The most open items allowed, when it is fewer than `MAX_OPEN` (in output.ts): 0 when nothing
+   * in the section is left, 1 when one fair leftover (a pending question, a denied action) may be
+   * listed.
    */
   maxOpen?: number;
   /** Terms the first open item must contain: the leftover that matters most. */

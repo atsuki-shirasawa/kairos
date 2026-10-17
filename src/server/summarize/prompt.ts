@@ -2,12 +2,13 @@
 import { OPEN_KINDS, type OpenKind } from "../../shared/summaryBody.ts";
 import { DEFAULT_SUMMARY_LANG, type SummaryLang } from "../../shared/summaryLang.ts";
 import { HEADLINE_LENGTH, SHORT_LENGTH } from "./headline.ts";
+import { MAX_OPEN } from "./output.ts";
 
 /**
  * Which prompt wrote a summary, saved with it. Raise it when a change to the prompts or the answer
  * schema should be told apart in the stored summaries; null marks one written as free Markdown.
  */
-export const PROMPT_VERSION = 1;
+export const PROMPT_VERSION = 2;
 
 /** What a section summary prompt is built from. */
 export interface PromptInput {
@@ -158,7 +159,9 @@ function bodyRules(): string {
 - done: what happened, outcome first. Something only planned or about to happen is not done. A commit, merge or test run that resolved cites as evidence is left out of done.
 - resolved: only what the facts or the transcript show as settled, each with its evidence: a commit, a PR or merge, a test run that passed, the user confirming it works. A decision made in the section (a question the user answered, an option chosen over another) goes here too, with its reason as the evidence. Name the evidence itself (the commit, the PR, the test result), not where in this prompt you saw it. Without such evidence it stays under done. A test that failed last, or work cut off by an interrupt, is not resolved.
 - open: what the transcript or the facts leave unfinished, unhandled, undecided or waiting; don't add doubts of your own. Each item names the specific thing left (which finding, which page, which question), not "the rest" or "remaining items". Put a blocker here even when it was mentioned in passing.
-- The project's backlog or the order of upcoming issues ("next up is #6") is not an open item of this section; if work on it was about to start, it is the next step.
+- When more than ${MAX_OPEN} things are left, keep the ones that stop the goal or need someone's attention (a failure, a blocker, an unanswered question) and leave out routine chores.
+- The user deciding that something won't be done (told to leave it, or it is going away anyway) is not open: put it under resolved as a decision, with the user's reason as the evidence. Something Claude set aside on its own, or put off for later, stays open.
+- Never list the project's backlog or the next issue in it ("next up is #6", "#6 is not started yet") as open, even though nothing was done on it: it is the next step at most. A follow-up the user asked for in this section and didn't get is open.
 - next: the step that was about to happen when the section ended, in one line. Leave the field out when nothing was, rather than saying so.
 - Give every number what it counts ("517 of 610 cases pass", not "517/610").
 - State each fact in one field only, and each entry on one line without Markdown lists.
@@ -179,7 +182,7 @@ Answer with the JSON the schema describes, every text in ${r.name}:
 - goal: what was asked for
 - done: the main work, 1–3 points; a long section with several distinct pieces of work may have up to 5, in the order they happened
 - resolved: what got settled, each as its text and its evidence; empty when nothing was
-- open: what was left, each with one of these kinds; empty when nothing was
+- open: what was left of the work this section did, at most ${MAX_OPEN}, the most important first, each with one of these kinds; empty when nothing was. The backlog and upcoming issues are never open items here
 ${kinds}
 - next: the step about to happen (only when one was; otherwise leave the field out)
 - closed: ${closed.format}

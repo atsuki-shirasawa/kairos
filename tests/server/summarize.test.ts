@@ -6,6 +6,7 @@ import { createApp } from "../../src/server/api/app.ts";
 import { MIGRATIONS, openDb } from "../../src/server/db/index.ts";
 import { EventHub } from "../../src/server/events.ts";
 import { buildDigest } from "../../src/server/summarize/digest.ts";
+import { MAX_OPEN } from "../../src/server/summarize/output.ts";
 import {
   buildPrompt,
   buildTitlePrompt,
@@ -305,6 +306,9 @@ describe("prompt", () => {
     expect(en).toContain("  - waiting: blocked on something outside the work");
     expect(en).toContain("- next: the step about to happen");
     expect(en).toContain("(2–4 words)");
+    expect(en).toContain(
+      `- open: what was left of the work this section did, at most ${MAX_OPEN}, the most important first`,
+    );
     expect(en).not.toContain("Outcome");
     expect(en).toContain("Project: app");
     const ja = buildPrompt(input, "ja");

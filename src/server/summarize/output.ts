@@ -24,6 +24,13 @@ const ENTRY_CHARS = 300;
 /** Cap on a list's entries, well past what the prompt asks for (up to 5 points of work). */
 const MAX_ENTRIES = 10;
 
+/**
+ * The most open items a summary keeps, the most important first. About 50 were written a day and
+ * few were closed, so a longer list buried the ones that mattered. The prompt states it, and
+ * `readSummary` keeps the first ones when the model writes more.
+ */
+export const MAX_OPEN = 3;
+
 /** An earlier item the model said the section settled, by its label, with the evidence it gave. */
 export interface Closure {
   label: string;
@@ -131,7 +138,8 @@ export function readSummary(value: unknown): SummaryAnswer | null {
       .filter((r) => r.text),
     open: entries(o.open)
       .map((i) => ({ kind: isOpenKind(i.kind) ? i.kind : null, text: line(i.text) }))
-      .filter((i) => i.text),
+      .filter((i) => i.text)
+      .slice(0, MAX_OPEN),
     next: line(o.next) || null,
     closed: entries(o.closed).flatMap((c) =>
       labelsIn(line(c.label)).map((label) => ({ label, note: line(c.evidence, NOTE_CHARS) })),

@@ -85,5 +85,8 @@ describe("scoreCase", () => {
       wrongLead: "リリースノートの英訳",
       headline: ["meta", "sentence"],
     });
+    // The stored body keeps three, but the model wrote six: the cap doesn't hide that
+    const kept = body.split("\n").slice(0, -1).join("\n");
+    expect(scoreCase(many, { headline: "", body: kept, openWritten: 6 }).overOpen).toBe(3);
   });
 });

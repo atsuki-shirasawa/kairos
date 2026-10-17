@@ -12,9 +12,12 @@ import {
   claudeRunner,
   DEFAULT_EFFORT,
   isEffort,
+  type Runner,
   type RunStats,
+  readEnvelope,
 } from "../src/server/summarize/claude.ts";
 import { type HeadlineFlaw, headlineFlaws } from "../src/server/summarize/headline.ts";
+import { MAX_OPEN } from "../src/server/summarize/output.ts";
 import { buildPrompt } from "../src/server/summarize/prompt.ts";
 import {
   type AnsweredSection,
@@ -24,10 +27,15 @@ import {
 import type { SummaryText } from "../src/server/summarize/store.ts";
 import { DEFAULT_MODEL } from "../src/server/summarize/summarizer.ts";
 import { type OpenItem, parseSummaryBody } from "../src/shared/summaryBody.ts";
-import { EVAL_CASES, type EvalCase, MAX_OPEN } from "../tests/fixtures/summary-eval.ts";
+import { EVAL_CASES, type EvalCase } from "../tests/fixtures/summary-eval.ts";
 
-/** A summary as scored: its headline and its stored Markdown body. */
-export type ScoredSummary = Pick<SummaryText, "headline" | "body">;
+/**
+ * A summary as scored: its headline and its stored Markdown body, and how many open items the model
+ * wrote before `readSummary` kept the first `MAX_OPEN`, so the cap doesn't hide a model ignoring it.
+ */
+export interface ScoredSummary extends Pick<SummaryText, "headline" | "body"> {
+  openWritten?: number;
+}
 
 /** One case's run as the report keeps it: the summary, or why none could be saved. */
 interface Outcome extends ScoredSummary {
@@ -44,7 +52,7 @@ interface Outcome extends ScoredSummary {
  */
 function outcomeOf(
   answered: AnsweredSection | UnfitAnswerError,
-  at: { id: string; run: number },
+  at: { id: string; run: number; openWritten: number },
 ): Outcome {
   if (answered instanceof UnfitAnswerError) {
     const { stats, asks, message } = answered;
@@ -52,6 +60,27 @@ function outcomeOf(
   }
   const { headline, body } = answered.answer.summary;
   return { ...at, headline, body, asks: answered.asks, stats: answered.stats };
+}
+
+/** How many open items an answer lists, as the model wrote them; 0 when it can't be read. */
+function openWrittenIn(out: string): number {
+  try {
+    const open = (readEnvelope(out).output as { open?: unknown } | null)?.open;
+    return Array.isArray(open) ? open.length : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** A runner that also tells how many open items the last answer listed before the cap. */
+function countingOpen(run: Runner) {
+  const seen = { openWritten: 0 };
+  const counted: Runner = async (prompt, schema) => {
+    const out = await run(prompt, schema);
+    seen.openWritten = openWrittenIn(out);
+    return out;
+  };
+  return { run: counted, seen };
 }
 
 /** How one summary did against its case. */
@@ -111,7 +140,7 @@ function wrongLead(c: EvalCase, open: OpenItem[]): string | null {
 }
 
 /** Scores one summary against its case. Pure, so the tests can check it on the ideal summaries. */
-export function scoreCase(c: EvalCase, { headline, body }: ScoredSummary): CaseScore {
+export function scoreCase(c: EvalCase, { headline, body, openWritten }: ScoredSummary): CaseScore {
   const parts = parseSummaryBody(body);
   const open = parts?.open ?? [];
   const resolved = parts?.resolved ?? [];
@@ -128,7 +157,7 @@ export function scoreCase(c: EvalCase, { headline, body }: ScoredSummary): CaseS
     missed: c.open.filter((_, i) => !found[i]).map((e) => e.what),
     extraOpen: open.filter((o) => !c.open.some((e) => has(o.text, e.match))).map((o) => o.text),
     filler: [...items(body)].filter((t) => FILLER.test(t)),
-    overOpen: Math.max(0, open.length - (c.maxOpen ?? MAX_OPEN)),
+    overOpen: Math.max(0, (openWritten ?? open.length) - (c.maxOpen ?? MAX_OPEN)),
     wrongLead: wrongLead(c, open),
     // An output that didn't parse has no headline; it already counts as not parsed
     headline: headline ? headlineFlaws(headline, c.lang) : [],
@@ -191,7 +220,7 @@ async function main() {
   // This usually runs inside a Claude Code session, whose variables must not reach claude -p
   const opts = { model: values.model, effort, cwd, env: serverEnv() };
 
-  const ask = claudeRunner(opts);
+  const { run: ask, seen } = countingOpen(claudeRunner(opts));
 
   const scores: CaseScore[] = [];
   const outputs: Outcome[] = [];
@@ -203,7 +232,7 @@ async function main() {
         if (e instanceof UnfitAnswerError) return e;
         throw e;
       });
-      const outcome = outcomeOf(answered, { id: c.id, run });
+      const outcome = outcomeOf(answered, { id: c.id, run, openWritten: seen.openWritten });
       outputs.push(outcome);
       if (outcome.error) console.log(`${c.id}: FAILED ${outcome.error}`);
       const score = scoreCase(c, outcome);

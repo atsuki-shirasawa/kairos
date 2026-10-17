@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  MAX_OPEN,
   readSummary,
   readTitle,
   renderBody,
@@ -100,6 +101,13 @@ describe("readSummary", () => {
     expect(readSummary({ ...answer, open: [{ kind: "later", text: "x" }] })?.open).toEqual([
       { kind: null, text: "x" },
     ]);
+  });
+
+  test("keeps the first open items up to the cap, which the prompt asks to put first", () => {
+    const open = ["a", "", "b", "c", "d", "e"].map((text) => ({ kind: "todo", text }));
+    expect(readSummary({ ...answer, open })?.open.map((i) => i.text)).toEqual(
+      ["a", "b", "c", "d", "e"].slice(0, MAX_OPEN),
+    );
   });
 
   test("is null without a headline, a goal or any work done", () => {

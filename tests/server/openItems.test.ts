@@ -19,8 +19,7 @@ const OPENING = `CSV export garbled in Excel
 - Open:
   - [issue] The CSV export is garbled in Excel (#21)
   - [todo] Add a BOM to the CSV export
-  - [question] Whether to offer UTF-16 output too
-  - [waiting] Design review of the export dialog`;
+  - [question] Whether to offer UTF-16 output too`;
 
 const URL_BASE = "http://127.0.0.1:4319";
 /** The ledger scenario's day, wide enough for both of its sessions. */
@@ -70,7 +69,6 @@ describe("GET /api/open-items", () => {
       ["issue", "ref"],
       ["todo", "ref"],
       ["question", null],
-      ["waiting", null],
     ]);
     expect(list[0]).toMatchObject({
       sessionId: SID.ledgerOpen,
@@ -85,11 +83,7 @@ describe("GET /api/open-items", () => {
   test("leaves out items left open after the period or closed before it", async () => {
     expect(await items(FROM, min(1700))).toEqual([]);
     // From 1750 on, the task (closed at 1740) is settled; the rest were still open
-    expect((await items(min(1750), TO)).map((i) => i.kind)).toEqual([
-      "issue",
-      "question",
-      "waiting",
-    ]);
+    expect((await items(min(1750), TO)).map((i) => i.kind)).toEqual(["issue", "question"]);
   });
 
   test("refuses a missing or reversed range", async () => {
@@ -107,9 +101,8 @@ describe("PATCH /api/open-items/:id", () => {
       await patch(`/api/open-items/${question}`, { state: "open" })
     ).json()) as LedgerEntry;
     expect(reopened).toMatchObject({ closedBy: null, closedAt: null });
-    const waiting = await idOf("Design review");
     expect(
-      await (await patch(`/api/open-items/${waiting}`, { state: "dismissed" })).json(),
+      await (await patch(`/api/open-items/${question}`, { state: "dismissed" })).json(),
     ).toMatchObject({ closedBy: "dismissed" });
   });
 
@@ -193,7 +186,6 @@ test("the drawer lists what a section left open, as each stands now", async () =
     ["issue", "ref"],
     ["todo", "ref"],
     ["question", "mistaken"],
-    ["waiting", null],
   ]);
 });
 
@@ -220,7 +212,7 @@ describe("recap from the ledger", () => {
     const prompt = buildRecapPrompt(input);
     const block = prompt.slice(prompt.indexOf("<open_items>"), prompt.indexOf("</open_items>"));
     expect(block).toContain("Still open at the end of the period:");
-    expect(block).toContain("- [waiting] Design review of the export dialog (left open ");
+    expect(block).toContain("- [question] Whether to offer UTF-16 output too (left open ");
     expect(block).toContain("Settled during the period:");
     expect(block).toContain("- [issue] The CSV export is garbled in Excel (#21) (closed #21)");
     expect(prompt).toContain("Take open items only from <open_items>");
@@ -236,19 +228,23 @@ describe("recap from the ledger", () => {
     );
   });
 
-  test("an item set aside or marked a mistake is neither open nor settled in the recap", async () => {
-    now = min(2000);
-    await patch(`/api/open-items/${await idOf("Whether")}`, { state: "mistaken" });
-    await patch(`/api/open-items/${await idOf("Design review")}`, { state: "dismissed" });
-    const input = loadRecapInput(db, target());
-    if (!input) throw new Error("no recap input");
-    const prompt = buildRecapPrompt(input);
-    // The instructions above the material name the tag too; the block is its last opening
-    const block = prompt.slice(prompt.lastIndexOf("<open_items>"), prompt.indexOf("</open_items>"));
-    expect(block).toContain("Settled during the period:");
-    expect(block).not.toContain("Whether to offer UTF-16");
-    expect(block).not.toContain("Design review of the export dialog");
-  });
+  test.each(["dismissed", "mistaken"])(
+    "an item marked %s is neither open nor settled in the recap",
+    async (state) => {
+      now = min(2000);
+      await patch(`/api/open-items/${await idOf("Whether")}`, { state });
+      const input = loadRecapInput(db, target());
+      if (!input) throw new Error("no recap input");
+      const prompt = buildRecapPrompt(input);
+      // The instructions above the material name the tag too; the block is its last opening
+      const block = prompt.slice(
+        prompt.lastIndexOf("<open_items>"),
+        prompt.indexOf("</open_items>"),
+      );
+      expect(block).toContain("Settled during the period:");
+      expect(block).not.toContain("Whether to offer UTF-16");
+    },
+  );
 
   test("a project without ledger items hashes as before, so older recaps don't turn stale", () => {
     db.run("DELETE FROM open_items");
@@ -262,9 +258,9 @@ describe("recap from the ledger", () => {
     const before = recapHash(loadRecapInput(db, target()) ?? ({} as never));
     // Closed within the period; one closed after it was still open at the period's end
     now = min(2000);
-    await patch(`/api/open-items/${await idOf("Design review")}`, { state: "dismissed" });
+    await patch(`/api/open-items/${await idOf("Whether")}`, { state: "dismissed" });
     const input = loadRecapInput(db, target());
     expect(recapHash(input ?? ({} as never))).not.toBe(before);
-    expect(JSON.stringify(input?.ledger)).not.toContain("Design review");
+    expect(JSON.stringify(input?.ledger)).not.toContain("Whether");
   });
 });
