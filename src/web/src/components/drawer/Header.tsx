@@ -1,23 +1,12 @@
 import type { Project, Section, SessionDetail } from "@shared/api.ts";
-import {
-  Check,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  ChevronUp,
-  GitBranch,
-  SquareTerminal,
-  X,
-} from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, GitBranch, X } from "lucide-react";
+import { ResumeButton } from "@/components/ResumeButton.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Tag } from "@/components/ui/tag.tsx";
-import { useCopy } from "@/hooks/useCopy.ts";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
-import { formatMessages } from "@/i18n/messages/format.ts";
 import { projectColor } from "@/lib/colors.ts";
 import type { BlockRef, RunPosition } from "@/lib/navigation.ts";
 import { projectLabel } from "@/lib/selection.ts";
-import { resumeCommand } from "@/lib/shell.ts";
 import { SectionTime } from "./SectionTime.tsx";
 
 /**
@@ -75,7 +64,7 @@ function DrawerControls({
   const t = drawerMessages();
   return (
     <div className="-mr-1.5 flex shrink-0 items-center">
-      {session && <ResumeButton session={session} />}
+      {session && <ResumeButton sessionId={session.id} cwd={session.launchCwd} />}
       <IconButton label={t.prev} onClick={onPrev}>
         <ChevronUp />
       </IconButton>
@@ -109,36 +98,6 @@ function IconButton({
       title={label}
     >
       {children}
-    </Button>
-  );
-}
-
-/**
- * Copies `cd <dir> && claude --resume <id>`. Looking back usually ends in picking the work up again,
- * and Kairos never runs anything itself, so the command goes to the user's own terminal.
- */
-function ResumeButton({ session: s }: { session: SessionDetail }) {
-  const t = drawerMessages();
-  const [state, copy] = useCopy();
-  const label =
-    state === "copied"
-      ? t.copiedResume
-      : state === "failed"
-        ? formatMessages().copyFailed
-        : t.copyResume;
-  return (
-    <Button
-      variant="ghost"
-      size="icon-sm"
-      onClick={() => copy(resumeCommand(s.id, s.launchCwd))}
-      aria-label={label}
-      title={label}
-    >
-      {state === "copied" ? <Check className="text-primary" /> : <SquareTerminal />}
-      {/* Announce the result; the icon change alone is silent */}
-      <span className="sr-only" aria-live="polite">
-        {state === "idle" ? "" : label}
-      </span>
     </Button>
   );
 }

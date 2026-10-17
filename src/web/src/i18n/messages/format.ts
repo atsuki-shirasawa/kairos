@@ -33,6 +33,8 @@ export const formatMessages = defineMessages({
     /** Snags with what kind they were, where there is no room for a tooltip of its own. */
     troubleWithDetail: (n: number, detail: string) => `Snags ${n} (${detail})`,
     copyFailed: "Couldn't copy to the clipboard",
+    copyResume: "Copy the command to resume this session in Claude Code",
+    copiedResume: "Copied. Paste it into a terminal to resume",
     /** What kind of thing an open item of a summary is, in a block's tooltip. */
     openKind: {
       todo: "To do",
@@ -60,6 +62,8 @@ export const formatMessages = defineMessages({
     trouble: (n: number) => `つまずき ${n}`,
     troubleWithDetail: (n: number, detail: string) => `つまずき ${n}（${detail}）`,
     copyFailed: "クリップボードにコピーできませんでした",
+    copyResume: "このセッションを Claude Code で再開するコマンドをコピー",
+    copiedResume: "コピーしました。ターミナルに貼り付けると再開できます",
     openKind: {
       todo: "やること",
       issue: "問題",
