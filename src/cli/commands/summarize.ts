@@ -3,9 +3,9 @@
 import type { Database } from "bun:sqlite";
 import { SUMMARIZER_CWD } from "../../server/paths.ts";
 import type { BackfillResult } from "../../server/summarize/backfill.ts";
-import type { NamedTarget, TargetFilter } from "../../server/summarize/store.ts";
+import type { NamedTarget, RegenerateTarget, TargetFilter } from "../../server/summarize/store.ts";
 import type { Summarizer } from "../../server/summarize/summarizer.ts";
-import { DAY } from "../../shared/dates.ts";
+import { DAY, isoDay } from "../../shared/dates.ts";
 import { AUTO_SUMMARY_DAYS } from "../../shared/sections.ts";
 import { printable } from "../../shared/text.ts";
 import { type CliContext, periodRange, type SummaryOptions } from "../args.ts";
@@ -78,13 +78,79 @@ export function describeTargets(selection: Selection, narrowed: boolean): string
     return lines;
   }
   const titles = targets.filter((t) => t.mode === "title").length;
-  const oldest = formatTime(Math.min(...targets.map((t) => t.start))).slice(0, 10);
-  const newest = formatTime(Math.max(...targets.map((t) => t.start))).slice(0, 10);
   lines.push(
-    `${targets.length} blocks without a summary (${oldest} – ${newest}): ` +
+    `${targets.length} blocks without a summary (${dayRange(targets)}): ` +
       `${targets.length - titles} full summaries, ${titles} headlines only`,
   );
   return lines;
+}
+
+/** The summaries to regenerate with `--old-format`, oldest first (see `findOldFormat`). */
+export async function selectOldFormat(
+  db: Database,
+  filter: TargetFilter,
+  now: number,
+): Promise<RegenerateTarget[]> {
+  const { findOldFormat } = await import("../../server/summarize/store.ts");
+  return findOldFormat(db, now, filter);
+}
+
+/**
+ * What a `--old-format` run is about to do: how many summaries it rewrites, from when to when, and
+ * how many of them follow an old-format one in its session rather than being old themselves.
+ */
+export function describeOldFormat(targets: RegenerateTarget[], narrowed: boolean): string[] {
+  if (targets.length === 0)
+    return [
+      narrowed
+        ? "No summary in that range is in the old format."
+        : "No summary is in the old format.",
+    ];
+  const old = targets.filter((t) => t.oldFormat).length;
+  const after = targets.length - old;
+  return [
+    `${plural(targets.length, "summary", "summaries")} to regenerate (${dayRange(targets)}), ` +
+      `oldest first: ${old} in the old format` +
+      (after ? `, ${after} after them in the same sessions` : ""),
+  ];
+}
+
+/** `1 summary`, `2 summaries`. */
+function plural(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+/** The days the targets start on, first to last (`2026-10-01 – 2026-10-03`). */
+function dayRange(targets: NamedTarget[]): string {
+  const starts = targets.map((t) => t.start);
+  return `${isoDay(Math.min(...starts))} – ${isoDay(Math.max(...starts))}`;
+}
+
+/** What a run will do: the blocks it takes and the lines saying so. */
+export interface RunPlan {
+  selection: Selection;
+  lines: string[];
+}
+
+/**
+ * The run `ctx` asks for: the blocks still without a summary (the running server's recent days
+ * left to it), or with `--old-format` the old-format summaries, which exist already, so the
+ * server never takes them on itself.
+ */
+export async function planRun(
+  db: Database,
+  ctx: Pick<CliContext, "period" | "limit" | "oldFormat">,
+  serverSummarizes: boolean,
+  now: number,
+): Promise<RunPlan> {
+  const filter = summarizeFilter(ctx);
+  const narrowed = Boolean(ctx.period.since || ctx.period.until);
+  if (ctx.oldFormat) {
+    const targets = await selectOldFormat(db, filter, now);
+    return { selection: { targets }, lines: describeOldFormat(targets, narrowed) };
+  }
+  const selection = await selectTargets(db, filter, serverSummarizes, now);
+  return { selection, lines: describeTargets(selection, narrowed) };
 }
 
 /** A summarizer that runs `claude -p` with the given options, quietly (the status bar reports). */
@@ -149,20 +215,17 @@ export function formatOutcome(counts: BackfillResult["counts"], durationText: st
   );
 }
 
-/** `kairos summarize`: summarizes the blocks still without a summary, newest first. */
+/**
+ * `kairos summarize`: summarizes the blocks still without a summary, newest first, or with
+ * `--old-format` regenerates the old-format ones, oldest first.
+ */
 export async function summarizeCommand(ctx: CliContext): Promise<undefined> {
   const { openDb } = await import("../../server/db/index.ts");
   const db = openDb(ctx.dbPath);
   const server = await health(ctx.port);
   await catchUp(db, ctx.claudeDir, server !== null);
-  const selection = await selectTargets(
-    db,
-    summarizeFilter(ctx),
-    server?.autoSummary === true,
-    Date.now(),
-  );
-  const narrowed = Boolean(ctx.period.since || ctx.period.until);
-  for (const line of describeTargets(selection, narrowed)) console.log(line);
+  const { selection, lines } = await planRun(db, ctx, server?.autoSummary === true, Date.now());
+  for (const line of lines) console.log(line);
   if (selection.targets.length === 0 || ctx.dryRun) {
     db.close();
     return;

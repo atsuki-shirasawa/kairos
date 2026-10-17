@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  describeOldFormat,
   describeTargets,
   formatOutcome,
   summarizeFilter,
@@ -54,4 +55,16 @@ test("the closing line counts every outcome", () => {
   expect(formatOutcome({ summary: 3, title: 1, skipped: 2, failed: 0 }, "12s")).toBe(
     "Done in 12s: 3 summarized, 1 headline only, 2 skipped, 0 failed",
   );
+});
+
+test("an --old-format plan counts the summaries to rewrite and why, or says none are old", () => {
+  const regen = (start: number, oldFormat: boolean) => ({ ...target(start, "summary"), oldFormat });
+  expect(describeOldFormat([regen(at(1, 9), true), regen(at(3, 9), false)], false)).toEqual([
+    "2 summaries to regenerate (2026-10-01 – 2026-10-03), oldest first: 1 in the old format, 1 after them in the same sessions",
+  ]);
+  expect(describeOldFormat([regen(at(1, 9), true)], false)).toEqual([
+    "1 summary to regenerate (2026-10-01 – 2026-10-01), oldest first: 1 in the old format",
+  ]);
+  expect(describeOldFormat([], false)).toEqual(["No summary is in the old format."]);
+  expect(describeOldFormat([], true)).toEqual(["No summary in that range is in the old format."]);
 });

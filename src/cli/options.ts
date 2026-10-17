@@ -76,6 +76,10 @@ export const OPTIONS = {
   },
   until: { type: "string", placeholder: "day", help: "last day of the period (default: today)" },
   limit: { type: "string", placeholder: "n", help: "at most n hits" },
+  "old-format": {
+    type: "boolean",
+    help: "regenerate the full summaries in the old format (no open items), oldest first",
+  },
   "dry-run": {
     type: "boolean",
     help: "show how many blocks would be summarized, without running claude",

@@ -116,11 +116,14 @@ export const COMMANDS: Record<string, CommandHelp> = {
       "While the server is running, those 7 days are left to it. When it isn't, the logs are\n" +
       "ingested first so recent sessions are included.\n" +
       "Each summary is saved as soon as it is written, so stopping with Ctrl+C loses nothing\n" +
-      "and running it again picks up the rest.",
+      "and running it again picks up the rest.\n" +
+      "With --old-format it regenerates the full summaries written before open items were\n" +
+      "tracked, oldest first, so a later section settles what an earlier one left open.",
     options: [
       ["since", "only blocks that started on or after this day (YYYY-MM-DD)"],
       ["until", "only blocks that started on or before this day"],
-      ["limit", "at most n blocks (the newest)"],
+      ["limit", "at most n blocks (the newest; the oldest with --old-format)"],
+      "old-format",
       "dry-run",
       "summary-model",
       "summary-effort",
@@ -133,6 +136,7 @@ export const COMMANDS: Record<string, CommandHelp> = {
       "kairos summarize --dry-run",
       "kairos summarize --since 2026-09-01",
       "kairos summarize --limit 20 --summary-lang ja",
+      "kairos summarize --old-format --since 2026-10-03 --dry-run",
     ],
   },
   report: {

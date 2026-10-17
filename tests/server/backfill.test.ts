@@ -5,11 +5,12 @@ import {
   backfill,
   MAX_CONSECUTIVE_FAILURES,
 } from "../../src/server/summarize/backfill.ts";
-import { findTargets } from "../../src/server/summarize/store.ts";
+import { findOldFormat, findTargets } from "../../src/server/summarize/store.ts";
 import { Summarizer } from "../../src/server/summarize/summarizer.ts";
 import { SID } from "../fixtures/ids.ts";
 import { markdownRunner } from "./answers.ts";
 import { min, setup } from "./ingest/helpers.ts";
+import { putSummary } from "./summaryRows.ts";
 
 let db: Database;
 let reply: () => Promise<string>;
@@ -113,3 +114,69 @@ test("stops after repeated failures instead of failing every section", async () 
   expect(result.abortedBy).toBe("Not logged in");
   expect(summarized()).toBe(0);
 });
+
+/** Makes a fixture section long enough for a full summary (the ledger scenario's are short). */
+function lengthen(sessionId: string, start: number): void {
+  db.run(
+    "UPDATE segments SET end = start + 20 * 60000, prompt_count = 3 WHERE session_id = ? AND start = ?",
+    [sessionId, start],
+  );
+}
+
+test("finds full summaries in the old format oldest first, and regenerating them leaves none", async () => {
+  lengthen(SID.ledgerOpen, min(1700));
+  lengthen(SID.ledgerClose, min(1800));
+  // Old format: written before prompt versions, as putSummary stores them
+  putSummary(db, SID.ledgerClose, min(1800));
+  putSummary(db, SID.basic, min(45));
+  putSummary(db, SID.ledgerOpen, min(1700));
+  // A headline-only section has no open items to recover, and a headless run none to track
+  putSummary(db, SID.basic, min(0), { body: "" });
+  putSummary(db, SID.headless, headlessStart());
+  const old = findOldFormat(db, now);
+  expect(old.map((t) => [t.sessionId, t.start, t.mode])).toEqual([
+    [SID.basic, min(45), "summary"],
+    [SID.ledgerOpen, min(1700), "summary"],
+    [SID.ledgerClose, min(1800), "summary"],
+  ]);
+  expect(findOldFormat(db, now, { startFrom: min(1000), limit: 1 }).map((t) => t.start)).toEqual([
+    min(1700),
+  ]);
+
+  const result = await backfill(db, summarizer, old);
+  expect(result.counts.summary).toBe(3);
+  expect(findOldFormat(db, now)).toEqual([]);
+});
+
+test("also regenerates the full summaries after an old-format one in its session, which couldn't settle it", async () => {
+  lengthen(SID.ledgerOpen, min(1700));
+  lengthen(SID.ledgerOpen, min(1740));
+  await summarizer.summarize({ sessionId: SID.ledgerOpen, start: min(1740), mode: "summary" });
+  expect(findOldFormat(db, now)).toEqual([]);
+
+  putSummary(db, SID.ledgerOpen, min(1700));
+  expect(findOldFormat(db, now).map((t) => [t.start, t.oldFormat])).toEqual([
+    [min(1700), true],
+    [min(1740), false],
+  ]);
+});
+
+test("leaves out a section still in progress", () => {
+  lengthen(SID.ledgerClose, min(1800));
+  putSummary(db, SID.ledgerClose, min(1800));
+  const end = db
+    .query<{ end: number }, [string]>("SELECT MAX(end) AS end FROM segments WHERE session_id = ?")
+    .get(SID.ledgerClose)?.end;
+  expect(findOldFormat(db, end ?? 0)).toEqual([]);
+});
+
+/** The start of the headless fixture session's first section. */
+function headlessStart(): number {
+  return (
+    db
+      .query<{ start: number }, [string]>(
+        "SELECT MIN(start) AS start FROM segments WHERE session_id = ?",
+      )
+      .get(SID.headless)?.start ?? 0
+  );
+}

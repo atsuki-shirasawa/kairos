@@ -68,6 +68,29 @@ export interface NamedTarget extends Target {
 }
 
 /**
+ * Whether the section aliased `g` is finished: idle since `idleBefore` (a bound parameter), or
+ * followed by a later section of its session.
+ */
+function finishedSql(idleBefore: string): string {
+  return `(g.end <= ${idleBefore} OR EXISTS (SELECT 1 FROM segments later WHERE later.session_id = g.session_id AND later.start > g.start))`;
+}
+
+/**
+ * Whether the section aliased `g` has a conversation to summarize: the same messages as
+ * loadMessages / DIGEST_KINDS. A section with none (e.g. only scheduled runs) gets nothing saved,
+ * so it would come back forever.
+ */
+const HAS_CONVERSATION_SQL = `EXISTS (
+  SELECT 1 FROM messages m
+  WHERE m.session_id = g.session_id AND m.ts BETWEEN g.start AND g.end
+    AND m.agent_id IS NULL AND m.is_copy = 0 AND m.is_scheduled = 0
+    AND m.kind IN (${DIGEST_KINDS.map((k) => `'${k}'`).join(", ")})
+)`;
+
+/** A full summary in the old format (free Markdown, before `PROMPT_VERSION`), aliased `sm`. */
+const OLD_FORMAT_SQL = "(sm.prompt_version IS NULL AND sm.body <> '')";
+
+/**
  * Finished sections whose summary is missing or older than the section, newest sessions first and
  * each session's sections in order, under the
  * same rules as automatic runs (short sections get `title` mode). Sections with no conversation to
@@ -95,16 +118,9 @@ export function findTargets(db: Database, now: number, filter: TargetFilter = {}
        WHERE ${visibleSessionSql({ headless: true, hiddenCwds: filter.hiddenCwds ?? DEFAULT_HIDDEN_CWDS })}
          AND g.end >= ?1 AND g.end < ?6
          AND g.start >= ?2 AND g.start < ?3
-         AND (g.end <= ?4 OR EXISTS (SELECT 1 FROM segments later WHERE later.session_id = g.session_id AND later.start > g.start))
+         AND ${finishedSql("?4")}
          AND (sm.block_id IS NULL OR ${STALE_SUMMARY_SQL})
-         -- Same messages as loadMessages / DIGEST_KINDS: a section with none (e.g. only scheduled
-         -- runs) has nothing to summarize, and nothing is saved for it, so it would come back forever
-         AND EXISTS (
-           SELECT 1 FROM messages m
-           WHERE m.session_id = g.session_id AND m.ts BETWEEN g.start AND g.end
-             AND m.agent_id IS NULL AND m.is_copy = 0 AND m.is_scheduled = 0
-             AND m.kind IN (${DIGEST_KINDS.map((k) => `'${k}'`).join(", ")})
-         )
+         AND ${HAS_CONVERSATION_SQL}
        -- Newest sessions first, but a session's sections in order: a section can only report
        -- settling an open item (the ledger) when the section that left it was summarized before
        -- (the session's last section overall, so a narrowed search keeps the same order)
@@ -121,14 +137,79 @@ export function findTargets(db: Database, now: number, filter: TargetFilter = {}
       filter.limit ?? -1,
       filter.endedBefore ?? Number.MAX_SAFE_INTEGER,
     )
-    .map((r) => ({
-      sessionId: r.session_id,
-      start: r.start,
-      mode: isSummarizable({ start: r.start, end: r.end, promptCount: r.prompt_count })
-        ? "summary"
-        : "title",
-      project: r.project,
-    }));
+    .map((r) =>
+      namedTarget(
+        r,
+        isSummarizable({ start: r.start, end: r.end, promptCount: r.prompt_count })
+          ? "summary"
+          : "title",
+      ),
+    );
+}
+
+/** A section row (its session, start and project's name) as a target in `mode`. */
+function namedTarget(
+  r: { session_id: string; start: number; project: string | null },
+  mode: Target["mode"],
+): NamedTarget {
+  return { sessionId: r.session_id, start: r.start, mode, project: r.project };
+}
+
+/** A summary to regenerate, and whether it is one in the old format or one after it. */
+export interface RegenerateTarget extends NamedTarget {
+  oldFormat: boolean;
+}
+
+/**
+ * The full summaries to regenerate so old sections reach the open-items ledger, oldest first: each
+ * finished section summarized in the old format (free Markdown, nothing in the ledger), and every
+ * full summary after it in the same session. Regenerated in this order, a later section settles
+ * what an earlier one left open; a later summary written before its earlier sections were in the
+ * ledger couldn't have. Human sessions only, like the ledger's lists; sections now too short for a
+ * full summary are left as they are.
+ */
+export function findOldFormat(
+  db: Database,
+  now: number,
+  filter: Pick<TargetFilter, "startFrom" | "startBefore" | "limit" | "hiddenCwds"> = {},
+): RegenerateTarget[] {
+  const rows = db
+    .query<
+      {
+        session_id: string;
+        start: number;
+        end: number;
+        prompt_count: number;
+        project: string | null;
+        old_format: number;
+      },
+      [number, number, number]
+    >(
+      `SELECT g.session_id, g.start, g.end, g.prompt_count, p.name AS project,
+         ${OLD_FORMAT_SQL} AS old_format
+       FROM summaries sm
+       JOIN segments g ON g.id = sm.block_id
+       JOIN sessions s ON s.id = g.session_id
+       LEFT JOIN projects p ON p.id = s.project_id
+       WHERE ${visibleSessionSql({ headless: false, hiddenCwds: filter.hiddenCwds ?? DEFAULT_HIDDEN_CWDS })}
+         AND sm.body <> '' AND g.start >= ?1 AND g.start < ?2
+         AND ${finishedSql("?3")} AND ${HAS_CONVERSATION_SQL}
+         AND EXISTS (
+           SELECT 1 FROM segments first
+           JOIN summaries sm ON sm.block_id = first.id
+           WHERE first.session_id = g.session_id AND first.start <= g.start
+             AND first.start >= ?1 AND ${OLD_FORMAT_SQL})
+       ORDER BY g.start, g.session_id`,
+    )
+    .all(
+      filter.startFrom ?? 0,
+      filter.startBefore ?? Number.MAX_SAFE_INTEGER,
+      now - SECTION_IDLE_MS,
+    );
+  return rows
+    .filter((r) => isSummarizable({ start: r.start, end: r.end, promptCount: r.prompt_count }))
+    .slice(0, filter.limit)
+    .map((r) => ({ ...namedTarget(r, "summary"), oldFormat: r.old_format === 1 }));
 }
 
 /** The section's headline, or null when it has no summary yet. */

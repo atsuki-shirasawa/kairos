@@ -1,5 +1,5 @@
-// Summarizes every section that still lacks a summary, for `kairos summarize`. Automatic runs only
-// reach back a week, so older sections otherwise wait for someone to open them in the drawer.
+// Summarizes a list of sections one at a time, for `kairos summarize`: the ones still without a
+// summary (automatic runs only reach back a week), or with --old-format the ones to regenerate.
 import type { Database } from "bun:sqlite";
 import { loadHeadline, type NamedTarget } from "./store.ts";
 import type { Summarizer } from "./summarizer.ts";
@@ -32,7 +32,7 @@ export interface BackfillResult {
 }
 
 /**
- * Summarizes the given sections (from `findTargets`) one at a time (one `claude -p` at a time, like the server does).
+ * Summarizes the given sections (from `findTargets` or `findOldFormat`) one at a time (one `claude -p` at a time, like the server does).
  * Each summary is saved as soon as it is written, so an interrupted run resumes where it stopped.
  */
 export async function backfill(

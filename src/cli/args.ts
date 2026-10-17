@@ -61,6 +61,8 @@ export interface CliContext {
   limit?: number;
   lines?: number;
   dryRun: boolean;
+  /** `kairos summarize --old-format`: regenerate old-format summaries rather than fill gaps. */
+  oldFormat: boolean;
   full: boolean;
   json: boolean;
   follow: boolean;
@@ -226,6 +228,7 @@ export function buildContext(
     ...(limit !== undefined ? { limit } : {}),
     ...(lines !== undefined ? { lines } : {}),
     dryRun: values["dry-run"] === true,
+    oldFormat: values["old-format"] === true,
     full: values.full === true,
     json: values.json === true,
     follow: values.follow === true,
