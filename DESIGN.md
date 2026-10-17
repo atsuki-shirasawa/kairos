@@ -14,7 +14,7 @@ colors:
   popover: "#ffffff"
   ink: "#1b2333"
   muted: "#eef1f5"
-  muted-ink: "#6a7385"
+  muted-ink: "#626b7d"
   accent: "#e8edf6"
   line: "#e2e6ec"
   input: "#d7dce4"
