@@ -3,6 +3,9 @@
 import { formatMessages } from "@/i18n/messages/format.ts";
 import type { DayBlock } from "./dayBlocks.ts";
 
+/** Opens a session's block in the drawer, by the session and the block's start. */
+export type OpenBlock = (session: string, at: number) => void;
+
 /** The project with `id`, if known. Sessions outside any project have no id. */
 export function projectOf<P>(projects: ReadonlyMap<number, P>, id: number | null): P | undefined {
   return id !== null ? projects.get(id) : undefined;

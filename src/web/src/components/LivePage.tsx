@@ -8,11 +8,11 @@ import {
   LIVE_COLUMNS,
   type LiveColumn as LiveColumnId,
   type LiveEntry,
-  liveCardView,
 } from "@/lib/live.ts";
-import { projectOf } from "@/lib/selection.ts";
+import type { OpenBlock } from "@/lib/selection.ts";
 import { cn } from "@/lib/utils.ts";
-import { LiveCard } from "./live/LiveCard.tsx";
+import { LiveEntryCard } from "./live/LiveCard.tsx";
+import { LiveColumnTitle } from "./live/LiveColumnTitle.tsx";
 import { TokenBand } from "./live/TokenBand.tsx";
 
 /**
@@ -35,7 +35,7 @@ export function LivePage({
   projects: ReadonlyMap<number, Project>;
   now: number;
   selectedId: string | null;
-  onSelect: (session: string, at: number) => void;
+  onSelect: OpenBlock;
 }) {
   const m = liveMessages();
   // Loading, or the server is gone (the app's disconnected notice says so): claiming that
@@ -87,26 +87,23 @@ function LiveColumn({
   projects: ReadonlyMap<number, Project>;
   now: number;
   selectedId: string | null;
-  onSelect: (session: string, at: number) => void;
+  onSelect: OpenBlock;
 }) {
   const m = liveMessages();
   return (
     <section aria-labelledby={`live-${column}`} className="min-w-0">
       <ColumnHeader column={column} count={entries.length} />
       <div className="mt-3 flex flex-col gap-2">
-        {entries.map(({ session: s, display }) => {
-          const project = projectOf(projects, s.projectId);
-          return (
-            <LiveCard
-              key={s.id}
-              card={liveCardView(s, display, project, now)}
-              project={project}
-              now={now}
-              selected={s.id === selectedId}
-              onSelect={onSelect}
-            />
-          );
-        })}
+        {entries.map((entry) => (
+          <LiveEntryCard
+            key={entry.session.id}
+            entry={entry}
+            projects={projects}
+            now={now}
+            selectedId={selectedId}
+            onSelect={onSelect}
+          />
+        ))}
         {entries.length === 0 && (
           <p className="text-label text-muted-foreground">
             {column === "attention" ? m.nothingOnYou : formatMessages().none}
@@ -122,17 +119,7 @@ function ColumnHeader({ column, count }: { column: LiveColumnId; count: number }
   const m = liveMessages();
   return (
     <header>
-      <h2 id={`live-${column}`} className="flex items-baseline gap-2 font-medium text-body">
-        {m.columns[column]}
-        <span
-          className={cn(
-            "font-num",
-            column === "attention" && count > 0 ? "text-warn" : "text-muted-foreground",
-          )}
-        >
-          {count}
-        </span>
-      </h2>
+      <LiveColumnTitle column={column} count={count} id={`live-${column}`} level="h2" />
       <p className="text-label text-muted-foreground">
         {column === "idle" ? m.columnNote.idle(IDLE_AFTER_MS / MINUTE) : m.columnNote[column]}
       </p>

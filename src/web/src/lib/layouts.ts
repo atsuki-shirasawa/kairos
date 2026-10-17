@@ -1,6 +1,8 @@
 // Every layout of the main area and what sets each apart, in one place: the toolbar, the keys, the
 // drawer, the URL and the data the app fetches all read it here instead of checking layout names.
 // The body each layout draws is mapped in components/app/LayoutBody.tsx.
+import { liveMessages } from "@/i18n/messages/live.ts";
+import { todayMessages } from "@/i18n/messages/today.ts";
 import type { Shortcut } from "./shortcuts.ts";
 import type { Layout, View } from "./view.ts";
 
@@ -33,6 +35,11 @@ export interface LayoutTraits {
    * Seven-column views and the live page's three columns would shrink to slivers beside it.
    */
   drawerOverlay: (view: View) => boolean;
+  /**
+   * The heading the toolbar shows in place of the period controls, for a layout without a period;
+   * null for one with a period, whose date picker heads the page.
+   */
+  heading: (() => string) | null;
   stepping: DrawerStepping;
   /** The summary compares with the period before. */
   comparesPrevious: boolean;
@@ -42,13 +49,26 @@ export interface LayoutTraits {
 
 /** The layouts, in the order the layout toggle lists the ones that have a segment. */
 export const LAYOUTS: Readonly<Record<Layout, LayoutTraits>> = {
-  calendar: {
+  today: {
     param: null,
+    shortcut: "home",
+    hasPeriod: false,
+    lit: "today",
+    // Its running sessions sit in columns, like the live page's
+    drawerOverlay: () => true,
+    heading: () => todayMessages().heading,
+    stepping: { blocks: false, runs: false },
+    comparesPrevious: false,
+    padsMonth: false,
+  },
+  calendar: {
+    param: "calendar",
     shortcut: "calendar",
     hasPeriod: true,
     lit: "calendar",
     // The day view's single column has room to spare
     drawerOverlay: (view) => view !== "day",
+    heading: null,
     stepping: { blocks: true, runs: true },
     comparesPrevious: false,
     padsMonth: true,
@@ -59,6 +79,7 @@ export const LAYOUTS: Readonly<Record<Layout, LayoutTraits>> = {
     hasPeriod: true,
     lit: "summary",
     drawerOverlay: () => false,
+    heading: null,
     stepping: { blocks: true, runs: false },
     comparesPrevious: true,
     padsMonth: false,
@@ -71,6 +92,7 @@ export const LAYOUTS: Readonly<Record<Layout, LayoutTraits>> = {
     // A tab of the summary, so it lights the summary's segment
     lit: "summary",
     drawerOverlay: () => false,
+    heading: null,
     stepping: { blocks: true, runs: false },
     comparesPrevious: false,
     padsMonth: false,
@@ -81,23 +103,40 @@ export const LAYOUTS: Readonly<Record<Layout, LayoutTraits>> = {
     hasPeriod: false,
     lit: "live",
     drawerOverlay: () => true,
+    heading: () => liveMessages().heading,
     stepping: { blocks: false, runs: false },
     comparesPrevious: false,
     padsMonth: false,
   },
 };
 
-/** The layout shown when the URL names none. */
-export const DEFAULT_LAYOUT: Layout = "calendar";
+/**
+ * The layout shown when the URL names none: what is running and what was done last, which is what
+ * Kairos is opened for most.
+ */
+export const DEFAULT_LAYOUT: Layout = "today";
+
+/**
+ * The layout a URL naming none but carrying a period's state (its date, view, search or filters)
+ * shows. Links written before the home page, and the CLI's day links, open the calendar.
+ */
+const PERIOD_LAYOUT: Layout = "calendar";
 
 const ENTRIES = Object.entries(LAYOUTS) as [Layout, LayoutTraits][];
 
 /** Every layout, in the registry's order. */
 export const LAYOUT_IDS: readonly Layout[] = ENTRIES.map(([id]) => id);
 
-/** The layout a URL's `layout` parameter names; anything unknown is the default. */
-export function layoutOfParam(param: string | null): Layout {
-  return ENTRIES.find(([, t]) => t.param !== null && t.param === param)?.[0] ?? DEFAULT_LAYOUT;
+/**
+ * The layout a URL's `layout` parameter names. Anything unknown, or none, is the default, unless
+ * the URL carries a period's state, which only the calendar can show then.
+ */
+export function layoutOfParam(
+  param: string | null,
+  { carriesPeriod = false }: { carriesPeriod?: boolean } = {},
+): Layout {
+  const named = ENTRIES.find(([, t]) => t.param !== null && t.param === param)?.[0];
+  return named ?? (carriesPeriod ? PERIOD_LAYOUT : DEFAULT_LAYOUT);
 }
 
 /** The layout a shortcut switches to, or null for a shortcut that isn't a layout's. */

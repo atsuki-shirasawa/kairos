@@ -4,10 +4,50 @@ import { Tag } from "@/components/ui/tag.tsx";
 import { liveMessages } from "@/i18n/messages/live.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { timeOrDateTime } from "@/lib/dates.ts";
-import { columnOf, type LiveCardView, type LiveDisplay, toolLabel } from "@/lib/live.ts";
+import {
+  columnOf,
+  type LiveCardOptions,
+  type LiveCardView,
+  type LiveDisplay,
+  type LiveEntry,
+  liveCardView,
+  toolLabel,
+} from "@/lib/live.ts";
+import { type OpenBlock, projectOf } from "@/lib/selection.ts";
 import { cn } from "@/lib/utils.ts";
 import { AgentCount, CardAgents } from "./CardAgents.tsx";
 import { CardFooter, RowCache } from "./CardUsage.tsx";
+
+/**
+ * A session placed in its column, as its card: works out its project and card view, so every page
+ * listing running sessions draws them the same way.
+ */
+export function LiveEntryCard({
+  entry: { session, display },
+  projects,
+  now,
+  selectedId,
+  onSelect,
+  options,
+}: {
+  entry: LiveEntry;
+  projects: ReadonlyMap<number, Project>;
+  now: number;
+  selectedId: string | null;
+  onSelect: OpenBlock;
+  options?: LiveCardOptions;
+}) {
+  const project = projectOf(projects, session.projectId);
+  return (
+    <LiveCard
+      card={liveCardView(session, display, project, now, options)}
+      project={project}
+      now={now}
+      selected={session.id === selectedId}
+      onSelect={onSelect}
+    />
+  );
+}
 
 /**
  * One running session as a card: the project's colored edge on a neutral raised fill, what it is
@@ -26,7 +66,7 @@ export function LiveCard({
   project: Project | undefined;
   now: number;
   selected: boolean;
-  onSelect: (session: string, at: number) => void;
+  onSelect: OpenBlock;
 }) {
   const m = liveMessages();
   const { session: s, display, compact } = card;
@@ -44,8 +84,8 @@ export function LiveCard({
       }}
       className={cn(
         "flex flex-col rounded-r-md rounded-l-[3px] border-l-[3px] border-l-[var(--c)] has-[button:focus-visible]:outline-2 has-[button:focus-visible]:outline-ring",
-        cardTone(display),
-        open && ["cursor-pointer", cardHover(display)],
+        cardTone(display, compact),
+        open && ["cursor-pointer", cardHover(display, compact)],
         selected && "outline-2 outline-primary",
       )}
       style={{ "--c": projectColor(project) } as React.CSSProperties}
@@ -63,9 +103,11 @@ export function LiveCard({
 
 /**
  * How much a card weighs, by whose turn it is: a session waiting on you sits on the `muted` fill,
- * one Claude is working on is only outlined, and an idle one is a bare row.
+ * one Claude is working on is only outlined, and a row (an idle session, or any session where a
+ * page lists it in one line) is bare.
  */
-function cardTone(display: LiveDisplay): string {
+function cardTone(display: LiveDisplay, compact: boolean): string {
+  if (compact) return "px-3 py-1.5";
   const column = columnOf(display);
   // A transparent border keeps the inset of an outlined Working card, so text lines up across columns
   if (column === "attention")
@@ -75,8 +117,8 @@ function cardTone(display: LiveDisplay): string {
 }
 
 /** The hover of a card that opens: one step deeper than its tone (`cardTone`). */
-function cardHover(display: LiveDisplay): string {
-  return columnOf(display) === "attention" ? "hover:bg-input" : "hover:bg-muted";
+function cardHover(display: LiveDisplay, compact: boolean): string {
+  return !compact && columnOf(display) === "attention" ? "hover:bg-input" : "hover:bg-muted";
 }
 
 /**

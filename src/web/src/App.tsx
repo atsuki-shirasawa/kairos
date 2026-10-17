@@ -23,7 +23,7 @@ import { buildReport } from "@/lib/report.ts";
 
 /**
  * Root component: owns the URL-synced view state and wires the toolbar, the layout's body
- * (calendar, summary, table or the live page) and the session drawer together, plus the global
+ * (the home page, calendar, summary, table or the live page) and the session drawer together, plus the global
  * shortcuts.
  */
 export function App() {

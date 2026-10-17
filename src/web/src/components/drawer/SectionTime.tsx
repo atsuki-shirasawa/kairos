@@ -1,5 +1,5 @@
 import type { Activity, Section, SessionDetail, Usage } from "@shared/api.ts";
-import { OutcomeTally } from "@/components/MomentNode.tsx";
+import { OutcomeTally } from "@/components/OutcomeTally.tsx";
 import { StatusDot } from "@/components/ui/status-dot.tsx";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import { dateLabel, durationLabel, hhmm, isSameDay, relativeDay } from "@/lib/dates.ts";

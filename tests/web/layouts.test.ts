@@ -9,6 +9,7 @@ describe("drawerOverlay", () => {
     ["calendar", "day", false],
     ["live", "day", true],
     ["live", "week", true],
+    ["today", "week", true],
     ["table", "week", false],
     ["summary", "month", false],
   ] as [Layout, View, boolean][])("%s / %s → %p", (layout, view, expected) => {
@@ -39,9 +40,14 @@ describe("layoutOfParam", () => {
     expect(layoutOfParam("live")).toBe("live");
   });
 
-  test("anything else is the calendar", () => {
-    for (const v of [null, "", "calendar", "table", "grid"])
-      expect(layoutOfParam(v)).toBe("calendar");
+  test("none, or anything unknown, is the home page", () => {
+    for (const v of [null, "", "table", "grid"]) expect(layoutOfParam(v)).toBe("today");
+  });
+
+  test("a URL giving a period without a layout opens the calendar, as links before the home page did", () => {
+    for (const v of [null, "", "grid"])
+      expect(layoutOfParam(v, { carriesPeriod: true })).toBe("calendar");
+    expect(layoutOfParam("summary", { carriesPeriod: true })).toBe("summary");
   });
 
   test("every layout round-trips through its URL value", () => {
@@ -52,6 +58,7 @@ describe("layoutOfParam", () => {
 
 describe("layoutOfShortcut", () => {
   test("maps each layout's key to it, and other shortcuts to none", () => {
+    expect(layoutOfShortcut("home")).toBe("today");
     expect(layoutOfShortcut("calendar")).toBe("calendar");
     expect(layoutOfShortcut("summary")).toBe("summary");
     expect(layoutOfShortcut("table")).toBe("table");
@@ -60,10 +67,14 @@ describe("layoutOfShortcut", () => {
   });
 });
 
-test("only the live page has no period", () => {
+test("only the home and live pages have no period", () => {
   expect(
     Object.entries(LAYOUTS)
       .filter(([, t]) => !t.hasPeriod)
       .map(([l]) => l),
-  ).toEqual(["live"]);
+  ).toEqual(["today", "live"]);
+});
+
+test("a page without a period names its heading, and one with a period leaves it to the date", () => {
+  for (const t of Object.values(LAYOUTS)) expect(t.heading === null).toBe(t.hasPeriod);
 });

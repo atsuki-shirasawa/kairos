@@ -51,6 +51,8 @@ export const VIEWS: View[] = [
   { name: "live-on-you", query: () => "?layout=live", registry: "on-you" },
   { name: "live-none", query: () => "?layout=live", registry: "empty" },
   { name: "live-unreadable", query: () => "?layout=live", registry: "unreadable" },
+  { name: "today", query: () => "?", registry: "on-you" },
+  { name: "today-none", query: () => "?", registry: "empty" },
 ];
 
 /** The view called `name`; throws for a name no view has. */

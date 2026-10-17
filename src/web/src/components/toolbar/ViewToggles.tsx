@@ -66,6 +66,7 @@ interface SegmentLook {
  * live page has its own button. Every layout is listed, so a new one has to choose.
  */
 const SEGMENTS: Record<Layout, SegmentLook | null> = {
+  today: null,
   calendar: { Icon: CalendarDays, label: (m) => m.calendar },
   summary: { Icon: ChartColumn, label: (m) => m.summary },
   table: null,

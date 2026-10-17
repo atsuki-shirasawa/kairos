@@ -17,7 +17,7 @@ describe("SHORTCUT_GROUPS", () => {
   test("lists every shortcut exactly once", () => {
     const listed = SHORTCUT_GROUPS.flatMap((g) => g.shortcuts);
     expect(new Set(listed).size).toBe(listed.length);
-    expect(listed.length).toBe(15);
+    expect(listed.length).toBe(16);
   });
 
   test("keeps the menu's lines and key caps", () => {
@@ -25,7 +25,7 @@ describe("SHORTCUT_GROUPS", () => {
       ["←", "→"],
       ["t"],
       ["m", "w", "d"],
-      ["c", "s", "n"],
+      ["h", "c", "s", "n"],
       ["l"],
       ["j", "k"],
       ["/"],
@@ -43,6 +43,7 @@ describe("shortcutFor", () => {
     expect(shortcutFor("m", false)).toBe("month");
     expect(shortcutFor("w", false)).toBe("week");
     expect(shortcutFor("d", false)).toBe("day");
+    expect(shortcutFor("h", false)).toBe("home");
     expect(shortcutFor("c", false)).toBe("calendar");
     expect(shortcutFor("s", false)).toBe("summary");
     expect(shortcutFor("n", false)).toBe("live");

@@ -1,6 +1,6 @@
 // The number cells of the table. Each renders the same way in a block row and in a total row.
 import type { Activity, Usage } from "@shared/api.ts";
-import { OutcomeTally } from "@/components/MomentNode.tsx";
+import { OutcomeTally } from "@/components/OutcomeTally.tsx";
 import { listMessages } from "@/i18n/messages/list.tsx";
 import {
   approxCostLabel,

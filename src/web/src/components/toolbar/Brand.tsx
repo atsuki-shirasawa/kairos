@@ -1,17 +1,28 @@
 import type { ImportProgress } from "@/hooks/useLiveUpdates.ts";
 import { toolbarMessages } from "@/i18n/messages/toolbar.ts";
+import { keyCap } from "@/lib/shortcuts.ts";
 
-/** The mark and the wordmark at the left end of the header. */
-export function Brand({ progress }: { progress: ImportProgress }) {
+/**
+ * The mark and the wordmark at the left end of the header. Together they are the way home, as on
+ * most sites: a button rather than another control in the toolbar.
+ */
+export function Brand({ progress, onHome }: { progress: ImportProgress; onHome: () => void }) {
+  const m = toolbarMessages();
   return (
-    <span className="flex shrink-0 items-center gap-2.5 pr-1">
+    <button
+      type="button"
+      onClick={onHome}
+      aria-label={m.home}
+      title={`${m.home} (${keyCap("home")})`}
+      className="flex shrink-0 items-center gap-2.5 rounded-md pr-1 outline-none focus-visible:outline-2 focus-visible:outline-ring"
+    >
       <Logo progress={progress} />
       {/* The one place Syne appears: a wide geometric face, so the name reads apart from the Plex UI.
           In a narrow window the mark alone stands for it, leaving the room to the controls */}
       <span className="font-mark font-semibold text-foreground text-wordmark leading-none tracking-[-0.01em] max-lg:hidden">
         Kairos
       </span>
-    </span>
+    </button>
   );
 }
 

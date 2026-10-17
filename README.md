@@ -5,7 +5,8 @@ A personal web app that keeps the memory of your Claude Code work: what is runni
 > **Kairos** is Greek for "the meaningful moment". Where *chronos* is the time a clock ticks off, *kairos* is the time when something happened — the app gives the hours on a calendar their meaning: what you did then.
 
 - Ingests the logs (`~/.claude/projects/**/*.jsonl`) read-only and stores them in SQLite. Even after Claude Code deletes its logs (30 days by default), Kairos keeps them
-- Shows the sessions running now, and which of them are waiting on you
+- Opens on Today: the sessions waiting on you and the ones Claude is working on, beside what the last workday was about
+- Shows every session running now on a page of its own, and which of them are waiting on you
 - Shows a month, a week or a day: the month lists each day's work, the week and day place it at its time
 - Automatically summarizes each work block (section) with `claude -p` (haiku): what was asked, what got settled and what was left open, and keeps the open items until the log or you close them
 - Searches every period by summaries, prompts and replies, PR and commit titles, and branches; `file:<path>` finds the work that edited a file
@@ -88,7 +89,7 @@ Server options (`open`, `restart`, `rebuild`, `ensure`, `serve`): `--summary-mod
 
 Changing the language (in the UI or with `--summary-lang`) doesn't rewrite existing summaries. They stay as they are, and you can regenerate any of them from the drawer.
 
-Keyboard shortcuts: `←` `→` previous/next period, `t` today, `m` month view, `w` week view, `d` day view, `c` calendar, `s` summary (totals, time by day and project, what was done, and recaps), `n` the sessions running now, `l` the summary as a table (one row per block with sortable numbers), `j` `k` next/previous work block, `/` search (the shown period, plus every period in the list under the field; `↓` to pick), `Esc` close details, `?` menu with theme, language and shortcuts
+Keyboard shortcuts: `h` the Today page (or click the mark), `←` `→` previous/next period, `t` move the period to today, `m` month view, `w` week view, `d` day view, `c` calendar, `s` summary (totals, time by day and project, what was done, and recaps), `n` the sessions running now, `l` the summary as a table (one row per block with sortable numbers), `j` `k` next/previous work block, `/` search (the shown period, plus every period in the list under the field; `↓` to pick), `Esc` close details, `?` menu with theme, language and shortcuts
 
 ### Updating
 

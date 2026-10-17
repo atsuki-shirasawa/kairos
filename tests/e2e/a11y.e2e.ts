@@ -25,6 +25,7 @@ const PAGES: Record<string, string> = {
   summary: `?layout=summary&date=${DEMO_WEEK}`,
   table: `?layout=list&date=${DEMO_WEEK}`,
   live: "?layout=live",
+  today: "?",
 };
 
 /** Runs axe-core on the open page and counts the elements breaking each rule. */

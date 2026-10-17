@@ -4,10 +4,12 @@ import { LivePage } from "@/components/LivePage.tsx";
 import { MonthGrid } from "@/components/MonthGrid.tsx";
 import { SessionList } from "@/components/SessionList.tsx";
 import { SummaryTabs, SummaryView } from "@/components/SummaryView.tsx";
+import { TodayPage } from "@/components/today/TodayPage.tsx";
 import type { LiveState } from "@/hooks/useLiveSummary.ts";
 import type { PeriodData } from "@/hooks/usePeriodData.ts";
 import type { UrlStateUpdate } from "@/hooks/useUrlState.ts";
 import type { PeriodBodyProps } from "@/lib/periodBody.ts";
+import type { OpenBlock } from "@/lib/selection.ts";
 import type { UrlState } from "@/lib/urlState.ts";
 import type { Layout } from "@/lib/view.ts";
 
@@ -22,13 +24,17 @@ export interface LayoutBodyProps {
 
 /** The body each layout draws in the main area; what else sets a layout apart is in `lib/layouts.ts`. */
 const BODIES: Record<Layout, (props: LayoutBodyProps) => React.ReactNode> = {
+  today: TodayBody,
   calendar: CalendarBody,
   summary: SummaryBody,
   table: TableBody,
   live: LiveBody,
 };
 
-/** What the main area shows for the layout: a calendar, the summary, its table or the live page. */
+/**
+ * What the main area shows for the layout: the home page, a calendar, the summary, its table or
+ * the live page.
+ */
 export function LayoutBody(props: LayoutBodyProps) {
   const Body = BODIES[props.state.layout];
   return <Body {...props} />;
@@ -73,6 +79,25 @@ function TableBody(props: LayoutBodyProps) {
   );
 }
 
+/** What runs now and what the last workday was about. */
+function TodayBody({ state, update, data, live, now }: LayoutBodyProps) {
+  return (
+    <TodayPage
+      live={live.data}
+      sessions={live.running}
+      projects={data.projectMap}
+      now={now}
+      selectedId={state.session}
+      selectedAt={state.at}
+      onSelect={openFollowingDay(update)}
+      onLive={() => update({ layout: "live" })}
+      onOpenDay={(day) =>
+        update({ layout: "calendar", view: "day", anchor: day, session: null, at: null })
+      }
+    />
+  );
+}
+
 /** The sessions running now. */
 function LiveBody({ state, update, data, live, now }: LayoutBodyProps) {
   return (
@@ -82,10 +107,17 @@ function LiveBody({ state, update, data, live, now }: LayoutBodyProps) {
       projects={data.projectMap}
       now={now}
       selectedId={state.session}
-      // The anchor follows the block, so going back to the calendar shows its day
-      onSelect={(session, at) => update({ anchor: startOfDay(at), session, at }, { push: true })}
+      onSelect={openFollowingDay(update)}
     />
   );
+}
+
+/**
+ * Opens a block from a page without a period. The anchor follows the block, so going on to the
+ * calendar shows its day.
+ */
+function openFollowingDay(update: UrlStateUpdate): OpenBlock {
+  return (session, at) => update({ anchor: startOfDay(at), session, at }, { push: true });
 }
 
 /** The summary's overview / table tabs, each a layout of its own. */

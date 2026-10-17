@@ -1,7 +1,6 @@
 import type { CalendarSession, Project, SearchHit } from "@shared/api.ts";
 import type { ImportProgress } from "@/hooks/useLiveUpdates.ts";
 import type { Theme } from "@/hooks/useTheme.ts";
-import { liveMessages } from "@/i18n/messages/live.ts";
 import type { Filter } from "@/lib/filter.ts";
 import { LAYOUTS } from "@/lib/layouts.ts";
 import type { Layout, View } from "@/lib/view.ts";
@@ -75,9 +74,9 @@ interface Props {
 }
 
 /**
- * The header bar: wordmark, period navigation, view and layout toggles, the live page's button,
- * search, filters, report copy and the "⋯" menu. The live page has no period, so there the
- * period controls give way to its heading.
+ * The header bar: wordmark (which leads home), period navigation, view and layout toggles, the
+ * live page's button, search, filters, report copy and the "⋯" menu. The home and live pages have
+ * no period, so there the period controls give way to the page's heading.
  */
 export function Toolbar({
   layout,
@@ -94,19 +93,17 @@ export function Toolbar({
   menu,
 }: Props) {
   const { view } = period;
-  const { hasPeriod, lit } = LAYOUTS[layout];
+  const { hasPeriod, lit, heading } = LAYOUTS[layout];
   return (
     // Below lg (a half-screen or small laptop window; the full bar needs ~940px with a two-month
     // week label) the bar tightens instead of overflowing: the wordmark goes and search shrinks to
     // its icon, but every control stays. Groups are set apart by spacing, not rules
     <header className="flex h-16 shrink-0 items-center gap-3 border-b bg-background px-5 max-lg:gap-2 max-lg:px-3">
-      <Brand progress={progress} />
+      <Brand progress={progress} onHome={() => onLayout("today")} />
       <span className="w-3 shrink-0 max-lg:hidden" aria-hidden />
-      {/* The live page shows the present, so it has no period to move through or pick */}
+      {/* The home and live pages show the present, so they have no period to move through or pick */}
       {!hasPeriod ? (
-        <h1 className="min-w-0 truncate font-semibold text-title tracking-tight">
-          {liveMessages().heading}
-        </h1>
+        <h1 className="min-w-0 truncate font-semibold text-title tracking-tight">{heading?.()}</h1>
       ) : (
         <>
           <PeriodNav view={view} onMove={period.onMove} onToday={period.onToday} />
@@ -123,7 +120,7 @@ export function Toolbar({
       )}
 
       <div className="ml-auto flex shrink-0 items-center gap-2 max-lg:gap-1">
-        {/* Search narrows the shown period, which the live page doesn't have */}
+        {/* Search narrows the shown period, which the home and live pages don't have */}
         {hasPeriod && (
           <SearchField
             inputRef={search.ref}

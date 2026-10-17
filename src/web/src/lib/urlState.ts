@@ -41,11 +41,22 @@ function readView(v: string | null): View {
   return v === "month" || v === DAY_VIEW ? v : "week";
 }
 
+/** Parameters that say nothing about a period: the open block, which any page can show. */
+const PERIODLESS_PARAMS: ReadonlySet<string> = new Set([UI_PARAMS.session, UI_PARAMS.at]);
+
+/**
+ * Whether a URL carries state only a period shows (its date, view, sort, search or filters). One
+ * without a layout then comes from before the home page, and opens the calendar as it did.
+ */
+function namesPeriodState(q: URLSearchParams): boolean {
+  return [...q.keys()].some((k) => k !== PARAMS.layout && !PERIODLESS_PARAMS.has(k));
+}
+
 /** Reads the view state from URL parameters. A missing or invalid date means today (from `now`). */
 export function parseUrlState(q: URLSearchParams, now: number): UrlState {
   return {
     view: readView(q.get(UI_PARAMS.view)),
-    layout: layoutOfParam(q.get(PARAMS.layout)),
+    layout: layoutOfParam(q.get(PARAMS.layout), { carriesPeriod: namesPeriodState(q) }),
     anchor: fromISODate(q.get(UI_PARAMS.date)) ?? startOfDay(now),
     ...readSessionTarget(q),
     sort: readSort(q.get(PARAMS.sort)),
@@ -54,14 +65,19 @@ export function parseUrlState(q: URLSearchParams, now: number): UrlState {
 }
 
 /**
- * Writes the view state as URL parameters, leaving out defaults (week view, calendar, today from
- * `now`, time order, no filter).
+ * Writes the view state as URL parameters, leaving out defaults (week view, the home page, today
+ * from `now`, time order, no filter). The home page writes only the open block: read back without
+ * a layout, a period's state (date, sort, filters) would open the calendar.
  */
 export function serializeUrlState(s: UrlState, now: number): URLSearchParams {
   const q = new URLSearchParams();
-  if (s.view !== "week") q.set(UI_PARAMS.view, s.view);
   const layout = LAYOUTS[s.layout].param;
-  if (layout !== null) q.set(PARAMS.layout, layout);
+  if (layout === null) {
+    writeSessionTarget(s, q);
+    return q;
+  }
+  if (s.view !== "week") q.set(UI_PARAMS.view, s.view);
+  q.set(PARAMS.layout, layout);
   if (startOfDay(s.anchor) !== startOfDay(now)) q.set(UI_PARAMS.date, isoDay(s.anchor));
   writeSessionTarget(s, q);
   if (s.sort.key !== "start") q.set(PARAMS.sort, `${s.sort.desc ? "-" : ""}${s.sort.key}`);

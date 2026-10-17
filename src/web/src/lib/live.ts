@@ -157,8 +157,17 @@ export interface LiveCardView {
   description: string;
   /** Where it runs (`livePlace`). */
   place: string;
-  /** An idle row rather than a full card. */
+  /** A one-line row rather than a full card. */
   compact: boolean;
+}
+
+/** How a page lists running sessions beyond the card every one gets by default. */
+export interface LiveCardOptions {
+  /**
+   * Show the session as a one-line row whatever its state. By default only an idle session is a
+   * row; a page listing what runs only in passing (the home page's Working) asks for rows.
+   */
+  row?: boolean;
 }
 
 /** The card view of a running session in `display` state at `now`. */
@@ -167,6 +176,7 @@ export function liveCardView(
   display: LiveDisplay,
   project: Pick<Project, "name"> | undefined,
   now: number,
+  { row = false }: LiveCardOptions = {},
 ): LiveCardView {
   const m = liveMessages();
   const duration = elapsedLabel(now - session.since);
@@ -177,7 +187,7 @@ export function liveCardView(
     duration,
     description: m.status(m.state[display], duration),
     place: livePlace(session, project),
-    compact: display === "idle",
+    compact: row || display === "idle",
   };
 }
 

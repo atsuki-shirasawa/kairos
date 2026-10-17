@@ -4,6 +4,7 @@ import {
   addDays,
   addMonths,
   dateLabel,
+  daysBetween,
   durationLabel,
   elapsedLabel,
   isoWeek,
@@ -200,5 +201,13 @@ describe("yearUnlessCurrent", () => {
   test("leaves the current year out", () => {
     expect(yearUnlessCurrent(DAY0, addDays(DAY0, 30))).toBeNull();
     expect(yearUnlessCurrent(DAY0, addDays(DAY0, 120))).toBe(2026);
+  });
+});
+
+describe("daysBetween", () => {
+  test("counts whole days between the two days", () => {
+    expect(daysBetween(DAY0, addDays(DAY0, 1) + 9 * 3_600_000)).toBe(1);
+    expect(daysBetween(DAY0, addDays(DAY0, 3) + 23 * 3_600_000)).toBe(3);
+    expect(daysBetween(DAY0, DAY0 + 10 * 3_600_000)).toBe(0);
   });
 });

@@ -10,6 +10,7 @@ export type Shortcut =
   | "month"
   | "week"
   | "day"
+  | "home"
   | "calendar"
   | "table"
   | "summary"
@@ -31,6 +32,7 @@ const KEYS = new Map<string, Shortcut>([
   ["m", "month"],
   ["w", "week"],
   ["d", "day"],
+  ["h", "home"],
   ["c", "calendar"],
   ["l", "table"],
   ["s", "summary"],
@@ -80,7 +82,7 @@ export const SHORTCUT_GROUPS: readonly { group: ShortcutGroup; shortcuts: readon
     { group: "period", shortcuts: ["prevPeriod", "nextPeriod"] },
     { group: "today", shortcuts: ["today"] },
     { group: "view", shortcuts: ["month", "week", "day"] },
-    { group: "layout", shortcuts: ["calendar", "summary", "live"] },
+    { group: "layout", shortcuts: ["home", "calendar", "summary", "live"] },
     { group: "table", shortcuts: ["table"] },
     { group: "step", shortcuts: ["nextBlock", "prevBlock"] },
     { group: "search", shortcuts: ["search"] },

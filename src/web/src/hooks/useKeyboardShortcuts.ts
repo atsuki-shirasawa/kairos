@@ -50,6 +50,8 @@ const PERIODLESS_IGNORED: ReadonlySet<Shortcut> = new Set([
   "today",
   "nextBlock",
   "prevBlock",
+  // The search field narrows a period, so a page without one has no field to focus
+  "search",
 ]);
 
 /** Runs a shortcut. Returns false when it doesn't apply now, so the key press passes through. */

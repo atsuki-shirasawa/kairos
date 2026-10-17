@@ -47,7 +47,10 @@ export function useLive() {
   return useQuery({ queryKey: keys.live, queryFn: api.live, refetchInterval: LIVE_REFRESH_MS });
 }
 
-/** "Days with sessions" for the date picker. Fetched only while it is open. */
+/**
+ * "Days with sessions": for the date picker while it is open, and for the home page to find the
+ * last workday.
+ */
 export function useSpans(from: number, to: number, enabled: boolean) {
   return useQuery({
     queryKey: keys.spans(from, to),

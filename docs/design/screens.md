@@ -4,6 +4,33 @@ How each screen applies [DESIGN.md](../../DESIGN.md): its layout, sizes and stat
 tokens and shared components are there; why a screen bends a rule is in
 [decisions.md](decisions.md).
 
+## Today (home)
+
+The page the app opens on (no `layout` in the URL, `h`, or the mark and wordmark in the toolbar,
+which are its button). It has no period, so the toolbar shows its 17px heading "Today", kept in
+English in both languages like "Live", in place of the period controls.
+
+- **Two columns** from `lg` (one below), on `surface`, at most `max-w-7xl` and centered: Now on the
+  left, Last workday on the right, so at 1440×900 the first card waiting on you and the last
+  workday's headlines show without scrolling. Each section heading is 17px semibold
+- **Now:** the live page's groups for what wants you and what runs, each under its name and count as
+  on the live page (14px medium, the count in `numeral`, `warn` for a non-empty On you). On you
+  shows the live page's full cards; Working shows each session as the live page's one-line row,
+  since it asks nothing of you yet. Idle sessions stay on the live page. An empty group says so in
+  one 12px `muted-ink` line; with nothing running, only idle sessions (it says how many are on
+  Live), or the registry unreadable, one 14px `muted-ink` line replaces both groups. A small ghost button, "Open Live full screen →", follows
+- **Last workday:** the last day with work before today, from the summaries already written (no
+  model call). The heading is followed by the day in `numeral` ("Yesterday", or its date) and,
+  after a break of more than a day, "n days since the last work" in 12px `muted-ink`; a small ghost
+  button at the right, "Open the day", opens it in the day view. Then one group per project, the
+  busiest first, laid out like the summary view's project sections: the project's 2px colored rule,
+  its name in 14px medium, and a row per block in time order with the headline (14px, one line,
+  truncated) and its commits and PRs as nodes (`OutcomeTally`) at the right. The whole row opens
+  the block; the selected one keeps the `accent` fill. Quick questions (the calendar's marks) and
+  hidden projects are left out, and so is work that began the evening before (it belongs to that
+  day). The last workday is the last day that has something to list (in the four weeks before
+  today; otherwise one line suggests `kairos doctor`)
+
 ## Calendar (month, week and day)
 
 - **Calendar:** CSS Grid with a 56px hour column. An hour is never shorter than 48px, or headings

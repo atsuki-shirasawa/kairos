@@ -13,7 +13,7 @@ const TODAY = new Date(2026, 9, 13).getTime();
 
 const DEFAULTS: UrlState = {
   view: "week",
-  layout: "calendar",
+  layout: "today",
   anchor: TODAY,
   session: null,
   at: null,
@@ -26,12 +26,25 @@ const serialize = (patch: Partial<UrlState>) =>
   serializeUrlState({ ...DEFAULTS, ...patch }, NOW).toString();
 
 describe("parseUrlState", () => {
-  test("an empty query is the week calendar of today in time order", () => {
+  test("an empty query is the home page, with the week of today in time order behind it", () => {
     expect(parse("")).toEqual(DEFAULTS);
   });
 
+  test("a period without a layout opens the calendar, as links before the home page did", () => {
+    expect(parse("date=2026-10-01").layout).toBe("calendar");
+    expect(parse("view=day").layout).toBe("calendar");
+    expect(parse("q=migration").layout).toBe("calendar");
+    expect(parse("in=12").layout).toBe("calendar");
+    expect(parse("session=abc&at=42").layout).toBe("today");
+  });
+
   test("invalid values fall back to the defaults", () => {
-    expect(parse("view=year&layout=grid&date=2026-1-5&at=x&sort=Cost!")).toEqual(DEFAULTS);
+    expect(parse("view=year&layout=grid&date=2026-1-5&at=x&sort=Cost!")).toEqual({
+      ...DEFAULTS,
+      // The query still gives a period, so it opens the calendar
+      layout: "calendar",
+    });
+    expect(parse("layout=grid&at=x")).toEqual(DEFAULTS);
     expect(parse("sort=start").sort).toEqual(DEFAULT_SORT);
     expect(parse("sort=-start").sort).toEqual(DEFAULT_SORT);
   });
@@ -55,6 +68,16 @@ describe("serializeUrlState", () => {
   test("defaults are left out", () => {
     expect(serialize({})).toBe("");
     expect(serialize({ anchor: NOW })).toBe("");
+    expect(serialize({ layout: "calendar" })).toBe("layout=calendar");
+  });
+
+  test("the home page writes no period, which would open the calendar when read back", () => {
+    expect(serialize({ view: "day", anchor: new Date(2026, 9, 1).getTime() })).toBe("");
+    expect(serialize({ session: "abc" })).toBe("session=abc");
+    // A filter or sort kept from the calendar stays in state, but would open the calendar on reload
+    expect(
+      serialize({ sort: { key: "cost", desc: true }, filter: { ...NO_FILTER, q: "fix" } }),
+    ).toBe("");
   });
 
   test("writes parameters in a fixed order", () => {

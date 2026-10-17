@@ -13,6 +13,7 @@ const PAGES = [
   `?layout=summary&date=${DEMO_WEEK}`,
   `?layout=list&date=${DEMO_WEEK}`,
   "?layout=live",
+  "?",
 ];
 
 test("Live: the sessions waiting on you show on the Live button and in the tab title, on every page", async () => {

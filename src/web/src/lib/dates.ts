@@ -190,9 +190,14 @@ export function dateLabel(t: number, now = Date.now()): string {
   return dateMessages().dateLabel(weekday(t), d.getMonth(), d.getDate(), yearUnlessCurrent(t, now));
 }
 
+/** Whole days from the day of `t` to the day of `now`, steady across a change of daylight saving. */
+export function daysBetween(t: number, now: number): number {
+  return Math.round((startOfDay(now) - startOfDay(t)) / DAY);
+}
+
 /** "Today" or "Yesterday" when it applies, otherwise null. */
 export function relativeDay(t: number, now = Date.now()): string | null {
-  const diff = Math.round((startOfDay(now) - startOfDay(t)) / DAY);
+  const diff = daysBetween(t, now);
   const m = dateMessages();
   return diff === 0 ? m.today : diff === 1 ? m.yesterday : null;
 }

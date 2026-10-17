@@ -188,8 +188,8 @@ screen bends a rule are in [docs/design/decisions.md](docs/design/decisions.md).
 
 Kairos is the memory of your work: open it to see what is running, what you did last and what is
 left to pick up. Looking back is reached from there, and the calendar answers "when". The work
-itself is the loudest thing on every screen. Until a home page for this (Today, #55) exists, the app
-still opens on the calendar, and the live page holds what is running.
+itself is the loudest thing on every screen. The app opens on that home page (Today); the live page
+holds every running session full screen.
 
 - **What needs you comes first.** A session waiting on you, then what is left open, then what was
   done; numbers (tokens, cost, snags) stay in the background
