@@ -1,12 +1,10 @@
 // An `open_items` row as every ledger query reads it, and its one mapping to the domain types.
-import type { LedgerEntry } from "../../../shared/api.ts";
+import type { LedgerEntry, PickUpItem } from "../../../shared/api.ts";
 import { isOpenKind, type OpenKind } from "../../../shared/summaryBody.ts";
 import { isClosedBy } from "./closers.ts";
 
-/** An item as the summarizer reads it: the API's entry plus its refs and its section's headline. */
-export interface LedgerItem extends LedgerEntry {
-  /** Issue / PR numbers, Jira keys and task IDs the item names (see `refs.ts`). */
-  refs: string[];
+/** An item as the summarizer reads it: the entry with its refs, plus its section's headline. */
+export interface LedgerItem extends PickUpItem {
   /** Headline of the section that opened it, when it has one. */
   headline: string | null;
 }

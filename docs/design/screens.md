@@ -10,15 +10,30 @@ The page the app opens on (no `layout` in the URL, `h`, or the mark and wordmark
 which are its button). It has no period, so the toolbar shows its 17px heading "Today", kept in
 English in both languages like "Live", in place of the period controls.
 
-- **Two columns** from `lg` (one below), on `surface`, at most `max-w-7xl` and centered: Now on the
-  left, Last workday on the right, so at 1440×900 the first card waiting on you and the last
-  workday's headlines show without scrolling. Each section heading is 17px semibold
+- **Two columns** from `lg` (one below), on `surface`, at most `max-w-7xl` and centered: Now on
+  the left, Pick up then Last workday on the right (40px apart), so at 1440×900 the first card
+  waiting on you and the first cards to pick up show without scrolling. Each section heading is
+  17px semibold
 - **Now:** the live page's groups for what wants you and what runs, each under its name and count as
   on the live page (14px medium, the count in `numeral`, `warn` for a non-empty On you). On you
   shows the live page's full cards; Working shows each session as the live page's one-line row,
   since it asks nothing of you yet. Idle sessions stay on the live page. An empty group says so in
   one 12px `muted-ink` line; with nothing running, only idle sessions (it says how many are on
   Live), or the registry unreadable, one 14px `muted-ink` line replaces both groups. A small ghost button, "Open Live full screen →", follows
+- **Pick up:** a card per session whose latest summary left work open, so the section stays a few
+  cards however many items the week left. Shown: sessions idle under 48 hours, or under 7 days in a
+  project that moved in the last 3 days, minus the running ones (Now has them) and hidden
+  projects. Ranked by the heaviest thing left (waiting, then the next step, todo, issue, question),
+  plus a little for an item naming an issue, PR or task, halved every 3 days since the block ended
+  (`lib/pickUp.ts`). At most 5 cards and 2 per project; the rest behind a small ghost "n more"
+  toggle. Each card is outlined like a Working card on the live page (`border`, the project's 3px
+  colored edge): the latest block's headline (14px medium, two lines at most; it opens the block)
+  with the last activity in `numeral` at the right, the project in 12px `muted-ink`, then "Next"
+  in 12px `muted-ink` before the next step (14px, two lines at most). A footer row holds an
+  extra-small ghost toggle "n open items" (its items unfold below as in the summary view, with
+  the kind tag and the hand closes), the waiting count in `warn` when there is one, and the
+  drawer's resume button (copies `claude --resume`) at the right. With no card, one 14px
+  `muted-ink` line says nothing is left open to pick up
 - **Last workday:** the last day with work before today, from the summaries already written (no
   model call). The heading is followed by the day in `numeral` ("Yesterday", or its date) and,
   after a break of more than a day, "n days since the last work" in 12px `muted-ink`; a small ghost

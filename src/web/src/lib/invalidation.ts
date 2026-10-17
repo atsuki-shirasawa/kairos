@@ -43,8 +43,11 @@ function isStaleAfterChange(change: SessionsChange, query: CachedQuery, data: un
     case "messages":
       return change.ids.includes(query.sessionId);
     // A new session may bring a new project; the tool in flight, tasks and tests come from the log
+    // Pick up reads when each session and project last moved, which the log moves; its query reads
+    // only the last week through an index, so it is cheap to refetch
     case "projects":
     case "live":
+    case "pick-up":
       return true;
     // Search covers every period, so it would refetch on every change; a new keyword searches again
     case "search":

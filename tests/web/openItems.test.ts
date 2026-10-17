@@ -1,7 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import type { LedgerEntry } from "../../src/shared/api.ts";
 import { setLocale } from "../../src/web/src/i18n/index.ts";
-import { closedHow, groupOpenItems, logCloses, weekOpen } from "../../src/web/src/lib/openItems.ts";
+import {
+  closedHow,
+  failureAmong,
+  groupOpenItems,
+  logCloses,
+  weekOpen,
+} from "../../src/web/src/lib/openItems.ts";
 
 const DAY = 24 * 3_600_000;
 const FROM = new Date(2026, 9, 5).getTime(); // Mon 2026-10-05
@@ -146,4 +152,11 @@ describe("closedHow", () => {
     expect(closedHow(entry({ closedBy: "mistaken" }))).toBe("残課題ではなかった");
     setLocale("en");
   });
+});
+
+test("failureAmong gives a failed edit's message only to the list holding its item", () => {
+  const failure = { id: 2, message: "conflict" };
+  expect(failureAmong([{ id: 1 }, { id: 2 }], failure)).toBe("conflict");
+  expect(failureAmong([{ id: 1 }], failure)).toBeNull();
+  expect(failureAmong([{ id: 2 }], null)).toBeNull();
 });

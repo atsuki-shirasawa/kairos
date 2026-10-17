@@ -7,6 +7,7 @@ import type {
   LedgerEntry,
   LiveResponse,
   OpenItemsResponse,
+  PickUpResponse,
   RecapsResponse,
   SearchResponse,
   Settings,
@@ -152,6 +153,9 @@ export function createApp({ db, events, summarizer, live, now, hiddenCwds }: App
   app.get("/api/open-items", (c) =>
     withRange(c, ({ from, to }) => c.json<OpenItemsResponse>({ items: q.openItems(from, to) })),
   );
+
+  // What is left to pick up now: no period, ranked and capped by the page
+  app.get("/api/pick-up", (c) => c.json<PickUpResponse>({ sessions: q.pickUp() }));
 
   // Closes an open item by hand (done, dismissed or mistaken), or reopens one closed by hand,
   // logging the decision

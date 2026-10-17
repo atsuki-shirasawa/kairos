@@ -5,6 +5,7 @@ import { blocksOfDay } from "../../src/web/src/lib/dayBlocks.ts";
 import {
   isDim,
   isSelected,
+  isSelectedSection,
   isWorking,
   projectLabel,
   projectName,
@@ -138,4 +139,13 @@ describe("isDim", () => {
   test("never tones down summarized work", () => {
     expect(blocksOfDay([session(true)], DAY0).map(isDim)).toEqual([false, false]);
   });
+});
+
+test("isSelectedSection matches the selected section, or any of the session's without a start", () => {
+  const section = { sessionId: "a", start: 100 };
+  expect(isSelectedSection(section, "a", 100)).toBe(true);
+  expect(isSelectedSection(section, "a", 200)).toBe(false);
+  expect(isSelectedSection(section, "a", null)).toBe(true);
+  expect(isSelectedSection(section, "b", 100)).toBe(false);
+  expect(isSelectedSection(section, null, null)).toBe(false);
 });

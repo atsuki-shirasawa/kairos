@@ -356,6 +356,11 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE summaries ADD COLUMN cost_usd REAL;
   ALTER TABLE summaries ADD COLUMN latency_ms INTEGER;
   `,
+  // 15: sessions by when they last moved, for the home page's Pick up (#56): sessions active in
+  // the last week and when each project last moved, refetched on every summary and turn
+  `
+  CREATE INDEX sessions_ended ON sessions(ended_at);
+  `,
 ];
 
 /** Schema version once every migration is applied (stored in `PRAGMA user_version`). */

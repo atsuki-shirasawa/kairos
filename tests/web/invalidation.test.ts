@@ -41,9 +41,10 @@ describe("sessions.updated", () => {
     expect(stale(keys.messages("c", null))).toBe(false);
   });
 
-  test("refetches the projects and the live page", () => {
+  test("refetches the projects, the live page and Pick up, which reads when sessions last moved", () => {
     expect(stale(keys.projects)).toBe(true);
     expect(stale(keys.live)).toBe(true);
+    expect(stale(keys.pickUp)).toBe(true);
   });
 
   test("refetches a calendar period it overlaps", () => {
@@ -87,6 +88,7 @@ describe("other events", () => {
       keys.calendar(0, 1),
       keys.search("x"),
       keys.openItems(0, 1),
+      keys.pickUp,
       keys.session("z"),
     ])
       expect(isStaleAfter(e, key, undefined)).toBe(true);

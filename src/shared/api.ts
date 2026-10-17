@@ -291,6 +291,45 @@ export interface OpenItemUpdate {
 /** How an open item can be closed by hand: finished, not to be done, or never open at all. */
 export type HandClose = "done" | "dismissed" | "mistaken";
 
+/** An open item with the refs it names: Pick up ranks by them, and the summarizer closes by them. */
+export interface PickUpItem extends LedgerEntry {
+  /** Issue / PR numbers, Jira keys and task IDs the item names (see `ledger/refs.ts`). */
+  refs: string[];
+}
+
+/**
+ * A session with work left to pick up: what its latest summary left open and still is, and the step
+ * it said was about to happen. Earlier summaries' items stay in the ledger and the summary view; the
+ * latest one says where the session stands.
+ */
+export interface PickUpSession {
+  sessionId: string;
+  projectId: number | null;
+  /** Where it was launched, for the command that resumes it. */
+  launchCwd: string | null;
+  /** The latest summarized block, which left the items open. */
+  start: number;
+  end: number;
+  headline: string;
+  /** The step that summary said was about to happen; null when it named none. */
+  next: string | null;
+  /** The session's last activity. */
+  lastActive: number;
+  /** The last activity of any session of the project in the window; null without a project. */
+  projectMovedAt: number | null;
+  /** In the order the summary listed them (the most important first). */
+  items: PickUpItem[];
+}
+
+/**
+ * `GET /api/pick-up`: human sessions active in the last `PICK_UP_IDLE_DAYS` whose latest summary
+ * left items that are still open. The page ranks and caps them (`lib/pickUp.ts`), so freshness
+ * follows the clock without a refetch.
+ */
+export interface PickUpResponse {
+  sessions: PickUpSession[];
+}
+
 /** `GET /api/sessions/:id`: everything the session drawer shows. */
 export interface SessionDetail {
   id: string;

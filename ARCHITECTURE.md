@@ -192,6 +192,7 @@ Kairos shows which Claude Code sessions are running and what each is doing, with
 | GET | `/api/recaps?from&to` | Recaps of every project with work starting in the period, written or not (body, stale, pending, error) |
 | POST | `/api/recaps` | `{ projectId, from, to }`: push writing or rewriting a recap onto the queue (202; 404 without work in the period; 429 when 20 are already waiting) |
 | GET | `/api/open-items?from&to` | Open items of human work open at some point in the period (left open before its end, not closed before its start), with how and where each was closed |
+| GET | `/api/pick-up` | Human sessions active in the last 7 days, not continued in another, whose latest summary left items still open: each with that block's headline and next step, the items with their refs, its last activity and its project's. The home page ranks and caps them |
 | PATCH | `/api/open-items/:id` | `{ state: "done" \| "dismissed" \| "mistaken" \| "open" }`: close an open item by hand, or reopen one closed by hand (409 for one the log or a summary closed, or already closed). Each edit is logged in `open_item_decisions` |
 | POST | `/api/sessions/:id/sections/:start/summary` | Push generating or regenerating a section's summary onto the priority queue (202) |
 | GET | `/api/projects` | List of projects (color, hidden flag) |

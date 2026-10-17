@@ -85,6 +85,17 @@ export function groupOpenItems(
 }
 
 /**
+ * The failed hand edit's message, when its item is one of `items`; null otherwise, so each list
+ * shows only its own failure.
+ */
+export function failureAmong(
+  items: readonly { id: number }[],
+  failure: { id: number; message: string } | null,
+): string | null {
+  return failure && items.some((i) => i.id === failure.id) ? failure.message : null;
+}
+
+/**
  * How an item was closed, in words: what the log showed, a later block, or which hand close. Empty
  * for an item still open.
  */

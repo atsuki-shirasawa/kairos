@@ -7,6 +7,7 @@ import type {
   LedgerEntry,
   MessagesResponse,
   OpenItemUpdate,
+  PickUpSession,
   Project,
   ProjectUpdate,
   Recap,
@@ -18,6 +19,7 @@ import { loadRecapInput, type RecapTarget } from "../summarize/recap.ts";
 import { currentVisibility, DEFAULT_HIDDEN_CWDS, visibleSessionSql } from "../visibility.ts";
 import { calendarSessions, neighbors, spans } from "./calendar.ts";
 import { type MessagesOptions, messagesPage } from "./messages.ts";
+import { pickUpSessions } from "./pickUp.ts";
 import { updateProject, visibleProjects } from "./projects.ts";
 import { projectRecaps } from "./recaps.ts";
 import { SEARCH_LIMIT, type SearchResult, searchBlocks } from "./search.ts";
@@ -71,6 +73,11 @@ export class Queries {
   /** Open items of human work that were open at some point in [from, to), oldest first. */
   openItems(from: number, to: number): LedgerEntry[] {
     return openItemsIn(this.db, from, to);
+  }
+
+  /** Recent sessions whose latest summary left items still open (see `pickUpSessions`). */
+  pickUp(): PickUpSession[] {
+    return pickUpSessions(this.db, this.visible(), this.now());
   }
 
   /** Closes an open item by hand, or reopens one closed by hand (see `updateOpenItem`). */

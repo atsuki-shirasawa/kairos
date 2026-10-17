@@ -7,6 +7,7 @@ import type {
   MessagesResponse,
   OpenItemsResponse,
   OpenItemUpdate,
+  PickUpResponse,
   Project,
   ProjectUpdate,
   RecapRequest,
@@ -98,6 +99,8 @@ export const api = {
 
   openItems: (from: number, to: number) =>
     request<OpenItemsResponse>(`/api/open-items${query({ from, to })}`),
+
+  pickUp: () => request<PickUpResponse>("/api/pick-up"),
 
   updateOpenItem: (id: number, update: OpenItemUpdate) =>
     request<LedgerEntry>(`/api/open-items/${id}`, sendJson("PATCH", update)),

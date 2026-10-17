@@ -6,7 +6,7 @@ import { projectColor } from "@/lib/colors.ts";
 import { durationLabel, hhmm, weekday } from "@/lib/dates.ts";
 import type { DayBlock } from "@/lib/dayBlocks.ts";
 import { issueBaseUrl } from "@/lib/issueLinks.ts";
-import type { ProjectOpenItems } from "@/lib/openItems.ts";
+import { failureAmong, type ProjectOpenItems } from "@/lib/openItems.ts";
 import { isSelected, projectName, projectOf } from "@/lib/selection.ts";
 import type { PeriodSummary, ProjectSummary } from "@/lib/summary.ts";
 import { prLabel, startsNewDay, unwrittenRecaps } from "@/lib/summaryDone.ts";
@@ -18,13 +18,6 @@ import type { useProjectOpenItems } from "./useProjectOpenItems.ts";
 
 /** The period's open items and what can be done with them. */
 type Open = ReturnType<typeof useProjectOpenItems>;
-
-/** The failed update's message, when the item is one of this project's. */
-function failureIn(items: ProjectOpenItems, failure: Open["failure"]): string | null {
-  if (!failure) return null;
-  const all = [...items.open, ...items.old, ...items.closed];
-  return all.some((i) => i.id === failure.id) ? failure.message : null;
-}
 
 /** Shared by the "done" list and its project sections. */
 interface Selection {
@@ -169,7 +162,7 @@ function ProjectOpenItemsSection({
       view={view}
       items={items}
       at={open.at}
-      error={failureIn(items, open.failure)}
+      error={failureAmong([...items.open, ...items.old, ...items.closed], open.failure)}
       onSelect={onSelect}
       onUpdate={open.onUpdate}
       busyId={open.busyId}

@@ -5,7 +5,7 @@ import type { LastWorkday as LastWorkdayData } from "@/hooks/useLastWorkday.ts";
 import { todayMessages } from "@/i18n/messages/today.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { dateLabel, daysBetween, relativeDay } from "@/lib/dates.ts";
-import { type OpenBlock, projectName, projectOf } from "@/lib/selection.ts";
+import { isSelectedSection, type OpenBlock, projectName, projectOf } from "@/lib/selection.ts";
 import { WORKDAY_LOOKBACK_DAYS, type WorkdayProject } from "@/lib/today.ts";
 import { cn } from "@/lib/utils.ts";
 
@@ -111,7 +111,7 @@ function ProjectWork({
       <h3 className="mb-1 font-medium text-body">{name}</h3>
       <ul aria-label={todayMessages().projectWork(name)} className="flex flex-col">
         {work.blocks.map((b) => {
-          const selected = b.sessionId === selectedId && b.start === selectedAt;
+          const selected = isSelectedSection(b, selectedId, selectedAt);
           return (
             <li
               key={`${b.sessionId}:${b.start}`}

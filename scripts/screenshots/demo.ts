@@ -80,6 +80,91 @@ export const sid = (n: number) => `d0000000-0000-4000-8000-${String(n).padStart(
 /** The session opened in the drawer for the week screenshot. */
 export const DRAWER_SESSION = sid(9);
 
+/**
+ * Work earlier on the capture's day that left things open, for the home page's Pick up: three in
+ * atlas, so its per-project cap leaves one behind "n more". On the capture's day, so the last
+ * workday and the calendar shots stay on the demo week.
+ */
+function pickUpSessions(): DemoSession[] {
+  const session = (
+    n: number,
+    project: ProjectKey,
+    title: string,
+    section: Omit<DemoSection, "day" | "headline">,
+  ): DemoSession => ({
+    id: sid(n),
+    project,
+    branch: "main",
+    title,
+    sections: [{ day: "10-14", headline: title, ...section }],
+  });
+  return [
+    session(18, "atlas", "Snippets in search results", {
+      start: "09:10",
+      minutes: 70,
+      prompts: ["Show a snippet of the matching text under each search result", "Open a PR"],
+      files: ["src/search/snippet.ts", "src/search/query.ts"],
+      pr: { number: 226, title: "Search result snippets" },
+      summary: {
+        goal: "Show where each search result matched",
+        done: ["Built snippets from the FTS5 index's offsets", "Opened PR #226"],
+        open: [
+          "[waiting] Review on PR #226",
+          "[todo] Trim snippets at word boundaries in Japanese",
+        ],
+        next: "Address the review comments on #226",
+      },
+    }),
+    session(19, "harbor", "Charts in dark mode", {
+      start: "10:30",
+      minutes: 45,
+      prompts: ["The usage charts are unreadable in dark mode"],
+      files: ["src/charts/theme.ts"],
+      summary: {
+        goal: "Make the usage charts readable in dark mode",
+        done: ["Moved the chart colors to theme tokens"],
+        open: [
+          "[question] Whether the charts should follow the system theme or the app's",
+          "[todo] Check the contrast of the stacked bars",
+        ],
+        next: "Check the stacked bars' contrast against the dark surface",
+      },
+    }),
+    session(20, "atlas", "Flaky export test", {
+      start: "11:30",
+      minutes: 35,
+      prompts: ["The CSV export test fails now and then in CI"],
+      files: ["tests/export.test.ts"],
+      summary: {
+        goal: "Find why the export test is flaky",
+        done: ["Reproduced it once in 40 runs with a slow disk"],
+        open: ["[issue] The export test depends on file write timing (#230)"],
+      },
+    }),
+    session(21, "infra", "Backup restore drill", {
+      start: "12:40",
+      minutes: 40,
+      prompts: ["Walk through restoring last night's backup to a scratch database"],
+      summary: {
+        goal: "Check that last night's backup restores",
+        done: ["Restored it to a scratch database in 11 minutes"],
+        open: ["[waiting] Ops to pick a window for the production drill"],
+      },
+    }),
+    session(22, "atlas", "Rate limit docs", {
+      start: "13:30",
+      minutes: 25,
+      prompts: ["Document the rate limits in the API reference"],
+      files: ["docs/api/rate-limits.md"],
+      summary: {
+        goal: "Document the public API's rate limits",
+        done: ["Wrote the limits and the 429 response"],
+        open: ["[todo] Document the Retry-After header"],
+      },
+    }),
+  ];
+}
+
 const SESSIONS: DemoSession[] = [
   {
     id: sid(1),
@@ -593,6 +678,7 @@ const SESSIONS: DemoSession[] = [
       },
     ],
   },
+  ...pickUpSessions(),
 ];
 
 /** A lighter previous week, so the summary view has something to compare against. */

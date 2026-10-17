@@ -25,6 +25,8 @@ export const keys = {
   recaps: (from: number, to: number) => ["calendar", "recaps", from, to] as const,
   allOpenItems: ["calendar", "open-items"] as const,
   openItems: (from: number, to: number) => ["calendar", "open-items", from, to] as const,
+  // Under the open items, so a hand close refetches it with every period's list
+  pickUp: ["calendar", "open-items", "pick-up"] as const,
 };
 
 /** The kinds of cached data that cover a period [from, to), keyed as `keys.<kind>(from, to)`. */
@@ -44,12 +46,13 @@ export const CALENDAR_KINDS: readonly CachedQuery["kind"][] = [
   ...PERIOD_KINDS,
   "projects",
   "search",
+  "pick-up",
 ];
 
 /** What a cached query holds, read back from its key. */
 export type CachedQuery =
   | { kind: PeriodKind; from: number; to: number }
-  | { kind: "projects" | "search" | "settings" | "live" }
+  | { kind: "projects" | "search" | "settings" | "live" | "pick-up" }
   | { kind: "session" | "messages"; sessionId: string };
 
 /** What the query under this key holds, or null for a key `keys` doesn't build. */
@@ -62,6 +65,7 @@ export function readKey(key: readonly unknown[]): CachedQuery | null {
   if (typeof second === "number" && typeof third === "number")
     return { kind: "calendar", from: second, to: third };
   if (second === "projects" || second === "search") return { kind: second };
+  if (second === "open-items" && third === "pick-up") return { kind: "pick-up" };
   const named = NAMED_PERIOD_KINDS.find((k) => k === second);
   if (named && typeof third === "number" && typeof fourth === "number")
     return { kind: named, from: third, to: fourth };

@@ -25,16 +25,27 @@ export function projectName(
 }
 
 /**
- * Whether `block` is the selected section. With no section start (`selectedAt` null), every block
- * of the selected session counts as selected.
+ * Whether the section of `sessionId` starting at `start` is the selected one. With no section start
+ * (`selectedAt` null), every section of the selected session counts as selected.
  */
+export function isSelectedSection(
+  section: { sessionId: string; start: number },
+  selectedId: string | null,
+  selectedAt: number | null,
+): boolean {
+  return section.sessionId === selectedId && (selectedAt === null || section.start === selectedAt);
+}
+
+/** Whether `block` is the selected section (see `isSelectedSection`). */
 export function isSelected(
   block: DayBlock,
   selectedId: string | null,
   selectedAt: number | null,
 ): boolean {
-  return (
-    block.session.id === selectedId && (selectedAt === null || block.segment.start === selectedAt)
+  return isSelectedSection(
+    { sessionId: block.session.id, start: block.segment.start },
+    selectedId,
+    selectedAt,
   );
 }
 

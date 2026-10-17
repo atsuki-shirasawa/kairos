@@ -6,6 +6,7 @@ test("readKey reads back every key the app builds", () => {
   expect(readKey(keys.spans(1, 2))).toEqual({ kind: "spans", from: 1, to: 2 });
   expect(readKey(keys.recaps(1, 2))).toEqual({ kind: "recaps", from: 1, to: 2 });
   expect(readKey(keys.openItems(1, 2))).toEqual({ kind: "open-items", from: 1, to: 2 });
+  expect(readKey(keys.pickUp)).toEqual({ kind: "pick-up" });
   expect(readKey(keys.projects)).toEqual({ kind: "projects" });
   expect(readKey(keys.search("q"))).toEqual({ kind: "search" });
   expect(readKey(keys.settings)).toEqual({ kind: "settings" });
@@ -38,6 +39,7 @@ test("readKey reads every key in keys, so none is refetched on every event by mi
     recaps: keys.recaps(1, 2),
     allOpenItems: keys.allOpenItems,
     openItems: keys.openItems(1, 2),
+    pickUp: keys.pickUp,
   };
   for (const [name, key] of Object.entries(examples)) {
     // The prefixes only select keys; no query is cached under one

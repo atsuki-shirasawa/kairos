@@ -13,6 +13,11 @@ export const ARTIFACT_GRACE_MS = 5 * MINUTE;
  * away, and a recap says how long it has been open.
  */
 export const OPEN_ITEM_OLD_WEEKS = 4;
+/**
+ * A session idle this many days leaves Pick up on its own: its open items stay in the ledger and
+ * the summary view, but it is no longer what to resume.
+ */
+export const PICK_UP_IDLE_DAYS = 7;
 
 /** Shortest search query (in characters) that is run; shorter ones match nearly everything. */
 export const MIN_SEARCH_CHARS = 2;

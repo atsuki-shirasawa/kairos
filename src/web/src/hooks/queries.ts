@@ -106,14 +106,19 @@ export function useOpenItems(from: number, to: number) {
   return useQuery({ queryKey: keys.openItems(from, to), queryFn: () => api.openItems(from, to) });
 }
 
+/** Sessions with work left to pick up, for the home page (ranked there by `pickUp`). */
+export function usePickUpSessions() {
+  return useQuery({ queryKey: keys.pickUp, queryFn: api.pickUp });
+}
+
 /** Closes an open item by hand (done or won't do), or reopens one closed by hand. */
 export function useUpdateOpenItem() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: ({ id, update }: { id: number; update: OpenItemUpdate }) =>
       api.updateOpenItem(id, update),
-    // Every period's list, the recaps that read the open items (one may turn stale), and the
-    // drawer's sections, which list the items they left open
+    // Every period's list and Pick up, the recaps that read the open items (one may turn stale),
+    // and the drawer's sections, which list the items they left open
     onSettled: () =>
       Promise.all([
         client.invalidateQueries({ queryKey: keys.allOpenItems }),

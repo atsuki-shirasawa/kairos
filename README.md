@@ -5,7 +5,7 @@ A personal web app that keeps the memory of your Claude Code work: what is runni
 > **Kairos** is Greek for "the meaningful moment". Where *chronos* is the time a clock ticks off, *kairos* is the time when something happened — the app gives the hours on a calendar their meaning: what you did then.
 
 - Ingests the logs (`~/.claude/projects/**/*.jsonl`) read-only and stores them in SQLite. Even after Claude Code deletes its logs (30 days by default), Kairos keeps them
-- Opens on Today: the sessions waiting on you and the ones Claude is working on, beside what the last workday was about
+- Opens on Today: the sessions waiting on you and the ones Claude is working on, what recent sessions left to pick up (a card each, with the command that resumes it), beside what the last workday was about
 - Shows every session running now on a page of its own, and which of them are waiting on you
 - Shows a month, a week or a day: the month lists each day's work, the week and day place it at its time
 - Automatically summarizes each work block (section) with `claude -p` (haiku): what was asked, what got settled and what was left open, and keeps the open items until the log or you close them

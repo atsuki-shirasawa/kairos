@@ -1,5 +1,8 @@
 import { defineMessages } from "../index.ts";
 
+/** How many open items a session left, in English. */
+const openCount = (n: number) => (n === 1 ? "1 open item" : `${n} open items`);
+
 /** The home page: what runs now and what the last workday was about. */
 export const todayMessages = defineMessages({
   en: {
@@ -23,6 +26,22 @@ export const todayMessages = defineMessages({
       `No work in the ${days} days before today. If that's unexpected, run kairos doctor.`,
     /** A project's work on the day, for screen readers. */
     projectWork: (project: string) => `${project}'s work`,
+    pickUp: "Pick up",
+    /** No recent session left anything open that Pick up shows. */
+    nothingToPickUp: "Nothing left open to pick up",
+    /** Before the step a session's latest summary said was about to happen. */
+    next: "Next",
+    /** How many of a session's items wait on you. */
+    waiting: (n: number) => `${n} waiting`,
+    /** The toggle showing a session's open items. */
+    openItems: (n: number) => openCount(n),
+    /** The same toggle for screen readers, which name the session it belongs to. */
+    openItemsOf: (n: number, headline: string) => `${openCount(n)}: ${headline}`,
+    /** A session's open items, for screen readers. */
+    itemsOf: (headline: string) => `Open items of ${headline}`,
+    /** Shows the sessions the caps left out. */
+    more: (n: number) => `${n} more`,
+    fewer: "Show less",
   },
   ja: {
     heading: "Today",
@@ -38,5 +57,14 @@ export const todayMessages = defineMessages({
     noWorkYet: (days: number) =>
       `今日より前の ${days} 日間に作業はありません。想定外なら kairos doctor を実行してください。`,
     projectWork: (project: string) => `${project} の作業`,
+    pickUp: "Pick up",
+    nothingToPickUp: "やり残したものはありません",
+    next: "次の一手",
+    waiting: (n: number) => `待ち ${n}`,
+    openItems: (n: number) => `残課題 ${n}`,
+    openItemsOf: (n: number, headline: string) => `残課題 ${n}（${headline}）`,
+    itemsOf: (headline: string) => `${headline} の残課題`,
+    more: (n: number) => `ほか ${n} 件`,
+    fewer: "折りたたむ",
   },
 });

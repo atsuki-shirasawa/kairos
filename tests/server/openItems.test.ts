@@ -6,7 +6,13 @@ import { EventHub } from "../../src/server/events.ts";
 import { loadRecapInput, recapHash } from "../../src/server/summarize/recap.ts";
 import { buildRecapPrompt } from "../../src/server/summarize/recapPrompt.ts";
 import { Summarizer } from "../../src/server/summarize/summarizer.ts";
-import type { LedgerEntry, OpenItemsResponse, SessionDetail } from "../../src/shared/api.ts";
+import type {
+  LedgerEntry,
+  OpenItemsResponse,
+  PickUpResponse,
+  SessionDetail,
+} from "../../src/shared/api.ts";
+import { DAY } from "../../src/shared/dates.ts";
 import { SID } from "../fixtures/ids.ts";
 import { markdownRunner } from "./answers.ts";
 import { min, setup } from "./ingest/helpers.ts";
@@ -175,6 +181,55 @@ describe("PATCH /api/open-items/:id", () => {
     await patch(`/api/open-items/${await idOf("Whether")}`, { state: "dismissed" });
     await summarizer.summarize({ sessionId: SID.ledgerOpen, start: min(1700), mode: "summary" });
     expect((await items()).find((i) => i.text.startsWith("Whether"))?.closedBy).toBe("dismissed");
+  });
+});
+
+describe("GET /api/pick-up", () => {
+  const pickUp = async () => (await get<PickUpResponse>("/api/pick-up")).sessions;
+
+  test("lists a recent session with what its latest summary left still open", async () => {
+    const [session, ...rest] = await pickUp();
+    expect(rest).toEqual([]);
+    expect(session).toMatchObject({
+      sessionId: SID.ledgerOpen,
+      start: min(1700),
+      headline: "CSV export garbled in Excel",
+      next: null,
+    });
+    // The issue and the task were settled by the log; their refs are what the ranking reads
+    expect(session?.items.map((i) => [i.kind, i.text, i.refs])).toEqual([
+      ["question", "Whether to offer UTF-16 output too", []],
+    ]);
+    expect(session?.projectMovedAt).toBeGreaterThanOrEqual(session?.lastActive ?? Infinity);
+  });
+
+  test("reads the next step from the summary", async () => {
+    replies.set("[User] CSV エクスポート", `${OPENING}\n- Next: add the BOM and check in Excel`);
+    await summarizer.summarize({ sessionId: SID.ledgerOpen, start: min(1700), mode: "summary" });
+    expect((await pickUp())[0]?.next).toBe("add the BOM and check in Excel");
+  });
+
+  test("goes by the latest summary: one that left nothing open drops the session", async () => {
+    await summarizer.summarize({ sessionId: SID.ledgerOpen, start: min(1740), mode: "summary" });
+    expect(await pickUp()).toEqual([]);
+    // The earlier item is still open in the ledger, for the summary view and the drawer
+    expect((await items()).find((i) => i.kind === "question")?.closedAt).toBeNull();
+  });
+
+  test("drops a session once its last item is closed by hand", async () => {
+    await patch(`/api/open-items/${await idOf("Whether")}`, { state: "done" });
+    expect(await pickUp()).toEqual([]);
+  });
+
+  test("drops a session continued in another, whose resume would pick up the superseded one", async () => {
+    db.run("UPDATE sessions SET continued_in = 'next' WHERE id = ?", [SID.ledgerOpen]);
+    expect(await pickUp()).toEqual([]);
+  });
+
+  test("drops a session idle for a week", async () => {
+    const [session] = await pickUp();
+    now = (session?.lastActive ?? 0) + 7 * DAY + 1;
+    expect(await pickUp()).toEqual([]);
   });
 });
 
