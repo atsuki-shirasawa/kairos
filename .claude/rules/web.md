@@ -19,7 +19,7 @@ Log text is untrusted (it may contain text copied from web pages). `src/web/src/
 
 ## Components
 
-- Visual design (colors, type, spacing, block states, do's and don'ts) is in `DESIGN.md` at the repository root. Read it before changing how things look, and update it together with `index.css`. Check it with `npx @google/design.md lint DESIGN.md`, and review the change with the `design-reviewer` agent
+- Visual design (colors, type, spacing, shared components, do's and don'ts) is in `DESIGN.md` at the repository root; each screen's layout is in `docs/design/screens.md`, and the reason for each exception in `docs/design/decisions.md`. Read them before changing how things look, and update them together with `index.css`. Check it with `npx @google/design.md lint DESIGN.md`, and review the change with the `design-reviewer` agent
 - shadcn/ui primitives live in `src/web/src/components/ui/`; add new ones there rather than styling Radix directly in feature components
 - Tailwind v4 (CSS-first config in `src/web/src/index.css`, no `tailwind.config.js`). Check the latest docs with context7
 - Keyboard shortcuts are mapped in `lib/shortcuts.ts` and handled in `hooks/useKeyboardShortcuts.ts`. The "⋯" menu's list and the key hints in tooltips are derived from `SHORTCUT_GROUPS` / `keyCap` there, so add a new shortcut to the map and its group rather than to the menu

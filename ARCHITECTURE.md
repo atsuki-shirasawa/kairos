@@ -238,9 +238,10 @@ The screenshots are taken from a fictional week (`scripts/screenshots/demo.ts`) 
 ```
 kairos/
 ├── .claude/            # Claude Code setup: path-scoped rules, hooks, skills, agents
+├── docs/design/        # screens.md (each screen's layout), decisions.md (why a screen bends a rule)
 ├── docs/images/        # architecture diagram (rendered PNG and its Archify source) and screenshots
 ├── ARCHITECTURE.md     # this file
-├── DESIGN.md           # visual design for agents (DESIGN.md format)
+├── DESIGN.md           # visual design for agents (DESIGN.md format): principles, tokens, shared components
 ├── scripts/            # check-jsdoc.ts; screenshots/ (fictional demo week, stress day, docs capture, visual check)
 ├── src/
 │   ├── cli/            # the kairos command: index.ts (entry: parse → context → command → exit code), args.ts

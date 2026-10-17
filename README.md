@@ -1,12 +1,13 @@
 # <img src="src/web/public/favicon.svg" width="32" alt=""> Kairos
 
-A personal web app that turns your Claude Code session history into a calendar, so you can look back on what you were doing on a given day and at a given time.
+A personal web app that keeps the memory of your Claude Code work: what is running now, what is left to pick up, and — on a calendar — what you were doing on a given day and at a given time.
 
 > **Kairos** is Greek for "the meaningful moment". Where *chronos* is the time a clock ticks off, *kairos* is the time when something happened — the app gives the hours on a calendar their meaning: what you did then.
 
 - Ingests the logs (`~/.claude/projects/**/*.jsonl`) read-only and stores them in SQLite. Even after Claude Code deletes its logs (30 days by default), Kairos keeps them
+- Shows the sessions running now, and which of them are waiting on you
 - Shows a month, a week or a day: the month lists each day's work, the week and day place it at its time
-- Automatically summarizes each work block (section) with `claude -p` (haiku)
+- Automatically summarizes each work block (section) with `claude -p` (haiku): what was asked, what got settled and what was left open, and keeps the open items until the log or you close them
 - Searches every period by summaries, prompts and replies, PR and commit titles, and branches; `file:<path>` finds the work that edited a file
 - A summary view with working time, PRs, commits, tokens and estimated cost against the previous period, and per-project recaps written on request
 - Copies the shown period as a Markdown report (by day and project, with PR links) for a stand-up or a weekly report, and copies `claude --resume` for any session
@@ -15,19 +16,20 @@ A personal web app that turns your Claude Code session history into a calendar, 
 
 ![Kairos week view with the detail drawer](docs/images/screen-week.png)
 
-Design docs: [Architecture](ARCHITECTURE.md) / [Design](DESIGN.md)
+Design docs: [Architecture](ARCHITECTURE.md) / [Design](DESIGN.md) ([screens](docs/design/screens.md), [decisions](docs/design/decisions.md))
 
 ## Goals
 
-**See at a glance what you were doing on a given day and at a given time.** That shapes the rest:
+**See at a glance what is running and what is left open; the past is reachable from there.** Watching and resuming happen many times a day, looking back once a day or once a week, so the first answers come first. That shapes the rest:
 
-- What you did comes first; numbers (tokens, cost, snags) stay in the background
+- What needs you comes first: a session waiting on you, then what is left to pick up, then what was done. Numbers (tokens, cost, snags) stay in the background
+- Looking back stays a calendar: when something happened is still the way into it
 - Blocks are readable even in the week view, and each one is named by its summary
 - History outlives Claude Code's log retention (about 30 days), because it lives in Kairos's own DB
 - The screen appears right away: it renders from the DB, and ingest reads only what was appended
 - Summaries are written in the background, so they are already there when you open a block
 
-**Not in scope:** detailed cost and token analysis (only period totals and estimates are shown), team sharing or public access, acting on sessions (Kairos copies the resume command but never runs it), and syncing across machines. It is built for one personal Mac.
+**Not in scope:** task management for open items (no snooze, due dates or priorities: an item is done, won't be done, or was never an open item, and old ones fade out on their own), detailed cost and token analysis (only period totals and estimates are shown), team sharing or public access, acting on sessions (Kairos copies the resume command but never runs it), and syncing across machines. It is built for one personal Mac.
 
 Ideas for later: a monthly heat map, logs from other tools such as Codex, notes and tags on blocks.
 
