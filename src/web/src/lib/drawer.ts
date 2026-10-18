@@ -2,7 +2,6 @@
 // shows, and how outcomes, subagents and summary failures are grouped. Kept free of React and
 // messages so they can be tested on their own.
 import type { Artifact, Section, SessionDetail, Subagent, Usage } from "@shared/api.ts";
-import { ARTIFACT_GRACE_MS } from "@shared/constants.ts";
 import type { SummaryParts } from "@shared/summaryBody.ts";
 import { type OutcomeNode, outcomeNode } from "./artifacts.ts";
 import { isSameDay } from "./dates.ts";
@@ -53,10 +52,10 @@ export function flowWindow(
 
 /**
  * Whether an outcome belongs to the section. A commit or PR often lands just after the last
- * message, so the end gets a grace period.
+ * message, so the server gives the section a little time after its end (`outputsUntil`).
  */
 export function inSection(a: Artifact, section: Section): boolean {
-  return a.ts !== null && a.ts >= section.start && a.ts <= section.end + ARTIFACT_GRACE_MS;
+  return a.ts !== null && a.ts >= section.start && a.ts <= section.outputsUntil;
 }
 
 /**

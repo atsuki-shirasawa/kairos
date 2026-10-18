@@ -1,9 +1,9 @@
 import type { Database } from "bun:sqlite";
 import { beforeEach, describe, expect, test } from "bun:test";
+import { ARTIFACT_GRACE_MS } from "../../../src/server/db/blockOutputs.ts";
 import { openDb } from "../../../src/server/db/index.ts";
 import { blocksActivity, blocksArtifacts } from "../../../src/server/queries/activity.ts";
 import type { BlockSet } from "../../../src/server/queries/sql.ts";
-import { ARTIFACT_GRACE_MS } from "../../../src/shared/constants.ts";
 
 let db: Database;
 let seq = 0;
@@ -108,5 +108,15 @@ describe("blocksArtifacts", () => {
     expect(of("a", 1_000_000).commits.map((c) => c.ref)).toEqual(["c1", "c2"]);
     expect(of("a", 1_000_000).prs.map((p) => p.ref)).toEqual(["#1"]);
     expect(of("a", 100)).toEqual({ prs: [], commits: [] });
+  });
+
+  test("stops the grace where the session's next block starts, so nothing counts twice", () => {
+    // A block split off on a topic change starts a minute after the one before
+    db.run("INSERT INTO segments (session_id, start, end) VALUES ('a', 2060000, 2500000)");
+    artifact("a", "pr", "#3", 2_030_000);
+    artifact("a", "pr", "#4", 2_060_000);
+    const of = blocksArtifacts(db, ALL);
+    expect(of("a", 1_000_000).prs.map((p) => p.ref)).toEqual(["#3"]);
+    expect(of("a", 2_060_000).prs.map((p) => p.ref)).toEqual(["#4"]);
   });
 });

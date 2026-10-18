@@ -2,8 +2,8 @@
 // without trusting the model to spot it in a clipped transcript.
 import type { Database } from "bun:sqlite";
 import { prShortRef } from "../../shared/artifacts.ts";
-import { ARTIFACT_GRACE_MS } from "../../shared/constants.ts";
 import { MINUTE } from "../../shared/dates.ts";
+import { outputsUntilSql } from "../db/blockOutputs.ts";
 import { titleAfter } from "../ingest/prs.ts";
 import { type TaskState, taskStates } from "../tasks.ts";
 import { isTestRun, lastTestRun } from "../testRuns.ts";
@@ -19,8 +19,7 @@ import {
 
 /**
  * How long after a section's end its recap may come. Claude Code writes a recap about 3 minutes
- * (at most about 6) after the last activity; work blocks are split by gaps of 15, so this never
- * reaches the next block.
+ * (at most about 6) after the last activity; the window stops where the next block starts.
  */
 export const NOTE_GRACE_MS = 10 * MINUTE;
 /** Cap on the facts block. It comes before the transcript; past the cap, whole lines are dropped. */
@@ -215,30 +214,48 @@ export function formatFacts(f: FactsInput): string {
 
 /** Reads the section's facts from the DB: its main conversation's own, non-scheduled records. */
 export function loadFacts(db: Database, sessionId: string, start: number, end: number): FactsInput {
+  const until = outputWindows(db, sessionId, start, end);
   return {
-    artifacts: loadArtifacts(db, sessionId, start, end),
+    artifacts: loadArtifacts(db, sessionId, start, until.artifacts),
     calls: loadToolCalls(db, sessionId, start, end),
     tasks: taskStates(loadTaskCalls(db, sessionId, end), start),
     interrupts: countInterrupts(db, sessionId, start, end),
     // A recap comes after the section's last activity; a compaction happens inside it
-    recaps: loadNotes(db, sessionId, "away_summary", start, end + NOTE_GRACE_MS),
+    recaps: loadNotes(db, sessionId, "away_summary", start, until.recaps),
     compactSummaries: loadNotes(db, sessionId, "compact_summary", start, end),
   };
 }
 
-/** Commits, PRs and merges of the section, including those recorded just after it ends. */
+/** The last moments whose artifacts and recaps the section owns (see `outputsUntilSql`). */
+interface OutputWindows {
+  artifacts: number;
+  recaps: number;
+}
+
+/** Reads the section's `OutputWindows`; a SELECT without FROM always gives its one row. */
+function outputWindows(db: Database, sessionId: string, start: number, end: number): OutputWindows {
+  const block = { session: "?1", start: "?2", end: "?3" };
+  return db
+    .query<OutputWindows, [string, number, number]>(
+      `SELECT ${outputsUntilSql(block)} AS artifacts,
+              ${outputsUntilSql(block, NOTE_GRACE_MS)} AS recaps`,
+    )
+    .get(sessionId, start, end) as OutputWindows;
+}
+
+/** Commits, PRs and merges of the section, including those recorded up to `until`, just after it. */
 function loadArtifacts(
   db: Database,
   sessionId: string,
   start: number,
-  end: number,
+  until: number,
 ): FactArtifact[] {
   return db
     .query<FactArtifact, [string, number, number]>(
       `SELECT kind, ref, title FROM artifacts
        WHERE session_id = ? AND is_copy = 0 AND ts BETWEEN ? AND ? ORDER BY ts, kind`,
     )
-    .all(sessionId, start, end + ARTIFACT_GRACE_MS);
+    .all(sessionId, start, until);
 }
 
 /** Texts of the main conversation's own messages of one kind in [from, to], in time order. */

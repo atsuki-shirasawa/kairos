@@ -3,6 +3,7 @@
 import type { Database } from "bun:sqlite";
 import type { Activity, CalendarSegment, Section, Usage } from "../../shared/api.ts";
 import { isSummarizable } from "../../shared/sections.ts";
+import { blockOutputsUntilSql } from "../db/blockOutputs.ts";
 import { STALE_SUMMARY_SQL } from "../summarize/blocks.ts";
 import { type BlockArtifacts, blocksActivity } from "./activity.ts";
 import type { BlockLookup, BlockSet } from "./sql.ts";
@@ -14,6 +15,8 @@ export interface SectionRow {
   session_id: string;
   start: number;
   end: number;
+  /** The last moment whose outputs (commits, PRs) the block owns (see `blockOutputsUntilSql`). */
+  outputs_until: number;
   prompt_count: number;
   fallback_title: string | null;
   headline: string | null;
@@ -26,7 +29,9 @@ export interface SectionRow {
 }
 
 /** A section and its summary, if any; `sectionRows` adds the scope. */
-const SECTION_SELECT = `SELECT g.session_id, g.start, g.end, g.prompt_count, g.fallback_title,
+const SECTION_SELECT = `SELECT g.session_id, g.start, g.end,
+         ${blockOutputsUntilSql("g")} AS outputs_until,
+         g.prompt_count, g.fallback_title,
          sm.headline, sm.short, sm.body, sm.model, sm.created_at,
          sm.block_id IS NOT NULL AND ${STALE_SUMMARY_SQL} AS stale
   FROM segments g LEFT JOIN summaries sm ON sm.block_id = g.id`;
@@ -118,6 +123,7 @@ export function toSection(
   return {
     start: g.start,
     end: g.end,
+    outputsUntil: g.outputs_until,
     promptCount: g.prompt_count,
     headline: sectionHeadline(g, sessionTitle),
     short: g.short,

@@ -210,6 +210,11 @@ export interface Subagent {
 export interface Section {
   start: number;
   end: number;
+  /**
+   * The last moment whose commits and PRs the section owns: a grace period after its end, cut
+   * where the session's next section starts.
+   */
+  outputsUntil: number;
   promptCount: number;
   /** AI summary headline; otherwise the first line of the first prompt (or of Claude's last reply). */
   headline: string;

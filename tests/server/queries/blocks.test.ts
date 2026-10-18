@@ -29,6 +29,7 @@ const row = (over: Partial<SectionRow> = {}): SectionRow => ({
   session_id: "s1",
   start: 1000,
   end: 2000,
+  outputs_until: 2000,
   prompt_count: 2,
   fallback_title: null,
   headline: null,

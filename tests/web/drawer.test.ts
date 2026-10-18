@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import type { Activity, Artifact, Section, Subagent, Usage } from "../../src/shared/api.ts";
-import { ARTIFACT_GRACE_MS } from "../../src/shared/constants.ts";
 import type { SummaryParts } from "../../src/shared/summaryBody.ts";
 import {
   flowWindow,
@@ -15,10 +14,13 @@ import {
 
 const DAY0 = new Date(2026, 9, 5).getTime(); // 2026-10-05 00:00
 const H = 3_600_000;
+/** The grace the server gives a section for outputs recorded after its end. */
+const GRACE = 300_000;
 
 const section = (start: number, end = start + H): Section => ({
   start,
   end,
+  outputsUntil: end + GRACE,
   promptCount: 1,
   headline: "",
   short: null,
@@ -101,10 +103,21 @@ describe("flowWindow", () => {
 });
 
 describe("splitOutcomes", () => {
+  test("keeps outcomes up to the section's outputsUntil, as the server cut it", () => {
+    const s = { ...section(DAY0, DAY0 + H), outputsUntil: DAY0 + H + 60_000 };
+    const { here, rest } = splitOutcomes(
+      [],
+      [artifact(DAY0 + H + 60_000), artifact(DAY0 + H + 60_001)],
+      s,
+    );
+    expect(here.map((a) => a.ts)).toEqual([DAY0 + H + 60_000]);
+    expect(rest.map((a) => a.ts)).toEqual([DAY0 + H + 60_001]);
+  });
+
   test("keeps outcomes within the grace period in the section, in time order", () => {
     const s = section(DAY0, DAY0 + H);
-    const late = artifact(DAY0 + H + ARTIFACT_GRACE_MS);
-    const tooLate = artifact(DAY0 + H + ARTIFACT_GRACE_MS + 1);
+    const late = artifact(DAY0 + H + GRACE);
+    const tooLate = artifact(DAY0 + H + GRACE + 1);
     const pr = artifact(DAY0 + 10, "pr");
     const undated = artifact(null);
     const { here, rest } = splitOutcomes([pr], [late, tooLate, undated], s);

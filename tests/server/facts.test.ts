@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { openDb } from "../../src/server/db/index.ts";
 import { buildDigest } from "../../src/server/summarize/digest.ts";
 import {
   compactPending,
@@ -6,6 +7,7 @@ import {
   type FactsInput,
   formatFacts,
   issueOps,
+  loadFacts,
   questionsOf,
   testSummary,
 } from "../../src/server/summarize/facts.ts";
@@ -261,5 +263,31 @@ describe("buildDigest", () => {
         "  → Bash: bun test",
       ].join("\n"),
     );
+  });
+});
+
+describe("loadFacts", () => {
+  test("a recap and a PR just after the section stay out once the next block has started", () => {
+    const db = openDb(":memory:");
+    db.run(
+      "INSERT INTO ingest_state (id, path, session_id, parser_version) VALUES (1, 'f', 's', 1)",
+    );
+    db.run("INSERT INTO sessions (id) VALUES ('s')");
+    db.run("INSERT INTO segments (session_id, start, end) VALUES ('s', 0, 600000)");
+    const note = db.query(
+      "INSERT INTO messages (id, session_id, file_id, seq, ts, kind, text) VALUES (?, 's', 1, ?, ?, 'away_summary', ?)",
+    );
+    const pr = db.query(
+      "INSERT INTO artifacts (session_id, kind, ref, ts, file_id) VALUES ('s', 'pr', ?, ?, 1)",
+    );
+    note.run("n1", 1, 780_000, "stood at review");
+    pr.run("#7", 840_000);
+    expect(loadFacts(db, "s", 0, 600_000)).toMatchObject({
+      recaps: ["stood at review"],
+      artifacts: [{ ref: "#7" }],
+    });
+    // A block split off on a topic change starts a minute after the first ends
+    db.run("INSERT INTO segments (session_id, start, end) VALUES ('s', 660000, 3600000)");
+    expect(loadFacts(db, "s", 0, 600_000)).toMatchObject({ recaps: [], artifacts: [] });
   });
 });

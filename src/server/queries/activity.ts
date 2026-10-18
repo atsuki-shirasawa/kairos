@@ -3,7 +3,6 @@
 // query over a whole set of blocks (see `BlockSet`), not one per block.
 import type { Database } from "bun:sqlite";
 import type { Activity, Artifact } from "../../shared/api.ts";
-import { ARTIFACT_GRACE_MS } from "../../shared/constants.ts";
 import { sqlList } from "../db/sqlList.ts";
 import { EDIT_TOOL_NAMES } from "../editTools.ts";
 import {
@@ -15,6 +14,7 @@ import {
   groupByBlock,
   listedArtifactsSql,
   lookupByBlock,
+  ownOutputsInBlock,
   ownRowsInBlock,
   valueByBlock,
   withBlocks,
@@ -88,7 +88,7 @@ export function blocksArtifacts(db: Database, set: BlockSet): BlockLookup<BlockA
     .query<Artifact & BlockRef, (string | number)[]>(
       `${withBlocks(set)}
        SELECT ${BLOCK_COLUMNS}, a.kind, a.ref, a.title, a.ts
-       FROM b CROSS JOIN artifacts a ON ${ownRowsInBlock("a", ARTIFACT_GRACE_MS)}
+       FROM b CROSS JOIN artifacts a ON ${ownOutputsInBlock("a")}
        WHERE ${listedArtifactsSql("a")}
        ORDER BY a.ts`,
     )
@@ -152,7 +152,7 @@ function artifactCounts(db: Database, set: BlockSet): Map<string, ArtifactCounts
         `${withBlocks(set)}
          SELECT ${BLOCK_COLUMNS}, SUM(a.kind = 'commit') AS commits, SUM(a.kind = 'pr') AS prs,
                 SUM(a.kind = 'merge') AS merges
-         FROM b CROSS JOIN artifacts a ON ${ownRowsInBlock("a", ARTIFACT_GRACE_MS)}
+         FROM b CROSS JOIN artifacts a ON ${ownOutputsInBlock("a")}
          GROUP BY b.session_id, b.start`,
       )
       .all(...set.params),

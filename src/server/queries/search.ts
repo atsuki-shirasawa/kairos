@@ -4,7 +4,7 @@
 
 import type { Database } from "bun:sqlite";
 import type { SearchField, SearchHit } from "../../shared/api.ts";
-import { ARTIFACT_GRACE_MS } from "../../shared/constants.ts";
+import { blockOutputsUntilSql } from "../db/blockOutputs.ts";
 import { sqlList } from "../db/sqlList.ts";
 import { EDIT_TOOL_NAMES } from "../editTools.ts";
 import { listedArtifactsSql } from "./sql.ts";
@@ -66,7 +66,7 @@ const SEARCH_SOURCES = `
       UNION ALL
       SELECT g.session_id, g.start, a.kind, COALESCE(a.title, '') || char(10) || a.ref
         FROM artifacts a JOIN segments g ON g.session_id = a.session_id
-         AND a.ts BETWEEN g.start AND g.end + ${ARTIFACT_GRACE_MS}
+         AND a.ts BETWEEN g.start AND ${blockOutputsUntilSql("g")}
        WHERE ${listedArtifactsSql("a")}
 `;
 

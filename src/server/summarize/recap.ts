@@ -3,9 +3,9 @@
 // small and a recap reads like the summaries it is built on. This module loads the input and
 // fingerprints it; `recapPrompt.ts` turns it into the prompt.
 import type { Database } from "bun:sqlite";
-import { ARTIFACT_GRACE_MS } from "../../shared/constants.ts";
 import { closedUndone, HAND_CLOSES, isOpenAt } from "../../shared/openItems.ts";
 import type { OpenKind } from "../../shared/summaryBody.ts";
+import { blockOutputsUntilSql } from "../db/blockOutputs.ts";
 import { openItemsIn } from "./ledger/openItems.ts";
 
 /** Most commit subjects a recap is given; the PRs and sections say the rest. */
@@ -75,13 +75,16 @@ export function loadRecapInput(db: Database, t: RecapTarget): RecapInput | null 
         session_id: string;
         start: number;
         end: number;
+        until: number;
         headline: string | null;
         body: string | null;
         title: string | null;
       },
       [number, number, number]
     >(
-      `SELECT g.session_id, g.start, g.end, COALESCE(sm.headline, g.fallback_title) AS headline,
+      `SELECT g.session_id, g.start, g.end,
+              ${blockOutputsUntilSql("g")} AS until,
+              COALESCE(sm.headline, g.fallback_title) AS headline,
               NULLIF(sm.body, '') AS body,
               COALESCE(s.custom_title, s.agent_name, s.ai_title, substr(s.first_prompt, 1, 120)) AS title
        FROM segments g
@@ -126,7 +129,7 @@ function loadLedger(db: Database, t: RecapTarget): RecapLedger {
 /** PRs (first title per ref) and commit subjects made during the sections, in time order. */
 function collectArtifacts(
   db: Database,
-  sections: { session_id: string; start: number; end: number }[],
+  sections: { session_id: string; start: number; until: number }[],
 ): Pick<RecapInput, "prs" | "commits"> {
   const artifacts = db.query<
     { kind: string; ref: string; title: string | null },
@@ -139,7 +142,7 @@ function collectArtifacts(
   const prs = new Map<string, string | null>();
   const commits: string[] = [];
   for (const r of sections) {
-    for (const a of artifacts.all(r.session_id, r.start, r.end + ARTIFACT_GRACE_MS)) {
+    for (const a of artifacts.all(r.session_id, r.start, r.until)) {
       if (a.kind === "pr") {
         if (!prs.has(a.ref)) prs.set(a.ref, a.title);
       } else if (a.title && commits.length < MAX_COMMITS)

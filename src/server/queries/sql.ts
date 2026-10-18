@@ -1,5 +1,6 @@
 // SQL conditions several query modules share, so they can't drift apart.
 import type { Artifact } from "../../shared/api.ts";
+import { blockOutputsUntilSql } from "../db/blockOutputs.ts";
 import { sqlList } from "../db/sqlList.ts";
 
 /**
@@ -12,19 +13,32 @@ export interface BlockSet {
   params: (string | number)[];
 }
 
-/** Opens a batched block query: the set's blocks as the CTE `b`, which `ownRowsInBlock` joins on. */
+/**
+ * Opens a batched block query: the set's blocks as the CTE `b`, which `ownRowsInBlock` and
+ * `ownOutputsInBlock` join on, with `until`, the end of the outputs each block owns.
+ */
 export function withBlocks(set: BlockSet): string {
-  return `WITH b(session_id, start, end) AS (${set.sql})`;
+  const until = blockOutputsUntilSql("s");
+  return `WITH s(session_id, start, end) AS (${set.sql}),
+       b AS (SELECT s.session_id, s.start, s.end, ${until} AS until FROM s)`;
+}
+
+/** Join condition: the rows of `alias` in the session of block `b`, not copied from the one it continued. */
+function ownRows(alias: string): string {
+  return `${alias}.session_id = b.session_id AND ${alias}.is_copy = 0`;
+}
+
+/** Join condition keeping the rows of table `alias` that a block `b` owns: those within it. */
+export function ownRowsInBlock(alias: string): string {
+  return `${ownRows(alias)} AND ${alias}.ts BETWEEN b.start AND b.end`;
 }
 
 /**
- * Join condition keeping the rows of table `alias` that a block `b` owns: its session's rows
- * within the block (allowing `graceMs` after its end), leaving out copies from the session it
- * continued.
+ * Join condition keeping the outputs (artifacts) a block `b` owns: those within it or recorded
+ * just after it (see `outputsUntilSql`).
  */
-export function ownRowsInBlock(alias: string, graceMs = 0): string {
-  const end = graceMs > 0 ? `b.end + ${graceMs}` : "b.end";
-  return `${alias}.session_id = b.session_id AND ${alias}.is_copy = 0 AND ${alias}.ts BETWEEN b.start AND ${end}`;
+export function ownOutputsInBlock(alias: string): string {
+  return `${ownRows(alias)} AND ${alias}.ts BETWEEN b.start AND b.until`;
 }
 
 /** Columns naming the block a batched query's row belongs to, read back by `blockKey`. */
