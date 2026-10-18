@@ -4,6 +4,7 @@
 import type {
   OpenItemUpdate,
   ProjectUpdate,
+  PrRef,
   RecapRequest,
   SettingsUpdate,
 } from "../../shared/api.ts";
@@ -53,6 +54,16 @@ export function parseRange(
 export function parseSearchQuery(param: string | undefined): string | null {
   const query = (param ?? "").trim().slice(0, MAX_QUERY_CHARS);
   return [...query].length < MIN_SEARCH_CHARS ? null : query;
+}
+
+/** A repository key as projects hold it: `host/owner/name`. */
+const REPO_KEY_RE = /^[\w.-]+\/[\w.-]+\/[\w.-]+$/;
+
+/** Validates `GET /api/prs`'s `repo` and `number`; null unless both name a PR. */
+export function parsePrRef(repo: string | undefined, number: string | undefined): PrRef | null {
+  const n = Number(number);
+  if (!repo || !REPO_KEY_RE.test(repo) || !/^\d+$/.test(number ?? "") || n < 1) return null;
+  return { repo, number: n };
 }
 
 /**

@@ -4,6 +4,7 @@
 import type { Database } from "bun:sqlite";
 import { readKv, writeKv } from "../db/kv.ts";
 import type { ProjectPlacer } from "./placement.ts";
+import { type BlockOutput, blockRefs } from "./prRefs.ts";
 import { carryIds, type StoredBlock, unchanged, workBlocks } from "./segments.ts";
 import type { ActivityRow, AggregateRow, Statements } from "./statements.ts";
 import type { PrMark } from "./topics.ts";
@@ -32,7 +33,9 @@ export class DerivedData {
   refreshSession(sessionId: string): void {
     if (this.q.hasPredecessor.get(sessionId)) this.markCopies(sessionId);
     this.updateAggregates(sessionId);
-    this.rebuildBlocks(sessionId);
+    const activity = this.q.activity.all(sessionId) as ActivityRow[];
+    this.rebuildBlocks(sessionId, activity);
+    this.linkRefs(sessionId, activity);
   }
 
   /** Refreshes a main session and the session continuing it, returning the IDs refreshed. */
@@ -64,8 +67,7 @@ export class DerivedData {
    * Replaces the session's work blocks with ones recomputed from its activity, carrying each
    * stored block's id to the new block it overlaps most (see `carryIds`).
    */
-  private rebuildBlocks(sessionId: string): void {
-    const activity = this.q.activity.all(sessionId) as ActivityRow[];
+  private rebuildBlocks(sessionId: string, activity: ActivityRow[]): void {
     const prs = this.q.prsOpened.all(sessionId) as PrMark[];
     const blocks = workBlocks(activity, prs, this.opts.gapMs);
     const stored = this.q.storedBlocks.all(sessionId) as StoredBlock[];
@@ -78,6 +80,20 @@ export class DerivedData {
       if (byId.get(id)?.start !== block.start) this.q.parkBlock.run(id);
     for (const { id, block } of changed) this.q.updateBlock.run({ ...block, id });
     for (const block of changes.added) this.q.insertBlock.run({ ...block, sessionId });
+  }
+
+  /**
+   * Replaces the issue / PR numbers the session's blocks touched (see `blockRefs`). Run again for a
+   * session that moved to another project, since its numbers belong to that project's repository.
+   */
+  linkRefs(sessionId: string, activity = this.q.activity.all(sessionId) as ActivityRow[]): void {
+    const repo = this.placer.sessionRepo(sessionId);
+    const blocks = (this.q.storedBlocks.all(sessionId) as StoredBlock[]).sort(
+      (a, b) => a.start - b.start,
+    );
+    const outputs = this.q.blockOutputs.all(sessionId) as BlockOutput[];
+    this.q.clearBlockRefs.run(sessionId);
+    for (const ref of blockRefs(blocks, activity, outputs, repo)) this.q.insertBlockRef.run(ref);
   }
 
   /** Folds a stored block into the one it merged with, moving what references it, then drops it. */

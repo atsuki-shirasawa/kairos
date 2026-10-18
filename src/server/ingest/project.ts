@@ -106,11 +106,21 @@ export function encodeDir(path: string): string {
   return path.replace(/[^a-zA-Z0-9]/g, "-");
 }
 
+/** A repository as a git remote or a PR URL names it. */
+export interface RemoteKey {
+  /** `host/owner/name`, the key projects group by. */
+  key: string;
+  /** The repository's own name. */
+  name: string;
+  /** `owner/name`, as GitHub writes it. */
+  fullName: string;
+}
+
 /**
  * The repository (`host/owner/repo` key and name) of a PR URL such as
  * `https://github.com/owner/repo/pull/12`, in the same form `parseRemote` gives a git remote.
  */
-export function repoOfPrUrl(url: string): { key: string; name: string } | null {
+export function repoOfPrUrl(url: string): RemoteKey | null {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -136,7 +146,7 @@ export function worktreeName(path: string): string | null {
  * Extracts the grouping key (`host/owner/repo`) and repository name from a remote URL.
  * Credentials that may be in the URL are kept out of the key (so they never reach the DB).
  */
-export function parseRemote(url: string): { key: string; name: string } | null {
+export function parseRemote(url: string): RemoteKey | null {
   const u = url.trim();
   let host: string;
   let path: string;
@@ -164,7 +174,7 @@ export function parseRemote(url: string): { key: string; name: string } | null {
   const key = `${host.toLowerCase()}/${path}`;
   // URLs of unknown shape (which may carry credentials or queries) are not grouped; fall back to the directory name
   if (/[@?#:\s%]/.test(key)) return null;
-  return { key, name };
+  return { key, name, fullName: path };
 }
 
 /** How many local clones `readGitRemote` follows to reach a remote (a clone of a clone of …). */

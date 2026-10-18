@@ -107,6 +107,7 @@ describe("temporary directories", () => {
     expect(repoOfPrUrl("https://github.com/me/app/pull/12")).toEqual({
       key: "github.com/me/app",
       name: "app",
+      fullName: "me/app",
     });
     expect(repoOfPrUrl("https://github.com/me/app/issues/12")).toBeNull();
     expect(repoOfPrUrl("not a url")).toBeNull();
@@ -121,12 +122,17 @@ describe("parseRemote", () => {
       "ssh://git@github.com/Owner/repo",
       "https://GitHub.com/Owner/repo/",
     ])
-      expect(parseRemote(url)).toEqual({ key: "github.com/Owner/repo", name: "repo" });
+      expect(parseRemote(url)).toEqual({
+        key: "github.com/Owner/repo",
+        name: "repo",
+        fullName: "Owner/repo",
+      });
   });
   test("keeps URL credentials out of the key", () => {
     expect(parseRemote("https://x-access-token:secret@github.com/o/r.git")).toEqual({
       key: "github.com/o/r",
       name: "r",
+      fullName: "o/r",
     });
   });
   test("does not group by URLs whose shape may leave credentials or queries", () => {
@@ -136,6 +142,7 @@ describe("parseRemote", () => {
     expect(parseRemote("git@github.com:o/r.git?token=abc")).toEqual({
       key: "github.com/o/r",
       name: "r",
+      fullName: "o/r",
     });
   });
   test("ignores local-path remotes", () => {

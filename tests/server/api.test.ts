@@ -9,6 +9,7 @@ import type {
   LiveResponse,
   Message,
   MessagesResponse,
+  PrHistory,
   Project,
   SearchResponse,
   SessionDetail,
@@ -203,6 +204,50 @@ describe("GET /api/search", () => {
     // The headless session's only reply is "ok"
     const res = await search("ok");
     expect(res.hits.map((h) => h.sessionId)).not.toContain(SID.headless);
+  });
+});
+
+describe("GET /api/prs", () => {
+  test("a PR's title, when it was opened and merged, and the blocks that touched it", async () => {
+    const pr = await json<PrHistory>("/api/prs?repo=github.com/me/app&number=42");
+    expect(pr).toMatchObject({
+      repo: "github.com/me/app",
+      number: 42,
+      url: "https://github.com/me/app/pull/42",
+      openedAt: min(48),
+      mergedAt: null,
+    });
+    expect(pr.blocks.map((b) => [b.sessionId, b.start, b.how])).toEqual([
+      [SID.basic, min(45), ["opened"]],
+    ]);
+  });
+
+  test("a merge joins its PR by the session's repository", async () => {
+    const pr = await json<PrHistory>("/api/prs?repo=github.com/me/app&number=46");
+    expect(pr.mergedAt).not.toBeNull();
+    expect(pr.blocks.map((b) => [b.sessionId, b.how])).toEqual([
+      [SID.merges, ["merged", "worked"]],
+    ]);
+  });
+
+  test("400 for a malformed ref and 404 for a number the logs never name", async () => {
+    expect((await get("/api/prs?repo=me/app&number=42")).status).toBe(400);
+    expect((await get("/api/prs?repo=github.com/me/app&number=x")).status).toBe(400);
+    expect((await get("/api/prs?repo=github.com/me/app&number=99999")).status).toBe(404);
+  });
+
+  test("404 for a PR no visible block touched, though hidden work knew it", async () => {
+    // Only the headless session's block names #777, and headless sessions are hidden by default
+    const block = db
+      .query<{ id: number }, [string]>("SELECT id FROM segments WHERE session_id = ? LIMIT 1")
+      .get(SID.headless);
+    if (!block) throw new Error("the headless fixture has no block");
+    db.run(
+      `INSERT INTO block_refs (block_id, repo, number, how, ts, title)
+       VALUES (?, 'github.com/me/app', 777, 'opened', 1, 'secret')`,
+      [block.id],
+    );
+    expect((await get("/api/prs?repo=github.com/me/app&number=777")).status).toBe(404);
   });
 });
 

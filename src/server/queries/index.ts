@@ -8,8 +8,10 @@ import type {
   MessagesResponse,
   OpenItemUpdate,
   PickUpSession,
+  PrHistory,
   Project,
   ProjectUpdate,
+  PrRef,
   Recap,
   SessionDetail,
   Span,
@@ -21,6 +23,7 @@ import { calendarSessions, neighbors, spans } from "./calendar.ts";
 import { type MessagesOptions, messagesPage } from "./messages.ts";
 import { pickUpSessions } from "./pickUp.ts";
 import { updateProject, visibleProjects } from "./projects.ts";
+import { prHistory } from "./prs.ts";
 import { projectRecaps } from "./recaps.ts";
 import { SEARCH_LIMIT, type SearchResult, searchBlocks } from "./search.ts";
 import { hasSection, hasSession, sessionDetail } from "./sessions.ts";
@@ -73,6 +76,11 @@ export class Queries {
   /** Open items of human work that were open at some point in [from, to), oldest first. */
   openItems(from: number, to: number): LedgerEntry[] {
     return openItemsIn(this.db, from, to);
+  }
+
+  /** One PR's work across visible sessions, or null when the logs know nothing of it (see `prHistory`). */
+  pr(ref: PrRef): PrHistory | null {
+    return prHistory(this.db, this.visible(), ref);
   }
 
   /** Recent sessions whose latest summary left items still open (see `pickUpSessions`). */

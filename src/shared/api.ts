@@ -186,6 +186,47 @@ export interface SearchResponse {
   more: boolean;
 }
 
+/**
+ * How a work block touched a PR (or the issue that shares its number): it opened or merged the PR,
+ * worked on it (a `gh pr` command or the PR's URL), or only mentioned the number (#12).
+ */
+export const PR_TOUCHES = ["opened", "merged", "worked", "mentioned"] as const;
+/** One of `PR_TOUCHES`. */
+export type PrTouch = (typeof PR_TOUCHES)[number];
+
+/**
+ * A PR by its repository (`host/owner/name`, as projects key it) and number. Issues share the
+ * number space, so it names an issue too. A type alias, so it binds by name to bun:sqlite.
+ */
+export type PrRef = {
+  repo: string;
+  number: number;
+};
+
+/** A work block that touched a PR, as `GET /api/prs` lists it. */
+export interface PrBlock {
+  sessionId: string;
+  projectId: number | null;
+  /** Worktree name etc. */
+  label: string | null;
+  start: number;
+  end: number;
+  headline: string;
+  /** Every way the block touched the PR, in `PrTouch` order. */
+  how: PrTouch[];
+}
+
+/** `GET /api/prs?repo&number`: one PR's work across sessions. */
+export interface PrHistory extends PrRef {
+  url: string;
+  /** The title given to `gh pr create`; null when the logs don't show it. */
+  title: string | null;
+  openedAt: number | null;
+  mergedAt: number | null;
+  /** The blocks that touched it, oldest first, from visible sessions. */
+  blocks: PrBlock[];
+}
+
 /** A commit or PR made during a session. */
 export interface Artifact {
   kind: "commit" | "pr";

@@ -17,7 +17,7 @@ import {
   resolveProject,
   scratchpadOwner,
 } from "./project.ts";
-import type { SessionInfoRow, Statements } from "./statements.ts";
+import type { SessionInfoRow, SessionRepoRow, Statements } from "./statements.ts";
 
 /**
  * Where a session belongs: its project row, or null for none (a directory that is never a
@@ -138,6 +138,15 @@ export class ProjectPlacer {
   /** The project row of a resolved directory, with its label. */
   private placeByDir(p: ProjectRef): Place {
     return { id: this.projectId(p), label: p.label };
+  }
+
+  /**
+   * The repository (`host/owner/repo`) a session works in: its project's, else the one its launch
+   * directory's PRs point to (see `prRepoOf`), as for a clone with no remote. Null when neither says.
+   */
+  sessionRepo(sessionId: string): string | null {
+    const row = this.q.sessionRepo.get(sessionId) as SessionRepoRow | null;
+    return row?.repo ?? (row?.launch_cwd ? this.prRepoOf(row.launch_cwd) : null);
   }
 
   /**

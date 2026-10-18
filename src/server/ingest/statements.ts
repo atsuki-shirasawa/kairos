@@ -1,4 +1,5 @@
 import type { Database, Statement } from "bun:sqlite";
+import { blockOutputsUntilSql } from "../db/blockOutputs.ts";
 import { notNote } from "../db/notes.ts";
 import { sqlList } from "../db/sqlList.ts";
 import { EDIT_TOOL_NAMES } from "../editTools.ts";
@@ -12,6 +13,12 @@ export interface StateRow {
   ino: number | null;
   parser_version: number;
   state: string;
+}
+
+/** A session's project repository and launch directory, which tell what repository it works in. */
+export interface SessionRepoRow {
+  repo: string | null;
+  launch_cwd: string | null;
 }
 
 /** Startup facts of a session that are recorded only once. */
@@ -263,6 +270,25 @@ export function prepareStatements(db: Database) {
     prsOpened: p(
       `SELECT ts, ref FROM artifacts
        WHERE session_id = ? AND kind = 'pr' AND is_copy = 0 AND ts IS NOT NULL ORDER BY ts`,
+    ),
+    // The repository key of the session's project, and where it was launched (see `sessionRepo`)
+    sessionRepo: p(
+      `SELECT p.repo, s.launch_cwd FROM sessions s LEFT JOIN projects p ON p.id = s.project_id
+       WHERE s.id = ?`,
+    ),
+    // Each block's PR and merge artifacts, by the same outputs window the read queries use
+    blockOutputs: p(
+      `SELECT g.id AS blockId, a.kind, a.ref, a.title, a.ts FROM segments g
+       JOIN artifacts a ON a.session_id = g.session_id AND a.is_copy = 0
+        AND a.kind IN ('pr', 'merge') AND a.ts BETWEEN g.start AND ${blockOutputsUntilSql("g")}
+       WHERE g.session_id = ?`,
+    ),
+    clearBlockRefs: p(
+      "DELETE FROM block_refs WHERE block_id IN (SELECT id FROM segments WHERE session_id = ?)",
+    ),
+    insertBlockRef: p(
+      `INSERT OR IGNORE INTO block_refs (block_id, repo, number, how, ts, title)
+       VALUES ($blockId, $repo, $number, $how, $ts, $title)`,
     ),
     storedBlocks: p(
       `SELECT id, start, end, prompt_count AS prompts, fallback_title AS fallbackTitle

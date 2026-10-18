@@ -416,6 +416,27 @@ export const MIGRATIONS: string[] = [
          AND new.is_copy = 0 AND new.text != '';
   END;
   `,
+  // 17: PRs as things of their own (#64), so one PR's work can be found across sessions. A PR's
+  // artifacts were rows per session keyed two ways (a PR by URL, a merge by "#N" with no title).
+  // block_refs holds the issue / PR numbers each work block touched, by repository (the
+  // projects.repo key) and number, and how: it opened or merged the PR (with when, and the title it
+  // was opened with), worked on it (a gh pr command or the PR's URL) or mentioned the number (#N,
+  // which may be an issue). What is known of a PR is read from the refs of visible blocks, so it
+  // follows recomputation and visibility. Derived data, filled by the recomputation that
+  // DERIVED_VERSION 9 runs; a block's refs go with the block.
+  `
+  CREATE TABLE block_refs (
+    block_id  INTEGER NOT NULL REFERENCES segments(id) ON DELETE CASCADE,
+    repo      TEXT NOT NULL,
+    number    INTEGER NOT NULL,
+    -- 'opened' / 'merged' / 'worked' / 'mentioned'
+    how       TEXT NOT NULL,
+    ts        INTEGER,
+    title     TEXT,
+    PRIMARY KEY (block_id, repo, number, how)
+  );
+  CREATE INDEX block_refs_ref ON block_refs(repo, number);
+  `,
 ];
 
 /** Schema version once every migration is applied (stored in `PRAGMA user_version`). */

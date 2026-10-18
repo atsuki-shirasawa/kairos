@@ -11,7 +11,7 @@ import { LIMIT } from "./limits.ts";
 import { pendingOutcomes } from "./outcomes.ts";
 import { ProjectPlacer } from "./placement.ts";
 import { type RemoteLookup, readGitRemote, worktreeName } from "./project.ts";
-import { prLinkTitle, prUrlIn } from "./prs.ts";
+import { mergeRef, prLinkTitle, prUrlIn } from "./prs.ts";
 import { type Line, readNewLines } from "./reader.ts";
 import {
   clip,
@@ -40,7 +40,7 @@ export const PARSER_VERSION = 10;
  * Bump when the calculation of derived data that can be recomputed from the DB (aggregates, work blocks,
  * project assignment from the startup cwd) changes. All sessions are recomputed, even those whose logs are gone.
  */
-export const DERIVED_VERSION = 8;
+export const DERIVED_VERSION = 9;
 
 const RECAP_SUFFIX = /\s*\(disable recaps in \/config\)\s*$/;
 
@@ -116,7 +116,7 @@ export class Ingester {
       this.scanFile(path, stats);
       onProgress?.(i + 1, files.length);
     });
-    for (const sid of this.placer.placeWaiting()) stats.sessions.add(sid);
+    for (const sid of this.placeWaiting()) stats.sessions.add(sid);
     return finishScan(stats, started);
   }
 
@@ -139,8 +139,18 @@ export class Ingester {
       }
     }
     onProgress?.(files.length, files.length);
-    for (const sid of this.placer.placeWaiting()) stats.sessions.add(sid);
+    for (const sid of this.placeWaiting()) stats.sessions.add(sid);
     return finishScan(stats, started);
+  }
+
+  /**
+   * Settles the sessions whose project waited on the rest of the scan (see `placeWaiting`), and
+   * relinks their issue / PR numbers to the repository they now belong to. Returns the moved ones.
+   */
+  private placeWaiting(): string[] {
+    const moved = this.placer.placeWaiting();
+    for (const sid of moved) this.derived.linkRefs(sid);
+    return moved;
   }
 
   /** Brings derived data up to date and lists the files a scan will ingest, with empty stats. */
@@ -187,6 +197,7 @@ export class Ingester {
       this.handleLines(ctx, read.lines);
       this.fileStates.save(fileId, read, ctx.state);
       const moved = this.placer.replaceAfterPr(file.sessionId, prsBefore, fileId);
+      for (const sid of moved) this.derived.linkRefs(sid);
       const refreshed =
         agentId !== null ? [file.sessionId] : this.derived.refreshWithContinuation(file.sessionId);
       return [...new Set([...refreshed, ...moved])];
@@ -408,7 +419,7 @@ export class Ingester {
     const number = reported ?? pending[toolUseId] ?? null;
     delete pending[toolUseId];
     if (failed) return;
-    const ref = number !== null ? `#${number}` : `call:${toolUseId}`;
+    const ref = mergeRef(number, toolUseId);
     this.q.insertArtifact.run(ctx.sessionId, "merge", ref, null, ts, ctx.fileId);
   }
 

@@ -8,6 +8,7 @@ import type {
   LiveResponse,
   OpenItemsResponse,
   PickUpResponse,
+  PrHistory,
   RecapsResponse,
   SearchResponse,
   Settings,
@@ -32,6 +33,7 @@ import { streamEvents } from "./sse.ts";
 import {
   parseOpenItemUpdate,
   parseProjectUpdate,
+  parsePrRef,
   parseRange,
   parseRecapRequest,
   parseSearchQuery,
@@ -96,6 +98,13 @@ export function createApp({ db, events, summarizer, live, now, hiddenCwds }: App
     const query = parseSearchQuery(c.req.query("q"));
     if (query === null) return c.json<SearchResponse>({ hits: [], more: false });
     return c.json<SearchResponse>(q.search(query));
+  });
+
+  app.get("/api/prs", (c) => {
+    const ref = parsePrRef(c.req.query("repo"), c.req.query("number"));
+    if (!ref) return c.json({ error: "invalid request" }, 400);
+    const pr = q.pr(ref);
+    return pr ? c.json<PrHistory>(pr) : c.json({ error: "PR not found" }, 404);
   });
 
   app.get("/api/projects", (c) => c.json(q.projects()));

@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
   isPrLinkTitle,
+  mergedPrNumber,
+  mergeRef,
+  prCallsIn,
   prLinkTitle,
   prMergeOf,
   prTitleOf,
@@ -74,5 +77,30 @@ test("prLinkTitle is the stand-in isPrLinkTitle tells from a real title", () => 
   expect(prLinkTitle(null, null)).toBeNull();
   expect(isPrLinkTitle("#42 me/app", 42, "me/app")).toBe(true);
   expect(isPrLinkTitle("me/app", 42, "me/app")).toBe(true);
+  expect(isPrLinkTitle("#42", 42, "me/app")).toBe(true);
   expect(isPrLinkTitle("feat: login", 42, "me/app")).toBe(false);
+});
+
+test("mergedPrNumber reads back the number mergeRef stores, and none for a branch merge", () => {
+  expect(mergedPrNumber(mergeRef(46, "toolu_1"))).toBe(46);
+  expect(mergedPrNumber(mergeRef(null, "toolu_1"))).toBeNull();
+});
+
+describe("prCallsIn", () => {
+  test("finds each gh pr call's number and --repo, past options and other commands", () => {
+    expect(prCallsIn("gh pr view 12 --json state && gh pr checks --watch 13 -R acme/web")).toEqual([
+      { number: 12, repo: null },
+      { number: 13, repo: "acme/web" },
+    ]);
+    expect(prCallsIn("gh --repo=acme/web pr diff 4")).toEqual([{ number: 4, repo: "acme/web" }]);
+  });
+
+  test("names nothing for a call by branch, a body that holds a number, or a mention", () => {
+    expect(prCallsIn("gh pr create --fill && gh pr view feat/x")).toEqual([]);
+    expect(prCallsIn("gh pr list --limit 60 && gh pr view --json number 61")).toEqual([
+      { number: 61, repo: null },
+    ]);
+    expect(prCallsIn('gh pr comment --body "12" 9')).toEqual([{ number: 9, repo: null }]);
+    expect(prCallsIn('grep "gh pr view 12" notes.md')).toEqual([]);
+  });
 });

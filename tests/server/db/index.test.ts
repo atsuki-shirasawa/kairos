@@ -20,6 +20,7 @@ test("a fresh DB has every migration applied", () => {
   expect(indexes(db, "messages")).toContain("messages_block");
   expect(indexes(db, "messages")).not.toContain("messages_time");
   expect(indexes(db, "sessions")).toContain("sessions_ended");
+  expect(indexes(db, "block_refs")).toContain("block_refs_ref");
 });
 
 test("migration 15 indexes sessions by when they ended, keeping an existing DB's sessions", () => {
