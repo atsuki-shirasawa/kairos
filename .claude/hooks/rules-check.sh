@@ -33,7 +33,7 @@ remind_once() {
 
 # Every ingest file counts as interpretation code unless listed here, so a file split out of
 # ingester.ts is covered without editing this hook. List new derived-only files in derived_files.
-derived_files=(src/server/ingest/{segments,project,placement,derived}.ts)
+derived_files=(src/server/ingest/{segments,topics,activityKinds,project,placement,derived}.ts)
 not_stored=(src/server/ingest/watcher.ts)
 parser_files=(src/server/ingest)
 for f in "${derived_files[@]}" "${not_stored[@]}"; do parser_files+=(":(exclude)$f"); done

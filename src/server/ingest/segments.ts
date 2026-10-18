@@ -1,5 +1,7 @@
 import { WORK_BLOCK_GAP_MS } from "../../shared/sections.ts";
-import type { ActivityRow } from "./statements.ts";
+import { isPrompt, isRequest } from "./activityKinds.ts";
+import type { ActivityRow, TopicActivityRow } from "./statements.ts";
+import { joinFragments, type PrMark, splitByTopic } from "./topics.ts";
 
 const FALLBACK_TITLE_CHARS = 120;
 
@@ -30,29 +32,49 @@ export interface WorkBlock {
  * the gap is longer than `gapMs`. Fragments that aren't work (see `isWork`) are left out.
  */
 export function workBlocks(activity: ActivityRow[], gapMs = WORK_BLOCK_GAP_MS): WorkBlock[] {
+  return gapPieces(activity, gapMs).map(toWorkBlock);
+}
+
+/**
+ * The work blocks `workBlocks` draws, then split where the topic changes and with short fragments
+ * joined to a neighbour on the same topic (see `topics.ts`). `prs` are the PRs the session opened.
+ * Computed in shadow until the report on real data is reviewed; then it replaces `workBlocks`.
+ */
+export function topicWorkBlocks(
+  activity: TopicActivityRow[],
+  prs: PrMark[],
+  gapMs = WORK_BLOCK_GAP_MS,
+): WorkBlock[] {
+  const parts = gapPieces(activity, gapMs).flatMap((rows) => splitByTopic(rows, prs));
+  return joinFragments(parts, prs).map(toWorkBlock);
+}
+
+/** The drawn activity in pieces split on a gap longer than `gapMs`, keeping only work. */
+function gapPieces<T extends ActivityRow>(activity: T[], gapMs: number): T[][] {
   const used = drawnActivity(activity);
-  const blocks: WorkBlock[] = [];
-  for (const [start, end] of toSegments(
+  return toSegments(
     used.map((r) => r.ts),
     gapMs,
-  )) {
-    const inside = used.filter((r) => r.ts >= start && r.ts <= end);
-    if (!isWork(inside)) continue;
-    blocks.push({
-      start,
-      end,
-      prompts: inside.filter(isPrompt).length,
-      fallbackTitle: fallbackTitle(inside),
-    });
-  }
-  return blocks;
+  )
+    .map(([start, end]) => used.filter((r) => r.ts >= start && r.ts <= end))
+    .filter(isWork);
+}
+
+/** A piece of activity as a work block: its span, prompt count and fallback title. */
+function toWorkBlock(inside: ActivityRow[]): WorkBlock {
+  return {
+    start: inside[0]?.ts ?? 0,
+    end: inside.at(-1)?.ts ?? 0,
+    prompts: inside.filter(isPrompt).length,
+    fallbackTitle: fallbackTitle(inside),
+  };
 }
 
 /**
  * Activity that work blocks are drawn from. Automatic-run turns are not drawn, but a session with
  * only automatic runs uses everything, so it stays visible.
  */
-export function drawnActivity(rows: ActivityRow[]): ActivityRow[] {
+export function drawnActivity<T extends ActivityRow>(rows: T[]): T[] {
   const human = rows.filter((r) => r.is_scheduled === 0);
   return human.length ? human : rows;
 }
@@ -64,15 +86,7 @@ export function drawnActivity(rows: ActivityRow[]): ActivityRow[] {
  * acting on a notification on its own, often with commits.
  */
 export function isWork(inside: ActivityRow[]): boolean {
-  return inside.some(
-    (r) =>
-      isPrompt(r) || r.kind === "sdk_prompt" || r.kind === "scheduled" || r.kind === "tool_use",
-  );
-}
-
-/** Whether a row is something the user asked for (a prompt or a slash command). */
-export function isPrompt(r: ActivityRow): boolean {
-  return r.kind === "prompt" || r.kind === "command";
+  return inside.some((r) => isRequest(r) || r.kind === "tool_use");
 }
 
 /**

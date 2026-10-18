@@ -3,8 +3,8 @@ import {
   carryIds,
   drawnActivity,
   fallbackTitle,
-  isPrompt,
   isWork,
+  topicWorkBlocks,
   toSegments,
   workBlocks,
 } from "../../../src/server/ingest/segments.ts";
@@ -14,7 +14,12 @@ const m = 60_000;
 
 /** An activity row at `min` minutes, human unless `scheduled`. */
 const row = (min: number, kind: string, text: string | null = null, scheduled = false) =>
-  ({ ts: min * m, kind, text, is_scheduled: scheduled ? 1 : 0 }) satisfies ActivityRow;
+  ({
+    ts: min * m,
+    kind,
+    text,
+    is_scheduled: scheduled ? 1 : 0,
+  }) satisfies ActivityRow;
 
 test("toSegments splits where the gap is longer than the interval", () => {
   expect(toSegments([0, 5 * m, 10 * m, 60 * m, 62 * m], 15 * m)).toEqual([
@@ -34,13 +39,6 @@ describe("drawnActivity", () => {
     const rows = [row(0, "scheduled", null, true), row(1, "assistant", "ok", true)];
     expect(drawnActivity(rows)).toEqual(rows);
   });
-});
-
-test("isPrompt is true for prompts and slash commands only", () => {
-  expect(isPrompt(row(0, "prompt"))).toBe(true);
-  expect(isPrompt(row(0, "command"))).toBe(true);
-  expect(isPrompt(row(0, "sdk_prompt"))).toBe(false);
-  expect(isPrompt(row(0, "assistant"))).toBe(false);
 });
 
 test.each([
@@ -87,6 +85,29 @@ test("workBlocks splits activity into blocks, dropping fragments that aren't wor
     { start: 0, end: 10 * m, prompts: 1, fallbackTitle: "Start" },
     { start: 120 * m, end: 120 * m, prompts: 1, fallbackTitle: "/review" },
   ]);
+});
+
+test("topicWorkBlocks splits a long block on a topic change, then joins a fragment back", () => {
+  /** A prompt with no tool input, as `topicActivity` loads it. */
+  const ask = (min: number, text: string) => ({
+    ...row(min, "prompt", text),
+    tool_name: null,
+    input: null,
+  });
+  const rows = [
+    ask(0, "Fix #1"),
+    ask(16, "and its tests"),
+    ask(30, "Then #2"),
+    ask(44, "more of #2"),
+    ask(58, "#2 done?"),
+    ask(70, "#2 one more thing"),
+  ];
+  expect(topicWorkBlocks(rows, [], 20 * m)).toEqual([
+    { start: 0, end: 16 * m, prompts: 2, fallbackTitle: "Fix #1" },
+    { start: 30 * m, end: 70 * m, prompts: 4, fallbackTitle: "Then #2" },
+  ]);
+  // The block ends; a return to #2 after a pause joins it
+  expect(topicWorkBlocks([...rows, ask(100, "#2 again")], [], 20 * m)).toHaveLength(2);
 });
 
 describe("carryIds", () => {
