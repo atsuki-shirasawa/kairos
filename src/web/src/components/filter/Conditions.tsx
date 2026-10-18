@@ -1,6 +1,6 @@
 import type { CalendarSession } from "@shared/api.ts";
 import { useMemo } from "react";
-import { SEGMENT, SEGMENTED } from "@/components/toolbar/segmented.ts";
+import { SEGMENT, SEGMENTED } from "@/components/segmented.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Checkbox } from "@/components/ui/checkbox.tsx";
 import {

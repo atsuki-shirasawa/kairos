@@ -1,4 +1,5 @@
 import { CalendarDays, ChartColumn, type LucideIcon } from "lucide-react";
+import { SEGMENT, SEGMENTED } from "@/components/segmented.ts";
 import {
   Select,
   SelectContent,
@@ -12,7 +13,6 @@ import { toolbarMessages } from "@/i18n/messages/toolbar.ts";
 import { LAYOUT_IDS, LAYOUTS, layoutOfPlace, type Place } from "@/lib/layouts.ts";
 import { keyCap } from "@/lib/shortcuts.ts";
 import type { Layout, View } from "@/lib/view.ts";
-import { SEGMENT, SEGMENTED } from "./segmented.ts";
 
 /** The periods in the dropdown, largest first, with their labels and shortcut keys. */
 function views(): [View, string, string][] {

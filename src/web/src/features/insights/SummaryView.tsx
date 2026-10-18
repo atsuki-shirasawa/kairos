@@ -1,4 +1,4 @@
-import { SEGMENT, SEGMENTED } from "@/components/toolbar/segmented.ts";
+import { SEGMENT, SEGMENTED } from "@/components/segmented.ts";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import type { PreviousPeriod } from "@/hooks/usePeriodSessions.ts";
 import { summaryMessages } from "@/i18n/messages/summary.ts";

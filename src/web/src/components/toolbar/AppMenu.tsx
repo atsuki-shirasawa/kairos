@@ -1,5 +1,6 @@
 import { Ellipsis, Monitor, Moon, Sun } from "lucide-react";
 import type { ReactNode } from "react";
+import { SEGMENT, SEGMENTED } from "@/components/segmented.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.tsx";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
@@ -9,7 +10,6 @@ import { LOCALES, type Locale, setLocale, useLocale } from "@/i18n/index.ts";
 import { toolbarMessages } from "@/i18n/messages/toolbar.ts";
 import { keyCap, SHORTCUT_GROUPS, type ShortcutGroup } from "@/lib/shortcuts.ts";
 import { cn } from "@/lib/utils.ts";
-import { SEGMENT, SEGMENTED } from "./segmented.ts";
 
 /** The themes offered, with their labels and icons. */
 function themes(): [Theme, string, typeof Sun][] {
