@@ -1,8 +1,8 @@
 import { startOfDay } from "@shared/dates.ts";
-import { CalendarGrid } from "@/components/CalendarGrid.tsx";
-import { MonthGrid } from "@/components/MonthGrid.tsx";
 import { SessionList } from "@/components/SessionList.tsx";
 import { SummaryTabs, SummaryView } from "@/components/SummaryView.tsx";
+import { CalendarGrid } from "@/features/calendar/CalendarGrid.tsx";
+import { MonthGrid } from "@/features/calendar/MonthGrid.tsx";
 import { TodayPage } from "@/features/today/TodayPage.tsx";
 import type { LiveState } from "@/hooks/useLiveSummary.ts";
 import type { PeriodData } from "@/hooks/usePeriodData.ts";

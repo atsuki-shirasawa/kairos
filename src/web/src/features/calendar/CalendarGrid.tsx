@@ -1,16 +1,16 @@
 import { useMemo, useRef } from "react";
-import { GUTTER, GUTTER_PX } from "@/components/calendar/constants.ts";
-import { DayColumn } from "@/components/calendar/DayColumn.tsx";
-import { DayHeader } from "@/components/calendar/DayHeader.tsx";
-import { EdgeButton } from "@/components/calendar/EdgeButton.tsx";
-import { HourLabels } from "@/components/calendar/HourLabels.tsx";
-import { useGridScroll, useGridSize, useOffscreenEdges } from "@/components/calendar/hooks.ts";
 import { isSameDay } from "@/lib/dates.ts";
 import { layoutDay } from "@/lib/layout.ts";
 import { selectedSegment } from "@/lib/navigation.ts";
 import type { PeriodBodyProps } from "@/lib/periodBody.ts";
 import { cn } from "@/lib/utils.ts";
 import { columnTracks, focusDayIndex } from "@/lib/weekColumns.ts";
+import { GUTTER, GUTTER_PX } from "./constants.ts";
+import { DayColumn } from "./DayColumn.tsx";
+import { DayHeader } from "./DayHeader.tsx";
+import { EdgeButton } from "./EdgeButton.tsx";
+import { HourLabels } from "./HourLabels.tsx";
+import { useGridScroll, useGridSize, useOffscreenEdges } from "./hooks.ts";
 
 /** Animate column width changes so it's easy to follow which day widened. */
 const ANIMATE_COLUMNS =
