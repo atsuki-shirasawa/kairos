@@ -47,12 +47,10 @@ export const VIEWS: View[] = [
   { name: "stress-day", query: () => `?view=day&date=${STRESS_DAY}`, registry: "empty" },
   { name: "stress-week", query: () => `?date=${STRESS_DAY}`, registry: "empty" },
   { name: "stress-month", query: () => `?view=month&date=${STRESS_DAY}`, registry: "empty" },
-  { name: "live", query: () => "?layout=live", registry: "running" },
-  { name: "live-on-you", query: () => "?layout=live", registry: "on-you" },
-  { name: "live-none", query: () => "?layout=live", registry: "empty" },
-  { name: "live-unreadable", query: () => "?layout=live", registry: "unreadable" },
+  { name: "today-running", query: () => "?", registry: "running" },
   { name: "today", query: () => "?", registry: "on-you" },
   { name: "today-none", query: () => "?", registry: "empty" },
+  { name: "today-unreadable", query: () => "?", registry: "unreadable" },
 ];
 
 /** The view called `name`; throws for a name no view has. */

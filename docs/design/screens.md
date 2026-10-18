@@ -14,19 +14,22 @@ English in both languages like "Live", in place of the period controls.
   the left, Pick up then Last workday on the right (40px apart), so at 1440×900 the first card
   waiting on you and the first cards to pick up show without scrolling. Each section heading is
   17px semibold
-- **Now:** the live page's groups for what wants you and what runs, each under its name and count as
-  on the live page (14px medium, the count in `numeral`, `warn` for a non-empty On you). On you
-  shows the live page's full cards; Working shows each session as the live page's one-line row,
-  since it asks nothing of you yet. Idle sessions stay on the live page. An empty group says so in
-  one 12px `muted-ink` line; with nothing running, only idle sessions (it says how many are on
-  Live), or the registry unreadable, one 14px `muted-ink` line replaces both groups. A small ghost button, "Open Live full screen →", follows
+- **Now:** today's tokens (the chart below), then the running sessions in groups, each under its
+  name and count (14px medium, the count in `numeral`, `warn` for a non-empty On you): On you
+  (asking or done with a turn) as full cards, Working as a one-line row each, since it asks nothing
+  of you yet, and Idle (nothing for 15 minutes or more) with its 12px `muted-ink` note, folded
+  behind a small ghost "Show n idle sessions" toggle, as a bare row each when open (absent when none
+  idles). The group names are short status-board words kept in English in both languages, like
+  "Live". An empty On you or Working says so in one 12px `muted-ink` line; with nothing running or
+  the registry unreadable, one 14px `muted-ink` line replaces the groups (the chart stays: tokens
+  come from the logs)
 - **Pick up:** a card per session whose latest summary left work open, so the section stays a few
   cards however many items the week left. Shown: sessions idle under 48 hours, or under 7 days in a
   project that moved in the last 3 days, minus the running ones (Now has them) and hidden
   projects. Ranked by the heaviest thing left (waiting, then the next step, todo, issue, question),
   plus a little for an item naming an issue, PR or task, halved every 3 days since the block ended
   (`lib/pickUp.ts`). At most 5 cards and 2 per project; the rest behind a small ghost "n more"
-  toggle. Each card is outlined like a Working card on the live page (`border`, the project's 3px
+  toggle. Each card is outlined like a Working card (`border`, the project's 3px
   colored edge): the latest block's headline (14px medium, two lines at most; it opens the block)
   with the last activity in `numeral` at the right, the project in 12px `muted-ink`, then "Next"
   in 12px `muted-ink` before the next step (14px, two lines at most). A footer row holds an
@@ -125,7 +128,7 @@ English in both languages like "Live", in place of the period controls.
   control is dropped. Between `lg` and `xl` the open search field is 192px rather than 256px, so the
   period label beside it keeps its full width
 - **Toolbar** holds only view switching, date navigation, search, the standup menu, filters and
-  the live page's button. Theme, language and the shortcut list live in the "⋯" menu
+  the Live button. Theme, language and the shortcut list live in the "⋯" menu
 - **Standup menu:** a small ghost button on every page, a clipboard icon, "Standup" (the icon alone
   below `xl`, so the period label keeps its width) and a chevron, whose icon and tooltip say for a
   moment how the copy went (a `primary` check, "Copied as Markdown"; a struck circle, "No work to
@@ -156,7 +159,7 @@ English in both languages like "Live", in place of the period controls.
 
 - **Drawer** opens from the right with 20px padding; below `lg` it overlays the screen with a backdrop.
   In the week and month calendars it also floats over the calendar (no backdrop) up to `xl`
-  ([why](decisions.md#the-drawer-floats-over-the-calendar)), and on the live page too. The day view, list and
+  ([why](decisions.md#the-drawer-floats-over-the-calendar)), and on Today too. The day view, list and
   summary still make room for it
 - **Drawer header:** the headline in its project-colored frame, then when it happened (date and
   range in `ink`, length in `muted-ink`, no chip) and the key figures on a second line
@@ -204,26 +207,16 @@ English in both languages like "Live", in place of the period controls.
   recap's frame. A project with no work in the period but items still open gets its name and the
   list alone, under its colored rule, after the projects with work
 
-## Live page
+## Running sessions
 
-The sessions running now, on a page of its own (`?layout=live`, `n`), opened from the toolbar's
-"Live" button.
+How Today's Now and the toolbar draw the sessions running now.
 
-- **Live button:** a ghost button beside the layout toggle, pressed (`muted` fill, `ink` text) on
-  the page: a 6px dot (`ink` pulsing while a session works, `muted-ink` otherwise, a ring when
-  nothing runs; not indigo, which would mark it selected, nor a project color, since it stands for
-  every project), the word "Live", and the number of sessions waiting on you in `numeral` `warn`.
-  The tab title leads with the same number ("(2) Kairos"), so a background tab still says so
-- **Header:** the page has no period, so the period navigation, date picker, period dropdown,
-  search and filters give way to its 17px heading (search narrows a period too); the standup
-  menu stays
-- **Columns:** the body sits on `surface` in three columns (one below `lg`): On you (asking or done
-  with a turn), Working, Idle (nothing for 15 minutes or more). The column names are short
-  status-board words kept in English in both languages, like "Live"; their notes are translated. A
-  column heading is 14px medium with its count beside it in the numeral face at the heading's size
-  (`warn` for a non-empty On you) and a 12px `muted-ink` note on what puts a session there. An
-  empty column says "None"; an empty On you says "Nothing is waiting on you" and narrows to 13rem,
-  giving its third of the width to the cards
+- **Live button:** a ghost button beside the layout toggle that opens Today, pressed (`muted`
+  fill, `ink` text) there: a 6px dot (`ink` pulsing while a session works, `muted-ink` otherwise, a
+  ring when nothing runs; not indigo, which would mark it selected, nor a project color, since it
+  stands for every project), the word "Live", and the number of sessions waiting on you in
+  `numeral` `warn`. The tab title leads with the same number ("(2) Kairos"), so a background tab
+  still says so
 - **Card weight says whose turn it is:** a card keeps a work block's 3px project-colored edge but
   not the block fill ([why](decisions.md#live-cards-carry-no-block-fill)). A card in On you sits on
   the neutral `muted` fill (`input` on hover, since `accent` barely differs from `muted` in dark), a
@@ -264,17 +257,17 @@ The sessions running now, on a page of its own (`?layout=live`, `n`), opened fro
   details are in the drawer
 - **Opening:** the title is the card's button; clicking anywhere else on the card does the same
   unless it ends a text selection, so a question or command can still be copied. It opens the
-  latest work block in the drawer, which floats over the page as in the week view. A session not in
+  latest work block in the drawer, which floats over Today as in the week view. A session not in
   the log yet has nothing to open, so its card is plain content (no pointer, no hover fill). Only a
   card or row that opens takes a hover fill (`input` on a card, `muted` on an idle row), and keyboard
   focus on its title draws the 2px `ring` outline around the card
-- **Token band:** above the columns, separated by a `line` rule. The page shows tokens rather than
-  cost ([why](decisions.md#the-live-page-counts-tokens-not-cost)): every token column, as the
+- **Token band:** at the head of Now, under its heading. It shows tokens rather than
+  cost ([why](decisions.md#the-token-chart-counts-tokens-not-cost)): every token column, as the
   drawer's "Tokens" counts them, over every visible session, not only the running ones. At the top
   left, "Tokens today" and "Rate" (per hour), each a 12px `muted-ink` label over its figure in the
   17px medium numeral face; beside them a 12px line that names what pointing shows. The band stays,
   with its note, when nothing runs or the registry can't be read
-- **Token chart:** under the figures, across the page, the day's tokens as they climbed: one band
+- **Token chart:** under the figures, across Now's column, the day's tokens as they climbed: one band
   per project stacked from the floor (largest at the bottom), each the project's block fill
   (`--mix-block` into `block-base`, as on the calendar) under a 1.5px line in the full project color
   along its top, so the height at the right end is today's total and the slope is the pace ([why](decisions.md#the-token-chart-climbs-instead-of-standing-in-bars)). Within a

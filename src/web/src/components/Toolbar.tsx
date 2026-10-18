@@ -76,8 +76,8 @@ interface Props {
 
 /**
  * The header bar: wordmark (which leads home), period navigation, view and layout toggles, the
- * live page's button, search, filters, report copy and the "⋯" menu. The home and live pages have
- * no period, so there the period controls give way to the page's heading.
+ * Live button (which leads home too), search, filters, report copy and the "⋯" menu. The home page
+ * has no period, so there the period controls give way to its heading.
  */
 export function Toolbar({
   layout,
@@ -102,7 +102,7 @@ export function Toolbar({
     <header className="flex h-16 shrink-0 items-center gap-3 border-b bg-background px-5 max-lg:gap-2 max-lg:px-3">
       <Brand progress={progress} onHome={() => onLayout("today")} />
       <span className="w-3 shrink-0 max-lg:hidden" aria-hidden />
-      {/* The home and live pages show the present, so they have no period to move through or pick */}
+      {/* The home page shows the present, so it has no period to move through or pick */}
       {!hasPeriod ? (
         <h1 className="min-w-0 truncate font-semibold text-title tracking-tight">{heading?.()}</h1>
       ) : (
@@ -121,7 +121,7 @@ export function Toolbar({
       )}
 
       <div className="ml-auto flex shrink-0 items-center gap-2 max-lg:gap-1">
-        {/* Search narrows the shown period, which the home and live pages don't have */}
+        {/* Search narrows the shown period, which the home page doesn't have */}
         {hasPeriod && (
           <SearchField
             inputRef={search.ref}
@@ -138,7 +138,7 @@ export function Toolbar({
         )}
         {hasPeriod && <ViewToggle view={view} onView={period.onView} />}
         <LayoutToggle lit={lit} onLayout={onLayout} />
-        <LiveButton live={live} active={lit === "live"} onOpen={() => onLayout("live")} />
+        <LiveButton live={live} active={lit === "today"} onOpen={() => onLayout("today")} />
         <span className="w-2 shrink-0 max-lg:hidden" aria-hidden />
         <StandupMenu now={now} projects={projectMap} {...report} />
         {hasPeriod && (

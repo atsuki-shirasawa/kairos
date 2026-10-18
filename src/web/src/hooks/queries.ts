@@ -42,7 +42,7 @@ export function useCalendar(from: number, to: number, enabled = true) {
 }
 
 /**
- * Every project, for each page's colors and names (the live page too, which fetches no period).
+ * Every project, for each page's colors and names (Today too, which fetches no period).
  */
 export function useProjects() {
   return useQuery({ queryKey: keys.projects, queryFn: api.projects });
@@ -178,7 +178,7 @@ export function useShowHeadless(): [
     onSuccess: (settings) => {
       client.setQueryData(keys.settings, settings);
       void client.invalidateQueries({ queryKey: keys.allCalendar });
-      // The live page lists sessions and counts tokens by the same visibility
+      // Today's Now lists sessions and counts tokens by the same visibility
       void client.invalidateQueries({ queryKey: keys.live });
     },
   });

@@ -62,11 +62,11 @@ Add the following to `hooks.SessionStart` in `~/.claude/settings.json`.
 
 ### Running sessions
 
-The "Live" button in the toolbar (or `n`) opens a page of the Claude Code sessions running now, in three columns: On you (asking a question or plan approval, or done with its turn), Working (with the tool call in flight, and the subagents at work with theirs), and Idle (nothing for 15 minutes or more). Each card adds the task list's progress, the last test run, Claude Code's recap and the context size; an idle session is a single row with its title and how long it has idled. Clicking either opens its latest work block. The button shows how many sessions are waiting on you from any page, and so does the browser tab's title, e.g. `(2) Kairos`.
+Today's Now lists the Claude Code sessions running now, under today's tokens: On you (asking a question or plan approval, or done with its turn) as full cards, Working (with the tool call in flight, and the subagents at work with theirs) as a line each, and Idle (nothing for 15 minutes or more) folded behind its count. Each card adds the task list's progress, the last test run, Claude Code's recap and the context size. Clicking one opens its latest work block. The toolbar's "Live" button, which opens Today, shows how many sessions are waiting on you from any page, and so does the browser tab's title, e.g. `(2) Kairos`.
 
-![The page of running sessions](docs/images/screen-live.png)
+![Today, with the sessions running now](docs/images/screen-today.png)
 
-No hooks are needed: Kairos reads Claude Code's own record of running sessions (`~/.claude/sessions/<pid>.json`, read-only) alongside the logs. That record is undocumented, so a Claude Code update may change it; if it can't be read, the page says so (and `kairos doctor` warns). Whether a session is waiting on a permission prompt can't be told from these files, so such a session shows as working.
+No hooks are needed: Kairos reads Claude Code's own record of running sessions (`~/.claude/sessions/<pid>.json`, read-only) alongside the logs. That record is undocumented, so a Claude Code update may change it; if it can't be read, Today says so (and `kairos doctor` warns). Whether a session is waiting on a permission prompt can't be told from these files, so such a session shows as working.
 
 ## Usage
 

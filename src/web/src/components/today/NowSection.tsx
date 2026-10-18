@@ -1,86 +1,72 @@
 import type { LiveResponse, LiveSession, Project } from "@shared/api.ts";
-import { ArrowRight } from "lucide-react";
+import { MINUTE } from "@shared/dates.ts";
+import { ChevronRight } from "lucide-react";
+import { useState } from "react";
 import { LiveEntryCard } from "@/components/live/LiveCard.tsx";
 import { LiveColumnTitle } from "@/components/live/LiveColumnTitle.tsx";
+import { TokenBand } from "@/components/live/TokenBand.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { liveMessages } from "@/i18n/messages/live.ts";
 import { todayMessages } from "@/i18n/messages/today.ts";
-import { groupByColumn, type LiveEntry } from "@/lib/live.ts";
+import { groupByColumn, IDLE_AFTER_MS, type LiveEntry } from "@/lib/live.ts";
 import type { OpenBlock } from "@/lib/selection.ts";
+import { cn } from "@/lib/utils.ts";
 
-/**
- * What runs now: the sessions waiting on you as full cards, then the ones Claude is working on, a
- * line each. Idle sessions stay on the live page, which this links to.
- */
-export function NowSection({
-  live,
-  sessions,
-  projects,
-  now,
-  selectedId,
-  onSelect,
-  onLive,
-}: {
-  live: LiveResponse | undefined;
-  /** Already filtered and ordered (`visibleLive`). */
-  sessions: LiveSession[];
+/** What every group of running sessions is given to draw its entries. */
+interface EntryList {
   projects: ReadonlyMap<number, Project>;
   now: number;
   selectedId: string | null;
   onSelect: OpenBlock;
-  onLive: () => void;
+}
+
+/**
+ * What runs now: today's tokens, then the sessions waiting on you as full cards, the ones Claude
+ * is working on as a line each, and the idle ones folded away behind their count.
+ */
+export function NowSection({
+  live,
+  sessions,
+  ...list
+}: EntryList & {
+  live: LiveResponse | undefined;
+  /** Already filtered and ordered (`visibleLive`). */
+  sessions: LiveSession[];
 }) {
   const t = todayMessages();
-  const byColumn = groupByColumn(sessions, now);
-  const attention = byColumn.get("attention") ?? [];
-  const working = byColumn.get("working") ?? [];
-  const list = { projects, now, selectedId, onSelect };
+  const byColumn = groupByColumn(sessions, list.now);
   return (
     <section aria-labelledby="today-now" className="flex min-w-0 flex-col gap-5">
       <h2 id="today-now" className="font-semibold text-title tracking-tight">
         {t.now}
       </h2>
-      <NowBody
-        live={live}
-        active={attention.length + working.length}
-        idle={byColumn.get("idle")?.length ?? 0}
-      >
-        <SessionGroup column="attention" entries={attention} {...list} />
-        <SessionGroup column="working" entries={working} {...list} />
+      {/* Tokens come from the logs, so the band stays when the registry can't be read */}
+      {live && <TokenBand tokens={live.tokens} projects={list.projects} />}
+      <NowBody live={live} running={sessions.length}>
+        <SessionGroup column="attention" entries={byColumn.get("attention") ?? []} {...list} />
+        <SessionGroup column="working" entries={byColumn.get("working") ?? []} {...list} />
+        <IdleGroup entries={byColumn.get("idle") ?? []} {...list} />
       </NowBody>
-      <Button variant="ghost" size="sm" className="-ml-2.5 self-start" onClick={onLive}>
-        {t.openLive}
-        <ArrowRight aria-hidden />
-      </Button>
     </section>
   );
 }
 
 /**
- * The groups, or one line in their place: the record of running sessions can't be read, nothing
- * runs, or only idle sessions do (which this page leaves to the live page). Nothing at all while
- * loading, rather than claiming nothing runs.
+ * The groups, or one line in their place: the record of running sessions can't be read, or
+ * nothing runs. Nothing at all while loading, rather than claiming nothing runs.
  */
 function NowBody({
   live,
-  active,
-  idle,
+  running,
   children,
 }: {
   live: LiveResponse | undefined;
-  /** Sessions waiting on you or working. */
-  active: number;
-  idle: number;
+  running: number;
   children: React.ReactNode;
 }) {
   if (!live) return null;
-  const note = !live.available
-    ? liveMessages().unavailable
-    : active > 0
-      ? null
-      : idle > 0
-        ? todayMessages().onlyIdle(idle)
-        : liveMessages().nothingRunning;
+  const m = liveMessages();
+  const note = !live.available ? m.unavailable : running === 0 ? m.nothingRunning : null;
   if (note)
     return (
       <p className="text-body text-muted-foreground" role="status">
@@ -97,19 +83,8 @@ function NowBody({
 function SessionGroup({
   column,
   entries,
-  projects,
-  now,
-  selectedId,
-  onSelect,
-}: {
-  column: "attention" | "working";
-  entries: LiveEntry[];
-  projects: ReadonlyMap<number, Project>;
-  now: number;
-  selectedId: string | null;
-  onSelect: OpenBlock;
-}) {
-  const t = todayMessages();
+  ...list
+}: EntryList & { column: "attention" | "working"; entries: LiveEntry[] }) {
   const id = `today-${column}`;
   return (
     <section aria-labelledby={id} className="min-w-0">
@@ -119,20 +94,52 @@ function SessionGroup({
           <LiveEntryCard
             key={entry.session.id}
             entry={entry}
-            projects={projects}
-            now={now}
-            selectedId={selectedId}
-            onSelect={onSelect}
+            {...list}
             // Working asks nothing of you yet: a line each
             options={{ row: column === "working" }}
           />
         ))}
         {entries.length === 0 && (
           <p className="text-label text-muted-foreground">
-            {column === "attention" ? liveMessages().nothingOnYou : t.nothingWorking}
+            {column === "attention" ? liveMessages().nothingOnYou : todayMessages().nothingWorking}
           </p>
         )}
       </div>
+    </section>
+  );
+}
+
+/**
+ * The sessions left open with nothing happening, folded behind their name and count: they ask
+ * nothing of you, but a forgotten one is worth finding. Absent when there is none.
+ */
+function IdleGroup({ entries, ...list }: EntryList & { entries: LiveEntry[] }) {
+  const [open, setOpen] = useState(false);
+  if (entries.length === 0) return null;
+  const t = todayMessages();
+  return (
+    <section aria-labelledby="today-idle" className="min-w-0">
+      <LiveColumnTitle column="idle" count={entries.length} id="today-idle" level="h3" />
+      <p className="text-label text-muted-foreground">
+        {liveMessages().idleNote(IDLE_AFTER_MS / MINUTE)}
+      </p>
+      {open && (
+        <div className="mt-2 flex flex-col gap-2">
+          {entries.map((entry) => (
+            <LiveEntryCard key={entry.session.id} entry={entry} {...list} />
+          ))}
+        </div>
+      )}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="mt-1 -ml-2.5"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <ChevronRight className={cn("transition-transform", open && "rotate-90")} aria-hidden />
+        {open ? t.hideIdle : t.showIdle(entries.length)}
+      </Button>
     </section>
   );
 }

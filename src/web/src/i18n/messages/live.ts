@@ -15,16 +15,12 @@ export const liveMessages = defineMessages({
     /** The toolbar button's name: how many sessions run and how many want an answer. */
     buttonLabel: (attention: number, running: number) =>
       `Live: ${running === 1 ? "1 session" : `${running} sessions`} running${attention ? `, ${attention} waiting on you` : ""}`,
-    /** The button's tooltip: its name and its key. */
-    buttonTitle: (label: string) => `${label} (n)`,
-    heading: "Running sessions",
+    /** The button's tooltip: its name and the key of Today, which it opens. */
+    buttonTitle: (label: string, key: string) => `${label} (${key})`,
     columns: COLUMNS,
-    columnNote: {
-      attention: "Waiting for your answer or your next prompt",
-      working: "Claude is working",
-      idle: (minutes: number) =>
-        `Nothing for ${minutes === 1 ? "1 minute" : `${minutes} minutes`} or more`,
-    },
+    /** What puts a session among the idle ones. */
+    idleNote: (minutes: number) =>
+      `Nothing for ${minutes === 1 ? "1 minute" : `${minutes} minutes`} or more`,
     nothingRunning: "No Claude Code session is running.",
     /** An empty On you column. */
     nothingOnYou: "Nothing is waiting on you",
@@ -89,14 +85,9 @@ export const liveMessages = defineMessages({
     button: "Live",
     buttonLabel: (attention: number, running: number) =>
       `Live: 起動中のセッション ${running} 件${attention ? `、うち ${attention} 件が要対応` : ""}`,
-    buttonTitle: (label: string) => `${label} (n)`,
-    heading: "起動中のセッション",
+    buttonTitle: (label: string, key: string) => `${label} (${key})`,
     columns: COLUMNS,
-    columnNote: {
-      attention: "質問への回答か、次の指示を待っています",
-      working: "Claude が作業しています",
-      idle: (minutes: number) => `${minutes} 分以上操作がありません`,
-    },
+    idleNote: (minutes: number) => `${minutes} 分以上操作がありません`,
     nothingRunning: "起動中の Claude Code セッションはありません。",
     nothingOnYou: "対応待ちはありません",
     unavailable:

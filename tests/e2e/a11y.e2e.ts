@@ -16,7 +16,7 @@ const AXE = readFileSync(require.resolve("axe-core/axe.min.js"), "utf8");
 /** Violations on one page: how many elements break each rule. */
 type Counts = Record<string, number>;
 
-/** The pages checked, by name. The live page with sessions waiting, its fullest state. */
+/** The pages checked, by name. Today with every kind of running session, its fullest state. */
 const PAGES: Record<string, string> = {
   week: `?date=${DEMO_WEEK}`,
   drawer: `?date=${DEMO_WEEK}&session=${DRAWER_SESSION}`,
@@ -24,7 +24,6 @@ const PAGES: Record<string, string> = {
   month: `?view=month&date=${DEMO_WEEK}`,
   summary: `?layout=summary&date=${DEMO_WEEK}`,
   table: `?layout=list&date=${DEMO_WEEK}`,
-  live: "?layout=live",
   today: "?",
 };
 
@@ -72,7 +71,7 @@ function lowered(
 
 test("accessibility: no page breaks an axe rule in more places than the baseline", async () => {
   const { demo, page } = e2e;
-  await demo.setRegistry("on-you");
+  await demo.setRegistry("running");
   const recorded = readBaseline();
   const counts: Record<string, Counts> = {};
   for (const [name, query] of Object.entries(PAGES)) {

@@ -24,14 +24,14 @@ const OUT = args.out ? resolve(args.out) : join(ROOT, "docs", "images");
 
 /**
  * The docs' shots, in order: each file's name, and the view (see ./views.ts) it shows. Running
- * sessions only for the live page, so their count on the Live button stays out of the others.
+ * sessions only for Today, so their count on the Live button stays out of the others.
  */
 const SHOTS: [file: string, view: string][] = [
   ["week", "drawer"],
   ["day", "day"],
   ["summary", "summary"],
   ["month", "month"],
-  ["live", "live"],
+  ["today", "today-running"],
 ];
 
 /** Opens each view and saves it as docs/images/screen-<name>.png. */

@@ -102,7 +102,7 @@ describe("serializeUrlState", () => {
 test("state survives a round trip through the URL", () => {
   const states: UrlState[] = [
     DEFAULTS,
-    { ...DEFAULTS, view: "month", layout: "live", anchor: new Date(2025, 11, 31).getTime() },
+    { ...DEFAULTS, view: "month", layout: "calendar", anchor: new Date(2025, 11, 31).getTime() },
     {
       view: "day",
       layout: "summary",

@@ -1,6 +1,5 @@
 import { startOfDay } from "@shared/dates.ts";
 import { CalendarGrid } from "@/components/CalendarGrid.tsx";
-import { LivePage } from "@/components/LivePage.tsx";
 import { MonthGrid } from "@/components/MonthGrid.tsx";
 import { SessionList } from "@/components/SessionList.tsx";
 import { SummaryTabs, SummaryView } from "@/components/SummaryView.tsx";
@@ -28,12 +27,11 @@ const BODIES: Record<Layout, (props: LayoutBodyProps) => React.ReactNode> = {
   calendar: CalendarBody,
   summary: SummaryBody,
   table: TableBody,
-  live: LiveBody,
 };
 
 /**
- * What the main area shows for the layout: the home page, a calendar, the summary, its table or
- * the live page.
+ * What the main area shows for the layout: the home page, a calendar, the summary or its
+ * table.
  */
 export function LayoutBody(props: LayoutBodyProps) {
   const Body = BODIES[props.state.layout];
@@ -90,24 +88,9 @@ function TodayBody({ state, update, data, live, now }: LayoutBodyProps) {
       selectedId={state.session}
       selectedAt={state.at}
       onSelect={openFollowingDay(update)}
-      onLive={() => update({ layout: "live" })}
       onOpenDay={(day) =>
         update({ layout: "calendar", view: "day", anchor: day, session: null, at: null })
       }
-    />
-  );
-}
-
-/** The sessions running now. */
-function LiveBody({ state, update, data, live, now }: LayoutBodyProps) {
-  return (
-    <LivePage
-      live={live.data}
-      sessions={live.running}
-      projects={data.projectMap}
-      now={now}
-      selectedId={state.session}
-      onSelect={openFollowingDay(update)}
     />
   );
 }

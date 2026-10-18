@@ -4,11 +4,11 @@ import type { LiveSummary } from "@/components/toolbar/LiveButton.tsx";
 import { useLive } from "@/hooks/queries.ts";
 import { attentionCount, liveDisplay, visibleLive } from "@/lib/live.ts";
 
-/** The running sessions, for the live page, and the counts the toolbar's button shows. */
+/** The running sessions, for Today's Now, and the counts the toolbar's button shows. */
 export interface LiveState {
   /** The live response, undefined until it first loads. */
   data: LiveResponse | undefined;
-  /** Running sessions not hidden, in the live page's order. */
+  /** Running sessions not hidden, in Now's order. */
   running: LiveSession[];
   summary: LiveSummary;
 }

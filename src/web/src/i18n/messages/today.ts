@@ -11,10 +11,10 @@ export const todayMessages = defineMessages({
     now: "Now",
     /** An empty Working list. */
     nothingWorking: "Claude isn't working on anything",
-    /** Only idle sessions are open: nothing waits on you or works. */
-    onlyIdle: (idle: number) =>
-      `Nothing is waiting on you or working (${idle === 1 ? "1 idle session" : `${idle} idle sessions`} on Live)`,
-    openLive: "Open Live full screen",
+    /** Unfolds the idle sessions. */
+    showIdle: (idle: number) =>
+      idle === 1 ? "Show the idle session" : `Show ${idle} idle sessions`,
+    hideIdle: "Hide idle sessions",
     lastWorkday: "Last workday",
     /** How long ago the last workday was, after a break of more than a day. */
     sinceLastWork: (days: number) => `${days} days since the last work`,
@@ -47,9 +47,8 @@ export const todayMessages = defineMessages({
     heading: "Today",
     now: "いま",
     nothingWorking: "Claude が作業しているものはありません",
-    onlyIdle: (idle: number) =>
-      `あなたを待っているものも、作業中のものもありません（Live にアイドル ${idle} 件）`,
-    openLive: "Live を全画面で開く",
+    showIdle: (idle: number) => `休止中の ${idle} 件を表示`,
+    hideIdle: "休止中のセッションを隠す",
     lastWorkday: "前回の作業日",
     sinceLastWork: (days: number) => `前回の作業から ${days} 日`,
     openDay: "その日を開く",

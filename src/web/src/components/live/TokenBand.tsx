@@ -35,7 +35,7 @@ const DRAW_PX = PLOT_PX - HEADROOM_PX;
 const LABEL_PX = 18;
 
 /**
- * The page's tokens, above the columns: today's total and the current rate, then the day so far as
+ * Today's tokens, at the head of Now: today's total and the current rate, then the day so far as
  * bands of project color rising from the floor, so the height at the right end is today's total
  * and the slope is the pace. Each band is named at its end with what it used; a spike is a steep
  * climb rather than a bar that dwarfs the rest. Pointing at the chart (or tapping it) names a
@@ -60,10 +60,7 @@ export function TokenBand({
   const colorOf = (id: number | null) => projectColor(projectOf(projects, id));
   const nameOf = (id: number | null) => projectOf(projects, id)?.name ?? m.tokens.noProject;
   return (
-    <section
-      aria-label={m.tokens.chart(hhmm(chart.start), hhmm(chart.end))}
-      className="border-b px-5 pt-4 pb-3 max-lg:px-3"
-    >
+    <section aria-label={m.tokens.chart(hhmm(chart.start), hhmm(chart.end))}>
       <div className="flex flex-wrap items-end gap-x-8 gap-y-2">
         <dl className="flex gap-x-6">
           <Figure label={m.tokens.today} value={tokensLabel(tokens.today)} />

@@ -62,7 +62,7 @@ function run(shortcut: Shortcut, t: ShortcutTargets): boolean {
     update({ layout });
     return true;
   }
-  // A layout without a period (the live page): moving through periods or stepping through their
+  // A layout without a period (Today): moving through periods or stepping through their
   // blocks would change a calendar nobody sees, so those keys pass through, and picking a period
   // goes to the calendar with it
   if (!LAYOUTS[state.layout].hasPeriod) {

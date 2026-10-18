@@ -1,4 +1,4 @@
-// The live page's token chart: today's tokens climbing by project, its time axis, the labels at its
+// Today's token chart: today's tokens climbing by project, its time axis, the labels at its
 // right end, and how a slot is read out.
 import type { LiveTokens } from "@shared/api.ts";
 import { TOKEN_BUCKET_MS } from "@shared/constants.ts";

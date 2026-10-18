@@ -1,7 +1,6 @@
 // Every layout of the main area and what sets each apart, in one place: the toolbar, the keys, the
 // drawer, the URL and the data the app fetches all read it here instead of checking layout names.
 // The body each layout draws is mapped in components/app/LayoutBody.tsx.
-import { liveMessages } from "@/i18n/messages/live.ts";
 import { todayMessages } from "@/i18n/messages/today.ts";
 import type { Shortcut } from "./shortcuts.ts";
 import type { Layout, View } from "./view.ts";
@@ -27,12 +26,12 @@ export interface LayoutTraits {
   hasPeriod: boolean;
   /**
    * The layout whose toolbar control is lit while it shows: its own (a segment of the layout
-   * toggle, or the Live button), or the one it is a tab of.
+   * toggle, or the Live button for Today), or the one it is a tab of.
    */
   lit: Layout;
   /**
    * Whether the drawer floats over it instead of taking a column beside it, for a period length.
-   * Seven-column views and the live page's three columns would shrink to slivers beside it.
+   * Seven-column views and Today's two columns would shrink to slivers beside it.
    */
   drawerOverlay: (view: View) => boolean;
   /**
@@ -54,7 +53,7 @@ export const LAYOUTS: Readonly<Record<Layout, LayoutTraits>> = {
     shortcut: "home",
     hasPeriod: false,
     lit: "today",
-    // Its running sessions sit in columns, like the live page's
+    // Its two columns would shrink to slivers beside the drawer
     drawerOverlay: () => true,
     heading: () => todayMessages().heading,
     stepping: { blocks: false, runs: false },
@@ -97,17 +96,6 @@ export const LAYOUTS: Readonly<Record<Layout, LayoutTraits>> = {
     comparesPrevious: false,
     padsMonth: false,
   },
-  live: {
-    param: "live",
-    shortcut: "live",
-    hasPeriod: false,
-    lit: "live",
-    drawerOverlay: () => true,
-    heading: () => liveMessages().heading,
-    stepping: { blocks: false, runs: false },
-    comparesPrevious: false,
-    padsMonth: false,
-  },
 };
 
 /**
@@ -128,6 +116,12 @@ const ENTRIES = Object.entries(LAYOUTS) as [Layout, LayoutTraits][];
 export const LAYOUT_IDS: readonly Layout[] = ENTRIES.map(([id]) => id);
 
 /**
+ * Layouts that are gone, by their old `layout` value, and the one an old link opens instead. The
+ * live page went into Today's Now.
+ */
+const RETIRED_PARAMS: ReadonlyMap<string, Layout> = new Map([["live", "today"]]);
+
+/**
  * The layout a URL's `layout` parameter names. Anything unknown, or none, is the default, unless
  * the URL carries a period's state, which only the calendar can show then.
  */
@@ -136,7 +130,8 @@ export function layoutOfParam(
   { carriesPeriod = false }: { carriesPeriod?: boolean } = {},
 ): Layout {
   const named = ENTRIES.find(([, t]) => t.param !== null && t.param === param)?.[0];
-  return named ?? (carriesPeriod ? PERIOD_LAYOUT : DEFAULT_LAYOUT);
+  const retired = param === null ? undefined : RETIRED_PARAMS.get(param);
+  return named ?? retired ?? (carriesPeriod ? PERIOD_LAYOUT : DEFAULT_LAYOUT);
 }
 
 /** The layout a shortcut switches to, or null for a shortcut that isn't a layout's. */

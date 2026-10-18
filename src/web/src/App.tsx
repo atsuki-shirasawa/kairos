@@ -22,7 +22,7 @@ import { LAYOUTS } from "@/lib/layouts.ts";
 
 /**
  * Root component: owns the URL-synced view state and wires the toolbar, the layout's body
- * (the home page, calendar, summary, table or the live page) and the session drawer together, plus the global
+ * (the home page, calendar, summary or table) and the session drawer together, plus the global
  * shortcuts.
  */
 export function App() {

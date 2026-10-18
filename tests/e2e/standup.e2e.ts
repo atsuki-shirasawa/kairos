@@ -31,7 +31,7 @@ async function copyStandup(page: Page, period: RegExp): Promise<string> {
 
 test("Standup: one click copies the last workday's report from any page", async () => {
   const { page } = e2e;
-  await page.open("?layout=live");
+  await page.open("?");
   const text = await copyStandup(page, /^Last workday/);
   // The demo's last workday before the capture's day
   expect(text).toStartWith("# Work report: 2026-10-02\n");

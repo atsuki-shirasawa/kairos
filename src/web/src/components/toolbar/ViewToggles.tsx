@@ -62,15 +62,14 @@ interface SegmentLook {
 }
 
 /**
- * The toggle's segments, one per layout that has one: the table is a tab of the summary, and the
- * live page has its own button. Every layout is listed, so a new one has to choose.
+ * The toggle's segments, one per layout that has one: the table is a tab of the summary, and
+ * Today has the wordmark and the Live button. Every layout is listed, so a new one has to choose.
  */
 const SEGMENTS: Record<Layout, SegmentLook | null> = {
   today: null,
   calendar: { Icon: CalendarDays, label: (m) => m.calendar },
   summary: { Icon: ChartColumn, label: (m) => m.summary },
   table: null,
-  live: null,
 };
 
 /** Switches the main area between the layouts that have a segment (the calendar and the summary). */
@@ -88,7 +87,7 @@ export function LayoutToggle({
       type="single"
       size="sm"
       spacing={0.5}
-      // A layout lit elsewhere (the live page lights its own button) leaves every segment off
+      // A layout lit elsewhere (Today lights the Live button) leaves every segment off
       value={SEGMENTS[lit] ? lit : ""}
       onValueChange={(v) => {
         const layout = LAYOUT_IDS.find((l) => l === v);

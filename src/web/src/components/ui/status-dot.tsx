@@ -28,7 +28,7 @@ function lookClasses(look: DotLook): string {
 
 /**
  * The 6px dot that tells the state of a session, subagent or block (DESIGN.md, StatusDot): the
- * live page's cards and button, work in progress on the calendar and in the table, and the
+ * running sessions' cards, the Live button, work in progress on the calendar and in the table, and the
  * drawer's active section. One component, so pulsing and rings read the same everywhere.
  */
 function StatusDot({

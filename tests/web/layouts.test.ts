@@ -7,8 +7,6 @@ describe("drawerOverlay", () => {
     ["calendar", "month", true],
     ["calendar", "week", true],
     ["calendar", "day", false],
-    ["live", "day", true],
-    ["live", "week", true],
     ["today", "week", true],
     ["table", "week", false],
     ["summary", "month", false],
@@ -18,18 +16,18 @@ describe("drawerOverlay", () => {
 });
 
 describe("stepping", () => {
-  test("steps through blocks everywhere but the live page", () => {
+  test("steps through blocks everywhere but Today", () => {
     expect(LAYOUTS.calendar.stepping.blocks).toBe(true);
     expect(LAYOUTS.table.stepping.blocks).toBe(true);
     expect(LAYOUTS.summary.stepping.blocks).toBe(true);
-    expect(LAYOUTS.live.stepping.blocks).toBe(false);
+    expect(LAYOUTS.today.stepping.blocks).toBe(false);
   });
 
   test("steps through a burst of runs only on the calendar", () => {
     expect(LAYOUTS.calendar.stepping.runs).toBe(true);
     expect(LAYOUTS.table.stepping.runs).toBe(false);
     expect(LAYOUTS.summary.stepping.runs).toBe(false);
-    expect(LAYOUTS.live.stepping.runs).toBe(false);
+    expect(LAYOUTS.today.stepping.runs).toBe(false);
   });
 });
 
@@ -37,7 +35,11 @@ describe("layoutOfParam", () => {
   test("reads each layout's URL value, the table under its old name", () => {
     expect(layoutOfParam("summary")).toBe("summary");
     expect(layoutOfParam("list")).toBe("table");
-    expect(layoutOfParam("live")).toBe("live");
+  });
+
+  test("the live page's old value opens Today, whose Now took it in", () => {
+    expect(layoutOfParam("live")).toBe("today");
+    expect(layoutOfParam("live", { carriesPeriod: true })).toBe("today");
   });
 
   test("none, or anything unknown, is the home page", () => {
@@ -62,17 +64,16 @@ describe("layoutOfShortcut", () => {
     expect(layoutOfShortcut("calendar")).toBe("calendar");
     expect(layoutOfShortcut("summary")).toBe("summary");
     expect(layoutOfShortcut("table")).toBe("table");
-    expect(layoutOfShortcut("live")).toBe("live");
     expect(layoutOfShortcut("week")).toBeNull();
   });
 });
 
-test("only the home and live pages have no period", () => {
+test("only the home page has no period", () => {
   expect(
     Object.entries(LAYOUTS)
       .filter(([, t]) => !t.hasPeriod)
       .map(([l]) => l),
-  ).toEqual(["today", "live"]);
+  ).toEqual(["today"]);
 });
 
 test("a page without a period names its heading, and one with a period leaves it to the date", () => {

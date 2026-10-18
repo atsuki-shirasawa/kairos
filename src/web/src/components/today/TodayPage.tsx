@@ -19,7 +19,6 @@ export function TodayPage({
   selectedId,
   selectedAt,
   onSelect,
-  onLive,
   onOpenDay,
 }: {
   live: LiveResponse | undefined;
@@ -30,7 +29,6 @@ export function TodayPage({
   selectedId: string | null;
   selectedAt: number | null;
   onSelect: OpenBlock;
-  onLive: () => void;
   onOpenDay: (day: number) => void;
 }) {
   const workday = useLastWorkday(now, projects);
@@ -45,7 +43,6 @@ export function TodayPage({
           now={now}
           selectedId={selectedId}
           onSelect={onSelect}
-          onLive={onLive}
         />
         <div className="flex min-w-0 flex-col gap-10">
           <PickUp

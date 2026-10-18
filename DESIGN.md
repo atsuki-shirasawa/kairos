@@ -188,8 +188,8 @@ screen bends a rule are in [docs/design/decisions.md](docs/design/decisions.md).
 
 Kairos is the memory of your work: open it to see what is running, what you did last and what is
 left to pick up. Looking back is reached from there, and the calendar answers "when". The work
-itself is the loudest thing on every screen. The app opens on that home page (Today); the live page
-holds every running session full screen.
+itself is the loudest thing on every screen. The app opens on that home page (Today), whose Now
+holds every running session.
 
 - **What needs you comes first.** A session waiting on you, then what is left open, then what was
   done; numbers (tokens, cost, snags) stay in the background
@@ -215,8 +215,8 @@ swaps every value for its `-dark` token under `.dark`.
   ([why](docs/design/decisions.md#a-list-rows-trailing-link-stays-muted))
 - **Background / Surface:** the screen is slightly grey; the calendar body and the drawer sit on
   white (navy in dark) surfaces
-- **Warn (`#8a6420`):** text of numbers that need attention (snags), and the few marks that call for you (the asking dot, and on the live page what the
-  [screens spec](docs/design/screens.md#live-page) marks `warn`). Plain yellow ocher lacks
+- **Warn (`#8a6420`):** text of numbers that need attention (snags), and the few marks that call for you (the asking dot, and among the running sessions what the
+  [screens spec](docs/design/screens.md#running-sessions) marks `warn`). Plain yellow ocher lacks
   contrast on white, so it is darkened
 - **Destructive:** error messages only
 - **Input (`#d7dce4` / `#2e3c5a`):** text fields and select borders, where the placeholder and
@@ -305,10 +305,10 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
 
 - **Tag** (`components/ui/tag.tsx`): a small label beside text in a 1px `border` outline with `md`
   radius. `outline` (the default) is 12px `muted-ink`, for the drawer's Headless and the open items'
-  kinds; `compact` keeps the size and tone of its line with tighter padding, for the live page's
+  kinds; `compact` keeps the size and tone of its line with tighter padding, for a running session's
   Background and Fast. Use it rather than restyling a span, so the badges can't drift apart
 - **StatusDot** (`components/ui/status-dot.tsx`): the 6px state dot. `pulse` is work going on now
-  (in the project color on the calendar, the table and the live page, `ink` on the Live button,
+  (in the project color on the calendar, the table and Today's running sessions, `ink` on the Live button,
   `primary` for the drawer's active section), `solid` a state that holds (`warn` for asking,
   `muted-ink` for sessions running), `ring` one that waits or is done (always `muted-ink`)
 - **Moment node** (`components/MomentNode.tsx`): the app's word for commit and PR. A commit is a
@@ -332,7 +332,7 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
   **don't** hard-code hex values in components
 - **Do** add new colors to both `:root` and `.dark` in `index.css`, and here
 - **Do** mix project colors in `oklch` into `--block-base`; **don't** mix into `--card` or use opacity.
-  The live page's cards and rows use no block fill at all
+  The running sessions' cards and rows use no block fill at all
   ([why](docs/design/decisions.md#live-cards-carry-no-block-fill))
 - **Do** use `font-num` for any time, date, count or cost
 - **Don't** add new accent colors, gradients or decorative shadows to the frame — color belongs to

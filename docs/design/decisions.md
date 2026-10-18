@@ -34,8 +34,8 @@ same thing twice.
 ## The drawer floats over the calendar
 
 Where the drawer floats instead of making room is in [screens.md](screens.md#drawer). Pushing seven
-columns into the ~600px left at 1024px cut most titles to one word; the live page's three columns
-would shrink the same way.
+columns into the ~600px left at 1024px cut most titles to one word; Today's two columns would
+shrink the same way.
 
 ## Period and layout are two controls
 
@@ -60,7 +60,7 @@ Live cards keep the project color in their 3px edge only, on neutral `muted` / `
 instead of mixing the project color into `block-base`. Dim pigment fills on the navy surface read as
 muddy browns, and with the color in the edge alone `warn` stays the only color that calls for you.
 
-## The live page counts tokens, not cost
+## The token chart counts tokens, not cost
 
 Tokens are what the logs record; a cost would put a price list's estimate in between. The calendar's
 summary view still shows estimated cost as context.
@@ -73,6 +73,6 @@ can't.
 
 ## The token chart climbs instead of standing in bars
 
-The live page's chart of the day's tokens is a stack of climbing bands, not 5-minute bars. With bars,
+Today's chart of the day's tokens is a stack of climbing bands, not 5-minute bars. With bars,
 one spike flattened every other slot; as a climb, a spike is a steep stretch and the rest of the day
 stays readable.
