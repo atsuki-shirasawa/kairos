@@ -1,11 +1,11 @@
 import type { Recap } from "@shared/api.ts";
 import { summaryFailureKind } from "@shared/summaryFailure.ts";
 import { Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { Hint } from "@/components/Hint.tsx";
+import { Markdown } from "@/components/Markdown.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { summaryMessages } from "@/i18n/messages/summary.ts";
 import { failureHint } from "@/lib/summaryFailure.ts";
-import { Hint } from "../Hint.tsx";
-import { Markdown } from "../Markdown.tsx";
 
 /** The LLM's summary of the project's work in the period, or a button to make one. */
 export function RecapBlock({

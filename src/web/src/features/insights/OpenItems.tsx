@@ -1,6 +1,9 @@
 import type { LedgerEntry } from "@shared/api.ts";
 import { ChevronRight } from "lucide-react";
 import { useState } from "react";
+import { Hint } from "@/components/Hint.tsx";
+import { Markdown } from "@/components/Markdown.tsx";
+import { BlockLink, HandActions, KindTag } from "@/components/OpenItemParts.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import type { OnOpenItemUpdate } from "@/hooks/useOpenItemEdits.ts";
 import { summaryMessages } from "@/i18n/messages/summary.ts";
@@ -8,9 +11,6 @@ import { dateLabel } from "@/lib/dates.ts";
 import { closedHow, OLD_WEEKS, type ProjectOpenItems, weekOpen } from "@/lib/openItems.ts";
 import { cn } from "@/lib/utils.ts";
 import type { View } from "@/lib/view.ts";
-import { Hint } from "../Hint.tsx";
-import { Markdown } from "../Markdown.tsx";
-import { BlockLink, HandActions, KindTag } from "../OpenItemParts.tsx";
 
 /** What a row can do: open a block, or close / reopen its item by hand. */
 interface Actions {

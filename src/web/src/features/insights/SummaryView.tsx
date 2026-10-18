@@ -1,3 +1,4 @@
+import { SEGMENT, SEGMENTED } from "@/components/toolbar/segmented.ts";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import type { PreviousPeriod } from "@/hooks/usePeriodSessions.ts";
 import { summaryMessages } from "@/i18n/messages/summary.ts";
@@ -5,15 +6,14 @@ import { LAYOUTS } from "@/lib/layouts.ts";
 import type { PeriodBodyProps } from "@/lib/periodBody.ts";
 import { keyCap } from "@/lib/shortcuts.ts";
 import type { View } from "@/lib/view.ts";
-import { ByDay } from "./summary/ByDay.tsx";
-import { ByProject } from "./summary/ByProject.tsx";
-import { Done } from "./summary/Done.tsx";
-import { ThroughDay } from "./summary/ThroughDay.tsx";
-import { Totals } from "./summary/Totals.tsx";
-import { usePeriodSummaries } from "./summary/usePeriodSummaries.ts";
-import { useProjectOpenItems } from "./summary/useProjectOpenItems.ts";
-import { useProjectRecaps } from "./summary/useProjectRecaps.ts";
-import { SEGMENT, SEGMENTED } from "./toolbar/segmented.ts";
+import { ByDay } from "./ByDay.tsx";
+import { ByProject } from "./ByProject.tsx";
+import { Done } from "./Done.tsx";
+import { ThroughDay } from "./ThroughDay.tsx";
+import { Totals } from "./Totals.tsx";
+import { usePeriodSummaries } from "./usePeriodSummaries.ts";
+import { useProjectOpenItems } from "./useProjectOpenItems.ts";
+import { useProjectRecaps } from "./useProjectRecaps.ts";
 
 interface Props extends PeriodBodyProps {
   view: View;
