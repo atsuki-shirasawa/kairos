@@ -140,3 +140,80 @@ test("migration 14 adds how a summary was written, null for the summaries before
   ]);
   db.close();
 });
+
+/** The rowids the search index holds, in order. */
+function indexed(db: Database): number[] {
+  return db
+    .query<{ rowid: number }, []>("SELECT rowid FROM message_text ORDER BY rowid")
+    .all()
+    .map((r) => r.rowid);
+}
+
+/** Adds a message and returns its rowid. */
+function addMessage(
+  db: Database,
+  id: string,
+  kind: string,
+  text: string,
+  agent: string | null = null,
+) {
+  db.run(
+    "INSERT INTO messages (id, session_id, agent_id, file_id, seq, ts, kind, text) VALUES (?, 's', ?, 1, 0, 5, ?, ?)",
+    [id, agent, kind, text],
+  );
+  return db.query<{ r: number }, [string]>("SELECT rowid AS r FROM messages WHERE id = ?").get(id)
+    ?.r;
+}
+
+test("migration 16 indexes the main conversation's prompts and replies already ingested", () => {
+  const path = join(tmpdir(), `kairos-message-text-${crypto.randomUUID()}.db`);
+  const old = new Database(path, { create: true });
+  for (const [i, sql] of MIGRATIONS.slice(0, 15).entries()) {
+    old.run(sql);
+    old.run(`PRAGMA user_version = ${i + 1}`);
+  }
+  old.run(
+    "INSERT INTO ingest_state (id, path, session_id, parser_version) VALUES (1, 'f', 's', 1)",
+  );
+  old.run("INSERT INTO sessions (id) VALUES ('s')");
+  const prompt = addMessage(old, "p", "prompt", "fix the login form");
+  addMessage(old, "a", "assistant", "a subagent's reply", "agent-1");
+  addMessage(old, "t", "tool_result", "tool output");
+  addMessage(old, "e", "assistant", "");
+  old.close();
+
+  const db = openDb(path);
+  expect(indexed(db)).toEqual([prompt ?? -1]);
+  expect(
+    db.query("SELECT rowid FROM message_text WHERE message_text MATCH '\"LOGIN\"'").all(),
+  ).toEqual([{ rowid: prompt }]);
+  db.close();
+});
+
+test("the search index follows messages as ingest adds them and clears them", () => {
+  const db = openDb(":memory:");
+  db.run("INSERT INTO ingest_state (id, path, session_id, parser_version) VALUES (1, 'f', 's', 1)");
+  db.run("INSERT INTO sessions (id) VALUES ('s')");
+  const reply = addMessage(db, "r", "assistant", "done");
+  const sdk = addMessage(db, "q", "sdk_prompt", "summarize this");
+  addMessage(db, "u", "tool_use", "Edit app.tsx");
+  addMessage(db, "x", "prompt", "for a subagent", "agent-1");
+  expect(indexed(db)).toEqual([reply ?? -1, sdk ?? -1]);
+
+  // A continued session's repeat of the earlier one is marked a copy after insert, and leaves
+  db.run("UPDATE messages SET is_copy = 1 WHERE id = 'q'");
+  expect(indexed(db)).toEqual([reply ?? -1]);
+  db.run("UPDATE messages SET is_copy = 0 WHERE id = 'q'");
+  expect(indexed(db)).toEqual([reply ?? -1, sdk ?? -1]);
+  // Text changed in place is indexed as it is now
+  db.run("UPDATE messages SET text = 'finished' WHERE id = 'r'");
+  expect(
+    db.query("SELECT rowid FROM message_text WHERE message_text MATCH '\"finish\"'").all(),
+  ).toEqual([{ rowid: reply }]);
+
+  // A file read again is cleared first, and a session's rows go with it (a cascade, which fires triggers too)
+  db.run("DELETE FROM messages WHERE id = 'r'");
+  expect(indexed(db)).toEqual([sdk ?? -1]);
+  db.run("DELETE FROM ingest_state WHERE id = 1");
+  expect(indexed(db)).toEqual([]);
+});

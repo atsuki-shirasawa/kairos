@@ -183,7 +183,7 @@ Kairos shows which Claude Code sessions are running and what each is doing, with
 |---|---|---|
 | GET | `/api/health` | Liveness check (used by the Launcher) |
 | GET | `/api/calendar?from&to` | Sessions in the period and their sections (start, end, headline, summary body, PRs, prompt count, token usage, activity) |
-| GET | `/api/search?q` | Sections matching every space-separated term across all periods, newest first (up to 50). Looks at headlines, summary bodies, session titles and branches, PR and commit titles, and the main conversation's prompts and replies. A `file:<path>` term matches only the paths of files edited in the section with Edit / Write (subagents included), and plain terms never match them. A plain `LIKE` scan (tens of ms on real data, about 100 ms with `file:`); queries under 2 characters return nothing |
+| GET | `/api/search?q` | Sections matching every space-separated term across all periods, newest first (up to 50). Looks at headlines, summary bodies, session titles and branches, PR and commit titles, and the main conversation's prompts and replies. A `file:<path>` term matches only the paths of files edited in the section with Edit / Write (subagents included), and plain terms never match them. `LIKE` decides what matches; the prompts and replies, by far the most text, are first narrowed by a trigram FTS5 index (`message_text`, kept in step with `messages` by triggers): a term of 3 characters or more is looked up in it, and a shorter one (a two-character Japanese word) scans the index's own copy of the text instead of `messages`. On real data that is 8–18 ms for 3+ characters, about 30 ms for two, and about 60 ms with `file:` (edited paths are not indexed); queries under 2 characters return nothing |
 | GET | `/api/spans?from&to` | Only the start, end and project of work blocks overlapping the period. Used for the "days with records" dots in the date picker; assigning to days is done in the UI's local time |
 | GET | `/api/sessions/:id` | Session details (per-section summaries, artifacts, subagents) |
 | GET | `/api/sessions/:id/messages?cursor&limit` | Paginated conversation |
@@ -261,7 +261,8 @@ kairos/
 │   │   │               #   ledger/ (open items: refs, candidates, record, settle by the log, API reads)
 │   │   ├── api/        # Hono routes (app), request validation (validate), SSE (sse), security middleware
 │   │   ├── queries/    # read queries behind the API: the Queries façade (index) and its domain
-│   │   │               #   modules; search is the engine behind /api/search (terms, SQL, excerpts)
+│   │   │               #   modules; search is the engine behind /api/search (terms, the
+│   │   │               #   index-narrowed SQL, excerpts)
 │   │   ├── toolCalls.ts  # main-conversation tool calls with results; testRuns.ts and tasks.ts read
 │   │   │                 #   test runs and the task list from them (summaries and the running sessions)
 │   │   ├── pricing.ts  # API price list for cost estimates

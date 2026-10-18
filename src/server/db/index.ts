@@ -361,6 +361,46 @@ export const MIGRATIONS: string[] = [
   `
   CREATE INDEX sessions_ended ON sessions(ended_at);
   `,
+  // 16: a trigram index over what search reads in messages (#61): the prompts and replies of the
+  // main conversation, by far the most text it looks at, without copies (a continued session's
+  // repeat of the earlier one, marked after insert). Search narrows the messages with it and LIKE
+  // still decides, so results don't change. Trigrams match any substring of 3+ characters,
+  // Japanese included. The table keeps its own copy of the text (about a tenth of messages' text,
+  // most of which is tool output), so a term too short for trigrams scans that copy instead, and
+  // each message's key, which search joins on: messages has no INTEGER PRIMARY KEY, so its rowid
+  // (used here only to find the row to drop) isn't promised to survive a rebuild of the file.
+  // Triggers keep it in step as ingest inserts, marks copies and clears files (FK cascades fire
+  // them too). Filled here from what was already ingested.
+  `
+  CREATE VIRTUAL TABLE message_text USING fts5(
+    text, session_id UNINDEXED, id UNINDEXED, tokenize='trigram'
+  );
+  INSERT INTO message_text(rowid, text, session_id, id)
+    SELECT rowid, text, session_id, id FROM messages
+     WHERE kind IN ('prompt', 'sdk_prompt', 'assistant') AND agent_id IS NULL
+       AND is_copy = 0 AND text != '';
+  CREATE TRIGGER message_text_insert AFTER INSERT ON messages
+    WHEN new.kind IN ('prompt', 'sdk_prompt', 'assistant') AND new.agent_id IS NULL
+     AND new.is_copy = 0 AND new.text != ''
+  BEGIN
+    INSERT OR REPLACE INTO message_text(rowid, text, session_id, id)
+      VALUES (new.rowid, new.text, new.session_id, new.id);
+  END;
+  CREATE TRIGGER message_text_delete AFTER DELETE ON messages
+  BEGIN
+    DELETE FROM message_text WHERE rowid = old.rowid;
+  END;
+  CREATE TRIGGER message_text_update AFTER UPDATE OF text, kind, agent_id, is_copy ON messages
+    WHEN old.text IS NOT new.text OR old.kind IS NOT new.kind
+      OR old.agent_id IS NOT new.agent_id OR old.is_copy IS NOT new.is_copy
+  BEGIN
+    DELETE FROM message_text WHERE rowid = old.rowid;
+    INSERT OR REPLACE INTO message_text(rowid, text, session_id, id)
+      SELECT new.rowid, new.text, new.session_id, new.id
+       WHERE new.kind IN ('prompt', 'sdk_prompt', 'assistant') AND new.agent_id IS NULL
+         AND new.is_copy = 0 AND new.text != '';
+  END;
+  `,
 ];
 
 /** Schema version once every migration is applied (stored in `PRAGMA user_version`). */
