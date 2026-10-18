@@ -1,5 +1,5 @@
+import { Markdown } from "@/components/Markdown.tsx";
 import { cn } from "@/lib/utils.ts";
-import { Markdown } from "../../Markdown.tsx";
 
 /**
  * How Markdown inside the summary is set, structured or not: bold at the app's semibold and room

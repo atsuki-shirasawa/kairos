@@ -1,15 +1,12 @@
 import { useState } from "react";
-import {
-  useFocusWhenOverlaid,
-  useScrollTopOnChange,
-} from "@/components/drawer/useDrawerEffects.ts";
 import { useSession } from "@/hooks/queries.ts";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import { selectedSection } from "@/lib/drawer.ts";
 import type { BlockRef, RunPosition } from "@/lib/navigation.ts";
 import { cn } from "@/lib/utils.ts";
-import { Detail } from "./drawer/Detail.tsx";
-import { DrawerHeader } from "./drawer/Header.tsx";
+import { Detail } from "./Detail.tsx";
+import { DrawerHeader } from "./Header.tsx";
+import { useFocusWhenOverlaid, useScrollTopOnChange } from "./useDrawerEffects.ts";
 
 interface Props {
   id: string;

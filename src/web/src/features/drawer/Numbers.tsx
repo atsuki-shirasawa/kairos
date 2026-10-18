@@ -1,4 +1,5 @@
 import type { Activity, Section, SessionDetail, Usage } from "@shared/api.ts";
+import { Hint } from "@/components/Hint.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import { durationLabel } from "@/lib/dates.ts";
@@ -12,7 +13,6 @@ import {
   troubleDetail,
 } from "@/lib/format.ts";
 import { cn } from "@/lib/utils.ts";
-import { Hint } from "../Hint.tsx";
 import { Block, CollapsedBlock } from "./Block.tsx";
 
 /**

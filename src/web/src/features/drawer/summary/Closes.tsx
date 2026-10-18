@@ -1,7 +1,7 @@
 import type { LedgerEntry } from "@shared/api.ts";
+import { BlockLink, KindTag } from "@/components/OpenItemParts.tsx";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import { dateLabel } from "@/lib/dates.ts";
-import { BlockLink, KindTag } from "../../OpenItemParts.tsx";
 import { SummaryLabel, SummaryMarkdown } from "./SummaryText.tsx";
 
 /**

@@ -1,10 +1,10 @@
 import type { Activity, Section, SessionDetail, Usage } from "@shared/api.ts";
+import { Hint } from "@/components/Hint.tsx";
 import { OutcomeTally } from "@/components/OutcomeTally.tsx";
 import { StatusDot } from "@/components/ui/status-dot.tsx";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import { dateLabel, durationLabel, hhmm, isSameDay, relativeDay } from "@/lib/dates.ts";
 import { approxCostLabel, tokensLabel, troubleCount, troubleDetail } from "@/lib/format.ts";
-import { Hint } from "../Hint.tsx";
 
 /**
  * When and how long (today / yesterday as words), then the key figures (Claude's time, tokens,

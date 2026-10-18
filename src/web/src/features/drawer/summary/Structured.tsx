@@ -2,11 +2,11 @@ import type { LedgerEntry } from "@shared/api.ts";
 import type { OpenItem, SummaryParts } from "@shared/summaryBody.ts";
 import { useRef, useState } from "react";
 import { MomentNode } from "@/components/MomentNode.tsx";
+import { KindTag } from "@/components/OpenItemParts.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { useClampedChildren } from "@/hooks/useClampedChildren.ts";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import type { OutcomeNode } from "@/lib/artifacts.ts";
-import { KindTag } from "../../OpenItemParts.tsx";
 import { LedgerOpenList } from "./LedgerOpenList.tsx";
 import { SummaryLabel, SummaryMarkdown } from "./SummaryText.tsx";
 

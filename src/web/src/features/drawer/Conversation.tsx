@@ -1,6 +1,7 @@
 import type { Message } from "@shared/api.ts";
 import { ChevronRight } from "lucide-react";
 import { useMemo, useRef } from "react";
+import { Markdown } from "@/components/Markdown.tsx";
 import { useMessages } from "@/hooks/queries.ts";
 import type { Jump } from "@/hooks/useConversationJump.ts";
 import { useJumpToMessage } from "@/hooks/useJumpToMessage.ts";
@@ -14,7 +15,6 @@ import {
 } from "@/lib/conversation.ts";
 import { dateLabel, hhmm } from "@/lib/dates.ts";
 import { cn } from "@/lib/utils.ts";
-import { Markdown } from "./Markdown.tsx";
 
 /**
  * The conversation of a session (or a subagent). Scrolling to the bottom loads more.
