@@ -186,6 +186,24 @@ The day is read, not placed: a list of the day's work beside the selected block'
   were written `file:<word>`. It sits inside the field, like an editor's match-case toggle, rather
   than adding a control to the toolbar. Pressing it keeps the caret in the field; the field sizes
   by `focus-within` so it doesn't shrink while the button has focus
+- **Command palette (⌘K; Ctrl+K outside a text field, where macOS deletes to the line's end):** a dialog 40rem wide (less on a narrow screen),
+  12vh from the top over a 30% black scrim (the overlaid drawer's), on `popover` with the `lg` radius and
+  the overlaid drawer's `shadow-2xl`, since it sits in front of everything. A 48px field with the
+  search icon, then the rows, scrolling within 76vh, under small medium-weight `muted-ink` group
+  headings: Date
+  (when the query names a day: "2026-09-30", "9/30", "9月30日", "yesterday", "昨日", "tue",
+  "last tue", "先週の火曜"; a bare weekday is the latest one up to today, "last" is the one in the
+  previous Sunday-first week), Go to, View, Copy, Projects, Settings, then Work (the first eight
+  search hits, drawn as in the search field's panel). Each command ends with the key cap that
+  does the same outside the palette, so the palette teaches the keys; a command with a key runs
+  exactly as the key does. The active row has the `accent` fill; ↑ ↓ move (wrapping), Enter
+  runs, Esc closes. Settings are offered as the change they make ("Theme: Dark"), and each
+  project as showing or hiding it, listed only once a query is typed so they don't bury the
+  rest. Reports appear once the projects are known (as in the standup menu), and a copy waits for
+  what it needs (the last workday, the session) rather than finding nothing. A copy keeps the
+  palette open and says at its foot how it went; anything else closes it first, then runs, and
+  each opening starts from an empty field.
+  The toolbar stays as it is
 
 ## Drawer
 

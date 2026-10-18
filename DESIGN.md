@@ -290,6 +290,8 @@ Few cards and few shadows. Boundaries are 1px `line` rules. Only floating things
 
 - The drawer, when it overlays the screen or floats over it (`shadow-2xl`; where it does is in
   [screens.md](docs/design/screens.md#drawer))
+- The command palette, a modal dialog over a 30% black scrim (`shadow-2xl`, as the overlaid
+  drawer; [why](docs/design/decisions.md#the-palette-lifts-like-the-drawer))
 - Popovers and the search results (`shadow-md`)
 - The active segment of a segmented toggle (`shadow-sm`)
 

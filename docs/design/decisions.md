@@ -46,6 +46,13 @@ Where the drawer floats instead of making room is in [screens.md](screens.md#dra
 columns into the ~600px left at 1024px cut most titles to one word; Today's two columns would
 shrink the same way.
 
+## The palette lifts like the drawer
+
+The ⌘K palette is a modal dialog over a scrim, not a popover anchored to a control: it covers the
+page, and what it shows next replaces what is under it. A popover's `shadow-md` read as a menu
+hanging off the toolbar, so it takes the overlaid drawer's `shadow-2xl` and scrim, the other thing
+that sits in front of the whole page.
+
 ## Period and layout are two controls
 
 The period (month / week / day) is an outlined dropdown and the layout (calendar / summary) a
