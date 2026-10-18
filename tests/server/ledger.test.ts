@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MIGRATIONS, openDb, SCHEMA_VERSION } from "../../src/server/db/index.ts";
 import { Summarizer } from "../../src/server/summarize/summarizer.ts";
+import { DAY } from "../../src/shared/dates.ts";
 import { SID } from "../fixtures/ids.ts";
 import { markdownRunner } from "./answers.ts";
 import { min, setup } from "./ingest/helpers.ts";
@@ -133,7 +134,7 @@ describe("open items ledger", () => {
     expect(bodyAt(1740)).toBe("- Goal: add a BOM\n- Done:\n  - added it");
   });
 
-  test("another session of the project sees an item only when it names the same ref", async () => {
+  test("another session of the project sees the items naming its refs, then recent ones naming none", async () => {
     await summarize(SID.ledgerOpen, 1700);
     // As if the log didn't show #21 closed yet
     db.run("UPDATE open_items SET closed_at = NULL, closed_by = NULL WHERE text LIKE 'The CSV%'");
@@ -142,9 +143,26 @@ describe("open items ledger", () => {
     expect(p).toContain(
       '- [O1] [issue] The CSV export is garbled in Excel (#21) (from an earlier session ("CSV export garbled in Excel"))',
     );
-    expect(p).not.toContain("UTF-16");
+    // Nothing ties it to this session, but a later session may still be where it was settled
+    expect(p).toContain(
+      '- [O2] [question] Whether to offer UTF-16 output too (from an earlier session ("CSV export garbled in Excel"))',
+    );
     // Saving the section runs the ref check again
     expect(item("The CSV")?.closed_by).toBe("ref");
+  });
+
+  test("another session doesn't see the project's items naming another ref", async () => {
+    await summarize(SID.ledgerOpen, 1700);
+    db.run(`UPDATE open_items SET refs = '["#99"]' WHERE text LIKE 'Whether%'`);
+    await summarize(SID.ledgerClose, 1800);
+    expect(prompts[1]).not.toContain("UTF-16");
+  });
+
+  test("another session doesn't see the project's items opened over a week before it", async () => {
+    await summarize(SID.ledgerOpen, 1700);
+    db.run(`UPDATE open_items SET opened_at = opened_at - ${8 * DAY} WHERE text LIKE 'Whether%'`);
+    await summarize(SID.ledgerClose, 1800);
+    expect(prompts[1]).not.toContain("UTF-16");
   });
 
   test("regenerating a section rewrites what it opened and the closes it made", async () => {

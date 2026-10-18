@@ -1,14 +1,16 @@
 // Which earlier open items a section summary is shown, to say which of them the section settled.
 import type { Database } from "bun:sqlite";
+import { PICK_UP_IDLE_DAYS } from "../../../shared/constants.ts";
+import { DAY } from "../../../shared/dates.ts";
 import type { EarlierOpen } from "../prompt.ts";
 import type { SectionRef } from "../target.ts";
 import { predecessors, projectOf } from "./chain.ts";
 import { CLOSED_BY } from "./closers.ts";
 import { ITEM_SELECT, type ItemRow, itemOf, type LedgerItem } from "./items.ts";
-import { isTaskRef } from "./refs.ts";
+import { isSharedRef } from "./refs.ts";
 
 /** Most earlier items shown to the model; past it, the newest are kept. */
-const MAX_CANDIDATES = 15;
+export const MAX_CANDIDATES = 15;
 
 /**
  * Open items of the section's project and of the sessions given (its chain), opened before the
@@ -36,21 +38,45 @@ function openBefore(db: Database, target: SectionRef, chain: string[]): LedgerIt
 }
 
 /**
- * Earlier open items a section may have settled: those of its own session and the sessions it
- * continues, and the project's that name an issue, PR or Jira key the section names too (task IDs
- * only mean something within one chain). Newest first, at most `MAX_CANDIDATES`.
+ * How far back, from the section's start, another session's items that name no shared ref are
+ * offered: Pick up's window, so a fresh item a later session settled can leave it.
  */
+const UNTIED_ITEM_DAYS = PICK_UP_IDLE_DAYS;
+
+/** What decides which earlier items are a section's candidates. */
+export interface CandidateScope {
+  /** The section's session and the sessions it continues. */
+  chain: string[];
+  /** The refs the section names. */
+  sectionRefs: string[];
+  /** The section's start. */
+  start: number;
+}
+
+/**
+ * Of the earlier items (newest first), the ones a section may have settled, at most
+ * `MAX_CANDIDATES`. First those tied to it: its chain's, and the project's that name an issue, PR
+ * or Jira key the section names too. The places left go to the project's recent items that name
+ * no shared ref, which nothing else could tie to the section that settles them.
+ */
+export function pickCandidates(earlier: LedgerItem[], scope: CandidateScope): LedgerItem[] {
+  const inChain = new Set(scope.chain);
+  const named = new Set(scope.sectionRefs.filter(isSharedRef));
+  const since = scope.start - UNTIED_ITEM_DAYS * DAY;
+  const isTied = (i: LedgerItem) => inChain.has(i.sessionId) || i.refs.some((r) => named.has(r));
+  const isUntied = (i: LedgerItem) =>
+    !inChain.has(i.sessionId) && !i.refs.some(isSharedRef) && i.openedAt >= since;
+  return [...earlier.filter(isTied), ...earlier.filter(isUntied)].slice(0, MAX_CANDIDATES);
+}
+
+/** The earlier open items a section may have settled (see `pickCandidates`). */
 export function loadCandidates(
   db: Database,
   target: SectionRef,
   sectionRefs: string[],
 ): LedgerItem[] {
   const chain = predecessors(db, target.sessionId);
-  const inChain = new Set(chain);
-  const named = new Set(sectionRefs.filter((r) => !isTaskRef(r)));
-  return openBefore(db, target, chain)
-    .filter((i) => inChain.has(i.sessionId) || i.refs.some((r) => named.has(r)))
-    .slice(0, MAX_CANDIDATES);
+  return pickCandidates(openBefore(db, target, chain), { chain, sectionRefs, start: target.start });
 }
 
 /** Where an earlier item came from, as the prompt tells the model. */

@@ -19,6 +19,12 @@ export const TASK_REF_PREFIX = "task:";
 /** Whether a ref names a task rather than an issue, PR or Jira key. */
 export const isTaskRef = (ref: string): boolean => ref.startsWith(TASK_REF_PREFIX);
 
+/**
+ * Whether a ref means the same in every session of a project: an issue, PR or Jira key, unlike a
+ * task ID, which only means something within one session chain.
+ */
+export const isSharedRef = (ref: string): boolean => !isTaskRef(ref);
+
 /** Whether the log can show a ref settled: issue / PR numbers and task IDs. */
 export const isClosable = (ref: string): boolean => ref.startsWith("#") || isTaskRef(ref);
 

@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { isClosable, itemRefs, refsOf } from "../../../../src/server/summarize/ledger/refs.ts";
+import {
+  isClosable,
+  isSharedRef,
+  itemRefs,
+  refsOf,
+} from "../../../../src/server/summarize/ledger/refs.ts";
 
 describe("refsOf", () => {
   test("reads issue and PR numbers, URLs, Jira keys and tasks", () => {
@@ -37,5 +42,11 @@ describe("isClosable", () => {
     ["12", false],
   ])("%s → %p", (ref, closable) => {
     expect(isClosable(ref)).toBe(closable);
+  });
+});
+
+describe("isSharedRef", () => {
+  test("issue / PR numbers and Jira keys are shared across sessions; task IDs aren't", () => {
+    expect(["#3", "APP-31", "task:3"].map(isSharedRef)).toEqual([true, true, false]);
   });
 });
