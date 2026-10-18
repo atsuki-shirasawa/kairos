@@ -226,3 +226,12 @@ export function agentRows(
 export function runningAgents(agents: readonly LiveAgent[]): number {
   return agents.filter((a) => a.running).length;
 }
+
+/** What the toolbar knows of the running sessions. */
+export interface LiveSummary {
+  running: number;
+  /** Sessions asking or waiting for the next prompt. */
+  attention: number;
+  /** Whether any session is running a turn. */
+  working: boolean;
+}

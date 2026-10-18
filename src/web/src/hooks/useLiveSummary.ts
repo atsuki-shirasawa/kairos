@@ -1,8 +1,7 @@
 import type { LiveResponse, LiveSession, Project } from "@shared/api.ts";
 import { useMemo } from "react";
-import type { LiveSummary } from "@/components/toolbar/LiveButton.tsx";
 import { useLive } from "@/hooks/queries.ts";
-import { attentionCount, liveDisplay, visibleLive } from "@/lib/live.ts";
+import { attentionCount, type LiveSummary, liveDisplay, visibleLive } from "@/lib/live.ts";
 
 /** The running sessions, for Today's Now, and the counts the toolbar's button shows. */
 export interface LiveState {

@@ -2,17 +2,9 @@ import { Button } from "@/components/ui/button.tsx";
 import { type DotLook, StatusDot } from "@/components/ui/status-dot.tsx";
 import { liveMessages } from "@/i18n/messages/live.ts";
 import { LAYOUTS } from "@/lib/layouts.ts";
+import type { LiveSummary } from "@/lib/live.ts";
 import { keyCap } from "@/lib/shortcuts.ts";
 import { cn } from "@/lib/utils.ts";
-
-/** What the toolbar knows of the running sessions. */
-export interface LiveSummary {
-  running: number;
-  /** Sessions asking or waiting for the next prompt. */
-  attention: number;
-  /** Whether any session is running a turn. */
-  working: boolean;
-}
 
 /**
  * Opens Today, whose Now lists the running sessions, and says from any page how many want an
