@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button.tsx";
 import { type DotLook, StatusDot } from "@/components/ui/status-dot.tsx";
 import { liveMessages } from "@/i18n/messages/live.ts";
+import { LAYOUTS } from "@/lib/layouts.ts";
 import { keyCap } from "@/lib/shortcuts.ts";
 import { cn } from "@/lib/utils.ts";
 
@@ -15,10 +16,9 @@ export interface LiveSummary {
 
 /**
  * Opens Today, whose Now lists the running sessions, and says from any page how many want an
- * answer. The dot
- * pulses while a session works, like the calendar's work in progress, in `ink` since it stands
- * for every project; the count is in the warn tone, as numbers that need attention are. Pressed
- * (the `muted` fill) on Today.
+ * answer. The dot pulses while a session works, like the calendar's work in progress, in `ink`
+ * since it stands for every project; the count is in the warn tone, as numbers that need attention
+ * are. Pressed (the `muted` fill) on Today, where it is the one way home that carries the count.
  */
 export function LiveButton({
   live,
@@ -37,7 +37,7 @@ export function LiveButton({
       onClick={onOpen}
       aria-pressed={active}
       aria-label={label}
-      title={m.buttonTitle(label, keyCap("home"))}
+      title={m.buttonTitle(label, keyCap(LAYOUTS.today.shortcut))}
       className={cn(
         "shrink-0 text-muted-foreground",
         active && "bg-muted text-foreground hover:bg-muted",

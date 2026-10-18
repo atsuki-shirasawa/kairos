@@ -6,6 +6,9 @@ import { isoDay } from "./dates.ts";
 /** The UI's two places: Today, and the Journal, which shows a period around a day. */
 export const UI_PATHS = { today: "/today", journal: "/journal" } as const;
 
+/** One of the UI's two places, by its name in `UI_PATHS`. */
+export type UiPlace = keyof typeof UI_PATHS;
+
 /** Query parameter names the CLI and the web app share. */
 export const UI_PARAMS = {
   /** Period length (`month`, `day`; week when absent). */
@@ -28,8 +31,8 @@ export type UiPage =
       date: string | null;
     };
 
-const TODAY_PATH = /^\/today\/?$/;
-const JOURNAL_PATH = /^\/journal(?:\/(\d{4}-\d{2}-\d{2}))?\/?$/;
+const TODAY_PATH = new RegExp(`^${UI_PATHS.today}/?$`);
+const JOURNAL_PATH = new RegExp(`^${UI_PATHS.journal}(?:/(\\d{4}-\\d{2}-\\d{2}))?/?$`);
 
 /** The page a path names, or null for any other path (the root among them). */
 export function readUiPath(pathname: string): UiPage | null {

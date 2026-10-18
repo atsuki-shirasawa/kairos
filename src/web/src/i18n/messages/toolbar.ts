@@ -4,21 +4,33 @@ import { UNIT_EN, UNIT_JA } from "../period.ts";
 
 type Unit = View;
 
+/** The period holding today, by its unit. */
+const CURRENT_EN: Record<Unit, string> = { month: "This month", week: "This week", day: "Today" };
+const CURRENT_JA: Record<Unit, string> = { month: "今月", week: "今週", day: "今日" };
+
 /** The header: navigation, view toggles, search, the "⋯" menu and the import progress. */
 export const toolbarMessages = defineMessages({
   en: {
     prev: (u: Unit) => `Previous ${UNIT_EN[u]}`,
     next: (u: Unit) => `Next ${UNIT_EN[u]}`,
     today: "Today",
+    /**
+     * The period button, which moves the period to the one holding today, named by its unit so
+     * that only the day view shares the Today page's name (and means much the same there).
+     */
+    current: (u: Unit) => CURRENT_EN[u],
     viewToggle: "View",
     month: "Month",
     week: "Week",
     day: "Day",
     viewTitle: "Month, week or day (m / w / d)",
-    layoutToggle: "Calendar or summary",
+    layoutToggle: "Calendar or insights",
     calendar: "Calendar",
-    summary: "Summary",
-    /** The mark and wordmark, which lead to the home page. Not "Today", the period button's name. */
+    summary: "Insights",
+    /** Switches between the two places; both names are kept in English in both languages. */
+    placeToggle: "Today or Journal",
+    journal: "Journal",
+    /** The mark and wordmark, which lead to the home page, named apart from the place toggle's "Today". */
     home: "Today page",
     menu: "Display settings and keyboard shortcuts",
     menuTitle: "Display settings and keyboard shortcuts (?)",
@@ -36,8 +48,8 @@ export const toolbarMessages = defineMessages({
     shortcutPeriod: "Previous / next period",
     shortcutToday: "Move the period to today",
     shortcutView: "Month / week / day view",
-    shortcutLayout: "Today / calendar / summary",
-    shortcutTable: "Summary as a table",
+    shortcutLayout: "Today / calendar / insights",
+    shortcutTable: "Insights as a table",
     shortcutStep: "Open next / previous work block",
     shortcutSearch: "Search",
     shortcutClose: "Close details",
@@ -61,14 +73,17 @@ export const toolbarMessages = defineMessages({
     prev: (u: Unit) => `前の${UNIT_JA[u]}`,
     next: (u: Unit) => `次の${UNIT_JA[u]}`,
     today: "今日",
+    current: (u: Unit) => CURRENT_JA[u],
     viewToggle: "表示の切り替え",
     month: "月",
     week: "週",
     day: "日",
     viewTitle: "月・週・日の表示（m / w / d）",
-    layoutToggle: "カレンダーとまとめの切り替え",
+    layoutToggle: "カレンダーとインサイトの切り替え",
     calendar: "カレンダー",
-    summary: "まとめ",
+    summary: "インサイト",
+    placeToggle: "Today と Journal の切り替え",
+    journal: "Journal",
     home: "Today ページ",
     menu: "表示の設定とキーボード操作",
     menuTitle: "表示の設定とキーボード操作（?）",
@@ -86,8 +101,8 @@ export const toolbarMessages = defineMessages({
     shortcutPeriod: "前・次の期間",
     shortcutToday: "期間を今日に移動",
     shortcutView: "月・週・日の表示",
-    shortcutLayout: "Today・カレンダー・まとめ",
-    shortcutTable: "まとめを表で見る",
+    shortcutLayout: "Today・カレンダー・インサイト",
+    shortcutTable: "インサイトを表で見る",
     shortcutStep: "次・前の作業を開く",
     shortcutSearch: "検索",
     shortcutClose: "詳細を閉じる",

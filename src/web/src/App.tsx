@@ -8,6 +8,7 @@ import { Toolbar } from "@/components/Toolbar.tsx";
 import { useSummaryLangSync } from "@/hooks/queries.ts";
 import { useBlockStepping, useCloseDrawer } from "@/hooks/useBlockNavigation.ts";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle.ts";
+import { useJournalTab } from "@/hooks/useJournalTab.ts";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts.ts";
 import { useLiveSummary } from "@/hooks/useLiveSummary.ts";
 import { useLiveUpdates } from "@/hooks/useLiveUpdates.ts";
@@ -22,7 +23,7 @@ import { LAYOUTS } from "@/lib/layouts.ts";
 
 /**
  * Root component: owns the URL-synced view state and wires the toolbar, the layout's body
- * (the home page, calendar, summary or table) and the session drawer together, plus the global
+ * (Today, or the Journal's calendar, Insights or table) and the session drawer together, plus the global
  * shortcuts.
  */
 export function App() {
@@ -63,6 +64,7 @@ export function App() {
     focusSearch: () => searchRef.current?.focus(),
   });
 
+  const journalTab = useJournalTab(state.layout);
   const layout = LAYOUTS[state.layout];
   const { stepping } = layout;
 
@@ -71,6 +73,7 @@ export function App() {
       <Toolbar
         layout={state.layout}
         onLayout={(layout) => update({ layout })}
+        journalTab={journalTab}
         now={now}
         projects={data.projects}
         projectMap={projectMap}

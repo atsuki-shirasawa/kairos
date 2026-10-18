@@ -68,8 +68,16 @@ summary view still shows estimated cost as context.
 ## The Live button is the one toolbar addition
 
 The toolbar takes no new controls ([what it holds](screens.md#toolbar-search-and-filters)). The Live
-button is the exception because it says from every page how many sessions wait on you, which a menu
-can't.
+button is an exception (the place toggle is the other) because it says from every page how many
+sessions wait on you, which a menu can't. On Today it is a third way home beside the mark and the
+place toggle, kept for that count.
+
+## The place toggle leads the toolbar
+
+The app has two places, Today and the Journal, instead of four modes (#59). Which one you are in
+is where you are rather than how a page is drawn, so it is a toggle of words at the left, before
+what the place shows, and not another icon segment beside the layout toggle. It takes the room the
+toolbar had: below `xl` the wordmark gives way to the mark and search to its icon.
 
 ## The token chart climbs instead of standing in bars
 

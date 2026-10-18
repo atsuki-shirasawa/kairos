@@ -14,6 +14,8 @@ const PAGES = [
   `/journal/${DEMO_WEEK}?tab=insights`,
   `/journal/${DEMO_WEEK}?tab=table`,
   "/today",
+  // The root opens Today too
+  "/",
 ];
 
 test("Live: the sessions waiting on you show on the Live button and in the tab title, on every page", async () => {
@@ -27,7 +29,10 @@ test("Live: the sessions waiting on you show on the Live button and in the tab t
     const live = await page.get("button", liveMessages().buttonLabel(waiting, waiting));
     expect({ path, title: await page.title() }).toEqual({ path, title: `(${waiting}) Kairos` });
     // It opens Today, whose Now lists them
-    expect({ path, pressed: live.pressed }).toEqual({ path, pressed: path === "/today" });
+    expect({ path, pressed: live.pressed }).toEqual({
+      path,
+      pressed: path === "/today" || path === "/",
+    });
   }
 });
 

@@ -12,9 +12,9 @@ import {
   writeSessionTarget,
 } from "@shared/uiUrl.ts";
 import { periodStart } from "./dates.ts";
-import type { Filter } from "./filter.ts";
+import { type Filter, NO_FILTER } from "./filter.ts";
 import { readFilter, writeFilter } from "./filterUrl.ts";
-import { LAYOUTS, layoutOfTab } from "./layouts.ts";
+import { LAYOUTS, layoutOfTab, placeOf } from "./layouts.ts";
 import { LEGACY_PARAMS, legacyLayout } from "./legacyUrl.ts";
 import type { ListSort } from "./listTable.ts";
 import type { Layout, View } from "./view.ts";
@@ -55,6 +55,15 @@ function readView(v: string | null): View {
   return v === "month" || v === DAY_VIEW ? v : "week";
 }
 
+/**
+ * Today's state: the open block, and defaults for the rest. Today writes only the open block, so
+ * it reads only that, and a period it couldn't keep through a reload isn't held.
+ */
+function todayState(q: URLSearchParams, today: number): UrlState {
+  const defaults = { view: "week", sort: DEFAULT_SORT, filter: NO_FILTER } as const;
+  return { ...defaults, layout: "today", anchor: today, ...readSessionTarget(q) };
+}
+
 /** What a URL says about a period and the open block, whichever page it is. */
 function readCommon(q: URLSearchParams): Omit<UrlState, "layout" | "anchor"> {
   return {
@@ -75,13 +84,15 @@ export function parseUrlState(href: string, now: number): UrlState {
   const q = url.searchParams;
   const page = readUiPath(url.pathname);
   const today = startOfDay(now);
-  if (page?.page === "today") return { ...readCommon(q), layout: "today", anchor: today };
+  if (page?.page === "today") return todayState(q, today);
   if (page?.page === "journal") {
     const anchor = parseIsoDay(page.date) ?? today;
     return { ...readCommon(q), layout: layoutOfTab(q.get(PARAMS.tab)), anchor };
   }
+  const layout = legacyLayout(q);
+  if (placeOf(layout) === "today") return todayState(q, today);
   const anchor = parseIsoDay(q.get(LEGACY_PARAMS.date)) ?? today;
-  return { ...readCommon(q), layout: legacyLayout(q), anchor };
+  return { ...readCommon(q), layout, anchor };
 }
 
 /**
@@ -90,12 +101,12 @@ export function parseUrlState(href: string, now: number): UrlState {
  */
 export function serializeUrlState(s: UrlState, now: number): string {
   const q = new URLSearchParams();
-  const { hasPeriod, tab } = LAYOUTS[s.layout];
-  if (!hasPeriod) {
+  if (placeOf(s.layout) === "today") {
     writeSessionTarget(s, q);
     return withQuery(UI_PATHS.today, q);
   }
   if (s.view !== "week") q.set(UI_PARAMS.view, s.view);
+  const { tab } = LAYOUTS[s.layout];
   if (tab) q.set(PARAMS.tab, tab);
   writeSessionTarget(s, q);
   if (s.sort.key !== "start") q.set(PARAMS.sort, `${s.sort.desc ? "-" : ""}${s.sort.key}`);
@@ -105,11 +116,11 @@ export function serializeUrlState(s: UrlState, now: number): string {
 }
 
 /**
- * Whether going from `prev` to `next` moves to another place the back button should return from:
- * a different period (view, or a step to another week, month or day) or a different layout.
- * Selecting a block, filtering and sorting stay on the same place, so they replace the entry.
+ * Whether going from `prev` to `next` starts a history entry the back button should return to: a
+ * different period (view, or a step to another week, month or day) or a different layout.
+ * Selecting a block, filtering and sorting replace the current entry.
  */
-export function isNewPlace(prev: UrlState, next: UrlState): boolean {
+export function startsNewEntry(prev: UrlState, next: UrlState): boolean {
   return (
     prev.layout !== next.layout ||
     prev.view !== next.view ||

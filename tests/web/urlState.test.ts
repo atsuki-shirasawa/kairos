@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { NO_FILTER } from "../../src/web/src/lib/filter.ts";
 import {
   DEFAULT_SORT,
-  isNewPlace,
   parseUrlState,
   serializeUrlState,
+  startsNewEntry,
   type UrlState,
 } from "../../src/web/src/lib/urlState.ts";
 
@@ -30,6 +30,12 @@ describe("parseUrlState", () => {
     expect(parse("/today")).toEqual(DEFAULTS);
     expect(parse("/")).toEqual(DEFAULTS);
     expect(parse("/today?session=abc&at=42")).toEqual({ ...DEFAULTS, session: "abc", at: 42 });
+    // Today keeps no period, so it reads none it couldn't write back
+    expect(parse("/today?view=day&q=fix&sort=-cost")).toEqual(DEFAULTS);
+    expect(parse("/?layout=live&view=month&q=x&session=abc")).toEqual({
+      ...DEFAULTS,
+      session: "abc",
+    });
   });
 
   test("the Journal's path names the day, and its tab the layout", () => {
@@ -135,27 +141,27 @@ test("state survives a round trip through the URL", () => {
   for (const s of states) expect(parseUrlState(serializeUrlState(s, NOW), NOW)).toEqual(s);
 });
 
-describe("isNewPlace", () => {
+describe("startsNewEntry", () => {
   const base: UrlState = { ...DEFAULTS, anchor: TODAY };
   const day = (d: number) => new Date(2026, 9, d).getTime();
 
   test("a step to another period is a new place", () => {
-    expect(isNewPlace(base, { ...base, anchor: day(20) })).toBe(true);
+    expect(startsNewEntry(base, { ...base, anchor: day(20) })).toBe(true);
   });
 
   test("another day in the same week is not", () => {
     // Oct 13 (Tue) and Oct 15 (Thu) are in the week starting Sunday Oct 11
-    expect(isNewPlace(base, { ...base, anchor: day(15) })).toBe(false);
+    expect(startsNewEntry(base, { ...base, anchor: day(15) })).toBe(false);
   });
 
   test("switching the view or the layout is a new place", () => {
-    expect(isNewPlace(base, { ...base, view: "day" })).toBe(true);
-    expect(isNewPlace(base, { ...base, layout: "summary" })).toBe(true);
+    expect(startsNewEntry(base, { ...base, view: "day" })).toBe(true);
+    expect(startsNewEntry(base, { ...base, layout: "summary" })).toBe(true);
   });
 
   test("selecting a block, filtering or sorting stays in place", () => {
-    expect(isNewPlace(base, { ...base, session: "s", at: NOW })).toBe(false);
-    expect(isNewPlace(base, { ...base, filter: { ...base.filter, q: "fix" } })).toBe(false);
-    expect(isNewPlace(base, { ...base, sort: { key: "start", desc: true } })).toBe(false);
+    expect(startsNewEntry(base, { ...base, session: "s", at: NOW })).toBe(false);
+    expect(startsNewEntry(base, { ...base, filter: { ...base.filter, q: "fix" } })).toBe(false);
+    expect(startsNewEntry(base, { ...base, sort: { key: "start", desc: true } })).toBe(false);
   });
 });

@@ -215,7 +215,8 @@ swaps every value for its `-dark` token under `.dark`.
   ([why](docs/design/decisions.md#a-list-rows-trailing-link-stays-muted))
 - **Background / Surface:** the screen is slightly grey; the calendar body and the drawer sit on
   white (navy in dark) surfaces
-- **Warn (`#8a6420`):** text of numbers that need attention (snags), and the few marks that call for you (the asking dot, and among the running sessions what the
+- **Warn (`#8a6420`):** text of numbers that need attention (snags), and the few marks that call
+  for you (the asking dot, and among the running sessions what the
   [screens spec](docs/design/screens.md#running-sessions) marks `warn`). Plain yellow ocher lacks
   contrast on white, so it is darkened
 - **Destructive:** error messages only
@@ -337,8 +338,9 @@ Stacked work blocks get a 1px `surface`-colored outline, not a shadow, to separa
 - **Do** use `font-num` for any time, date, count or cost
 - **Don't** add new accent colors, gradients or decorative shadows to the frame — color belongs to
   the work blocks
-- **Don't** add controls to the toolbar; put rarely used settings in the "⋯" menu (the Live button
-  is [the one exception](docs/design/decisions.md#the-live-button-is-the-one-toolbar-addition))
+- **Don't** add controls to the toolbar; put rarely used settings in the "⋯" menu (the
+  [Live button](docs/design/decisions.md#the-live-button-is-the-one-toolbar-addition) and the
+  [place toggle](docs/design/decisions.md#the-place-toggle-leads-the-toolbar) are the exceptions)
 - **Don't** hard-code UI copy; it goes in the `en` / `ja` dictionaries (`.claude/rules/web.md`)
 - **Don't** render images or raw HTML from conversation Markdown
 - **Do** put a new screen's layout in `docs/design/screens.md` and the reason for a new exception

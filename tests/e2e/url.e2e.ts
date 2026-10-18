@@ -78,3 +78,18 @@ test("Server: the UI's paths are the app, and other paths stay not found", async
   expect(await status("/journal/x")).toBe(404);
   expect(await status("/nope")).toBe(404);
 });
+
+test("Places: the toolbar's toggle goes between Today and the Journal", async () => {
+  const { page } = e2e;
+  await page.open("/today");
+  await page.click(await page.get("radio", toolbarMessages().journal));
+  expect(await page.url()).toBe("/journal");
+  await page.click(await page.get("radio", todayMessages().heading));
+  expect(await page.url()).toBe("/today");
+
+  // Back to the Journal lands on the tab left there
+  await page.open(`/journal/${DEMO_WEEK}?tab=insights`);
+  await page.press("h");
+  await page.click(await page.get("radio", toolbarMessages().journal));
+  expect(await page.url()).toBe(`/journal/${DEMO_WEEK}?tab=insights`);
+});

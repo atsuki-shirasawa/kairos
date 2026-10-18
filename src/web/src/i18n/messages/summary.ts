@@ -13,11 +13,11 @@ const before = (u: Unit, soFar: boolean) => BEFORE_EN[u][soFar ? 1 : 0];
 const beforeJa = (u: Unit, soFar: boolean) =>
   `${{ month: "先月", week: "先週", day: "前日" }[u]}${soFar ? "の同じ時点" : ""}`;
 
-/** The summary view: period totals, where the time went, and what was done. */
+/** Insights, the summary view: period totals, where the time went, and what was done. */
 export const summaryMessages = defineMessages({
   en: {
-    region: (u: Unit) => `This ${UNIT_EN[u]}'s summary`,
-    tabs: "How to show the summary",
+    region: (u: Unit) => `This ${UNIT_EN[u]}'s insights`,
+    tabs: "How to show the insights",
     overview: "Overview",
     table: "Table",
     working: "Working time",
@@ -88,8 +88,8 @@ export const summaryMessages = defineMessages({
     openUpdateFailed: (message: string) => `Couldn't update: ${message}`,
   },
   ja: {
-    region: (u: Unit) => `${THIS_JA[u]}のまとめ`,
-    tabs: "まとめの表示方法",
+    region: (u: Unit) => `${THIS_JA[u]}のインサイト`,
+    tabs: "インサイトの表示方法",
     overview: "概要",
     table: "表",
     working: "作業時間",

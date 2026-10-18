@@ -2,7 +2,7 @@ import type { CalendarSession, Project, SearchHit } from "@shared/api.ts";
 import type { ImportProgress } from "@/hooks/useLiveUpdates.ts";
 import type { Theme } from "@/hooks/useTheme.ts";
 import type { Filter } from "@/lib/filter.ts";
-import { LAYOUTS } from "@/lib/layouts.ts";
+import { LAYOUTS, layoutOfPlace, placeOf } from "@/lib/layouts.ts";
 import type { Layout, View } from "@/lib/view.ts";
 import { DatePicker } from "./DatePicker.tsx";
 import { FilterMenu } from "./FilterMenu.tsx";
@@ -12,7 +12,7 @@ import { Brand } from "./toolbar/Brand.tsx";
 import { LiveButton, type LiveSummary } from "./toolbar/LiveButton.tsx";
 import { PeriodNav } from "./toolbar/PeriodNav.tsx";
 import { type ShownPeriod, StandupMenu } from "./toolbar/StandupMenu.tsx";
-import { LayoutToggle, ViewToggle } from "./toolbar/ViewToggles.tsx";
+import { LayoutToggle, PlaceToggle, ViewToggle } from "./toolbar/ViewToggles.tsx";
 
 /** The shown period and how to move through it or pick another. */
 export interface ToolbarPeriod {
@@ -61,6 +61,8 @@ export interface ToolbarMenu {
 interface Props {
   layout: Layout;
   onLayout: (layout: Layout) => void;
+  /** The Journal's layout the place toggle returns to (the tab last shown there). */
+  journalTab: Layout;
   now: number;
   projects: Project[];
   projectMap: Map<number, Project>;
@@ -75,13 +77,14 @@ interface Props {
 }
 
 /**
- * The header bar: wordmark (which leads home), period navigation, view and layout toggles, the
- * Live button (which leads home too), search, filters, report copy and the "⋯" menu. The home page
- * has no period, so there the period controls give way to its heading.
+ * The header bar: wordmark (which leads home), the Today / Journal toggle, period navigation, view
+ * and layout toggles, the Live button (which leads home too), search, filters, report copy and the
+ * "⋯" menu. Today has no period, so there the Journal's controls give way.
  */
 export function Toolbar({
   layout,
   onLayout,
+  journalTab,
   now,
   projects,
   projectMap,
@@ -96,15 +99,21 @@ export function Toolbar({
   const { view } = period;
   const { hasPeriod, lit, heading } = LAYOUTS[layout];
   return (
-    // Below lg (a half-screen or small laptop window; the full bar needs ~940px with a two-month
-    // week label) the bar tightens instead of overflowing: the wordmark goes and search shrinks to
-    // its icon, but every control stays. Groups are set apart by spacing, not rules
+    // Below xl the bar tightens instead of overflowing (the Journal's full bar needs ~1100px with a
+    // two-month week label): the wordmark goes and search shrinks to its icon, and below lg (a
+    // half-screen window) the gaps narrow too, but every control stays. Groups are set apart by
+    // spacing, not rules
     <header className="flex h-16 shrink-0 items-center gap-3 border-b bg-background px-5 max-lg:gap-2 max-lg:px-3">
       <Brand progress={progress} onHome={() => onLayout("today")} />
-      <span className="w-3 shrink-0 max-lg:hidden" aria-hidden />
-      {/* The home page shows the present, so it has no period to move through or pick */}
+      <span className="w-3 shrink-0 max-xl:hidden" aria-hidden />
+      <PlaceToggle
+        place={placeOf(layout)}
+        onPlace={(place) => onLayout(layoutOfPlace(place, journalTab))}
+      />
+      {/* The home page shows the present, so it has no period to move through or pick; the place
+          toggle already names it, so its heading is for screen readers */}
       {!hasPeriod ? (
-        <h1 className="min-w-0 truncate font-semibold text-title tracking-tight">{heading?.()}</h1>
+        <h1 className="sr-only">{heading?.()}</h1>
       ) : (
         <>
           <PeriodNav view={view} onMove={period.onMove} onToday={period.onToday} />
@@ -137,7 +146,7 @@ export function Toolbar({
           />
         )}
         {hasPeriod && <ViewToggle view={view} onView={period.onView} />}
-        <LayoutToggle lit={lit} onLayout={onLayout} />
+        {hasPeriod && <LayoutToggle lit={lit} onLayout={onLayout} />}
         <LiveButton live={live} active={lit === "today"} onOpen={() => onLayout("today")} />
         <span className="w-2 shrink-0 max-lg:hidden" aria-hidden />
         <StandupMenu now={now} projects={projectMap} {...report} />

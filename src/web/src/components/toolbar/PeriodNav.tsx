@@ -5,8 +5,8 @@ import { keyCap } from "@/lib/shortcuts.ts";
 import type { View } from "@/lib/view.ts";
 
 /**
- * Previous / today / next, kept together by spacing rather than a shared frame. It sits left of
- * the heading, the usual calendar-app layout.
+ * Previous / the current period / next, kept together by spacing rather than a shared frame. It
+ * sits left of the heading, the usual calendar-app layout.
  */
 export function PeriodNav({
   view,
@@ -34,9 +34,9 @@ export function PeriodNav({
         size="default"
         className="px-2.5"
         onClick={onToday}
-        title={`${m.today} (${keyCap("today")})`}
+        title={`${m.current(view)} (${keyCap("today")})`}
       >
-        {m.today}
+        {m.current(view)}
       </Button>
       <Button
         variant="ghost"

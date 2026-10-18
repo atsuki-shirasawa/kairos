@@ -8,7 +8,7 @@ const COLUMNS: Record<LiveColumn, string> = {
   idle: "Idle",
 };
 
-/** The page of running sessions and the toolbar button that opens it. */
+/** The toolbar's Live button (which opens Today) and the running sessions' cards and tokens. */
 export const liveMessages = defineMessages({
   en: {
     button: "Live",

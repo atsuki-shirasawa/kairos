@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { LAYOUTS, layoutOfShortcut, layoutOfTab } from "../../src/web/src/lib/layouts.ts";
+import {
+  LAYOUTS,
+  layoutOfPlace,
+  layoutOfShortcut,
+  layoutOfTab,
+  placeOf,
+} from "../../src/web/src/lib/layouts.ts";
 import type { Layout, View } from "../../src/web/src/lib/view.ts";
 
 describe("drawerOverlay", () => {
@@ -64,4 +70,10 @@ test("only the home page has no period", () => {
 
 test("a page without a period names its heading, and one with a period leaves it to the date", () => {
   for (const t of Object.values(LAYOUTS)) expect(t.heading === null).toBe(t.hasPeriod);
+});
+
+test("going to a place opens a layout of that place", () => {
+  expect(layoutOfPlace("today")).toBe("today");
+  expect(layoutOfPlace("journal")).toBe("calendar");
+  for (const p of ["today", "journal"] as const) expect(placeOf(layoutOfPlace(p))).toBe(p);
 });

@@ -6,9 +6,10 @@ tokens and shared components are there; why a screen bends a rule is in
 
 ## Today (home)
 
-The page the app opens on (`/today`, `h`, or the mark and wordmark in the toolbar,
-which are its button). It has no period, so the toolbar shows its 17px heading "Today", kept in
-English in both languages like "Live", in place of the period controls.
+The page the app opens on (`/today`, `h`, the mark and wordmark in the toolbar, which are its
+button, or "Today" in the place toggle). It has no period, so the Journal's controls (period
+navigation, search, the period dropdown, the layout toggle and filters) give way; the lit "Today"
+segment names the page, so its heading is for screen readers only.
 
 - **Two columns** from `lg` (one below), on `surface`, at most `max-w-7xl` and centered: Now on
   the left, Pick up then Last workday on the right (40px apart), so at 1440×900 the first card
@@ -115,20 +116,25 @@ English in both languages like "Live", in place of the period controls.
 
 ## Toolbar, search and filters
 
+- **Place toggle:** the app's two places, "Today" and "Journal" (both kept in English in both
+  languages, like "Live"), as a segmented toggle of words right after the mark, before what the
+  place shows ([why](decisions.md#the-place-toggle-leads-the-toolbar)). Journal opens the calendar
+- **Period button:** between the period arrows, named by the shown unit: "This week", "This month",
+  "Today" (ja 今週 / 今月 / 今日), so in English it doesn't read as a second way to the Today page
 - **Toolbar** groups its controls by spacing, not frames or divider rules: period navigation and
   search are frameless until hovered or used. The period (month / week / day) and the layout
-  (calendar / summary) are two separate controls: the period is an outlined dropdown,
+  (calendar / Insights, the Journal's tabs, shown only there) are two separate controls: the period is an outlined dropdown,
   the layout a segmented toggle on its own track
   ([why](decisions.md#period-and-layout-are-two-controls))
 - **Toolbar** controls are 32px tall (icons stay 16px), so they sit in the 64px bar without
   floating; the layout toggle's track is 32px with 28px segments inside. Elsewhere (popovers, the
   summary's tabs) controls stay 28px
-- **Toolbar** never overflows: below `lg` (a half-screen or small-laptop window) the wordmark and
-  the spacing go, search shrinks to its icon until focused, and its results span the screen. No
-  control is dropped. Between `lg` and `xl` the open search field is 192px rather than 256px, so the
-  period label beside it keeps its full width
-- **Toolbar** holds only view switching, date navigation, search, the standup menu, filters and
-  the Live button. Theme, language and the shortcut list live in the "⋯" menu
+- **Toolbar** never overflows: below `xl` the wordmark and the spacing after the mark go, and
+  search shrinks to its icon until focused, opening to 192px rather than 256px, so the period label
+  keeps its full width. Below `lg` (a half-screen window) the gaps narrow, the open field is 128px
+  and its results span the screen. No control is dropped
+- **Toolbar** holds only the place toggle, view switching, date navigation, search, the standup
+  menu, filters and the Live button. Theme, language and the shortcut list live in the "⋯" menu
 - **Standup menu:** a small ghost button on every page, a clipboard icon, "Standup" (the icon alone
   below `xl`, so the period label keeps its width) and a chevron, whose icon and tooltip say for a
   moment how the copy went (a `primary` check, "Copied as Markdown"; a struck circle, "No work to
@@ -188,7 +194,7 @@ English in both languages like "Live", in place of the period controls.
   settled, laid out like its Open list, each ending with "left open Mon, Oct 5" linking to the
   block that left it. Shown even for a section without a summary
 
-## Summary view
+## Insights (summary view)
 
 - **Summary totals:** set apart by the column gap and their value sizes, with no rules between them. Three tiers. Working time leads (28px); outcomes (commits, PRs, with their
   nodes) follow in `ink` (20px); spend (tokens, cost) is smaller (16px) and `muted-ink`, as
@@ -211,7 +217,7 @@ English in both languages like "Live", in place of the period controls.
 
 How Today's Now and the toolbar draw the sessions running now.
 
-- **Live button:** a ghost button beside the layout toggle that opens Today, pressed (`muted`
+- **Live button:** a ghost button at the right of the toolbar, before the Standup menu, that opens Today, pressed (`muted`
   fill, `ink` text) there: a 6px dot (`ink` pulsing while a session works, `muted-ink` otherwise, a
   ring when nothing runs; not indigo, which would mark it selected, nor a project color, since it
   stands for every project), the word "Live", and the number of sessions waiting on you in
@@ -227,7 +233,7 @@ How Today's Now and the toolbar draw the sessions running now.
 - **Card head:** the 6px state dot and the title (14px medium, two lines at most; `muted-ink` when
   idle), the project, worktree and branch (12px `muted-ink`, with a compact "Background" `Tag`). At
   the right of the title, the state word (only in On you, which holds two states; elsewhere the
-  column names it) and how long it has lasted, coarsening to whole hours from 3h and days from 24h,
+  group names it) and how long it has lasted, coarsening to whole hours from 3h and days from 24h,
   with the start time under it at the right of the place line (`numeral`, with the date when not
   today)
 - **Card body, what it is doing:** the question (14px `ink`); the call in flight (tool name in
@@ -249,7 +255,7 @@ How Today's Now and the toolbar draw the sessions running now.
   right while working, or the prompt cache while not: how long it stays warm ("Cache 57m left"), or
   "Cache expired", when a reply rewrites the whole context. In On you the countdown turns `warn` in
   the last sixth of the cache's TTL (10 minutes of an hour), the one moment the cache asks something
-  of you; elsewhere it stays `muted-ink`, or a column of idle sessions would all call for you
+  of you; elsewhere it stays `muted-ink`, or a group of idle sessions would all call for you
 - **Idle row:** a single row instead of a card: the edge with no fill (`muted` on hover), the dot,
   the title on one line with how long it has idled at its right, and the place under it (and "Not
   in the log yet" when there is nothing to open). The place line ends with how many subagents still

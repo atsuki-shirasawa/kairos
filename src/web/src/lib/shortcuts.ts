@@ -32,6 +32,8 @@ const KEYS = new Map<string, Shortcut>([
   ["w", "week"],
   ["d", "day"],
   ["h", "home"],
+  // The live page's key, kept for the hands that learned it: Today's Now took the page in
+  ["n", "home"],
   ["c", "calendar"],
   ["l", "table"],
   ["s", "summary"],

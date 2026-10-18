@@ -7,8 +7,9 @@ import {
   SelectValue,
 } from "@/components/ui/select.tsx";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
+import { todayMessages } from "@/i18n/messages/today.ts";
 import { toolbarMessages } from "@/i18n/messages/toolbar.ts";
-import { LAYOUT_IDS, LAYOUTS } from "@/lib/layouts.ts";
+import { LAYOUT_IDS, LAYOUTS, layoutOfPlace, type Place } from "@/lib/layouts.ts";
 import { keyCap } from "@/lib/shortcuts.ts";
 import type { Layout, View } from "@/lib/view.ts";
 import { SEGMENT, SEGMENTED } from "./segmented.ts";
@@ -112,6 +113,43 @@ export function LayoutToggle({
           </ToggleGroupItem>
         );
       })}
+    </ToggleGroup>
+  );
+}
+
+/** The places in the toggle, in order: each with its name and the key of the layout it opens. */
+function places(): [Place, string, string][] {
+  return [
+    ["today", todayMessages().heading, keyCap(LAYOUTS.today.shortcut)],
+    ["journal", toolbarMessages().journal, keyCap(LAYOUTS[layoutOfPlace("journal")].shortcut)],
+  ];
+}
+
+/**
+ * Switches between the app's two places, Today and the Journal, named in words since they are where
+ * you are rather than how a page is drawn. It leads the toolbar, before what the place shows.
+ */
+export function PlaceToggle({ place, onPlace }: { place: Place; onPlace: (place: Place) => void }) {
+  const items = places();
+  return (
+    <ToggleGroup
+      type="single"
+      size="sm"
+      spacing={0.5}
+      value={place}
+      onValueChange={(v) => {
+        // Pressing the place already shown sends "", which changes nothing
+        const picked = items.find(([p]) => p === v)?.[0];
+        if (picked) onPlace(picked);
+      }}
+      aria-label={toolbarMessages().placeToggle}
+      className={`shrink-0 ${SEGMENTED}`}
+    >
+      {items.map(([value, label, key]) => (
+        <ToggleGroupItem key={value} value={value} className={SEGMENT} title={`${label} (${key})`}>
+          {label}
+        </ToggleGroupItem>
+      ))}
     </ToggleGroup>
   );
 }

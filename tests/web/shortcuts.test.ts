@@ -46,7 +46,7 @@ describe("shortcutFor", () => {
     expect(shortcutFor("h", false)).toBe("home");
     expect(shortcutFor("c", false)).toBe("calendar");
     expect(shortcutFor("s", false)).toBe("summary");
-    expect(shortcutFor("n", false)).toBeNull();
+    expect(shortcutFor("n", false)).toBe("home");
     expect(shortcutFor("j", false)).toBe("nextBlock");
     expect(shortcutFor("k", false)).toBe("prevBlock");
     expect(shortcutFor("Escape", false)).toBe("close");

@@ -5,12 +5,12 @@ A personal web app that keeps the memory of your Claude Code work: what is runni
 > **Kairos** is Greek for "the meaningful moment". Where *chronos* is the time a clock ticks off, *kairos* is the time when something happened — the app gives the hours on a calendar their meaning: what you did then.
 
 - Ingests the logs (`~/.claude/projects/**/*.jsonl`) read-only and stores them in SQLite. Even after Claude Code deletes its logs (30 days by default), Kairos keeps them
-- Opens on Today: the sessions waiting on you and the ones Claude is working on, what recent sessions left to pick up (a card each, with the command that resumes it), beside what the last workday was about
-- Shows every session running now on a page of its own, and which of them are waiting on you
-- Shows a month, a week or a day: the month lists each day's work, the week and day place it at its time
+- Two places, switched at the top left: **Today** and the **Journal**
+- Opens on Today (`/today`): today's tokens and every session running now, those waiting on you first, what recent sessions left to pick up (a card each, with the command that resumes it), beside what the last workday was about
+- The Journal (`/journal/2026-10-01`) shows a month, a week or a day: the month lists each day's work, the week and day place it at its time
 - Automatically summarizes each work block (section) with `claude -p` (haiku): what was asked, what got settled and what was left open, and keeps the open items until the log or you close them
 - Searches every period by summaries, prompts and replies, PR and commit titles, and branches; `file:<path>` finds the work that edited a file
-- A summary view with working time, PRs, commits, tokens and estimated cost against the previous period, and per-project recaps written on request
+- The Journal's Insights tab: working time, PRs, commits, tokens and estimated cost against the previous period, and per-project recaps written on request
 - Copies a Markdown report (recaps, then each day's work by project with PR links, then what is still open) from any page: the last workday, today, this week, or the period on screen with its filters. It is the same text `kairos report` prints. Also copies `claude --resume` for any session
 - Starts in the background whenever you launch Claude Code
 - The UI is in English by default; Japanese can be selected from the "⋯" menu (saved per browser)

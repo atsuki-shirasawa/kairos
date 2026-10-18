@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { isNewPlace, parseUrlState, serializeUrlState, type UrlState } from "@/lib/urlState.ts";
+import { parseUrlState, serializeUrlState, startsNewEntry, type UrlState } from "@/lib/urlState.ts";
 
 /** The current location's path and query. */
 const here = () => `${location.pathname}${location.search}`;
@@ -50,7 +50,7 @@ export function useUrlState(): [UrlState, UrlStateUpdate] {
     const prev = latest.current;
     const next = { ...prev, ...patch };
     latest.current = next;
-    writeLocation(next, opts.push ?? isNewPlace(prev, next));
+    writeLocation(next, opts.push ?? startsNewEntry(prev, next));
     setState(next);
   }, []);
 

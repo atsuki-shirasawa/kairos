@@ -1,6 +1,8 @@
 // Every layout of the main area and what sets each apart, in one place: the toolbar, the keys, the
 // drawer, the URL and the data the app fetches all read it here instead of checking layout names.
 // The body each layout draws is mapped in components/app/LayoutBody.tsx.
+
+import type { UiPlace } from "@shared/uiUrl.ts";
 import { todayMessages } from "@/i18n/messages/today.ts";
 import type { Shortcut } from "./shortcuts.ts";
 import type { Layout, View } from "./view.ts";
@@ -105,8 +107,24 @@ const ENTRIES = Object.entries(LAYOUTS) as [Layout, LayoutTraits][];
 /** Every layout, in the registry's order. */
 export const LAYOUT_IDS: readonly Layout[] = ENTRIES.map(([id]) => id);
 
+/**
+ * The UI's two places: Today, and the Journal, which holds every layout that shows a period (the
+ * calendar, and Insights with its table).
+ */
+export type Place = UiPlace;
+
+/** The place a layout belongs to. */
+export function placeOf(layout: Layout): Place {
+  return LAYOUTS[layout].hasPeriod ? "journal" : "today";
+}
+
+/** The layout going to a place opens: Today, or the Journal's tab (its default unless given). */
+export function layoutOfPlace(place: Place, journalTab: Layout = JOURNAL_DEFAULT): Layout {
+  return place === "today" ? "today" : journalTab;
+}
+
 /** The Journal's layout when its URL names no tab, or one it doesn't know. */
-const JOURNAL_DEFAULT: Layout = "calendar";
+export const JOURNAL_DEFAULT: Layout = "calendar";
 
 /** The Journal's layout a `tab` value names; none, or anything unknown, is the calendar. */
 export function layoutOfTab(tab: string | null): Layout {

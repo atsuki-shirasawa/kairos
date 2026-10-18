@@ -104,10 +104,10 @@ export function SearchField({
         className={cn(
           // Frameless until used, like the toolbar's other controls; the icon and "/" say what it is
           "h-8 w-36 rounded-md border border-transparent pl-7 text-body outline-none transition-[width] duration-150 placeholder:text-muted-foreground hover:bg-accent focus-visible:border-ring group-focus-within:w-64 group-focus-within:border-input group-focus-within:bg-card motion-reduce:transition-none",
-          // Up to xl the open field stays narrower, so the period label beside it keeps its width
-          "max-xl:group-focus-within:w-48",
-          // In a narrow window only the icon shows until focused, then it opens to a usable width
-          "max-lg:w-7 max-lg:group-focus-within:w-32 max-lg:placeholder:text-transparent",
+          // Up to xl only the icon shows until focused, so the period label keeps its width, and
+          // the field then opens narrower than on a wide screen
+          "max-xl:w-7 max-xl:group-focus-within:w-48 max-xl:placeholder:text-transparent",
+          "max-lg:group-focus-within:w-32",
           value && "w-64 border-primary/50 bg-card max-lg:w-32 max-xl:w-48",
           searchPadding(value !== ""),
         )}
@@ -171,7 +171,7 @@ function FileToggleButton({
         files
           ? "bg-primary/15 text-primary"
           : "text-muted-foreground hover:bg-accent hover:text-foreground",
-        !focused && !hasQuery && "max-lg:hidden",
+        !focused && !hasQuery && "max-xl:hidden",
       )}
       // Keep the caret in the field, so typing goes on and the results stay open
       onMouseDown={(e) => e.preventDefault()}
@@ -205,7 +205,7 @@ function ClearButton({ onClear }: { onClear: () => void }) {
 function SlashHint() {
   return (
     <kbd
-      className="pointer-events-none absolute right-1.5 rounded border bg-muted px-1 font-num text-meta text-muted-foreground leading-4 max-lg:hidden"
+      className="pointer-events-none absolute right-1.5 rounded border bg-muted px-1 font-num text-meta text-muted-foreground leading-4 max-xl:hidden"
       aria-hidden
     >
       /
@@ -291,8 +291,8 @@ function ResultsPanel({
  */
 function searchPadding(hasQuery: boolean): string {
   if (hasQuery) return "pr-13";
-  // A narrow window shows only the icon until focused, so there is nothing to pad for
-  return "pr-7 max-lg:pr-0 max-lg:group-focus-within:pr-7";
+  // Up to xl only the icon shows until focused, so there is nothing to pad for
+  return "pr-7 max-xl:pr-0 max-xl:group-focus-within:pr-7";
 }
 
 /** Points at the file button (and the `file:` syntax it stands for) while the button is off. */

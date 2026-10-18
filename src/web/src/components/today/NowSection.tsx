@@ -114,7 +114,8 @@ function SessionGroup({
  * nothing of you, but a forgotten one is worth finding. Absent when there is none.
  */
 function IdleGroup({ entries, ...list }: EntryList & { entries: LiveEntry[] }) {
-  const [open, setOpen] = useState(false);
+  // Open from the start when the drawer shows one of them, so the selected card stays on screen
+  const [open, setOpen] = useState(() => entries.some((e) => e.session.id === list.selectedId));
   if (entries.length === 0) return null;
   const t = todayMessages();
   return (
