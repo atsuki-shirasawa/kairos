@@ -37,6 +37,7 @@ function session(
       ...g,
       short: null,
       summarized: true,
+      turns: [],
       body: null,
       prs: g.prs ?? [],
       commits: [],

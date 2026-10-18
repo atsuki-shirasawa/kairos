@@ -230,6 +230,28 @@ describe("README scenarios", () => {
     expect(session(SID.logDirRun).project).toBe("/Users/me/dev/app");
   });
 
+  test("24. turns: whose turn it was, with an AskUserQuestion wait and a notification's turn", () => {
+    expect(segments(SID.turns)).toEqual([[min(1960), min(1977)]]);
+    const spans = db
+      .query<{ start: number; end: number; who: string }, [string]>(
+        "SELECT start, end, who FROM turn_spans WHERE session_id = ? ORDER BY start",
+      )
+      .all(SID.turns)
+      .map((r) => [r.who, (r.start - min(0)) / 60_000, (r.end - min(0)) / 60_000]);
+    expect(spans).toEqual([
+      ["claude", 1960, 1963],
+      ["you", 1963, 1965],
+      ["claude", 1965, 1966],
+      // The question's wait is yours, and the turn starts at its prompt, not 2 minutes later
+      ["you", 1966, 1968],
+      ["claude", 1968, 1970],
+      // 1970–1973 is neither: the notification, not you, began the next turn
+      ["claude", 1973, 1974],
+      ["you", 1974, 1976],
+      ["claude", 1976, 1977],
+    ]);
+  });
+
   test("20. containerRuns: a gone directory takes the repository of the PRs opened in it", () => {
     const repo = db
       .query<{ repo: string | null; name: string }, []>(

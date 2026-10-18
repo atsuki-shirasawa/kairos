@@ -1,9 +1,12 @@
 // Which activity rows are requests: what the work blocks count and the topic turns start on.
 import type { ActivityRow } from "./statements.ts";
 
+/** Message kinds the user sent: a prompt or a slash command. */
+export const PROMPT_KINDS: readonly string[] = ["prompt", "command"];
+
 /** Whether a row is something the user asked for (a prompt or a slash command). */
 export function isPrompt(r: ActivityRow): boolean {
-  return r.kind === "prompt" || r.kind === "command";
+  return PROMPT_KINDS.includes(r.kind);
 }
 
 /**

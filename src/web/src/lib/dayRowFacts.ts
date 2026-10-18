@@ -6,6 +6,7 @@ import { burstSpan, timeRange } from "./blockFacts.ts";
 import type { DayBlock } from "./dayBlocks.ts";
 import { blockArtifacts } from "./moments.ts";
 import { isDim } from "./selection.ts";
+import { type TurnShares, turnShares } from "./turns.ts";
 
 /** Resolved points a row shows; the drawer beside it has the rest. */
 export const ROW_RESOLVED = 2;
@@ -27,6 +28,8 @@ export interface RowFacts {
   /** The first commits and PRs, and how many more there are. */
   artifacts: Artifact[];
   moreArtifacts: number;
+  /** Whose turn it was across the block; null for a burst, or a block without turn records. */
+  turns: TurnShares | null;
 }
 
 /**
@@ -46,7 +49,14 @@ export function resolvedPoints(body: string | null): string[] {
  */
 export function rowFacts(runs: readonly DayBlock[], lead: DayBlock): RowFacts {
   if (runs.length > 1) {
-    return { ...burstSpan(runs), dim: false, resolved: [], artifacts: [], moreArtifacts: 0 };
+    return {
+      ...burstSpan(runs),
+      dim: false,
+      resolved: [],
+      artifacts: [],
+      moreArtifacts: 0,
+      turns: null,
+    };
   }
   const all = blockArtifacts(lead);
   return {
@@ -57,5 +67,6 @@ export function rowFacts(runs: readonly DayBlock[], lead: DayBlock): RowFacts {
     resolved: resolvedPoints(lead.segment.body),
     artifacts: all.slice(0, ROW_MOMENTS),
     moreArtifacts: Math.max(0, all.length - ROW_MOMENTS),
+    turns: turnShares(lead),
   };
 }

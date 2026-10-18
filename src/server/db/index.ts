@@ -442,6 +442,18 @@ export const MIGRATIONS: string[] = [
   `
   CREATE INDEX sessions_branch ON sessions(project_id, branch);
   `,
+  // 19: whose turn it was (#66), derived from turns (system/turn_duration), the requests that start
+  // them and AskUserQuestion waits (see ingest/turnSpans.ts). Recomputed with the work blocks; time
+  // that can't be told (a gap closed by a notification, a turn with no turn_duration) has no row
+  `
+  CREATE TABLE turn_spans (
+    session_id  TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    start       INTEGER NOT NULL,
+    end         INTEGER NOT NULL,
+    who         TEXT NOT NULL CHECK (who IN ('claude', 'you')),
+    PRIMARY KEY (session_id, start)
+  );
+  `,
 ];
 
 /** Schema version once every migration is applied (stored in `PRAGMA user_version`). */

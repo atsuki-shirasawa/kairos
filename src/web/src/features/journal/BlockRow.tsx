@@ -5,6 +5,7 @@ import { StatusDot } from "@/components/ui/status-dot.tsx";
 import { calendarMessages } from "@/i18n/messages/calendar.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { journalMessages } from "@/i18n/messages/journal.ts";
+import { projectColor } from "@/lib/colors.ts";
 import { dateLabel, durationLabel } from "@/lib/dates.ts";
 import type { DayBlock } from "@/lib/dayBlocks.ts";
 import { type RowFacts, rowFacts } from "@/lib/dayRowFacts.ts";
@@ -12,6 +13,7 @@ import type { LaneLook, LaneMark } from "@/lib/dayRows.ts";
 import { isWorkingHere, projectLabel } from "@/lib/selection.ts";
 import { cn } from "@/lib/utils.ts";
 import { Lanes } from "./Lanes.tsx";
+import { TurnStrip } from "./TurnStrip.tsx";
 
 /**
  * One block of the day page (or a burst of headless runs): its lanes, time, heading, project,
@@ -75,7 +77,7 @@ export function BlockRow({
         <span className="w-[5.5rem] shrink-0 pt-0.5 font-num text-label text-muted-foreground">
           {facts.range}
         </span>
-        <RowText facts={facts} session={lead.session} projectName={projectName} />
+        <RowText facts={facts} session={lead.session} project={project} />
         {isWorkingHere(lead) && (
           <StatusDot
             look={{ state: "pulse", tone: "project" }}
@@ -88,17 +90,18 @@ export function BlockRow({
   );
 }
 
-/** The row's words: heading, project and length, Resolved, and commits and PRs. */
+/** The row's words: heading, project and length, whose turn it was, Resolved, commits and PRs. */
 function RowText({
   facts,
   session,
-  projectName,
+  project,
 }: {
   facts: RowFacts;
   session: DayBlock["session"];
-  projectName: string;
+  project: Project | undefined;
 }) {
   const f = formatMessages();
+  const projectName = projectLabel(project);
   return (
     <div className="min-w-0 flex-1 space-y-1">
       <p
@@ -116,6 +119,7 @@ function RowText({
         {f.separator}
         <span className="font-num">{durationLabel(facts.durationMs)}</span>
       </p>
+      {facts.turns && <TurnStrip turns={facts.turns} color={projectColor(project)} />}
       {facts.resolved.length > 0 && <Resolved points={facts.resolved} />}
       {facts.artifacts.length > 0 && <Moments facts={facts} />}
     </div>

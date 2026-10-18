@@ -12,6 +12,7 @@ import {
 } from "./blocks.ts";
 import { hasPredecessorSql, isActive, type SessionRow, toCalendarSession } from "./sessions.ts";
 import { title } from "./titles.ts";
+import { blocksTurns } from "./turnSpans.ts";
 
 /** A half-open period [from, to) in epoch ms, as the API's `?from=&to=` gives it. */
 type Period = { from: number; to: number };
@@ -102,15 +103,15 @@ function segmentsIn(
 ): Map<string, CalendarSegment[]> {
   const artifacts = blocksArtifacts(db, blockSetOf(scope));
   const facts = blocksFacts(db, blockSetOf(scope));
+  const turns = blocksTurns(db, blockSetOf(scope));
   const titles = new Map(sessions.map((r) => [r.id, title(r)]));
   const segments = sectionRows(db, scope).map((g) => ({
     sessionId: g.session_id,
-    segment: toCalendarSegment(
-      g,
-      titles.get(g.session_id) ?? "",
-      artifacts(g.session_id, g.start),
-      facts(g.session_id, g.start),
-    ),
+    segment: toCalendarSegment(g, titles.get(g.session_id) ?? "", {
+      artifacts: artifacts(g.session_id, g.start),
+      facts: facts(g.session_id, g.start),
+      turns: turns(g.session_id, g.start),
+    }),
   }));
   return new Map(
     [...Map.groupBy(segments, (s) => s.sessionId)].map(([id, list]) => [

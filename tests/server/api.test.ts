@@ -376,6 +376,23 @@ describe("GET /api/calendar", () => {
     expect(basic?.segments.map((g) => g.body)).toEqual([null, null]);
   });
 
+  test("returns whose turn it was in each block, cut to the block", async () => {
+    const res = await json<CalendarResponse>(`/api/calendar?from=${min(1950)}&to=${min(1990)}`);
+    const [segment] = res.sessions.find((s) => s.id === SID.turns)?.segments ?? [];
+    expect(segment?.turns.map((t) => t.who)).toEqual([
+      "claude",
+      "you",
+      "claude",
+      "you",
+      "claude",
+      "claude",
+      "you",
+      "claude",
+    ]);
+    expect(segment?.turns[0]?.start).toBe(segment?.start);
+    expect(segment?.turns.at(-1)?.end).toBe(segment?.end);
+  });
+
   test("returns prompt count and token usage (with API-price cost) per work block", async () => {
     const res = await json<CalendarResponse>(`/api/calendar?from=${DAY_FROM}&to=${DAY_TO}`);
     const [segment] = res.sessions.find((s) => s.id === SID.usage)?.segments ?? [];
@@ -414,8 +431,8 @@ describe("GET /api/calendar", () => {
     const empty = await json<CalendarResponse>(
       `/api/calendar?from=${later}&to=${later + 24 * 60 * 60_000}`,
     );
-    // The last work block is the ledger scenario's, at 1800 min
-    expect(empty).toMatchObject({ sessions: [], prev: Date.UTC(2026, 8, 29, 6), next: null });
+    // The last work block is the turns scenario's, at 1960 min
+    expect(empty).toMatchObject({ sessions: [], prev: Date.UTC(2026, 8, 29, 8, 40), next: null });
   });
 
   test("returns work blocks, titles and labels", async () => {

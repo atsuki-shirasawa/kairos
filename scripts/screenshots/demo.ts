@@ -7,6 +7,7 @@ import { basename, dirname, join } from "node:path";
 import { recordSection } from "../../src/server/summarize/ledger/record.ts";
 import { loadRecapInput } from "../../src/server/summarize/recap.ts";
 import { saveRecap, saveSummary } from "../../src/server/summarize/store.ts";
+import { MINUTE } from "../../src/shared/dates.ts";
 import { parseSummaryBody } from "../../src/shared/summaryBody.ts";
 import { at, LogBuilder, type Rec, type TokenUsage } from "../../tests/fixtures/builder.ts";
 
@@ -779,7 +780,10 @@ function writeSection(b: LogBuilder, s: DemoSection, cwd: string): void {
       writePr(b, s, cwd, end);
     }
     b.text(to, "Done.");
-    b.turnEnd(to, Math.round(turn * 60_000 * 0.6));
+    // Claude works the first part of each turn from its prompt; the rest waits on you, so the day
+    // page's strips show both sides
+    const worked = turn * 0.6;
+    b.turnEnd(from + worked, Math.round(worked * MINUTE));
   });
 }
 

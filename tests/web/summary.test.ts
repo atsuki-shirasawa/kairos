@@ -62,6 +62,7 @@ function session(id: string, projectId: number | null, ...segments: Seg[]): Cale
       headline: g.headline ?? id,
       short: null,
       summarized: true,
+      turns: [],
       body: null,
       prs: g.prs ?? [],
       commits: [],

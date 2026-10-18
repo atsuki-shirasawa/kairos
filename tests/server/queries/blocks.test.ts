@@ -23,6 +23,7 @@ const activity: Activity = {
 };
 const facts: BlockFacts = { usage: null, activity };
 const noArtifacts = { prs: [], commits: [] };
+const parts = { artifacts: noArtifacts, facts, turns: [] };
 const noState = { pending: false, error: null, closes: [], opens: [] };
 
 const row = (over: Partial<SectionRow> = {}): SectionRow => ({
@@ -49,7 +50,7 @@ describe("a block's calendar segment and drawer section agree", () => {
     ["headline only", { headline: "Head", body: "" }],
   ])("%s", (_, over) => {
     const g = row(over);
-    const segment = toCalendarSegment(g, "Session", noArtifacts, facts);
+    const segment = toCalendarSegment(g, "Session", parts);
     const section = toSection(g, "Session", noState, facts);
     for (const key of [
       "start",
@@ -66,8 +67,8 @@ describe("a block's calendar segment and drawer section agree", () => {
 });
 
 test("a segment is summarized once it has a headline", () => {
-  expect(toCalendarSegment(row(), "S", noArtifacts, facts).summarized).toBe(false);
-  expect(toCalendarSegment(row({ headline: "H" }), "S", noArtifacts, facts).summarized).toBe(true);
+  expect(toCalendarSegment(row(), "S", parts).summarized).toBe(false);
+  expect(toCalendarSegment(row({ headline: "H" }), "S", parts).summarized).toBe(true);
 });
 
 test("a section is stale when its row says the summary no longer covers it", () => {

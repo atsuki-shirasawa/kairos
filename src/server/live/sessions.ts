@@ -3,6 +3,7 @@
 // the subagents at work.
 import type { Database } from "bun:sqlite";
 import type { LiveSession, LiveState, LiveTasks, LiveTest, LiveTool } from "../../shared/api.ts";
+import { ASK_USER_TOOL } from "../askUser.ts";
 import { knownTitle } from "../queries/titles.ts";
 import { taskStates } from "../tasks.ts";
 import { lastTestRun } from "../testRuns.ts";
@@ -17,7 +18,7 @@ import { latestResponse, liveUsage } from "./usage.ts";
 /** Registry kinds of sessions a person runs; anything else (SDK runs) counts as headless. */
 const PERSONAL_KINDS = new Set(["interactive", "bg"]);
 /** Tools that stop the turn until the person answers in the terminal. */
-const ASKING_TOOLS = new Set(["AskUserQuestion", "ExitPlanMode"]);
+const ASKING_TOOLS = new Set([ASK_USER_TOOL, "ExitPlanMode"]);
 /**
  * Records that start a new turn from the person: a call left without a result before one of these
  * was interrupted (Esc writes no result), not still in flight.

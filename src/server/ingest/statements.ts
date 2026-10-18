@@ -1,9 +1,11 @@
 import type { Database, Statement } from "bun:sqlite";
+import { ASK_USER_TOOL } from "../askUser.ts";
 import { blockOutputsUntilSql } from "../db/blockOutputs.ts";
 import { notNote } from "../db/notes.ts";
 import { sqlList } from "../db/sqlList.ts";
 import { EDIT_TOOL_NAMES } from "../editTools.ts";
 import { CLOSED_BY } from "../summarize/ledger/closers.ts";
+import { PROMPT_KINDS } from "./activityKinds.ts";
 import { INPUT_TOPIC_TOOLS } from "./topics.ts";
 
 /** Saved resume point and interpretation state of one log file (a row of ingest_state). */
@@ -232,6 +234,35 @@ export function prepareStatements(db: Database) {
          WHERE prev.continued_in = ?1 AND t.id = turns.id)
        WHERE session_id = ?1`,
     ),
+    // The session's own turns, AskUserQuestion waits and prompt times, for whose turn it was
+    ownTurns: p(
+      "SELECT ts AS end, duration_ms AS durationMs FROM turns WHERE session_id = ? AND is_copy = 0",
+    ),
+    // CROSS JOIN keeps the few AskUserQuestion calls the outer loop: there is no index on
+    // tool_use_id, and driven from the results it scans a long session once per message
+    askWaits: p(
+      `SELECT u.ts AS asked, r.ts AS answered FROM messages u
+       CROSS JOIN messages r ON r.session_id = u.session_id AND r.tool_use_id = u.tool_use_id
+        AND r.kind = 'tool_result' AND r.agent_id IS NULL
+       WHERE u.session_id = ? AND u.kind = 'tool_use' AND u.tool_name = '${ASK_USER_TOOL}'
+         AND u.agent_id IS NULL AND u.is_copy = 0 AND u.ts IS NOT NULL AND r.ts > u.ts`,
+    ),
+    promptTimes: p(
+      `SELECT ts FROM messages
+       WHERE session_id = ? AND agent_id IS NULL AND is_copy = 0 AND ts IS NOT NULL
+         AND kind IN ${sqlList(PROMPT_KINDS)}
+       ORDER BY ts`,
+    ),
+    interruptTimes: p(
+      `SELECT ts FROM messages
+       WHERE session_id = ? AND agent_id IS NULL AND is_copy = 0 AND ts IS NOT NULL
+         AND kind = 'interrupt'
+       ORDER BY ts`,
+    ),
+    clearTurnSpans: p("DELETE FROM turn_spans WHERE session_id = ?"),
+    insertTurnSpan: p(
+      "INSERT INTO turn_spans (session_id, start, end, who) VALUES ($sessionId, $start, $end, $who)",
+    ),
     sessionIds: p("SELECT id FROM sessions"),
     hasPredecessor: p("SELECT 1 FROM sessions WHERE continued_in = ? LIMIT 1"),
     // ID of the continuing session, if it is in the DB
@@ -240,7 +271,7 @@ export function prepareStatements(db: Database) {
     ),
     aggregate: p(
       `SELECT MIN(ts) AS started, MAX(ts) AS ended,
-                COALESCE(SUM(kind IN ('prompt', 'command')), 0) AS prompts,
+                COALESCE(SUM(kind IN ${sqlList(PROMPT_KINDS)}), 0) AS prompts,
                 COALESCE(SUM(kind = 'scheduled'), 0) AS scheduled,
                 COALESCE(SUM(kind = 'sdk_prompt'), 0) AS sdk
          FROM messages WHERE session_id = ? AND agent_id IS NULL AND is_copy = 0 AND ${notNote()}`,

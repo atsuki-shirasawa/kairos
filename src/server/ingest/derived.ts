@@ -8,6 +8,7 @@ import { type BlockOutput, blockRefs } from "./prRefs.ts";
 import { carryIds, type StoredBlock, unchanged, workBlocks } from "./segments.ts";
 import type { ActivityRow, AggregateRow, Statements } from "./statements.ts";
 import type { PrMark } from "./topics.ts";
+import { type TurnRow, turnSpans, type WaitRow } from "./turnSpans.ts";
 
 /** The kv key that holds the DERIVED_VERSION the stored derived data was computed with. */
 const DERIVED_VERSION_KEY = "derived_version";
@@ -36,6 +37,7 @@ export class DerivedData {
     const activity = this.q.activity.all(sessionId) as ActivityRow[];
     this.rebuildBlocks(sessionId, activity);
     this.linkRefs(sessionId, activity);
+    this.rebuildTurnSpans(sessionId);
   }
 
   /** Refreshes a main session and the session continuing it, returning the IDs refreshed. */
@@ -94,6 +96,22 @@ export class DerivedData {
     const outputs = this.q.blockOutputs.all(sessionId) as BlockOutput[];
     this.q.clearBlockRefs.run(sessionId);
     for (const ref of blockRefs(blocks, activity, outputs, repo)) this.q.insertBlockRef.run(ref);
+  }
+
+  /** Replaces the session's spans of whose turn it was (see `turnSpans`). */
+  private rebuildTurnSpans(sessionId: string): void {
+    const times = (rows: unknown) => (rows as { ts: number }[]).map((r) => r.ts);
+    const spans = turnSpans(
+      {
+        turns: this.q.ownTurns.all(sessionId) as TurnRow[],
+        waits: this.q.askWaits.all(sessionId) as WaitRow[],
+        prompts: times(this.q.promptTimes.all(sessionId)),
+        interrupts: times(this.q.interruptTimes.all(sessionId)),
+      },
+      this.opts.gapMs,
+    );
+    this.q.clearTurnSpans.run(sessionId);
+    for (const span of spans) this.q.insertTurnSpan.run({ ...span, sessionId });
   }
 
   /** Folds a stored block into the one it merged with, moving what references it, then drops it. */

@@ -47,10 +47,13 @@ beforeEach(() => {
 const summaryOf = (sid: string, start: number) => summaryAt(db, sid, start);
 
 /**
- * Marks the ledger scenario's full-summary section as done. It lies after the times these tests
- * set, but has a later section in its session, so it counts as finished at any time.
+ * Marks the newest full-summary sections as done: the ledger scenario's first and the turns
+ * scenario's, which the tests looking at older sections would otherwise get first.
  */
-const skipLedger = () => putSummary(db, SID.ledgerOpen, min(1700));
+const skipNewest = () => {
+  putSummary(db, SID.ledgerOpen, min(1700));
+  putSummary(db, SID.turns, min(1960));
+};
 
 /** Marks short sections as already titled, to look only at how full-summary targets are picked. */
 const skipTitles = () =>
@@ -87,12 +90,13 @@ describe("Summarizer", () => {
       picked.push(`${t.sessionId.slice(0, 4)}@${(t.start - min(0)) / 60_000}:${t.mode}`);
       putSummary(db, t.sessionId, t.start);
     }
-    // Only basic at 45 min, compaction at 380 min, facts at 1600 min and ledger at 1700 min
-    // (2 prompts each) get a full summary
+    // Only basic at 45 min, compaction at 380 min, facts at 1600 min, ledger at 1700 min
+    // (2 prompts each) and turns at 1960 min (3 prompts) get a full summary
     expect(picked.filter((p) => p.endsWith(":summary")).sort()).toEqual([
       "1111@45:summary",
       "2121@1600:summary",
       "2323@1700:summary",
+      "2828@1960:summary",
       "7777@380:summary",
     ]);
     // Short sections like loop at 150 min (1 prompt, 1 minute) get only a headline
@@ -109,8 +113,8 @@ describe("Summarizer", () => {
       body: "- Goal: open a PR\n- Done:\n  - ran e2e and created PR #42",
       covered_until: min(50.2),
     });
-    // Newest first: the ledger scenario's first section, which has a later one in its session
-    expect(nextSection()).toMatchObject({ sessionId: SID.ledgerOpen });
+    // Newest first: the turns scenario's section
+    expect(nextSection()).toMatchObject({ sessionId: SID.turns });
   });
 
   test("records which prompt wrote a summary, from which input, and what it cost", async () => {
@@ -188,7 +192,7 @@ describe("Summarizer", () => {
 
   test("waits until 30 minutes after the last activity for the final section", () => {
     skipTitles();
-    skipLedger();
+    skipNewest();
     now = min(50.2) + 10 * 60_000;
     expect(nextSection()).toBeNull();
     now = min(50.2) + 31 * 60_000;
@@ -215,7 +219,7 @@ describe("Summarizer", () => {
       error: "Not logged in",
     });
     expect(summarizer.errorOf(SID.basic, min(45))).toBe("Not logged in");
-    skipLedger();
+    skipNewest();
     for (const [sid, start] of [
       [SID.compaction, min(380)],
       [SID.facts, min(1600)],
@@ -240,7 +244,7 @@ describe("Summarizer", () => {
 
   test("regenerates a stale summary (when the section continued)", async () => {
     skipTitles();
-    skipLedger();
+    skipNewest();
     putSummary(db, SID.compaction, min(380), { coveredUntil: min(381) });
     putSummary(db, SID.basic, min(45), { coveredUntil: min(50.2) });
     putSummary(db, SID.facts, min(1600), { coveredUntil: min(1612) });

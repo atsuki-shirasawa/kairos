@@ -75,6 +75,21 @@ export interface Activity {
   effort: string | null;
 }
 
+/** Who had the turn: Claude working, or Claude waiting on you. */
+export const TURN_WHO = ["claude", "you"] as const;
+/** One of `TURN_WHO`. */
+export type TurnWho = (typeof TURN_WHO)[number];
+
+/**
+ * A stretch of a block that was Claude's or yours. Time that can't be told (a permission prompt
+ * reads as Claude working; a gap a notification ended reads as neither) has no span.
+ */
+export interface TurnSpan {
+  start: number;
+  end: number;
+  who: TurnWho;
+}
+
 /** One block (section) drawn on the calendar. */
 export interface CalendarSegment {
   start: number;
@@ -95,6 +110,8 @@ export interface CalendarSegment {
   /** Token usage within this time; null if none was recorded. */
   usage: Usage | null;
   activity: Activity;
+  /** Whose turn it was, in time order and within the block; empty for logs without turn records. */
+  turns: TurnSpan[];
 }
 
 /** One session drawn on the calendar. */

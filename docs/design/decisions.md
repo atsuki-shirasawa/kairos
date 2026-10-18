@@ -100,3 +100,11 @@ toolbar had: below `xl` the wordmark gives way to the mark and search to its ico
 Today's chart of the day's tokens is a stack of climbing bands, not 5-minute bars. With bars,
 one spike flattened every other slot; as a climb, a spike is a steep stretch and the rest of the day
 stays readable.
+
+## The turn strip marks your turn in ink
+
+A day-page row's strip of whose turn it was (#66) draws Claude's time in the project color and
+yours in `ink`, not `muted-ink`. The second tone is all but the same grey as the tetsu project
+color (`#626b7d` against `#5e6b7d`), so in a tetsu project's row the two sides would read as one.
+`ink` stands apart from every project color in both themes, and the time that waited on you is
+the part of the strip worth seeing first.

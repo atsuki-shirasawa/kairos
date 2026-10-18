@@ -21,6 +21,7 @@ export function segment(
     headline,
     short: null,
     summarized,
+    turns: [],
     body: null,
     prs: [],
     commits: [],

@@ -9,10 +9,15 @@ export const journalMessages = defineMessages({
     quiet: (duration: string) => `${duration} with no work`,
     /** The day's first Resolved points, for screen readers. */
     resolved: "Resolved",
+    /** Whose turn it was, before the time each side had it in a block ("Claude 32m", "you 12m"). */
+    turnClaude: "Claude",
+    turnYou: "you",
   },
   ja: {
     dayWork: (date: string) => `${date}の作業`,
     quiet: (duration: string) => `${duration} 作業なし`,
     resolved: "解決",
+    turnClaude: "Claude",
+    turnYou: "あなた",
   },
 });

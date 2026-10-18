@@ -36,6 +36,7 @@ function session(id: string, ...segments: [number, number][]): CalendarSession {
       headline: id,
       short: null,
       summarized: true,
+      turns: [],
       body: null,
       prs: [],
       commits: [],

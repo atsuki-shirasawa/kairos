@@ -1,7 +1,7 @@
 // A work block as the API shows it: the calendar's segment and the drawer's section are two views
 // of the same block, so both are built here from the same row and the same facts.
 import type { Database } from "bun:sqlite";
-import type { Activity, CalendarSegment, Section, Usage } from "../../shared/api.ts";
+import type { Activity, CalendarSegment, Section, TurnSpan, Usage } from "../../shared/api.ts";
 import { isSummarizable } from "../../shared/sections.ts";
 import { blockOutputsUntilSql } from "../db/blockOutputs.ts";
 import { STALE_SUMMARY_SQL } from "../summarize/blocks.ts";
@@ -83,12 +83,18 @@ export function blocksFacts(db: Database, set: BlockSet): BlockLookup<BlockFacts
   });
 }
 
+/** What the calendar shows of a block beyond its row: its commits and PRs, facts and turns. */
+export interface CalendarBlockParts {
+  artifacts: BlockArtifacts;
+  facts: BlockFacts;
+  turns: TurnSpan[];
+}
+
 /** A work block as the calendar shows it, headed by the session's title when it has no other. */
 export function toCalendarSegment(
   g: SectionRow,
   sessionTitle: string,
-  artifacts: BlockArtifacts,
-  facts: BlockFacts,
+  { artifacts, facts, turns }: CalendarBlockParts,
 ): CalendarSegment {
   return {
     start: g.start,
@@ -102,6 +108,7 @@ export function toCalendarSegment(
     promptCount: g.prompt_count,
     usage: facts.usage,
     activity: facts.activity,
+    turns,
   };
 }
 

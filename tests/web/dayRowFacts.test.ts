@@ -49,5 +49,6 @@ describe("rowFacts", () => {
     expect(facts.range).toBe("9:00–9:12");
     // Its heading is a count, not a first prompt waiting for a summary
     expect(facts.dim).toBe(false);
+    expect(facts.turns).toBeNull();
   });
 });

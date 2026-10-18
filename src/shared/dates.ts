@@ -1,8 +1,10 @@
 // Time units and local-date helpers shared by the server, the CLI and the web app. Times are in
 // the machine's local time zone, like everything the user sees.
 
+/** One second in ms. */
+export const SECOND = 1_000;
 /** One minute in ms. */
-export const MINUTE = 60_000;
+export const MINUTE = 60 * SECOND;
 /** One hour in ms. */
 export const HOUR = 60 * MINUTE;
 /** 24 hours in ms. A calendar day can differ across DST; step days with `startOfDay(t, n)` or Date. */

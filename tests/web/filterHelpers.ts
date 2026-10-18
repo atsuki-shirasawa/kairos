@@ -40,6 +40,7 @@ export function session(
     headline: g.headline,
     short: null,
     summarized: true,
+    turns: [],
     body: g.body ?? null,
     prs: [],
     commits: [],

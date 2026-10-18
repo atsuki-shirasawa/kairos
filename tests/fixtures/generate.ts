@@ -698,6 +698,49 @@ function ledger(): void {
   write(APP, b);
 }
 
+// ---------------------------------------------------------------- 24. whose turn it was
+function turns(): void {
+  const b = new LogBuilder(SID.turns, APP);
+  header(b);
+  // A plain turn: Claude works from the prompt until the turn ends
+  b.prompt(1960, "CSV エクスポートに日付の列を足して");
+  b.bash(1961, "bun test tests/export.test.ts", "6 pass\n0 fail");
+  b.text(1963, "日付の列を足しました。");
+  b.turnEnd(1963, 3 * 60_000);
+  // Claude asks partway through; the turn's duration leaves out the two minutes it waited
+  b.prompt(1965, "ヘッダーの書式も揃えて");
+  const ask = b.toolUse(1966, "AskUserQuestion", {
+    questions: [
+      {
+        question: "日付の書式はどちらにしますか？",
+        header: "format",
+        multiSelect: false,
+        options: [
+          { label: "YYYY-MM-DD", description: "ISO 8601" },
+          { label: "YYYY/MM/DD", description: "Excel の既定" },
+        ],
+      },
+    ],
+  });
+  b.toolResult(
+    1968,
+    ask,
+    'Your questions have been answered: "日付の書式はどちらにしますか？"="YYYY-MM-DD". You can now continue with these answers in mind.',
+  );
+  const bg = b.toolUse(1969, "Bash", { command: "bun run e2e", run_in_background: true });
+  b.toolResult(1969, bg, "Command running in background with ID: bg03");
+  b.text(1970, "書式を揃えました。E2E をバックグラウンドで流しています。");
+  b.turnEnd(1970, 3 * 60_000);
+  // The background task's notification starts the next turn, with no prompt from the user
+  b.taskNotification(1973, "bg03", "completed", "e2e: 14 passed");
+  b.text(1974, "E2E は 14 件とも通りました。");
+  b.turnEnd(1974, 60_000);
+  b.prompt(1976, "差分を見せて");
+  b.bash(1977, "git diff --stat", " src/export.ts | 18 +++++++++++++++---\n 1 file changed");
+  b.turnEnd(1977, 60_000);
+  write(APP, b);
+}
+
 if (import.meta.main) {
   rmSync(ROOT, { recursive: true, force: true });
   for (const scenario of [
@@ -724,6 +767,7 @@ if (import.meta.main) {
     facts,
     ledger,
     outsideRuns,
+    turns,
   ]) {
     scenario();
   }

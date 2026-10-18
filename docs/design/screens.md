@@ -123,7 +123,14 @@ The day is read, not placed: a list of the day's work beside the selected block'
   `muted-ink` when unsummarized, by the Work block rule), a meta line (project, worktree label,
   length), the summary's first two Resolved points (12px `ink`, two lines each; an older body's
   Outcome in their place), and the first three commits and PRs as moment labels (node, time, SHA
-  or PR number, title) with "+n more". Hover fills the card with `accent`; selected is the 2px
+  or PR number, title) with "+n more". Between the meta line and Resolved, whose turn it was: a
+  4px strip of the block's length (at most 12rem, at least 2rem) on a `muted` track, in the
+  project color where Claude worked and `ink` where it waited on you
+  ([why](decisions.md#the-turn-strip-marks-your-turn-in-ink)), then "● Claude 32m ● you 12m" (11px
+  `muted-ink`, each with a 6px dot of its color, the times in `numeral`) as its key. What the log
+  can't tell (a gap a notification ended, an interrupted turn) stays the bare track rather than a
+  guess, and a permission prompt reads as Claude working. No strip for a burst of headless runs
+  or a block from logs before turns were recorded. Hover fills the card with `accent`; selected is the 2px
   `primary` outline and nothing more. Work in progress ends with the pulsing dot. Filtered-out
   rows fade to 30% and come back on hover or focus
 - **Lanes:** to the left of the cards, one 14px lane per session running at the same time, read

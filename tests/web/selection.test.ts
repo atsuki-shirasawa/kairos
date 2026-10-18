@@ -29,6 +29,7 @@ function session(active: boolean): CalendarSession {
     headline: "x",
     short: null,
     summarized: true,
+    turns: [],
     body: null,
     prs: [],
     commits: [],
