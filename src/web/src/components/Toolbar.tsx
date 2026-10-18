@@ -1,4 +1,5 @@
 import type { CalendarSession, Project, SearchHit } from "@shared/api.ts";
+import { SearchField, type SearchState } from "@/features/search/SearchField.tsx";
 import type { ImportProgress } from "@/hooks/useLiveUpdates.ts";
 import type { Theme } from "@/hooks/useTheme.ts";
 import type { Filter } from "@/lib/filter.ts";
@@ -6,7 +7,6 @@ import { LAYOUTS, layoutOfPlace, placeOf } from "@/lib/layouts.ts";
 import type { Layout, View } from "@/lib/view.ts";
 import { DatePicker } from "./DatePicker.tsx";
 import { FilterMenu } from "./FilterMenu.tsx";
-import { SearchField, type SearchState } from "./SearchField.tsx";
 import { AppMenu } from "./toolbar/AppMenu.tsx";
 import { Brand } from "./toolbar/Brand.tsx";
 import { LiveButton, type LiveSummary } from "./toolbar/LiveButton.tsx";
