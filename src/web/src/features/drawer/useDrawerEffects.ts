@@ -1,4 +1,5 @@
 import { type RefObject, useEffect, useRef } from "react";
+import { WIDE_QUERY } from "@/hooks/useMediaQuery.ts";
 
 /**
  * Moves focus into the drawer when it opens, but only on narrow screens: there it is modal (with a
@@ -8,7 +9,7 @@ import { type RefObject, useEffect, useRef } from "react";
 export function useFocusWhenOverlaid<T extends HTMLElement>(): RefObject<T | null> {
   const ref = useRef<T>(null);
   useEffect(() => {
-    if (matchMedia("(width < 64rem)").matches) ref.current?.focus();
+    if (!matchMedia(WIDE_QUERY).matches) ref.current?.focus();
   }, []);
   return ref;
 }

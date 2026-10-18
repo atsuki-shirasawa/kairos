@@ -25,7 +25,8 @@ export function DrawerHeader({
 }: {
   session: SessionDetail | undefined;
   section: Section | null;
-  onClose: () => void;
+  /** null where the drawer is the page's pinned detail pane, which has no close button. */
+  onClose: (() => void) | null;
   onPrev: (() => void) | null;
   onNext: (() => void) | null;
   run: RunPosition | null;
@@ -49,7 +50,7 @@ export function DrawerHeader({
   );
 }
 
-/** Copy the resume command, step to the previous / next work, and close. */
+/** Copy the resume command, step to the previous / next work, and close (unless pinned). */
 function DrawerControls({
   session,
   onClose,
@@ -57,7 +58,7 @@ function DrawerControls({
   onNext,
 }: {
   session: SessionDetail | undefined;
-  onClose: () => void;
+  onClose: (() => void) | null;
   onPrev: (() => void) | null;
   onNext: (() => void) | null;
 }) {
@@ -71,9 +72,11 @@ function DrawerControls({
       <IconButton label={t.next} onClick={onNext}>
         <ChevronDown />
       </IconButton>
-      <IconButton label={t.close} onClick={onClose}>
-        <X />
-      </IconButton>
+      {onClose && (
+        <IconButton label={t.close} onClick={onClose}>
+          <X />
+        </IconButton>
+      )}
     </div>
   );
 }

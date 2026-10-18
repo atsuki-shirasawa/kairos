@@ -1,33 +1,25 @@
 import type { Project } from "@shared/api.ts";
 import { useId } from "react";
-import { Markdown } from "@/components/Markdown.tsx";
 import { MomentNode } from "@/components/MomentNode.tsx";
 import { StatusDot } from "@/components/ui/status-dot.tsx";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip.tsx";
 import { calendarMessages } from "@/i18n/messages/calendar.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
-import { blockContent, LANE_ROW_PX } from "@/lib/blockContent.ts";
+import { blockContent } from "@/lib/blockContent.ts";
 import { momentsSpeech, tooltipFacts } from "@/lib/blockFacts.ts";
 import {
   type BlockGeometry,
   blockGeometry,
   RAISED_LAYER,
-  reachesSegmentEnd,
   stackOrder,
 } from "@/lib/blockGeometry.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { dateLabel } from "@/lib/dates.ts";
 import type { PlacedBlock } from "@/lib/layout.ts";
-import {
-  blockMoments,
-  type Moment,
-  type MomentRow,
-  momentMarks,
-  momentRows,
-} from "@/lib/moments.ts";
-import { isDim, isWorking } from "@/lib/selection.ts";
+import { blockMoments, type Moment, momentMarks } from "@/lib/moments.ts";
+import { isDim, isWorkingHere } from "@/lib/selection.ts";
 import { cn } from "@/lib/utils.ts";
-import { BlockTooltip, MomentLabel } from "./BlockTooltip.tsx";
+import { BlockTooltip } from "./BlockTooltip.tsx";
 import { CARD_FILL, FADED } from "./blockFills.ts";
 import { INDENT_PX, LINE_CLAMP } from "./constants.ts";
 
@@ -36,25 +28,6 @@ import { INDENT_PX, LINE_CLAMP } from "./constants.ts";
  * dozen or more, and hearing every subject on each block would bury the block's own label.
  */
 const SPOKEN_MOMENTS = 8;
-/**
- * Width of the day view's lane of commits and PRs. The day view is wide enough that a block's text would otherwise run across
- * the whole screen; the lane holds the moments instead, and the text keeps a readable measure.
- */
-const LANE_WIDTH = "min(38%, 24rem)";
-/**
- * Where the lane starts: right after the text's measure (`LANE_ROOM`), so on a wide screen the
- * summary and its commits read as one block instead of sitting at opposite edges of the window.
- * On a narrower block it falls back to the right edge.
- */
-const LANE_LEFT = "min(calc(0.625rem + 32rem + 1.5rem), calc(100% - min(38%, 24rem) - 0.5rem))";
-/**
- * Width the heading, time range and body keep beside the lane: a readable measure, or less when
- * the lane (`LANE_WIDTH` plus a gap) needs the room. Both this and the lane switch on the block's
- * own width (a container query): side-by-side or stacked blocks on a busy day are too narrow for
- * it, and fall back to the tooltip. Spelled out so Tailwind can pick up the class names.
- */
-const LANE_ROOM = "@min-[36rem]:max-w-[min(32rem,calc(100%-min(38%,24rem)-0.75rem))]";
-
 /** How a block reads, apart from its position. */
 interface BlockState {
   selected: boolean;
@@ -74,7 +47,6 @@ interface BlockState {
 /** A work block in a day column, with its tooltip. Clicking it selects that section. */
 export function Block({
   block,
-  detailed,
   hourPx,
   project,
   selected,
@@ -82,7 +54,6 @@ export function Block({
   onSelect,
 }: {
   block: PlacedBlock;
-  detailed: boolean;
   hourPx: number;
   project: Project | undefined;
   selected: boolean;
@@ -91,14 +62,10 @@ export function Block({
 }) {
   const { session, segment } = block;
   const geo = blockGeometry(block, hourPx);
-  const inProgress = isWorking(block) && reachesSegmentEnd(block);
+  const inProgress = isWorkingHere(block);
   const dim = isDim(block);
   const moments = blockMoments(block, hourPx, geo.filledPx);
-  const { meta, lines, body, lane } = blockContent(block, geo, {
-    detailed,
-    selected,
-    momentCount: moments.length,
-  });
+  const { meta, lines } = blockContent(geo, { selected });
   const facts = tooltipFacts(block, { project, faded, dim, moments });
   const state: BlockState = {
     ...block,
@@ -137,19 +104,9 @@ export function Block({
         </TooltipTrigger>
         <MomentsDescription id={momentsId} moments={moments} />
         {geo.stretched && <UnfilledEdge filledPx={geo.filledPx} />}
-        <BlockHeading
-          label={facts.label}
-          bold={!dim || selected}
-          short={geo.short}
-          lines={lines}
-          room={lane}
-        />
-        {meta && <BlockMeta block={block} range={facts.range} detailed={detailed} room={lane} />}
-        {body && <BlockBody body={body} room={lane} />}
+        <BlockHeading label={facts.label} bold={!dim || selected} short={geo.short} lines={lines} />
+        {meta && <BlockMeta range={facts.range} />}
         <MomentTicks moments={moments} filledPx={geo.filledPx} />
-        {lane && (
-          <MomentLane rows={momentRows(moments, LANE_ROW_PX, geo.visible)} heightPx={geo.visible} />
-        )}
         {inProgress && <WorkingDot />}
       </div>
       <BlockTooltip {...facts} />
@@ -242,14 +199,11 @@ function BlockHeading({
   bold,
   short,
   lines,
-  room,
 }: {
   label: string;
   bold: boolean;
   short: boolean;
   lines: number;
-  /** Leave room on the right for the day view's lane. */
-  room: boolean;
 }) {
   return (
     <span
@@ -260,7 +214,6 @@ function BlockHeading({
         bold ? "font-medium" : "font-normal",
         short ? "leading-4" : "leading-snug",
         LINE_CLAMP[lines],
-        room && LANE_ROOM,
       )}
     >
       {label}
@@ -268,48 +221,12 @@ function BlockHeading({
   );
 }
 
-/** The time range under the heading; in the day view also the worktree label. */
-function BlockMeta({
-  block,
-  range,
-  detailed,
-  room,
-}: {
-  block: PlacedBlock;
-  range: string;
-  detailed: boolean;
-  /** Leave room on the right for the day view's lane. */
-  room: boolean;
-}) {
-  const { session } = block;
+/** The time range under the heading. */
+function BlockMeta({ range }: { range: string }) {
   return (
-    <span
-      className={cn(
-        "flex min-w-0 shrink-0 items-center gap-1.5 font-num text-meta text-muted-foreground",
-        room && LANE_ROOM,
-      )}
-    >
-      <span className="shrink-0">{range}</span>
-      {/* Several sessions of one project share a color, so the worktree tells them apart */}
-      {detailed && session.label && <span className="truncate">{session.label}</span>}
+    <span className="flex min-w-0 shrink-0 items-center font-num text-meta text-muted-foreground">
+      {range}
     </span>
-  );
-}
-
-/** The summary body, faded out at the bottom where the block cuts it off. */
-function BlockBody({ body, room }: { body: string; room: boolean }) {
-  return (
-    // The fade spans about two lines, so a cut-off line reads as "continues" rather than as a glitch
-    <div
-      className={cn(
-        "min-h-0 max-w-[72ch] flex-1 overflow-hidden text-foreground [mask-image:linear-gradient(to_bottom,black_calc(100%-2.75rem),transparent)]",
-        room && LANE_ROOM,
-      )}
-    >
-      <Markdown plain className="mt-1 space-y-1 text-label leading-relaxed [&_li+li]:mt-0.5">
-        {body}
-      </Markdown>
-    </div>
   );
 }
 
@@ -329,35 +246,6 @@ function MomentTicks({ moments, filledPx }: { moments: Moment[]; filledPx: numbe
       style={{ top: mark.top, height: mark.height }}
     />
   ));
-}
-
-/**
- * The day view's lane beside a block's text, labeling each commit and PR at the height it was
- * made. The drawer lists the same outcomes, so this is visual only.
- */
-function MomentLane({ rows, heightPx }: { rows: MomentRow[]; heightPx: number }) {
-  return (
-    // Only as tall as the part no block is stacked over, so it never shows through between them
-    <div
-      className="pointer-events-none absolute top-0 @max-[36rem]:hidden border-foreground/10 border-l"
-      style={{ left: LANE_LEFT, width: LANE_WIDTH, height: heightPx }}
-      aria-hidden
-    >
-      {rows.map((row) => (
-        <div
-          key={row.kind === "more" ? "more" : `${row.moment.artifact.ref}-${row.top}`}
-          className="absolute inset-x-0 flex items-center gap-2 pl-2.5 font-num text-meta text-muted-foreground"
-          style={{ top: row.top, height: LANE_ROW_PX }}
-        >
-          {row.kind === "more" ? (
-            <span>{calendarMessages().moreMoments(row.count)}</span>
-          ) : (
-            <MomentLabel moment={row.moment} />
-          )}
-        </div>
-      ))}
-    </div>
-  );
 }
 
 /**

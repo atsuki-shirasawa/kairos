@@ -1,14 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import {
-  blockGeometry,
-  RAISED_LAYER,
-  reachesSegmentEnd,
-  stackOrder,
-} from "../../src/web/src/lib/blockGeometry.ts";
+import { blockGeometry, RAISED_LAYER, stackOrder } from "../../src/web/src/lib/blockGeometry.ts";
 import { layoutDay, type PlacedBlock } from "../../src/web/src/lib/layout.ts";
 import { DAY0, H, session as sessionOf } from "./helpers.ts";
-
-const DAY1 = new Date(2026, 9, 6).getTime();
 
 /** A finished session with one block per [start, end] span. */
 const session = (id: string, spans: [number, number][]) => sessionOf(id, ...spans);
@@ -47,20 +40,6 @@ describe("blockGeometry", () => {
     const geo = blockGeometry({ ...placed(9, 12), coveredFrom: 9.5 * H }, 50);
     expect(geo.visible).toBe(25);
     expect(geo.lines).toBe(1);
-  });
-});
-
-describe("reachesSegmentEnd", () => {
-  test("only the day's piece that holds the section's end", () => {
-    const s = session("s", [
-      [DAY0 + 9 * H, DAY0 + 10 * H],
-      [DAY0 + 23 * H, DAY1 + H],
-    ]);
-    const [first, spanning] = layoutDay([s], DAY0);
-    const [next] = layoutDay([s], DAY1);
-    expect(first && reachesSegmentEnd(first)).toBe(true);
-    expect(spanning && reachesSegmentEnd(spanning)).toBe(false);
-    expect(next && reachesSegmentEnd(next)).toBe(true);
   });
 });
 

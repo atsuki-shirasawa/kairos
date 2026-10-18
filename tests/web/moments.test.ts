@@ -1,13 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import { blocksOfDay } from "../../src/web/src/lib/dayBlocks.ts";
 import { layoutDay } from "../../src/web/src/lib/layout.ts";
 import {
+  blockArtifacts,
   blockMoments,
   clampInside,
   type Moment,
   momentMarks,
-  momentRows,
-  pullUp,
-  pushDown,
 } from "../../src/web/src/lib/moments.ts";
 import { DAY0, H, session as sessionOf } from "./helpers.ts";
 
@@ -15,6 +14,56 @@ const DAY1 = new Date(2026, 9, 6).getTime();
 
 /** A finished session with one block per [start, end] span. */
 const session = (id: string, spans: [number, number][]) => sessionOf(id, ...spans);
+
+describe("blockArtifacts", () => {
+  const artifact = (kind: "commit" | "pr", ts: number | null, ref: string) => ({
+    kind,
+    ref,
+    title: null,
+    ts,
+  });
+  /** The refs `blockArtifacts` keeps of a block from 10:00 to 11:00 (or into the next day). */
+  const refsOn = (artifacts: ReturnType<typeof artifact>[], end = DAY0 + 11 * H, day = DAY0) => {
+    const s = session("m", [[DAY0 + 10 * H, end]]);
+    const seg = s.segments[0];
+    if (seg) {
+      seg.commits = artifacts.filter((a) => a.kind === "commit");
+      seg.prs = artifacts.filter((a) => a.kind === "pr");
+    }
+    const [block] = blocksOfDay([s], day);
+    return block ? blockArtifacts(block).map((a) => a.ref) : [];
+  };
+
+  test.each([
+    ["before the block", [artifact("commit", DAY0 + 9 * H, "x")], []],
+    ["without a time", [artifact("commit", null, "x")], []],
+    [
+      "recorded just after the end, in the server's grace",
+      [artifact("commit", DAY0 + 11.02 * H, "late")],
+      ["late"],
+    ],
+    [
+      "in time order, a PR before a commit at the same minute",
+      [
+        artifact("commit", DAY0 + 10.5 * H, "c2"),
+        artifact("commit", DAY0 + 10.2 * H, "c1"),
+        artifact("pr", DAY0 + 10.5 * H, "p"),
+      ],
+      ["c1", "p", "c2"],
+    ],
+  ] as const)("%s", (_, artifacts, expected) => {
+    expect(refsOn([...artifacts])).toEqual([...expected]);
+  });
+
+  test("a block running into the next day keeps each moment on its own day", () => {
+    const artifacts = [
+      artifact("commit", DAY0 + 23 * H, "today"),
+      artifact("commit", DAY1 + H, "tomorrow"),
+    ];
+    expect(refsOn(artifacts, DAY1 + 2 * H)).toEqual(["today"]);
+    expect(refsOn(artifacts, DAY1 + 2 * H, DAY1)).toEqual(["tomorrow"]);
+  });
+});
 
 describe("blockMoments", () => {
   const commit = (ts: number | null, ref = "c") => ({
@@ -61,32 +110,6 @@ describe("blockMoments", () => {
   });
 });
 
-describe("momentRows", () => {
-  const at = (...ys: number[]): Moment[] =>
-    ys.map((y) => ({ artifact: { kind: "commit", ref: String(y), title: null, ts: 0 }, y }));
-
-  test("centers each label on its moment and pushes overlapping ones down", () => {
-    expect(momentRows(at(50, 55), 16, 200).map((r) => r.top)).toEqual([42, 58]);
-  });
-
-  test("labels near either edge stay inside the block", () => {
-    expect(momentRows(at(2), 16, 200).map((r) => r.top)).toEqual([0]);
-    expect(momentRows(at(199), 16, 200).map((r) => r.top)).toEqual([184]);
-  });
-
-  test("pulls labels crowding the bottom edge up instead of hiding them", () => {
-    expect(momentRows(at(95, 98), 16, 100).map((r) => r.top)).toEqual([68, 84]);
-  });
-
-  test("replaces the last row that fits with a count of the rest", () => {
-    const rows = momentRows(at(10, 20, 30, 40), 16, 40);
-    expect(rows).toEqual([
-      { kind: "moment", moment: at(10)[0] as Moment, top: 2 },
-      { kind: "more", count: 3, top: 18 },
-    ]);
-  });
-});
-
 describe("momentMarks", () => {
   const at = (...ys: number[]): Moment[] =>
     ys.map((y, i) => ({ artifact: { kind: "commit", ref: String(i), title: null, ts: 0 }, y }));
@@ -125,17 +148,5 @@ describe("clampInside", () => {
 
   test("keeps to the low bound when the room is smaller than that", () => {
     expect(clampInside(7, 4, 2)).toBe(4);
-  });
-});
-
-describe("pushDown / pullUp", () => {
-  const row = (top: number) => ({ kind: "more" as const, count: 1, top });
-
-  test("pushDown centers rows on their height and moves each below the one before", () => {
-    expect(pushDown([row(50), row(55)], 16).map((r) => r.top)).toEqual([42, 58]);
-  });
-
-  test("pullUp keeps the last rows inside the bottom edge, each above the next", () => {
-    expect(pullUp([row(80), row(90)], 16, 100).map((r) => r.top)).toEqual([68, 84]);
   });
 });

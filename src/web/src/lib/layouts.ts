@@ -40,6 +40,12 @@ export interface LayoutTraits {
    */
   drawerOverlay: (view: View) => boolean;
   /**
+   * Whether the drawer is the page's own detail pane, for a period length: always open on a wide
+   * screen, on the first block when none is chosen, with no close button. The day page is a list
+   * read beside the selected block's detail.
+   */
+  drawerPinned: (view: View) => boolean;
+  /**
    * The heading the toolbar shows in place of the period controls, for a layout without a period;
    * null for one with a period, whose date picker heads the page.
    */
@@ -60,6 +66,7 @@ export const LAYOUTS: Readonly<Record<Layout, LayoutTraits>> = {
     lit: "today",
     // Its two columns would shrink to slivers beside the drawer
     drawerOverlay: () => true,
+    drawerPinned: () => false,
     heading: () => todayMessages().heading,
     stepping: { blocks: false, runs: false },
     comparesPrevious: false,
@@ -70,8 +77,9 @@ export const LAYOUTS: Readonly<Record<Layout, LayoutTraits>> = {
     shortcut: "calendar",
     hasPeriod: true,
     lit: "calendar",
-    // The day view's single column has room to spare
+    // The day page is read beside it
     drawerOverlay: (view) => view !== "day",
+    drawerPinned: (view) => view === "day",
     heading: null,
     stepping: { blocks: true, runs: true },
     comparesPrevious: false,
@@ -83,6 +91,7 @@ export const LAYOUTS: Readonly<Record<Layout, LayoutTraits>> = {
     hasPeriod: true,
     lit: "summary",
     drawerOverlay: () => false,
+    drawerPinned: () => false,
     heading: null,
     stepping: { blocks: true, runs: false },
     comparesPrevious: true,
@@ -95,6 +104,7 @@ export const LAYOUTS: Readonly<Record<Layout, LayoutTraits>> = {
     // A tab of the summary, so it lights the summary's segment
     lit: "summary",
     drawerOverlay: () => false,
+    drawerPinned: () => false,
     heading: null,
     stepping: { blocks: true, runs: false },
     comparesPrevious: false,

@@ -2,6 +2,7 @@ import { startOfDay } from "@shared/dates.ts";
 import { CalendarGrid } from "@/features/calendar/CalendarGrid.tsx";
 import { MonthGrid } from "@/features/calendar/MonthGrid.tsx";
 import { SummaryTabs, SummaryView } from "@/features/insights/SummaryView.tsx";
+import { DayPage } from "@/features/journal/DayPage.tsx";
 import { SessionList } from "@/features/table/SessionList.tsx";
 import { TodayPage } from "@/features/today/TodayPage.tsx";
 import type { LiveState } from "@/hooks/useLiveSummary.ts";
@@ -38,14 +39,13 @@ export function LayoutBody(props: LayoutBodyProps) {
   return <Body {...props} />;
 }
 
-/** The week or day grid, or the month's. */
+/** The week grid, the month's, or the day page. */
 function CalendarBody(props: LayoutBodyProps) {
   const body = periodBodyProps(props);
-  return props.state.view === "month" ? (
-    <MonthGrid {...body} sessions={props.data.gridSessions} />
-  ) : (
-    <CalendarGrid {...body} />
-  );
+  if (props.state.view === "month")
+    return <MonthGrid {...body} sessions={props.data.gridSessions} />;
+  if (props.state.view === "day") return <DayPage {...body} />;
+  return <CalendarGrid {...body} />;
 }
 
 /** The summary's overview tab. */

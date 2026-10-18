@@ -2,15 +2,22 @@ import { describe, expect, test } from "bun:test";
 import type { CalendarSession } from "../../src/shared/api.ts";
 import { setLocale } from "../../src/web/src/i18n/index.ts";
 import { blocksOfDay } from "../../src/web/src/lib/dayBlocks.ts";
+import { layoutDay } from "../../src/web/src/lib/layout.ts";
 import {
+  groupLead,
+  groupMatches,
   isDim,
+  isGroupSelected,
   isSelected,
   isSelectedSection,
   isWorking,
+  isWorkingHere,
   projectLabel,
   projectName,
   projectOf,
+  reachesSegmentEnd,
 } from "../../src/web/src/lib/selection.ts";
+import { session as sessionOf } from "./helpers.ts";
 
 const DAY0 = new Date(2026, 9, 5).getTime();
 const H = 3_600_000;
@@ -148,4 +155,49 @@ test("isSelectedSection matches the selected section, or any of the session's wi
   expect(isSelectedSection(section, "a", null)).toBe(true);
   expect(isSelectedSection(section, "b", 100)).toBe(false);
   expect(isSelectedSection(section, null, null)).toBe(false);
+});
+
+describe("reachesSegmentEnd / isWorkingHere", () => {
+  const DAY1 = new Date(2026, 9, 6).getTime();
+  const spanning = (active: boolean): CalendarSession => ({
+    ...sessionOf("s", [DAY0 + 9 * H, DAY0 + 10 * H], [DAY0 + 23 * H, DAY1 + H]),
+    active,
+  });
+
+  test("only the day's piece that holds the section's end", () => {
+    const s = spanning(false);
+    const [first, before] = layoutDay([s], DAY0);
+    const [after] = layoutDay([s], DAY1);
+    expect(first && reachesSegmentEnd(first)).toBe(true);
+    expect(before && reachesSegmentEnd(before)).toBe(false);
+    expect(after && reachesSegmentEnd(after)).toBe(true);
+  });
+
+  test("a running section crossing midnight shows as in progress on the later day only", () => {
+    const s = spanning(true);
+    const [, before] = layoutDay([s], DAY0);
+    const [after] = layoutDay([s], DAY1);
+    expect(before && isWorkingHere(before)).toBe(false);
+    expect(after && isWorkingHere(after)).toBe(true);
+  });
+});
+
+describe("group rules", () => {
+  const runs = blocksOfDay(
+    [sessionOf("a", [DAY0 + 1000, DAY0 + 2000]), sessionOf("b", [DAY0 + 3000, DAY0 + 4000])],
+    DAY0,
+  );
+  const onlyB = (s: CalendarSession) => s.id === "b";
+
+  test("the lead is the first run that matches the filter, else the first", () => {
+    expect(groupLead(runs, (s) => onlyB(s))?.session.id).toBe("b");
+    expect(groupLead(runs, () => false)?.session.id).toBe("a");
+  });
+
+  test("a group is selected or matching when any of its runs is", () => {
+    expect(isGroupSelected(runs, "b", null)).toBe(true);
+    expect(isGroupSelected(runs, "c", null)).toBe(false);
+    expect(groupMatches(runs, (s) => onlyB(s))).toBe(true);
+    expect(groupMatches(runs, () => false)).toBe(false);
+  });
 });

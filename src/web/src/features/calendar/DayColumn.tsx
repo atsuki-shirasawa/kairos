@@ -3,7 +3,14 @@ import { DAY, HOUR } from "@shared/dates.ts";
 import type { SegmentMatch } from "@/lib/filter.ts";
 import type { PlacedBlock } from "@/lib/layout.ts";
 import { markTops, runGroups } from "@/lib/marks.ts";
-import { isDim, isSelected, projectOf } from "@/lib/selection.ts";
+import {
+  groupLead,
+  groupMatches,
+  isDim,
+  isGroupSelected,
+  isSelected,
+  projectOf,
+} from "@/lib/selection.ts";
 import { cn } from "@/lib/utils.ts";
 import { Block } from "./Block.tsx";
 import { MARK_STRIP_PX, Mark } from "./Mark.tsx";
@@ -15,7 +22,6 @@ import { MARK_STRIP_PX, Mark } from "./Mark.tsx";
  */
 export function DayColumn({
   day,
-  detailed,
   blocks,
   hourPx,
   projects,
@@ -26,8 +32,6 @@ export function DayColumn({
   onSelect,
 }: {
   day: number;
-  /** Day view: wide blocks also show the summary body and PRs. */
-  detailed: boolean;
   blocks: PlacedBlock[];
   hourPx: number;
   projects: Map<number, Project>;
@@ -60,7 +64,6 @@ export function DayColumn({
           <Block
             key={`${b.session.id}-${b.start}`}
             block={b}
-            detailed={detailed}
             hourPx={hourPx}
             project={projectOf(projects, b.session.projectId)}
             selected={selected(b)}
@@ -73,7 +76,7 @@ export function DayColumn({
         const [b] = runs;
         if (!b) return null;
         // The tooltip and the click describe the lead, so its summary state is the one to show
-        const lead = runs.find((r) => matches(r.session, r.segment)) ?? b;
+        const lead = groupLead(runs, matches) ?? b;
         return (
           <Mark
             key={`${b.session.id}-${b.start}`}
@@ -82,8 +85,8 @@ export function DayColumn({
             hourPx={hourPx}
             project={projectOf(projects, b.session.projectId)}
             lead={lead}
-            selected={runs.some(selected)}
-            faded={!runs.some((r) => matches(r.session, r.segment))}
+            selected={isGroupSelected(runs, selectedId, selectedAt)}
+            faded={!groupMatches(runs, matches)}
             dim={isDim(lead)}
             onSelect={onSelect}
           />

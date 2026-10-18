@@ -59,7 +59,6 @@ export function CalendarGrid({
           <DayHeader
             key={day}
             day={day}
-            single={days.length === 1}
             // Day totals count only work that matches the filter
             blocks={(columns[i] ?? []).filter((b) => matches(b.session, b.segment))}
             today={isSameDay(day, now)}
@@ -80,7 +79,6 @@ export function CalendarGrid({
               <DayColumn
                 key={day}
                 day={day}
-                detailed={days.length === 1}
                 blocks={columns[i] ?? []}
                 hourPx={hourPx}
                 projects={projects}

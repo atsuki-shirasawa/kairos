@@ -1,43 +1,31 @@
-import type { Usage } from "@shared/api.ts";
-import { Hint } from "@/components/Hint.tsx";
 import { MomentNode } from "@/components/MomentNode.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip.tsx";
 import { calendarMessages } from "@/i18n/messages/calendar.ts";
 import { dateMessages } from "@/i18n/messages/dates.ts";
-import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { dateLabel, durationLabel, weekday } from "@/lib/dates.ts";
-import { approxCostLabel, interleave, tokensLabel } from "@/lib/format.ts";
+import { usageText } from "@/lib/format.ts";
 import type { PlacedBlock } from "@/lib/layout.ts";
 import { type DayFigures, dayFigures } from "@/lib/totals.ts";
 import { cn } from "@/lib/utils.ts";
-
-/** Tokens and cost, with "~" on the cost when some of it couldn't be priced. */
-function usageText(usage: Usage): string {
-  return calendarMessages().tokensCost(tokensLabel(usage.tokens), approxCostLabel(usage));
-}
 
 /**
  * Day header. Below the date, one line with the day's working time and results (a short form of the
  * list's daily totals). Other numbers (blocks, Claude time, tokens, cost, snags) go to the tooltip so
  * the calendar doesn't fill up with numbers. Narrow columns (e.g. with the drawer open) show only line 1.
- * The day view already names the date in the toolbar, so there it is one line of every figure instead.
  */
 export function DayHeader({
   day,
-  single,
   blocks,
   today,
   onOpen,
 }: {
   day: number;
-  single: boolean;
   blocks: PlacedBlock[];
   today: boolean;
   onOpen: () => void;
 }) {
   const figures = dayFigures(blocks);
-  if (single) return <DayFiguresLine figures={figures} />;
 
   const button = (
     <button
@@ -56,38 +44,6 @@ export function DayHeader({
       <TooltipTrigger asChild>{button}</TooltipTrigger>
       <DayTooltip day={day} figures={figures} />
     </Tooltip>
-  );
-}
-
-/** The day view's header: every figure of the day on one line, without the date. */
-function DayFiguresLine({ figures }: { figures: DayFigures }) {
-  const { busy, activity, commits, prs, trouble, usage } = figures;
-  const f = formatMessages();
-  // One separator throughout: commitsPrs and usageText already join their parts with it
-  const details = [
-    <span key="blocks">{f.blocks(figures.counted)}</span>,
-    activity?.claudeMs ? (
-      <span key="claude">{drawerMessages().claudeShort(durationLabel(activity.claudeMs))}</span>
-    ) : null,
-    commits > 0 || prs > 0 ? <span key="outcomes">{f.commitsPrs(commits, prs)}</span> : null,
-    trouble > 0 ? (
-      // Shown in the warn color, so it says on hover what kind of snags they were
-      <Hint key="trouble" text={figures.troubleDetail} focusable className="text-warn">
-        {f.trouble(trouble)}
-      </Hint>
-    ) : null,
-    usage ? <span key="usage">{usageText(usage)}</span> : null,
-  ].filter((d) => d !== null);
-  return (
-    <div className="flex min-h-11 min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 border-l px-2.5 py-1.5 font-num text-label text-muted-foreground">
-      {figures.shown > 0 && (
-        <>
-          {/* Working time leads, set apart by weight; the rest is detail */}
-          <span className="font-semibold text-body text-foreground">{durationLabel(busy)}</span>
-          <span className="[&>span]:whitespace-nowrap">{interleave(details, f.separator)}</span>
-        </>
-      )}
-    </div>
   );
 }
 

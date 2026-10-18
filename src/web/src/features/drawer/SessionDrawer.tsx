@@ -12,7 +12,8 @@ interface Props {
   id: string;
   /** Start of the selected section. null means the last section. */
   at: number | null;
-  onClose: () => void;
+  /** null where the drawer is the page's pinned detail pane (`drawerPinned`), which stays open. */
+  onClose: (() => void) | null;
   onSelect: (id: string, at: number | null) => void;
   /** Move to the previous / next work in time order. null at either end. */
   onPrev: (() => void) | null;
@@ -53,7 +54,11 @@ export function SessionDrawer({
   return (
     <>
       {/* Only when overlaid on narrow screens: dim the backdrop and close on outside click */}
-      <div className="fixed inset-0 z-20 bg-black/30 lg:hidden" onClick={onClose} aria-hidden />
+      <div
+        className="fixed inset-0 z-20 bg-black/30 lg:hidden"
+        onClick={onClose ?? undefined}
+        aria-hidden
+      />
       <aside
         ref={asideRef}
         tabIndex={-1}

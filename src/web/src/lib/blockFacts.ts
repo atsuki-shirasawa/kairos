@@ -65,6 +65,30 @@ export function tooltipFacts(
   };
 }
 
+/** How a burst of headless runs reads: its count, and the span from its first start to its last end. */
+export interface BurstSpan {
+  label: string;
+  range: string;
+  durationMs: number;
+}
+
+/**
+ * The heading and span of a burst of runs (sorted by start), which the calendar's mark and the
+ * day page's row both show for it.
+ */
+export function burstSpan(
+  runs: readonly Pick<PlacedBlock, "dayStart" | "start" | "end">[],
+): BurstSpan {
+  const first = runs[0] ?? { dayStart: 0, start: 0, end: 0 };
+  // Runs can overlap, so the burst ends with whichever run ends last, not the one starting last
+  const end = Math.max(...runs.map((b) => b.end));
+  return {
+    label: calendarMessages().runs(runs.length),
+    range: timeRange({ ...first, end }),
+    durationMs: end - first.start,
+  };
+}
+
 /**
  * The tooltip facts of a mark: one short block, or a burst of headless runs drawn as one mark
  * (`runGroups`). A burst reads as its count and sums its runs' results; it opens `lead`.
@@ -78,14 +102,10 @@ export function markFacts(
   const first = runs[0] ?? lead;
   if (runs.length <= 1) return tooltipFacts(first, { ...look, moments: momentsOf(first) });
   const m = calendarMessages();
-  // Runs can overlap, so the burst ends with whichever run ends last, not the one starting last
-  const end = Math.max(...runs.map((b) => b.end));
   return {
-    label: m.runs(runs.length),
+    ...burstSpan(runs),
     projectName: projectLabel(look.project),
     session: first.session,
-    range: timeRange({ ...first, end }),
-    durationMs: end - first.start,
     commits: runs.reduce((sum, b) => sum + b.segment.activity.commits, 0),
     prs: runs.reduce((sum, b) => sum + b.segment.activity.prs, 0),
     moments: runs.flatMap(momentsOf),

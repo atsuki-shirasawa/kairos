@@ -83,11 +83,3 @@ export function stackOrder({
 }): number {
   return (muted ? 0 : SHOWN_LAYER) + 1 + depth * 2 + (selected ? 1 : 0);
 }
-
-/**
- * Whether this day's piece of the block holds its section's end. A section crossing midnight is
- * drawn on both days, and the in-progress dot goes only where the work is now: the later piece.
- */
-export function reachesSegmentEnd(block: PlacedBlock): boolean {
-  return block.dayStart + block.end >= block.segment.end;
-}

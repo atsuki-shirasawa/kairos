@@ -14,6 +14,7 @@ import { useLiveSummary } from "@/hooks/useLiveSummary.ts";
 import { useLiveUpdates } from "@/hooks/useLiveUpdates.ts";
 import { useNow } from "@/hooks/useNow.ts";
 import { usePeriodData } from "@/hooks/usePeriodData.ts";
+import { usePinnedDetail } from "@/hooks/usePinnedDetail.ts";
 import { useTheme } from "@/hooks/useTheme.ts";
 import { useUrlState } from "@/hooks/useUrlState.ts";
 import { useLocale } from "@/i18n/index.ts";
@@ -47,7 +48,21 @@ export function App() {
     at: state.at,
     update,
   });
+  const layout = LAYOUTS[state.layout];
+  const pinned = usePinnedDetail({
+    pinned: layout.drawerPinned(state.view),
+    ready: data.loaded && !data.calendar.isPlaceholderData,
+    focused,
+    visible,
+    from,
+    to,
+    session: state.session,
+    at: state.at,
+    update,
+  });
+  // The pinned pane has no close, so Esc isn't the drawer's there
   const closeDrawer = useCloseDrawer(update);
+  const onClose = pinned ? null : closeDrawer;
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchPanel, setSearchPanel] = useState(false);
@@ -59,13 +74,12 @@ export function App() {
     next,
     goTo,
     run,
-    closeDrawer,
+    closeDrawer: onClose,
     toggleMenu: () => setMenuOpen((v) => !v),
     focusSearch: () => searchRef.current?.focus(),
   });
 
   const journalTab = useJournalTab(state.layout);
-  const layout = LAYOUTS[state.layout];
   const { stepping } = layout;
 
   return (
@@ -129,7 +143,7 @@ export function App() {
           <SessionDrawer
             id={state.session}
             at={state.at}
-            onClose={closeDrawer}
+            onClose={onClose}
             onSelect={(session, at) => update({ session, at }, { push: true })}
             onPrev={prev && stepping.blocks ? () => goTo(prev) : null}
             onNext={next && stepping.blocks ? () => goTo(next) : null}

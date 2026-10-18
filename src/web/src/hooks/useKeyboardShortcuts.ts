@@ -13,7 +13,8 @@ import type { UrlState } from "@/lib/urlState.ts";
 export interface ShortcutTargets extends BlockStepping {
   state: Pick<UrlState, "view" | "layout" | "anchor" | "session">;
   update: UrlStateUpdate;
-  closeDrawer: () => void;
+  /** null where the drawer is the page's pinned pane, so Esc goes on to whatever else wants it. */
+  closeDrawer: (() => void) | null;
   toggleMenu: () => void;
   focusSearch: () => void;
 }
@@ -104,7 +105,7 @@ function run(shortcut: Shortcut, t: ShortcutTargets): boolean {
       t.focusSearch();
       break;
     case "close":
-      if (!state.session || popoverOpen()) return false;
+      if (!state.session || !t.closeDrawer || popoverOpen()) return false;
       t.closeDrawer();
       break;
   }

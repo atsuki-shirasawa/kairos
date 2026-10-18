@@ -1,13 +1,11 @@
-import { MomentNode } from "@/components/MomentNode.tsx";
+import { MomentLabel } from "@/components/MomentLabel.tsx";
 import { TooltipContent } from "@/components/ui/tooltip.tsx";
 import { calendarMessages } from "@/i18n/messages/calendar.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
-import { artifactRef } from "@/lib/artifacts.ts";
 import type { TooltipFacts } from "@/lib/blockFacts.ts";
-import { durationLabel, hhmm } from "@/lib/dates.ts";
+import { durationLabel } from "@/lib/dates.ts";
 import { openItemsLine } from "@/lib/format.ts";
 import type { Moment } from "@/lib/moments.ts";
-import { cn } from "@/lib/utils.ts";
 
 /** Commits and PRs the tooltip lists before summing the rest as "+n more". */
 const TOOLTIP_MOMENTS = 6;
@@ -69,29 +67,10 @@ function TooltipMoments({ moments }: { moments: Moment[] }) {
       {shown.map((moment, i) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: a ref can repeat (a commit amended in place)
         <li key={i} className="flex min-w-0 items-center gap-1.5">
-          <MomentLabel moment={moment} />
+          <MomentLabel artifact={moment.artifact} />
         </li>
       ))}
       {more > 0 && <li className="opacity-70">{calendarMessages().moreMoments(more)}</li>}
     </ul>
-  );
-}
-
-/**
- * One commit or PR in the day view's lane or the tooltip: its node, time, short SHA or PR number,
- * and title.
- */
-export function MomentLabel({ moment: { artifact } }: { moment: Moment }) {
-  const pr = artifact.kind === "pr";
-  const ref = artifactRef(artifact);
-  return (
-    <>
-      <MomentNode pr={pr} />
-      <span className="shrink-0">{artifact.ts !== null ? hhmm(artifact.ts) : ""}</span>
-      {ref && <span className={cn("shrink-0", pr && "font-medium text-foreground")}>{ref}</span>}
-      {artifact.title && (
-        <span className="truncate font-sans text-foreground">{artifact.title}</span>
-      )}
-    </>
   );
 }

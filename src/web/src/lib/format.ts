@@ -2,6 +2,7 @@
 import type { Activity, Usage } from "@shared/api.ts";
 import { OPEN_KINDS, type OpenItem } from "@shared/summaryBody.ts";
 import { getLocale } from "@/i18n/index.ts";
+import { calendarMessages } from "@/i18n/messages/calendar.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 
 /** 950 / 24.8k / 893k / 6.0M / 1.55B. Fits large numbers into a table cell ("1548.8M" is hard to read). */
@@ -139,4 +140,9 @@ export function sumActivity(list: (Activity | null)[]): Activity | null {
 export function interleave<T>(items: T[], separator: string): (T | string)[] {
   const glued = separator.replace(/^ /, "\u00a0");
   return items.flatMap((item, i) => (i === 0 ? [item] : [glued, item]));
+}
+
+/** Tokens and cost, with "~" on the cost when some of it couldn't be priced. */
+export function usageText(usage: Usage): string {
+  return calendarMessages().tokensCost(tokensLabel(usage.tokens), approxCostLabel(usage));
 }
