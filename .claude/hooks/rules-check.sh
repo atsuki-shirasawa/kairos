@@ -65,14 +65,27 @@ fi
 
 remind_once security-reviewer \
   "API security, summary execution or Markdown rendering changed. Run the security-reviewer agent." \
-  src/server/api src/server/summarize/claude.ts src/shared/constants.ts \
+  src/server/api src/server/serve.ts src/server/summarize/claude.ts src/shared/constants.ts \
   src/web/src/components/Markdown.tsx
 remind_once i18n-reviewer \
   "UI components or message dictionaries changed. Run the i18n-reviewer agent." \
   'src/web/src/*.tsx' src/web/src/i18n
 remind_once design-reviewer \
   "Components, styles or DESIGN.md changed. Run the design-reviewer agent." \
-  src/web/src/components src/web/src/index.css DESIGN.md
+  src/web/src/components src/web/src/features src/web/src/index.css DESIGN.md \
+  docs/design
+# SQL also lives outside queries/: the summarizer's store and ledger, the live page's reads, the
+# ingest statements and the tool-call reads
+remind_once query-plan-reviewer \
+  "Read queries or the schema changed. Run the query-plan-reviewer agent." \
+  src/server/queries src/server/db src/server/ingest/statements.ts src/server/toolCalls.ts \
+  src/server/live src/server/summarize/{store,recap,facts,blocks}.ts src/server/summarize/ledger \
+  src/cli/commands/ingest.ts
+# check never calls the model, so a prompt change that makes summaries worse still passes it
+remind_once summary-eval \
+  "The section summary prompt, its input or its parsing changed. Run bun run eval:summary (it costs claude -p runs, so ask the user first) or say why it isn't needed." \
+  src/server/summarize/{prompt,section,output,headline,digest,facts,store}.ts \
+  src/server/summarize/ledger/candidates.ts src/shared/summaryBody.ts
 
 # CLAUDE.md asks for `bun run check` at the end of every change. It takes a few seconds, so run it
 # whenever code is uncommitted rather than trusting that it was run.
