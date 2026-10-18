@@ -1,8 +1,8 @@
 import { ArrowDown, ArrowUp } from "lucide-react";
+import { Hint } from "@/components/Hint.tsx";
 import { listMessages } from "@/i18n/messages/list.tsx";
 import type { ListSort } from "@/lib/listTable.ts";
 import { cn } from "@/lib/utils.ts";
-import { Hint } from "../Hint.tsx";
 
 /** A column header that sorts by its column when clicked, with an arrow while active. */
 export function SortHeader({

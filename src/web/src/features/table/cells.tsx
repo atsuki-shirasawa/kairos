@@ -1,5 +1,6 @@
 // The number cells of the table. Each renders the same way in a block row and in a total row.
 import type { Activity, Usage } from "@shared/api.ts";
+import { Hint } from "@/components/Hint.tsx";
 import { OutcomeTally } from "@/components/OutcomeTally.tsx";
 import { listMessages } from "@/i18n/messages/list.tsx";
 import {
@@ -11,7 +12,6 @@ import {
   troubleCount,
   troubleDetail,
 } from "@/lib/format.ts";
-import { Hint } from "../Hint.tsx";
 
 /** Placeholder for a number that wasn't recorded. */
 export const dash = <span className="text-muted-foreground/60">—</span>;

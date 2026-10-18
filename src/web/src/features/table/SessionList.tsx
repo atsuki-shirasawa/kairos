@@ -6,13 +6,13 @@ import { type DayGroup, dayGroups, nextSort, sortBlocks, visibleSort } from "@/l
 import type { PeriodBodyProps } from "@/lib/periodBody.ts";
 import { DEFAULT_SORT } from "@/lib/urlState.ts";
 import type { View } from "@/lib/view.ts";
-import { ColumnPicker } from "./list/ColumnPicker.tsx";
-import { COLUMNS, tableMinRem } from "./list/columns.tsx";
-import { PeriodSummary } from "./list/PeriodSummary.tsx";
-import { DayRow, NoRecordsRow, Row, type RowContext } from "./list/rows.tsx";
-import { ColumnWidths, TableHead } from "./list/TableHead.tsx";
-import { useColumns } from "./list/useColumns.ts";
-import { useListScroll } from "./list/useListScroll.ts";
+import { ColumnPicker } from "./ColumnPicker.tsx";
+import { COLUMNS, tableMinRem } from "./columns.tsx";
+import { PeriodSummary } from "./PeriodSummary.tsx";
+import { DayRow, NoRecordsRow, Row, type RowContext } from "./rows.tsx";
+import { ColumnWidths, TableHead } from "./TableHead.tsx";
+import { useColumns } from "./useColumns.ts";
+import { useListScroll } from "./useListScroll.ts";
 
 interface Props extends PeriodBodyProps {
   /** The shown period's unit, for the summary line ("This month: …"). */

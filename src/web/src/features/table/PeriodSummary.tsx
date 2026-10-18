@@ -1,3 +1,4 @@
+import { Hint } from "@/components/Hint.tsx";
 import { listMessages } from "@/i18n/messages/list.tsx";
 import { durationLabel } from "@/lib/dates.ts";
 import type { DayBlock } from "@/lib/dayBlocks.ts";
@@ -5,7 +6,6 @@ import { approxCostLabel, tokensLabel } from "@/lib/format.ts";
 import { busyByDay } from "@/lib/summary.ts";
 import { totalsOf } from "@/lib/totals.ts";
 import type { View } from "@/lib/view.ts";
-import { Hint } from "../Hint.tsx";
 
 /**
  * Totals for the whole period, as one line above the table. Tokens and cost appear only while one
