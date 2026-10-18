@@ -25,6 +25,9 @@ const OVERLAPS = "g.start < ?2 AND g.end >= ?1";
 /** A session row with whether another session continues from it, asked for in the same query. */
 type CalendarRow = SessionRow & { has_predecessor: number };
 
+/** Selects `CalendarRow`s from `sessions s`; the caller adds the WHERE and the order. */
+const CALENDAR_ROW_SELECT = `SELECT s.*, ${hasPredecessorSql("s")} AS has_predecessor FROM sessions s`;
+
 /**
  * Visible sessions whose work blocks overlap the period, with those blocks, by start time. Every
  * block's facts are gathered in one query per kind for the whole period, not per block.
@@ -37,14 +40,28 @@ export function calendarSessions(
 ): CalendarSession[] {
   const rows = db
     .query<CalendarRow, number[]>(
-      `SELECT s.*, ${hasPredecessorSql("s")} AS has_predecessor
-       FROM sessions s
+      `${CALENDAR_ROW_SELECT}
        WHERE ${visible}
          AND EXISTS (SELECT 1 FROM segments g WHERE g.session_id = s.id AND ${OVERLAPS})
        ORDER BY s.started_at`,
     )
     .all(period.from, period.to);
-  const segments = segmentsIn(db, visible, period, rows);
+  const scope: BlockScope = {
+    joins: "JOIN sessions s ON s.id = g.session_id",
+    where: `${visible} AND ${OVERLAPS}`,
+    params: [period.from, period.to],
+  };
+  return toCalendarSessions(db, rows, scope, now);
+}
+
+/** Session rows as the calendar shows them, each with its blocks in the scope. */
+function toCalendarSessions(
+  db: Database,
+  rows: CalendarRow[],
+  scope: BlockScope,
+  now: number,
+): CalendarSession[] {
+  const segments = segmentsIn(db, scope, rows);
   return rows.map((r) =>
     toCalendarSession(r, {
       continued: r.continued_in !== null || r.has_predecessor === 1,
@@ -54,18 +71,12 @@ export function calendarSessions(
   );
 }
 
-/** The visible sessions' work blocks overlapping the period, as the calendar shows them, by session. */
+/** The scope's work blocks, as the calendar shows them, by session. */
 function segmentsIn(
   db: Database,
-  visible: string,
-  period: Period,
+  scope: BlockScope,
   sessions: SessionRow[],
 ): Map<string, CalendarSegment[]> {
-  const scope: BlockScope = {
-    joins: "JOIN sessions s ON s.id = g.session_id",
-    where: `${visible} AND ${OVERLAPS}`,
-    params: [period.from, period.to],
-  };
   const artifacts = blocksArtifacts(db, blockSetOf(scope));
   const facts = blocksFacts(db, blockSetOf(scope));
   const titles = new Map(sessions.map((r) => [r.id, title(r)]));

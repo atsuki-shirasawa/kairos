@@ -1,14 +1,13 @@
 import { useMemo } from "react";
 import { journalMessages } from "@/i18n/messages/journal.ts";
-import { dateLabel, durationLabel } from "@/lib/dates.ts";
-import { blocksOfDay, type DayBlock } from "@/lib/dayBlocks.ts";
-import { type DayRow, dayRows, type LaneLook, type LaneMark, laneLooks } from "@/lib/dayRows.ts";
+import { dateLabel } from "@/lib/dates.ts";
+import { blocksOfDay } from "@/lib/dayBlocks.ts";
+import { dayRows, laneLooks } from "@/lib/dayRows.ts";
 import type { PeriodBodyProps } from "@/lib/periodBody.ts";
-import { groupLead, groupMatches, isGroupSelected, projectOf } from "@/lib/selection.ts";
+import { isGroupSelected } from "@/lib/selection.ts";
 import { dayFigures } from "@/lib/totals.ts";
-import { BlockRow } from "./BlockRow.tsx";
 import { DayFiguresLine } from "./DayFiguresLine.tsx";
-import { Lanes } from "./Lanes.tsx";
+import { DayRows } from "./DayRows.tsx";
 import { useScrollToSelected } from "./useScrollToSelected.ts";
 
 /**
@@ -46,53 +45,17 @@ export function DayPage({
         <DayFiguresLine figures={figures} />
       </div>
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
-        <ol aria-label={journalMessages().dayWork(dateLabel(day))} className="py-2">
-          {rows.map((row) =>
-            row.kind === "quiet" ? (
-              <QuietRow key={rowKey(row)} ms={row.ms} lanes={row.lanes} looks={looks} />
-            ) : (
-              <BlockRow
-                key={rowKey(row)}
-                runs={row.blocks}
-                lead={groupLead(row.blocks, matches) ?? (row.blocks[0] as DayBlock)}
-                lanes={row.lanes}
-                looks={looks}
-                project={projectOf(projects, row.blocks[0]?.session.projectId ?? null)}
-                selected={isGroupSelected(row.blocks, selectedId, selectedAt)}
-                faded={!groupMatches(row.blocks, matches)}
-                onSelect={onSelect}
-              />
-            ),
-          )}
-        </ol>
+        <DayRows
+          label={journalMessages().dayWork(dateLabel(day))}
+          rows={rows}
+          looks={looks}
+          projects={projects}
+          selectedId={selectedId}
+          selectedAt={selectedAt}
+          matches={matches}
+          onSelect={onSelect}
+        />
       </div>
     </div>
-  );
-}
-
-/** A row's key: its first block, or for a quiet row when it ends. */
-function rowKey(row: DayRow): string {
-  if (row.kind === "quiet") return `quiet@${row.until}`;
-  const lead = row.blocks[0];
-  return `${lead?.session.id}@${lead?.segment.start}@${lead?.dayStart}`;
-}
-
-/** A stretch with no work, as one line; the sessions still going on pass through it. */
-function QuietRow({
-  ms,
-  lanes,
-  looks,
-}: {
-  ms: number;
-  lanes: LaneMark[];
-  looks: ReadonlyMap<string, LaneLook>;
-}) {
-  return (
-    <li className="flex pr-4 pl-3">
-      <Lanes marks={lanes} looks={looks} />
-      <span className="ml-1.5 px-2.5 py-2 font-num text-meta text-muted-foreground">
-        {journalMessages().quiet(durationLabel(ms))}
-      </span>
-    </li>
   );
 }
