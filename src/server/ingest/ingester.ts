@@ -11,7 +11,7 @@ import { LIMIT } from "./limits.ts";
 import { pendingOutcomes } from "./outcomes.ts";
 import { ProjectPlacer } from "./placement.ts";
 import { type RemoteLookup, readGitRemote, worktreeName } from "./project.ts";
-import { prUrlIn } from "./prs.ts";
+import { prLinkTitle, prUrlIn } from "./prs.ts";
 import { type Line, readNewLines } from "./reader.ts";
 import {
   clip,
@@ -299,12 +299,12 @@ export class Ingester {
     }
   }
 
-  /** Stores the PR a pr-link record points at, titled "#<number> <repository>". */
+  /** Stores the PR a pr-link record points at, titled with `prLinkTitle` until its title is known. */
   private handlePrLink(ctx: Ctx, r: Rec, ts: number | null): void {
     const url = str(r.prUrl);
     if (!url) return;
-    const num = typeof r.prNumber === "number" ? `#${r.prNumber}` : null;
-    const title = [num, str(r.prRepository)].filter(Boolean).join(" ") || null;
+    const num = typeof r.prNumber === "number" ? r.prNumber : null;
+    const title = prLinkTitle(num, str(r.prRepository) ?? null);
     this.q.insertArtifact.run(ctx.sessionId, "pr", url, title, ts, ctx.fileId);
   }
 

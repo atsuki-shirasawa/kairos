@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { prMergeOf, prTitleOf } from "../../../src/server/ingest/prs.ts";
+import {
+  isPrLinkTitle,
+  prLinkTitle,
+  prMergeOf,
+  prTitleOf,
+} from "../../../src/server/ingest/prs.ts";
 
 describe("prTitleOf", () => {
   test("extracts the value of --title, --title= and -t", () => {
@@ -61,4 +66,13 @@ describe("prMergeOf", () => {
     expect(prMergeOf(`echo '"Bash(gh pr merge *)"' >> settings.json`)).toBeUndefined();
     expect(prMergeOf("gh pr create --title merge")).toBeUndefined();
   });
+});
+
+test("prLinkTitle is the stand-in isPrLinkTitle tells from a real title", () => {
+  expect(prLinkTitle(42, "me/app")).toBe("#42 me/app");
+  expect(prLinkTitle(null, "me/app")).toBe("me/app");
+  expect(prLinkTitle(null, null)).toBeNull();
+  expect(isPrLinkTitle("#42 me/app", 42, "me/app")).toBe(true);
+  expect(isPrLinkTitle("me/app", 42, "me/app")).toBe(true);
+  expect(isPrLinkTitle("feat: login", 42, "me/app")).toBe(false);
 });

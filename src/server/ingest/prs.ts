@@ -1,6 +1,19 @@
 // Extracts the title of PRs created by Bash gh pr create calls.
 // Neither pr-link records nor the result's gitOperation carry the title, so read it from the arguments.
 
+/**
+ * The title a PR is stored with from its pr-link record alone ("#<number> <owner/name>"), until a
+ * `gh pr create` title replaces it. Readers tell it from a real title with `isPrLinkTitle`.
+ */
+export function prLinkTitle(number: number | null, repository: string | null): string | null {
+  return [number === null ? null : `#${number}`, repository].filter(Boolean).join(" ") || null;
+}
+
+/** Whether `title` is only the pr-link stand-in (`prLinkTitle`) for PR `number` of `repository`. */
+export function isPrLinkTitle(title: string, number: number, repository: string): boolean {
+  return title === prLinkTitle(number, repository) || title === prLinkTitle(null, repository);
+}
+
 /** Matches a `gh pr create` command anywhere in a Bash call. */
 export const GH_PR_CREATE_RE = /\bgh\s+pr\s+create\b/;
 
