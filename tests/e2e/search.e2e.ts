@@ -15,7 +15,7 @@ const FADED = 0.5;
 
 test("search: blocks that don't match fade, and clearing the field brings them back", async () => {
   const { page } = e2e;
-  await page.open(`?date=${DEMO_WEEK}`);
+  await page.open(`/journal/${DEMO_WEEK}`);
 
   await page.press("/");
   expect((await page.focused())?.name).toBe(searchMessages().label("week"));

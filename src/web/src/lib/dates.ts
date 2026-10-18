@@ -232,11 +232,3 @@ export function timeOrDateTime(t: number, now = Date.now()): string {
   const d = new Date(t);
   return dateMessages().monthDayTime(d.getMonth(), d.getDate(), yearUnlessCurrent(t, now), hhmm(t));
 }
-
-/** Local midnight of a URL date (YYYY-MM-DD), or null when it isn't one. */
-export function fromISODate(s: string | null): number | null {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s ?? "");
-  if (!m) return null;
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  return Number.isNaN(d.getTime()) ? null : d.getTime();
-}

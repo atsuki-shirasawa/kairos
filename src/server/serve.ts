@@ -4,6 +4,7 @@ import { serveStatic } from "hono/bun";
 import { removePid, writePid } from "../cli/daemon.ts";
 import { HOST, PORT } from "../shared/constants.ts";
 import type { SummaryLang } from "../shared/summaryLang.ts";
+import { readUiPath } from "../shared/uiUrl.ts";
 import { createApp } from "./api/app.ts";
 import { openDb } from "./db/index.ts";
 import { EventHub } from "./events.ts";
@@ -65,8 +66,12 @@ export async function serve(opts: ServeOptions = {}): Promise<void> {
   const app = createApp({ db, events, summarizer, live });
 
   // Serve the built web app if there is one. In development Vite serves it and proxies only /api here.
-  // The UI is only / (state lives in the query string), so there is no SPA fallback.
-  if (existsSync(WEB_DIST)) app.use("/*", serveStatic({ root: WEB_DIST }));
+  if (existsSync(WEB_DIST)) {
+    app.use("/*", serveStatic({ root: WEB_DIST }));
+    // The UI's own paths are pages of the app, not files; any other path stays a 404
+    const page = serveStatic({ root: WEB_DIST, path: "index.html" });
+    app.get("/*", (c, next) => (readUiPath(c.req.path) ? page(c, next) : next()));
+  }
 
   let server: ReturnType<typeof Bun.serve>;
   try {

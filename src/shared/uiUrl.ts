@@ -1,13 +1,15 @@
-// The UI's URL query contract for the parts the CLI links to. The CLI writes these links and the
-// web app reads them back, so both sides build and read the parameters through this module.
+// The UI's URL contract for the parts other layers use. The CLI writes links, the server answers
+// the UI's paths with the app, and the web app reads both back, so all of them build and read
+// paths and parameters through this module.
 import { isoDay } from "./dates.ts";
+
+/** The UI's two places: Today, and the Journal, which shows a period around a day. */
+export const UI_PATHS = { today: "/today", journal: "/journal" } as const;
 
 /** Query parameter names the CLI and the web app share. */
 export const UI_PARAMS = {
   /** Period length (`month`, `day`; week when absent). */
   view: "view",
-  /** Shown day as `YYYY-MM-DD` (today when absent). */
-  date: "date",
   /** Session whose drawer is open. */
   session: "session",
   /** Start (ms) of the selected section in that session; only meaningful with `session`. */
@@ -16,6 +18,35 @@ export const UI_PARAMS = {
 
 /** The `view` value that shows a single day. */
 export const DAY_VIEW = "day";
+
+/** A page of the UI, as its path names it. */
+export type UiPage =
+  | { page: "today" }
+  | {
+      page: "journal";
+      /** The shown day as written (`YYYY-MM-DD`, not checked as a date); null for today. */
+      date: string | null;
+    };
+
+const TODAY_PATH = /^\/today\/?$/;
+const JOURNAL_PATH = /^\/journal(?:\/(\d{4}-\d{2}-\d{2}))?\/?$/;
+
+/** The page a path names, or null for any other path (the root among them). */
+export function readUiPath(pathname: string): UiPage | null {
+  if (TODAY_PATH.test(pathname)) return { page: "today" };
+  const journal = JOURNAL_PATH.exec(pathname);
+  return journal ? { page: "journal", date: journal[1] ?? null } : null;
+}
+
+/** The Journal's path at a day (`/journal/2026-10-01`), or at today without one. */
+export function journalPath(day: number | null): string {
+  return day === null ? UI_PATHS.journal : `${UI_PATHS.journal}/${isoDay(day)}`;
+}
+
+/** A path with its query, leaving out an empty one. */
+export function withQuery(path: string, q: URLSearchParams): string {
+  return q.size ? `${path}?${q}` : path;
+}
 
 /** A session (and optionally one of its sections) selected in the UI. */
 export interface SessionTarget {
@@ -44,13 +75,14 @@ export interface UiLinkTarget {
   start?: number;
 }
 
-/** The query of a link that opens the target; empty when the target is empty. */
-export function uiLinkQuery(target: UiLinkTarget): URLSearchParams {
+/**
+ * The path and query of a link that opens the target: its day in the Journal's day view, or a
+ * session's drawer over Today when no day is given; the app's root for an empty target.
+ */
+export function uiLinkPath(target: UiLinkTarget): string {
   const q = new URLSearchParams();
-  if (target.day !== undefined) {
-    q.set(UI_PARAMS.view, DAY_VIEW);
-    q.set(UI_PARAMS.date, isoDay(target.day));
-  }
+  if (target.day !== undefined) q.set(UI_PARAMS.view, DAY_VIEW);
   writeSessionTarget({ session: target.session ?? null, at: target.start ?? null }, q);
-  return q;
+  if (target.day !== undefined) return withQuery(journalPath(target.day), q);
+  return q.size ? withQuery(UI_PATHS.today, q) : "/";
 }

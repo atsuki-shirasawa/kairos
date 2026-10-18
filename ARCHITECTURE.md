@@ -231,8 +231,9 @@ The screenshots are taken from a fictional week (`scripts/screenshots/demo.ts`) 
 - In the week view, days running several sessions in parallel get more width. If lanes would still be too narrow (e.g. with the drawer open), the selected day and its neighbors keep their width
 - In the day view, tall blocks also show the worktree name, PR numbers and the summary body
 - The search field filters the shown period and, while focused, lists matching work from every period; picking one jumps there
-- The drawer is synced with the URL (`?session=`) and stays open across reloads
-- The layout toggle switches between calendar and summary (`?layout=`, `c` / `s`). The summary has an overview tab and a table tab (`?layout=list`, `l`; the per-block table that used to be the list layout, keeping its own scroll and sticky header). The summary is computed in the browser from the same `/api/calendar` response (`src/web/src/lib/summary.ts`), plus the previous period's response for the change under each number, so it needs no API of its own
+- The UI has two places with paths of their own: Today (`/today`) and the Journal at a day (`/journal/2026-10-01`, or `/journal` for today), whose period, layout tab, sort, search and filters are in the query (`src/web/src/lib/urlState.ts`). The server answers those paths with the app and any other unknown path with a 404. Links from before the paths (everything in the query of `/`, as the CLI wrote them) open the same thing and are rewritten to the path (`legacyUrl.ts`). The CLI builds its links with `uiLinkPath` in `src/shared/uiUrl.ts`, which the web app's parser reads back in a test
+- The drawer is synced with the URL (`?session=&at=`) and stays open across reloads
+- The layout toggle switches between calendar and summary (`?tab=`, `c` / `s`). The summary has an overview tab and a table tab (`?tab=table`, `l`; the per-block table that used to be the list layout, keeping its own scroll and sticky header). The summary is computed in the browser from the same `/api/calendar` response (`src/web/src/lib/summary.ts`), plus the previous period's response for the change under each number, so it needs no API of its own
 
 ## 7. Directory layout
 

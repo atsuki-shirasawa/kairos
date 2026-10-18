@@ -114,15 +114,15 @@ export class Browser {
     this.langScript = String(identifier);
   }
 
-  /** Opens `query` on the demo server and returns a PNG of the viewport. */
-  async shoot(query: string): Promise<Buffer> {
-    await this.open(query);
+  /** Opens `path` (with its query) on the demo server and returns a PNG of the viewport. */
+  async shoot(path: string): Promise<Buffer> {
+    await this.open(path);
     return this.chrome.screenshot();
   }
 
-  /** Opens `query` on the demo server and waits until the page has settled. */
-  async open(query: string): Promise<void> {
-    await this.chrome.open(BASE_URL + query, 0);
+  /** Opens `path` (with its query) on the demo server and waits until the page has settled. */
+  async open(path: string): Promise<void> {
+    await this.chrome.open(new URL(path, BASE_URL).href, 0);
     await this.settled();
   }
 

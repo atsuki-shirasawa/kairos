@@ -18,13 +18,13 @@ type Counts = Record<string, number>;
 
 /** The pages checked, by name. Today with every kind of running session, its fullest state. */
 const PAGES: Record<string, string> = {
-  week: `?date=${DEMO_WEEK}`,
-  drawer: `?date=${DEMO_WEEK}&session=${DRAWER_SESSION}`,
-  day: `?view=day&date=${DEMO_DAY}`,
-  month: `?view=month&date=${DEMO_WEEK}`,
-  summary: `?layout=summary&date=${DEMO_WEEK}`,
-  table: `?layout=list&date=${DEMO_WEEK}`,
-  today: "?",
+  week: `/journal/${DEMO_WEEK}`,
+  drawer: `/journal/${DEMO_WEEK}?session=${DRAWER_SESSION}`,
+  day: `/journal/${DEMO_DAY}?view=day`,
+  month: `/journal/${DEMO_WEEK}?view=month`,
+  summary: `/journal/${DEMO_WEEK}?tab=insights`,
+  table: `/journal/${DEMO_WEEK}?tab=table`,
+  today: "/today",
 };
 
 /** Runs axe-core on the open page and counts the elements breaking each rule. */

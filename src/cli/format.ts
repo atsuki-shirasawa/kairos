@@ -1,6 +1,6 @@
 // Small text and date helpers shared by the CLI commands. Times are in local time, like the UI's.
-import { hhmm, isoDay, startOfDay } from "../shared/dates.ts";
-import { type UiLinkTarget, uiLinkQuery } from "../shared/uiUrl.ts";
+import { hhmm, isoDay, parseIsoDay, startOfDay } from "../shared/dates.ts";
+import { type UiLinkTarget, uiLinkPath } from "../shared/uiUrl.ts";
 
 /** `YYYY-MM-DD HH:MM` in local time, for progress lines. */
 export function formatTime(ms: number): string {
@@ -14,14 +14,10 @@ export function formatTime(ms: number): string {
 export function parseDay(value: string, now = Date.now()): number | null {
   if (value === "today") return startOfDay(now);
   if (value === "yesterday") return startOfDay(now, -1);
-  const [y, mo, d] = (/^(\d{4})-(\d{2})-(\d{2})$/.exec(value) ?? []).slice(1).map(Number);
-  if (!y || !mo || !d) return null;
-  const date = new Date(y, mo - 1, d);
-  return date.getMonth() === mo - 1 && date.getDate() === d ? date.getTime() : null;
+  return parseIsoDay(value);
 }
 
 /** Where the UI shows a day (in the day view), optionally with a session's drawer open. */
 export function uiLink(base: string, at: UiLinkTarget = {}): string {
-  const q = uiLinkQuery(at);
-  return q.size ? `${base}?${q}` : base;
+  return new URL(uiLinkPath(at), base).href;
 }

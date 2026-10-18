@@ -18,10 +18,21 @@ export function startOfDay(t: number, days = 0): number {
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-/** `YYYY-MM-DD` in local time: the UI's `?date=` value and the date in reports and prompts. */
+/** `YYYY-MM-DD` in local time: the Journal's day in its path, and the date in reports and prompts. */
 export function isoDay(t: number): string {
   const d = new Date(t);
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/**
+ * Local midnight of a `YYYY-MM-DD` day, or null when it isn't one. Dates that don't exist
+ * (2026-02-30) are null too, instead of rolling over like `Date` does.
+ */
+export function parseIsoDay(value: string | null): number | null {
+  const [y, mo, d] = (/^(\d{4})-(\d{2})-(\d{2})$/.exec(value ?? "") ?? []).slice(1).map(Number);
+  if (!y || !mo || !d) return null;
+  const date = new Date(y, mo - 1, d);
+  return date.getMonth() === mo - 1 && date.getDate() === d ? date.getTime() : null;
 }
 
 /**

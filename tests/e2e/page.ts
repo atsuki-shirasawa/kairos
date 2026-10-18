@@ -47,9 +47,9 @@ const OBJECT_GROUP = "e2e";
 export class Page {
   constructor(private readonly browser: Browser) {}
 
-  /** Opens `query` (`?date=…`) on the demo server. */
-  open(query: string): Promise<void> {
-    return this.browser.open(query);
+  /** Opens `path` (`/journal/2026-10-01?view=day`) on the demo server. */
+  open(path: string): Promise<void> {
+    return this.browser.open(path);
   }
 
   /** Reloads the page. */
@@ -171,9 +171,9 @@ export class Page {
     return this.evaluate("document.title") as Promise<string>;
   }
 
-  /** The query string of the page's URL. */
-  query(): Promise<string> {
-    return this.evaluate("location.search") as Promise<string>;
+  /** The path and query of the page's URL. */
+  url(): Promise<string> {
+    return this.evaluate("location.pathname + location.search") as Promise<string>;
   }
 
   /** Runs `expression` in the page, awaiting it if it is a promise, and returns its value. */

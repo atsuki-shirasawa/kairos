@@ -15,8 +15,11 @@ export interface DrawerStepping {
 
 /** What sets a layout apart. */
 export interface LayoutTraits {
-  /** Its value of the URL's `layout` parameter; null for the default, left out of the URL. */
-  param: string | null;
+  /**
+   * Its value of the Journal's `tab` parameter; null for the Journal's default tab and for Today,
+   * which has a path of its own.
+   */
+  tab: string | null;
   /** The key that switches to it. */
   shortcut: Shortcut;
   /**
@@ -49,7 +52,7 @@ export interface LayoutTraits {
 /** The layouts, in the order the layout toggle lists the ones that have a segment. */
 export const LAYOUTS: Readonly<Record<Layout, LayoutTraits>> = {
   today: {
-    param: null,
+    tab: null,
     shortcut: "home",
     hasPeriod: false,
     lit: "today",
@@ -61,7 +64,7 @@ export const LAYOUTS: Readonly<Record<Layout, LayoutTraits>> = {
     padsMonth: false,
   },
   calendar: {
-    param: "calendar",
+    tab: null,
     shortcut: "calendar",
     hasPeriod: true,
     lit: "calendar",
@@ -73,7 +76,7 @@ export const LAYOUTS: Readonly<Record<Layout, LayoutTraits>> = {
     padsMonth: true,
   },
   summary: {
-    param: "summary",
+    tab: "insights",
     shortcut: "summary",
     hasPeriod: true,
     lit: "summary",
@@ -84,8 +87,7 @@ export const LAYOUTS: Readonly<Record<Layout, LayoutTraits>> = {
     padsMonth: false,
   },
   table: {
-    // The table was once a layout of its own called the list; old links keep working
-    param: "list",
+    tab: "table",
     shortcut: "table",
     hasPeriod: true,
     // A tab of the summary, so it lights the summary's segment
@@ -98,40 +100,18 @@ export const LAYOUTS: Readonly<Record<Layout, LayoutTraits>> = {
   },
 };
 
-/**
- * The layout shown when the URL names none: what is running and what was done last, which is what
- * Kairos is opened for most.
- */
-export const DEFAULT_LAYOUT: Layout = "today";
-
-/**
- * The layout a URL naming none but carrying a period's state (its date, view, search or filters)
- * shows. Links written before the home page, and the CLI's day links, open the calendar.
- */
-const PERIOD_LAYOUT: Layout = "calendar";
-
 const ENTRIES = Object.entries(LAYOUTS) as [Layout, LayoutTraits][];
 
 /** Every layout, in the registry's order. */
 export const LAYOUT_IDS: readonly Layout[] = ENTRIES.map(([id]) => id);
 
-/**
- * Layouts that are gone, by their old `layout` value, and the one an old link opens instead. The
- * live page went into Today's Now.
- */
-const RETIRED_PARAMS: ReadonlyMap<string, Layout> = new Map([["live", "today"]]);
+/** The Journal's layout when its URL names no tab, or one it doesn't know. */
+const JOURNAL_DEFAULT: Layout = "calendar";
 
-/**
- * The layout a URL's `layout` parameter names. Anything unknown, or none, is the default, unless
- * the URL carries a period's state, which only the calendar can show then.
- */
-export function layoutOfParam(
-  param: string | null,
-  { carriesPeriod = false }: { carriesPeriod?: boolean } = {},
-): Layout {
-  const named = ENTRIES.find(([, t]) => t.param !== null && t.param === param)?.[0];
-  const retired = param === null ? undefined : RETIRED_PARAMS.get(param);
-  return named ?? retired ?? (carriesPeriod ? PERIOD_LAYOUT : DEFAULT_LAYOUT);
+/** The Journal's layout a `tab` value names; none, or anything unknown, is the calendar. */
+export function layoutOfTab(tab: string | null): Layout {
+  const named = ENTRIES.find(([, t]) => t.hasPeriod && t.tab !== null && t.tab === tab)?.[0];
+  return named ?? JOURNAL_DEFAULT;
 }
 
 /** The layout a shortcut switches to, or null for a shortcut that isn't a layout's. */

@@ -11,11 +11,11 @@ test("parseDay reads today, yesterday and real calendar dates only", () => {
     expect(parseDay(bad, NOW)).toBeNull();
 });
 
-test("uiLink opens a day in the day view, and a session's drawer at a block", () => {
+test("uiLink opens a day in the Journal's day view, and a session's drawer at a block", () => {
   const base = "http://127.0.0.1:4319/";
   expect(uiLink(base)).toBe(base);
   expect(uiLink(base, { day: new Date(2026, 9, 1).getTime() })).toBe(
-    `${base}?view=day&date=2026-10-01`,
+    `${base}journal/2026-10-01?view=day`,
   );
-  expect(uiLink(base, { session: "abc", start: 42 })).toBe(`${base}?session=abc&at=42`);
+  expect(uiLink(base, { session: "abc", start: 42 })).toBe(`${base}today?session=abc&at=42`);
 });

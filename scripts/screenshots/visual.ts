@@ -82,7 +82,7 @@ async function shootViews(
     for (const look of LOOKS) {
       await browser.setLook(look);
       const name = shotName(view, look);
-      writeFileSync(join(CURRENT, name), await browser.shoot(view.query(starts)));
+      writeFileSync(join(CURRENT, name), await browser.shoot(view.path(starts)));
       written.push(name);
     }
     console.log(`shot ${view.name}`);

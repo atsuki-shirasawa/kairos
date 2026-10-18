@@ -4,7 +4,7 @@ import { DEMO_DAY, DEMO_WEEK, DRAWER_SESSION } from "./demo.ts";
 import type { DemoServer, RegistryState } from "./demoServer.ts";
 import { STATE_ORDER, STATES_SESSION, STRESS_DAY, type SummaryState } from "./stress.ts";
 
-/** Section starts the shots' queries need, read from the server once it runs. */
+/** Section starts the shots' paths need, read from the server once it runs. */
 export interface Starts {
   drawer: number;
   /** The states session's sections, by the summary state each shows. */
@@ -14,7 +14,8 @@ export interface Starts {
 /** One view to shoot in every look. */
 export interface View {
   name: string;
-  query: (s: Starts) => string;
+  /** Path and query, from the app's root. */
+  path: (s: Starts) => string;
   registry: RegistryState;
 }
 
@@ -26,31 +27,31 @@ export interface View {
 export const VIEWS: View[] = [
   {
     name: "stress-failed",
-    query: (s) => `?view=day&date=${STRESS_DAY}&session=${STATES_SESSION}&at=${s.states.failed}`,
+    path: (s) => `/journal/${STRESS_DAY}?view=day&session=${STATES_SESSION}&at=${s.states.failed}`,
     registry: "empty",
   },
   {
     name: "stress-pending",
-    query: (s) => `?view=day&date=${STRESS_DAY}&session=${STATES_SESSION}&at=${s.states.pending}`,
+    path: (s) => `/journal/${STRESS_DAY}?view=day&session=${STATES_SESSION}&at=${s.states.pending}`,
     registry: "empty",
   },
-  { name: "week", query: () => `?date=${DEMO_WEEK}`, registry: "empty" },
+  { name: "week", path: () => `/journal/${DEMO_WEEK}`, registry: "empty" },
   {
     name: "drawer",
-    query: (s) => `?date=${DEMO_WEEK}&session=${DRAWER_SESSION}&at=${s.drawer}`,
+    path: (s) => `/journal/${DEMO_WEEK}?session=${DRAWER_SESSION}&at=${s.drawer}`,
     registry: "empty",
   },
-  { name: "day", query: () => `?view=day&date=${DEMO_DAY}`, registry: "empty" },
-  { name: "month", query: () => `?view=month&date=${DEMO_WEEK}`, registry: "empty" },
-  { name: "summary", query: () => `?layout=summary&date=${DEMO_WEEK}`, registry: "empty" },
-  { name: "table", query: () => `?layout=list&date=${DEMO_WEEK}`, registry: "empty" },
-  { name: "stress-day", query: () => `?view=day&date=${STRESS_DAY}`, registry: "empty" },
-  { name: "stress-week", query: () => `?date=${STRESS_DAY}`, registry: "empty" },
-  { name: "stress-month", query: () => `?view=month&date=${STRESS_DAY}`, registry: "empty" },
-  { name: "today-running", query: () => "?", registry: "running" },
-  { name: "today", query: () => "?", registry: "on-you" },
-  { name: "today-none", query: () => "?", registry: "empty" },
-  { name: "today-unreadable", query: () => "?", registry: "unreadable" },
+  { name: "day", path: () => `/journal/${DEMO_DAY}?view=day`, registry: "empty" },
+  { name: "month", path: () => `/journal/${DEMO_WEEK}?view=month`, registry: "empty" },
+  { name: "summary", path: () => `/journal/${DEMO_WEEK}?tab=insights`, registry: "empty" },
+  { name: "table", path: () => `/journal/${DEMO_WEEK}?tab=table`, registry: "empty" },
+  { name: "stress-day", path: () => `/journal/${STRESS_DAY}?view=day`, registry: "empty" },
+  { name: "stress-week", path: () => `/journal/${STRESS_DAY}`, registry: "empty" },
+  { name: "stress-month", path: () => `/journal/${STRESS_DAY}?view=month`, registry: "empty" },
+  { name: "today-running", path: () => "/today", registry: "running" },
+  { name: "today", path: () => "/today", registry: "on-you" },
+  { name: "today-none", path: () => "/today", registry: "empty" },
+  { name: "today-unreadable", path: () => "/today", registry: "unreadable" },
 ];
 
 /** The view called `name`; throws for a name no view has. */
@@ -60,7 +61,7 @@ export function viewNamed(name: string): View {
   return view;
 }
 
-/** Reads the section starts the views' queries need from the running server. */
+/** Reads the section starts the views' paths need from the running server. */
 export async function readStarts(demo: DemoServer): Promise<Starts> {
   const [drawer] = await demo.sectionStarts(DRAWER_SESSION);
   const starts = await demo.sectionStarts(STATES_SESSION);

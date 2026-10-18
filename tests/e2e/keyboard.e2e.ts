@@ -11,7 +11,7 @@ const SECOND = "Usage chart flicker on resize in the dashboard";
 
 test("keyboard only: j opens the first block, j / k step, Esc closes and leaves focus on it", async () => {
   const { page } = e2e;
-  await page.open(`?date=${DEMO_WEEK}`);
+  await page.open(`/journal/${DEMO_WEEK}`);
 
   await page.press("j");
   expect(await drawerOpen(page)).toBe(true);

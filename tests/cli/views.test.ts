@@ -52,7 +52,7 @@ test("search hits link to their block in the day view", () => {
   };
   const text = renderSearch([hit], true, projects, "http://127.0.0.1:4319/");
   expect(text).toContain("2026-10-12 09:00  kairos  Add the CLI\n  prompt: …the cli…\n");
-  expect(text).toContain(`?view=day&date=2026-10-12&session=s1&at=${at(12, 9)}`);
+  expect(text).toContain(`/journal/2026-10-12?view=day&session=s1&at=${at(12, 9)}`);
   expect(text).toEndWith("raise --limit.");
   expect(renderSearch([], false, projects, "")).toBe("No matches.");
 });

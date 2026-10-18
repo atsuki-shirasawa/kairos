@@ -10,7 +10,7 @@ const PROMPT = "Tidy the changelog while the server is down";
 
 test("SSE: work logged while the server was down shows after it restarts, without a reload", async () => {
   const { demo, page } = e2e;
-  await page.open(`?date=${DEMO_WEEK}`);
+  await page.open(`/journal/${DEMO_WEEK}`);
   expect(await page.all("button", block(PROMPT))).toEqual([]);
 
   // Ingested as the server starts, before the page's event stream is back: no event will say so,

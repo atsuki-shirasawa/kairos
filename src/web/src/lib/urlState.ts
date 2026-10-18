@@ -1,18 +1,32 @@
 // The view state kept in the URL, as pure parse and serialize functions so the rules (defaults,
-// left-out values) can be tested without a browser. The hook only wires them to history.
-import { isoDay, startOfDay } from "@shared/dates.ts";
-import { DAY_VIEW, readSessionTarget, UI_PARAMS, writeSessionTarget } from "@shared/uiUrl.ts";
-import { fromISODate, periodStart } from "./dates.ts";
+// left-out values, old links) can be tested without a browser. The hook only wires them to history.
+import { parseIsoDay, startOfDay } from "@shared/dates.ts";
+import {
+  DAY_VIEW,
+  journalPath,
+  readSessionTarget,
+  readUiPath,
+  UI_PARAMS,
+  UI_PATHS,
+  withQuery,
+  writeSessionTarget,
+} from "@shared/uiUrl.ts";
+import { periodStart } from "./dates.ts";
 import type { Filter } from "./filter.ts";
 import { readFilter, writeFilter } from "./filterUrl.ts";
-import { LAYOUTS, layoutOfParam } from "./layouts.ts";
+import { LAYOUTS, layoutOfTab } from "./layouts.ts";
+import { LEGACY_PARAMS, legacyLayout } from "./legacyUrl.ts";
 import type { ListSort } from "./listTable.ts";
 import type { Layout, View } from "./view.ts";
 
 /** Time order; left out of the URL. */
 export const DEFAULT_SORT: ListSort = { key: "start", desc: false };
 
-/** View state. Synced with the URL (?view=&layout=&date=&session=&sort=&q=&in=&outcome=&state=&len=&branch=&brief=), so it survives reloads and the back button. */
+/**
+ * View state, synced with the URL so it survives reloads and the back button: Today at `/today`,
+ * the Journal at `/journal/<day>` with `?view=&tab=&sort=&q=&in=&outcome=&state=&len=&branch=&brief=`,
+ * and on either the open block (`session=&at=`).
+ */
 export interface UrlState {
   view: View;
   /** Whether the period is drawn as a calendar, listed, or summed up. */
@@ -27,7 +41,7 @@ export interface UrlState {
 }
 
 /** Web-only parameter names; the ones the CLI also writes are in `UI_PARAMS`. */
-const PARAMS = { layout: "layout", sort: "sort" } as const;
+const PARAMS = { tab: "tab", sort: "sort" } as const;
 
 /** `-cost` is descending, `cost` ascending. */
 function readSort(v: string | null): ListSort {
@@ -41,23 +55,10 @@ function readView(v: string | null): View {
   return v === "month" || v === DAY_VIEW ? v : "week";
 }
 
-/** Parameters that say nothing about a period: the open block, which any page can show. */
-const PERIODLESS_PARAMS: ReadonlySet<string> = new Set([UI_PARAMS.session, UI_PARAMS.at]);
-
-/**
- * Whether a URL carries state only a period shows (its date, view, sort, search or filters). One
- * without a layout then comes from before the home page, and opens the calendar as it did.
- */
-function namesPeriodState(q: URLSearchParams): boolean {
-  return [...q.keys()].some((k) => k !== PARAMS.layout && !PERIODLESS_PARAMS.has(k));
-}
-
-/** Reads the view state from URL parameters. A missing or invalid date means today (from `now`). */
-export function parseUrlState(q: URLSearchParams, now: number): UrlState {
+/** What a URL says about a period and the open block, whichever page it is. */
+function readCommon(q: URLSearchParams): Omit<UrlState, "layout" | "anchor"> {
   return {
     view: readView(q.get(UI_PARAMS.view)),
-    layout: layoutOfParam(q.get(PARAMS.layout), { carriesPeriod: namesPeriodState(q) }),
-    anchor: fromISODate(q.get(UI_PARAMS.date)) ?? startOfDay(now),
     ...readSessionTarget(q),
     sort: readSort(q.get(PARAMS.sort)),
     filter: readFilter(q),
@@ -65,24 +66,42 @@ export function parseUrlState(q: URLSearchParams, now: number): UrlState {
 }
 
 /**
- * Writes the view state as URL parameters, leaving out defaults (week view, the home page, today
- * from `now`, time order, no filter). The home page writes only the open block: read back without
- * a layout, a period's state (date, sort, filters) would open the calendar.
+ * Reads the view state from a URL's path and query (`/journal/2026-10-01?view=day`). Today and
+ * the Journal have paths; the root and any other path read the query as links from before the
+ * paths did. A missing or invalid date means today (from `now`).
  */
-export function serializeUrlState(s: UrlState, now: number): URLSearchParams {
+export function parseUrlState(href: string, now: number): UrlState {
+  const url = new URL(href, "http://kairos.invalid");
+  const q = url.searchParams;
+  const page = readUiPath(url.pathname);
+  const today = startOfDay(now);
+  if (page?.page === "today") return { ...readCommon(q), layout: "today", anchor: today };
+  if (page?.page === "journal") {
+    const anchor = parseIsoDay(page.date) ?? today;
+    return { ...readCommon(q), layout: layoutOfTab(q.get(PARAMS.tab)), anchor };
+  }
+  const anchor = parseIsoDay(q.get(LEGACY_PARAMS.date)) ?? today;
+  return { ...readCommon(q), layout: legacyLayout(q), anchor };
+}
+
+/**
+ * Writes the view state as a path and query, leaving out defaults (week view, the calendar tab,
+ * today from `now`, time order, no filter). Today writes only the open block: it has no period.
+ */
+export function serializeUrlState(s: UrlState, now: number): string {
   const q = new URLSearchParams();
-  const layout = LAYOUTS[s.layout].param;
-  if (layout === null) {
+  const { hasPeriod, tab } = LAYOUTS[s.layout];
+  if (!hasPeriod) {
     writeSessionTarget(s, q);
-    return q;
+    return withQuery(UI_PATHS.today, q);
   }
   if (s.view !== "week") q.set(UI_PARAMS.view, s.view);
-  q.set(PARAMS.layout, layout);
-  if (startOfDay(s.anchor) !== startOfDay(now)) q.set(UI_PARAMS.date, isoDay(s.anchor));
+  if (tab) q.set(PARAMS.tab, tab);
   writeSessionTarget(s, q);
   if (s.sort.key !== "start") q.set(PARAMS.sort, `${s.sort.desc ? "-" : ""}${s.sort.key}`);
   writeFilter(s.filter, q);
-  return q;
+  const day = startOfDay(s.anchor) === startOfDay(now) ? null : s.anchor;
+  return withQuery(journalPath(day), q);
 }
 
 /**

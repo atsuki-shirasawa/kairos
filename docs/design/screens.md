@@ -6,7 +6,7 @@ tokens and shared components are there; why a screen bends a rule is in
 
 ## Today (home)
 
-The page the app opens on (no `layout` in the URL, `h`, or the mark and wordmark in the toolbar,
+The page the app opens on (`/today`, `h`, or the mark and wordmark in the toolbar,
 which are its button). It has no period, so the toolbar shows its 17px heading "Today", kept in
 English in both languages like "Live", in place of the period controls.
 

@@ -8,7 +8,7 @@ const e2e = demoPerFile();
 test("Pick up: closing a session's last item by hand takes its card away, and the next one moves up", async () => {
   const { page } = e2e;
   const t = todayMessages();
-  await page.open("?");
+  await page.open("/today");
   // Five sessions left work open; three are atlas's, so its third waits behind "1 more"
   expect(await page.all("button", t.more(1))).toHaveLength(1);
 

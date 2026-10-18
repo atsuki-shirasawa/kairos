@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { LAYOUTS, layoutOfParam, layoutOfShortcut } from "../../src/web/src/lib/layouts.ts";
+import { LAYOUTS, layoutOfShortcut, layoutOfTab } from "../../src/web/src/lib/layouts.ts";
 import type { Layout, View } from "../../src/web/src/lib/view.ts";
 
 describe("drawerOverlay", () => {
@@ -31,30 +31,16 @@ describe("stepping", () => {
   });
 });
 
-describe("layoutOfParam", () => {
-  test("reads each layout's URL value, the table under its old name", () => {
-    expect(layoutOfParam("summary")).toBe("summary");
-    expect(layoutOfParam("list")).toBe("table");
+describe("layoutOfTab", () => {
+  test("reads each Journal tab's value; none, or anything unknown, is the calendar", () => {
+    expect(layoutOfTab("insights")).toBe("summary");
+    expect(layoutOfTab("table")).toBe("table");
+    for (const v of [null, "", "calendar", "grid"]) expect(layoutOfTab(v)).toBe("calendar");
   });
 
-  test("the live page's old value opens Today, whose Now took it in", () => {
-    expect(layoutOfParam("live")).toBe("today");
-    expect(layoutOfParam("live", { carriesPeriod: true })).toBe("today");
-  });
-
-  test("none, or anything unknown, is the home page", () => {
-    for (const v of [null, "", "table", "grid"]) expect(layoutOfParam(v)).toBe("today");
-  });
-
-  test("a URL giving a period without a layout opens the calendar, as links before the home page did", () => {
-    for (const v of [null, "", "grid"])
-      expect(layoutOfParam(v, { carriesPeriod: true })).toBe("calendar");
-    expect(layoutOfParam("summary", { carriesPeriod: true })).toBe("summary");
-  });
-
-  test("every layout round-trips through its URL value", () => {
-    for (const [layout, { param }] of Object.entries(LAYOUTS))
-      expect(layoutOfParam(param)).toBe(layout as Layout);
+  test("every Journal layout round-trips through its tab value", () => {
+    for (const [layout, { tab, hasPeriod }] of Object.entries(LAYOUTS))
+      if (hasPeriod) expect(layoutOfTab(tab)).toBe(layout as Layout);
   });
 });
 

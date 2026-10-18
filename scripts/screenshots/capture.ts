@@ -43,7 +43,7 @@ async function captureAll(demo: DemoServer, browser: Browser): Promise<void> {
     const view = viewNamed(name);
     await demo.setRegistry(view.registry);
     const path = join(OUT, `screen-${file}.png`);
-    writeFileSync(path, await browser.shoot(view.query(starts)));
+    writeFileSync(path, await browser.shoot(view.path(starts)));
     console.log(`wrote ${path}`);
   }
 }

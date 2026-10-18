@@ -8,12 +8,12 @@ const e2e = demoPerFile();
 
 /** One of each page, since the count must show whichever is open. */
 const PAGES = [
-  `?date=${DEMO_WEEK}`,
-  `?view=day&date=${DEMO_DAY}`,
-  `?view=month&date=${DEMO_WEEK}`,
-  `?layout=summary&date=${DEMO_WEEK}`,
-  `?layout=list&date=${DEMO_WEEK}`,
-  "?",
+  `/journal/${DEMO_WEEK}`,
+  `/journal/${DEMO_DAY}?view=day`,
+  `/journal/${DEMO_WEEK}?view=month`,
+  `/journal/${DEMO_WEEK}?tab=insights`,
+  `/journal/${DEMO_WEEK}?tab=table`,
+  "/today",
 ];
 
 test("Live: the sessions waiting on you show on the Live button and in the tab title, on every page", async () => {
@@ -22,12 +22,12 @@ test("Live: the sessions waiting on you show on the Live button and in the tab t
   const waiting = await demo.setRegistry("on-you");
   expect(waiting).toBeGreaterThan(0);
 
-  for (const query of PAGES) {
-    await page.open(query);
+  for (const path of PAGES) {
+    await page.open(path);
     const live = await page.get("button", liveMessages().buttonLabel(waiting, waiting));
-    expect({ query, title: await page.title() }).toEqual({ query, title: `(${waiting}) Kairos` });
+    expect({ path, title: await page.title() }).toEqual({ path, title: `(${waiting}) Kairos` });
     // It opens Today, whose Now lists them
-    expect({ query, pressed: live.pressed }).toEqual({ query, pressed: query === "?" });
+    expect({ path, pressed: live.pressed }).toEqual({ path, pressed: path === "/today" });
   }
 });
 
@@ -40,7 +40,7 @@ test("Live: a link to the old live page opens Today", async () => {
 test("Today: the idle sessions fold behind their count until asked for", async () => {
   const { demo, page } = e2e;
   await demo.setRegistry("running");
-  await page.open("?");
+  await page.open("/today");
   const t = todayMessages();
   const idle = /^Storybook stories for the billing page/;
   expect(await page.all("button", idle)).toHaveLength(0);

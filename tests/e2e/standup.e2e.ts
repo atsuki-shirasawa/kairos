@@ -31,7 +31,7 @@ async function copyStandup(page: Page, period: RegExp): Promise<string> {
 
 test("Standup: one click copies the last workday's report from any page", async () => {
   const { page } = e2e;
-  await page.open("?");
+  await page.open("/today");
   const text = await copyStandup(page, /^Last workday/);
   // The demo's last workday before the capture's day
   expect(text).toStartWith("# Work report: 2026-10-02\n");
@@ -41,7 +41,7 @@ test("Standup: one click copies the last workday's report from any page", async 
 
 test("Standup: a page with a period also offers that period as shown", async () => {
   const { page } = e2e;
-  await page.open(`?layout=calendar&date=${DEMO_WEEK}`);
+  await page.open(`/journal/${DEMO_WEEK}`);
   const text = await copyStandup(page, /^The week on screen/);
   expect(text).toStartWith("# Work report: 2026-09-27 – 2026-10-03\n");
   expect(text).toContain("## 2026-09-28 (Mon)");
