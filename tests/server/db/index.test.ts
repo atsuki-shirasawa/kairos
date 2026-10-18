@@ -107,6 +107,43 @@ test("migration 13 gives blocks ids and keys summaries and open items by them", 
   db.close();
 });
 
+test("migration 13 keeps a block's own summary over one that moved onto it, and the best close", () => {
+  const path = join(tmpdir(), `kairos-block-ids-${crypto.randomUUID()}.db`);
+  const old = new Database(path, { create: true });
+  for (const [i, sql] of MIGRATIONS.slice(0, 12).entries()) {
+    old.run(sql);
+    old.run(`PRAGMA user_version = ${i + 1}`);
+  }
+  old.run("INSERT INTO sessions (id) VALUES ('s')");
+  old.run(
+    "INSERT INTO segments (session_id, start, end) VALUES ('s', 100, 200), ('s', 300, 400), ('s', 500, 600)",
+  );
+  // 'moved' overlaps both 100–200 and 300–400, more of the second; 'own' starts at 300
+  old.run(`INSERT INTO summaries VALUES ('s', 150, 'moved', 'b', 'm', 390, 1),
+    ('s', 300, 'own', 'b', 'm', 400, 2)`);
+  // Closed by a summary written at 450, between blocks: the block before it closed the item
+  old.run(`INSERT INTO open_items (id, session_id, start, opened_at, text, closed_at,
+      closed_session_id, closed_start, closed_by)
+    VALUES (7, 's', 150, 390, 'item', 450, 's', 450, 'model')`);
+  old.close();
+
+  const db = openDb(path);
+  expect(
+    db
+      .query("SELECT g.start, sm.headline FROM summaries sm JOIN segments g ON g.id = sm.block_id")
+      .all(),
+  ).toEqual([{ start: 300, headline: "own" }]);
+  expect(
+    db
+      .query(
+        `SELECT g.start, c.start AS closed_start FROM open_items i
+         JOIN segments g ON g.id = i.block_id LEFT JOIN segments c ON c.id = i.closed_block_id`,
+      )
+      .all(),
+  ).toEqual([{ start: 300, closed_start: 300 }]);
+  db.close();
+});
+
 test("migration 14 adds how a summary was written, null for the summaries before it", () => {
   const path = join(tmpdir(), `kairos-summary-runs-${crypto.randomUUID()}.db`);
   const old = new Database(path, { create: true });

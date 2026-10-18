@@ -289,18 +289,22 @@ export const MIGRATIONS: string[] = [
     covered_until   INTEGER NOT NULL,
     created_at      INTEGER NOT NULL
   );
-  -- Summaries of the block at their own start go first, so one whose block moved never displaces it
+  -- Each summary goes to the block at its start, else the one it overlaps most (ranked with a
+  -- window, as SQLite before 3.4x can't read sm from a subquery's ORDER BY inside a JOIN). Summaries
+  -- of the block at their own start go first, so one whose block moved never displaces it
   INSERT OR IGNORE INTO summaries_new
     (block_id, headline, body, model, covered_from, covered_until, created_at)
-    SELECT b.id, sm.headline, sm.body, sm.model, sm.start, sm.covered_until, sm.created_at
-    FROM summaries sm
-    JOIN segments b ON b.id = (
-      SELECT g.id FROM segments g
-      WHERE g.session_id = sm.session_id
-        AND (g.start = sm.start OR (g.start <= sm.covered_until AND g.end >= sm.start))
-      ORDER BY g.start = sm.start DESC, MIN(g.end, sm.covered_until) - MAX(g.start, sm.start) DESC
-      LIMIT 1)
-    ORDER BY b.start = sm.start DESC;
+    SELECT block_id, headline, body, model, start, covered_until, created_at FROM (
+      SELECT g.id AS block_id, g.start = sm.start AS own, sm.headline, sm.body, sm.model, sm.start,
+             sm.covered_until, sm.created_at,
+             ROW_NUMBER() OVER (PARTITION BY sm.session_id, sm.start
+               ORDER BY g.start = sm.start DESC,
+                 MIN(g.end, sm.covered_until) - MAX(g.start, sm.start) DESC) AS rank
+      FROM summaries sm
+      JOIN segments g ON g.session_id = sm.session_id
+        AND (g.start = sm.start OR (g.start <= sm.covered_until AND g.end >= sm.start)))
+    WHERE rank = 1
+    ORDER BY own DESC;
   DROP TABLE summaries;
   ALTER TABLE summaries_new RENAME TO summaries;
 
@@ -319,21 +323,32 @@ export const MIGRATIONS: string[] = [
     closed_by        TEXT,
     closed_note      TEXT
   );
+  -- An item goes to the block its summary's start is in (else the one it overlaps most), and its
+  -- close to the block the closing summary's start is in (else the nearest after it); ranked with
+  -- windows for the SQLite versions that can't read i from a subquery's ORDER BY
+  WITH opened AS (
+    SELECT i.id, g.id AS block_id,
+           ROW_NUMBER() OVER (PARTITION BY i.id
+             ORDER BY g.start = i.start DESC,
+               MIN(g.end, i.opened_at) - MAX(g.start, i.start) DESC) AS rank
+    FROM open_items i
+    JOIN segments g ON g.session_id = i.session_id
+      AND (g.start = i.start OR (g.start <= i.opened_at AND g.end >= i.start))
+  ), closed AS (
+    SELECT i.id, g.id AS block_id,
+           ROW_NUMBER() OVER (PARTITION BY i.id
+             ORDER BY g.start <= i.closed_start DESC,
+               CASE WHEN g.start <= i.closed_start THEN -g.start ELSE g.start END) AS rank
+    FROM open_items i
+    JOIN segments g ON g.session_id = i.closed_session_id
+  )
   INSERT INTO open_items_new
     (id, block_id, opened_at, kind, text, refs, closed_at, closed_block_id, closed_by, closed_note)
-    SELECT i.id,
-      (SELECT g.id FROM segments g
-       WHERE g.session_id = i.session_id
-         AND (g.start = i.start OR (g.start <= i.opened_at AND g.end >= i.start))
-       ORDER BY g.start = i.start DESC, MIN(g.end, i.opened_at) - MAX(g.start, i.start) DESC
-       LIMIT 1) AS block_id,
-      i.opened_at, i.kind, i.text, i.refs, i.closed_at,
-      (SELECT g.id FROM segments g WHERE g.session_id = i.closed_session_id
-       ORDER BY g.start <= i.closed_start DESC,
-         CASE WHEN g.start <= i.closed_start THEN -g.start ELSE g.start END
-       LIMIT 1),
-      i.closed_by, i.closed_note
-    FROM open_items i WHERE block_id IS NOT NULL;
+    SELECT i.id, o.block_id, i.opened_at, i.kind, i.text, i.refs, i.closed_at, c.block_id,
+           i.closed_by, i.closed_note
+    FROM open_items i
+    JOIN opened o ON o.id = i.id AND o.rank = 1
+    LEFT JOIN closed c ON c.id = i.id AND c.rank = 1;
   -- A summary's close stands only while its block does
   UPDATE open_items_new SET closed_at = NULL, closed_by = NULL, closed_note = NULL
     WHERE closed_by = 'model' AND closed_block_id IS NULL;
