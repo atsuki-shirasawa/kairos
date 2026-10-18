@@ -2,10 +2,11 @@
 // it settled, replacing whatever an earlier summary of the same section recorded.
 import type { Database } from "bun:sqlite";
 import type { OpenItem } from "../../../shared/summaryBody.ts";
+import { sqlList } from "../../db/sqlList.ts";
+import { itemRefs } from "../../refs.ts";
 import type { TaskState } from "../../tasks.ts";
 import type { PlacedSection } from "../blocks.ts";
-import { CLOSED_BY, KEPT_CLOSERS, sqlList } from "./closers.ts";
-import { itemRefs } from "./refs.ts";
+import { CLOSED_BY, KEPT_CLOSERS } from "./closers.ts";
 import { closeByRefs } from "./settle.ts";
 
 /** What a summarized section changes in the ledger. */

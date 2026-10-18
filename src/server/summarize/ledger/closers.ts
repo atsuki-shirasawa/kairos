@@ -32,8 +32,3 @@ export const KEPT_CLOSERS: readonly ClosedBy[] = [CLOSED_BY.model, ...HAND_CLOSE
 export function isClosedBy(value: string | null): value is ClosedBy {
   return (ALL_CLOSERS as readonly (string | null)[]).includes(value);
 }
-
-/** A list of values as an SQL `IN (…)` operand. The values are constants, never user input. */
-export function sqlList(values: readonly ClosedBy[]): string {
-  return `(${values.map((v) => `'${v}'`).join(", ")})`;
-}

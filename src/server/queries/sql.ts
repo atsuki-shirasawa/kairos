@@ -1,5 +1,6 @@
 // SQL conditions several query modules share, so they can't drift apart.
 import type { Artifact } from "../../shared/api.ts";
+import { sqlList } from "../db/sqlList.ts";
 
 /**
  * The work blocks a batched block query runs over: SQL yielding one `session_id, start, end` row
@@ -77,6 +78,5 @@ const LISTED_ARTIFACT_KINDS: readonly Artifact["kind"][] = ["pr", "commit"];
  */
 export function listedArtifactsSql(alias?: string): string {
   const column = (c: string) => (alias ? `${alias}.${c}` : c);
-  const kinds = LISTED_ARTIFACT_KINDS.map((k) => `'${k}'`).join(", ");
-  return `${column("kind")} IN (${kinds}) AND ${column("is_copy")} = 0`;
+  return `${column("kind")} IN ${sqlList(LISTED_ARTIFACT_KINDS)} AND ${column("is_copy")} = 0`;
 }

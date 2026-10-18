@@ -293,7 +293,7 @@ export type HandClose = "done" | "dismissed" | "mistaken";
 
 /** An open item with the refs it names: Pick up ranks by them, and the summarizer closes by them. */
 export interface PickUpItem extends LedgerEntry {
-  /** Issue / PR numbers, Jira keys and task IDs the item names (see `ledger/refs.ts`). */
+  /** Issue / PR numbers, Jira keys and task IDs the item names (see `server/refs.ts`). */
   refs: string[];
 }
 

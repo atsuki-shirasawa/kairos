@@ -2,6 +2,7 @@
 // completed) and closing every item whose closable refs they all settle.
 import type { Database } from "bun:sqlite";
 import { issueClosedNote, prMergedNote, taskCompletedNote } from "../../../shared/closeNotes.ts";
+import { isClosable, isTaskRef, TASK_REF_PREFIX } from "../../refs.ts";
 import { completedTask } from "../../tasks.ts";
 import { callOf, type ToolCall } from "../../toolCalls.ts";
 import { blockAt } from "../blocks.ts";
@@ -9,7 +10,6 @@ import { closedIssues } from "../facts.ts";
 import { projectOf, successors } from "./chain.ts";
 import { CLOSED_BY } from "./closers.ts";
 import { ITEM_SELECT, type ItemRow, itemOf, type LedgerItem } from "./items.ts";
-import { isClosable, isTaskRef, TASK_REF_PREFIX } from "./refs.ts";
 import { type CloseEvent, settlementOf } from "./settlement.ts";
 
 /** Which sessions to look in: a project's, or a list (a session chain). */

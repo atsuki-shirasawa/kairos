@@ -4,7 +4,8 @@
 import type { Database } from "bun:sqlite";
 import type { Activity, Artifact } from "../../shared/api.ts";
 import { ARTIFACT_GRACE_MS } from "../../shared/constants.ts";
-import { EDIT_TOOLS } from "./editTools.ts";
+import { sqlList } from "../db/sqlList.ts";
+import { EDIT_TOOL_NAMES } from "../editTools.ts";
 import {
   BLOCK_COLUMNS,
   type BlockLookup,
@@ -136,7 +137,7 @@ function filesEdited(db: Database, set: BlockSet): Map<string, number> {
       `${withBlocks(set)}
        SELECT ${BLOCK_COLUMNS}, COUNT(DISTINCT m.text) AS files
        FROM b CROSS JOIN messages m ON ${ownRowsInBlock("m")}
-       WHERE m.kind = 'tool_use' AND m.tool_name IN (${EDIT_TOOLS}) AND m.text != ''
+       WHERE m.kind = 'tool_use' AND m.tool_name IN ${sqlList(EDIT_TOOL_NAMES)} AND m.text != ''
        GROUP BY b.session_id, b.start`,
     )
     .all(...set.params);

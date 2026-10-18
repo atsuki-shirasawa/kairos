@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { labelCandidates } from "../../../../src/server/summarize/ledger/candidates.ts";
-import { CLOSED_BY, isClosedBy, sqlList } from "../../../../src/server/summarize/ledger/closers.ts";
+import { CLOSED_BY, isClosedBy } from "../../../../src/server/summarize/ledger/closers.ts";
 import { entryOf, type ItemRow, itemOf } from "../../../../src/server/summarize/ledger/items.ts";
 
 const row: ItemRow = {
@@ -51,10 +51,6 @@ describe("closers", () => {
     expect(isClosedBy(CLOSED_BY.dismissed)).toBe(true);
     expect(isClosedBy("robot")).toBe(false);
     expect(isClosedBy(null)).toBe(false);
-  });
-
-  test("build an SQL list from the constants", () => {
-    expect(sqlList([CLOSED_BY.ref, CLOSED_BY.model])).toBe("('ref', 'model')");
   });
 });
 

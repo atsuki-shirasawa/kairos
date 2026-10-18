@@ -2,12 +2,12 @@
 import type { Database } from "bun:sqlite";
 import { PICK_UP_IDLE_DAYS } from "../../../shared/constants.ts";
 import { DAY } from "../../../shared/dates.ts";
+import { isSharedRef } from "../../refs.ts";
 import type { EarlierOpen } from "../prompt.ts";
 import type { SectionRef } from "../target.ts";
 import { predecessors, projectOf } from "./chain.ts";
 import { CLOSED_BY } from "./closers.ts";
 import { ITEM_SELECT, type ItemRow, itemOf, type LedgerItem } from "./items.ts";
-import { isSharedRef } from "./refs.ts";
 
 /** Most earlier items shown to the model; past it, the newest are kept. */
 export const MAX_CANDIDATES = 15;

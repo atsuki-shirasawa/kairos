@@ -5,7 +5,8 @@
 import type { Database } from "bun:sqlite";
 import type { SearchField, SearchHit } from "../../shared/api.ts";
 import { ARTIFACT_GRACE_MS } from "../../shared/constants.ts";
-import { EDIT_TOOLS } from "./editTools.ts";
+import { sqlList } from "../db/sqlList.ts";
+import { EDIT_TOOL_NAMES } from "../editTools.ts";
 import { listedArtifactsSql } from "./sql.ts";
 import { sectionHeadline, title } from "./titles.ts";
 
@@ -127,7 +128,7 @@ const FILE_SOURCE = `
       UNION ALL
       SELECT g.session_id, g.start, 'file', m.text
         FROM messages m JOIN segments g ON g.session_id = m.session_id AND m.ts BETWEEN g.start AND g.end
-       WHERE m.kind = 'tool_use' AND m.tool_name IN (${EDIT_TOOLS}) AND m.text != '' AND m.is_copy = 0`;
+       WHERE m.kind = 'tool_use' AND m.tool_name IN ${sqlList(EDIT_TOOL_NAMES)} AND m.text != '' AND m.is_copy = 0`;
 
 /** CASE arms ordering fields by `SEARCH_FIELDS`, so the most telling match comes first. */
 const SEARCH_FIELD_RANK = SEARCH_FIELDS.map((f, i) => `WHEN '${f}' THEN ${i}`).join(" ");

@@ -1,10 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  isClosable,
-  isSharedRef,
-  itemRefs,
-  refsOf,
-} from "../../../../src/server/summarize/ledger/refs.ts";
+import { isClosable, isSharedRef, itemRefs, refsOf } from "../../src/server/refs.ts";
 
 describe("refsOf", () => {
   test("reads issue and PR numbers, URLs, Jira keys and tasks", () => {

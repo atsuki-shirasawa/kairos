@@ -3,7 +3,8 @@
 import type { Database } from "bun:sqlite";
 import type { HandClose, LedgerEntry, OpenItemUpdate } from "../../../shared/api.ts";
 import { closedByHand, HAND_CLOSES } from "../../../shared/openItems.ts";
-import { SECTION_CLOSERS, sqlList } from "./closers.ts";
+import { sqlList } from "../../db/sqlList.ts";
+import { SECTION_CLOSERS } from "./closers.ts";
 import { entryOf, ITEM_SELECT, type ItemRow } from "./items.ts";
 import { closeByRefs } from "./settle.ts";
 

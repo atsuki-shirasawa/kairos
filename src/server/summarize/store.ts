@@ -3,6 +3,8 @@
 import type { Database } from "bun:sqlite";
 import { DAY } from "../../shared/dates.ts";
 import { AUTO_SUMMARY_DAYS, isSummarizable, SECTION_IDLE_MS } from "../../shared/sections.ts";
+import { sqlList } from "../db/sqlList.ts";
+import { refsOf } from "../refs.ts";
 import type { TaskState } from "../tasks.ts";
 import { DEFAULT_HIDDEN_CWDS, visibleSessionSql } from "../visibility.ts";
 import { STALE_SUMMARY_SQL, sectionBlock, stillStartsAt } from "./blocks.ts";
@@ -10,7 +12,6 @@ import type { RunStats } from "./claude.ts";
 import { buildDigest, DIGEST_KINDS, type DigestMessage } from "./digest.ts";
 import { formatFacts, loadFacts } from "./facts.ts";
 import { type LedgerUpdate, recordSection } from "./ledger/record.ts";
-import { refsOf } from "./ledger/refs.ts";
 import type { PromptInput } from "./prompt.ts";
 import { type RecapInput, type RecapTarget, recapHash } from "./recap.ts";
 import type { SectionRef, Target } from "./target.ts";
@@ -84,7 +85,7 @@ const HAS_CONVERSATION_SQL = `EXISTS (
   SELECT 1 FROM messages m
   WHERE m.session_id = g.session_id AND m.ts BETWEEN g.start AND g.end
     AND m.agent_id IS NULL AND m.is_copy = 0 AND m.is_scheduled = 0
-    AND m.kind IN (${DIGEST_KINDS.map((k) => `'${k}'`).join(", ")})
+    AND m.kind IN ${sqlList(DIGEST_KINDS)}
 )`;
 
 /** A full summary in the old format (free Markdown, before `PROMPT_VERSION`), aliased `sm`. */

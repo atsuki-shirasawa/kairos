@@ -1,6 +1,6 @@
 // The refs that tie open items to the log: issue / PR numbers, Jira keys and task IDs a text
 // names. Pure, so the section store, the ledger and the tests can all read them.
-import type { TaskState } from "../../tasks.ts";
+import type { TaskState } from "./tasks.ts";
 
 /**
  * Words shaped like Jira keys that aren't (encodings, standards, hashes). A false key only makes
