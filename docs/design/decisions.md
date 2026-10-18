@@ -26,6 +26,15 @@ stacked mark, and the drawer steps through them.
 The grid already places a block in time, and the tooltip and drawer give the exact range, so in the
 week view the space goes to the heading. Other views have the width to show both.
 
+## The day is a list, not a grid
+
+The day view used to be the week's time grid with one column: most of 8:00–20:00 was empty, it held
+about as much as one week column, and a busy day of 23 blocks cut headings to one line and hid which
+sessions ran side by side. The day page lists the work in time order instead, with the detail
+beside it, so a day is read without opening each block. Time is kept by the range on each row,
+the lanes (a git graph of sessions, as commits already are on a block's edge) and one line for each
+quiet stretch. The week and month keep the grid: there the question is when, not what.
+
 ## The selected block is only outlined
 
 A selected block gets a 2px `primary` outline over its normal fill. A deeper fill as well said the

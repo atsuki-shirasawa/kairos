@@ -41,7 +41,7 @@ segment names the page, so its heading is for screen readers only.
 - **Last workday:** the last day with work before today, from the summaries already written (no
   model call). The heading is followed by the day in `numeral` ("Yesterday", or its date) and,
   after a break of more than a day, "n days since the last work" in 12px `muted-ink`; a small ghost
-  button at the right, "Open the day", opens it in the day view. Then one group per project, the
+  button at the right, "Open the day", opens it in the day page. Then one group per project, the
   busiest first, laid out like the summary view's project sections: the project's 2px colored rule,
   its name in 14px medium, and a row per block in time order with the headline (14px, one line,
   truncated) and its commits and PRs as nodes (`OutcomeTally`) at the right. The whole row opens
@@ -50,7 +50,7 @@ segment names the page, so its heading is for screen readers only.
   day). The last workday is the last day that has something to list (in the four weeks before
   today; otherwise one line suggests `kairos doctor`)
 
-## Calendar (month, week and day)
+## Calendar (month and week)
 
 - **Calendar:** CSS Grid with a 56px hour column. An hour is never shorter than 48px, or headings
   of short blocks become unreadable. On open, the hour height is chosen so 8:00–20:00 fits the screen
@@ -87,15 +87,15 @@ segment names the page, so its heading is for screen readers only.
   the day. Tooltips, selection and filter fading are the week view's
 - **Day column headers** put the weekday above the date number: beside it, "5 月" reads as May in Japanese
 - **Work block:** heading (summary headline, or the first prompt before summarizing). The time
-  range in `numeral` follows when there is room, but in the week view only on the selected block
+  range in `numeral` follows on the selected block when there is room
   ([why](decisions.md#the-week-view-shows-a-time-range-only-when-selected)). The heading gives up lines to the time range rather than
   overlapping it. Unsummarized blocks use the dim fill and muted text, except the latest block of a
-  session still running, which is only waiting for its summary; the week, day, month and list views
+  session still running, which is only waiting for its summary; the week, month, day page and list
   use this one rule (`isDim` in `lib/selection.ts`), and a mark's tooltip notes it. A pulsing project-colored
   dot marks work in progress. Selected: a 2px `primary` outline over the normal fill, nothing more
   ([why](decisions.md#the-selected-block-is-only-outlined)). A headless run (`claude -p` / SDK, shown only when
   turned on in the "⋯" menu) keeps its project's color and fill but gets a dashed left edge: the
-  solid edge is the branch of work you prompted (in the week, day and month views alike; a mark
+  solid edge is the branch of work you prompted (in the week and month views alike, and as a dashed lane on the day page; a mark
   breaks into two dashes instead). The tooltip says why, and the drawer heading carries a
   "Headless" `Tag` beside the project line. Filtered-out blocks fade to 30% opacity and drop behind matching ones where they
   overlap; hover or focus brings one back in full and on top
@@ -104,15 +104,41 @@ segment names the page, so its heading is for screen readers only.
   height of the minute it was made. Nodes stay a radius inside the
   block, which clips at its border. Moments less than 10px apart (a 7px node plus a 3px gap) merge
   into one pill spanning them, 3px longer per extra moment and filled when it holds a PR, so a burst
-  of commits never reads as a single node. The day view adds a lane beside each block's text
-  (`min(38%, 24rem)`, a faint rule on its left; only on blocks at least 36rem wide with room for
-  two labels, so side-by-side and stacked blocks on a busy day fall back to the tooltip) labeling each node with its time, short SHA or PR
-  number and title; labels push apart to avoid overlapping and end in "+n more" when they run out
-  of room. The block's text keeps a 32rem measure and the lane starts right after it, so on a wide
-  screen the summary and its commits stay together instead of sitting at opposite edges (a
-  narrower block puts the lane at its right edge). The block's tooltip lists the
-  same (up to six), which is where the week view shows their titles; screen readers get them
+  of commits never reads as a single node. The block's tooltip lists each with its time, short
+  SHA or PR number and title (up to six), which is where the week view shows their titles; screen readers get them
   (up to eight) through the button's description, since the nodes are drawn for the eye only
+
+## Day page (Journal, day)
+
+The day is read, not placed: a list of the day's work beside the selected block's detail
+([why](decisions.md#the-day-is-a-list-not-a-grid)).
+
+- **Layout:** the day's figures on one line (working time 14px in `ink` and semibold, then 12px blocks,
+  Claude time, commits and PRs, snags in the warn tone, tokens and cost), then the list, scrolling
+  on its own. The drawer is the page's detail pane on the right from `lg` up: always open, on the
+  day's first block when none is chosen (or when stepping to another day), with no close button,
+  and Esc does nothing there. Below `lg` it is the usual drawer, opened by a click and closable
+- **Rows** in time order, each a card with `md` corners: the time range (`numeral`,
+  `muted-ink`, a fixed 5.5rem column), then the heading (`text-body`, medium in `ink`; regular
+  `muted-ink` when unsummarized, by the Work block rule), a meta line (project, worktree label,
+  length), the summary's first two Resolved points (12px `ink`, two lines each; an older body's
+  Outcome in their place), and the first three commits and PRs as moment labels (node, time, SHA
+  or PR number, title) with "+n more". Hover fills the card with `accent`; selected is the 2px
+  `primary` outline and nothing more. Work in progress ends with the pulsing dot. Filtered-out
+  rows fade to 30% and come back on hover or focus
+- **Lanes:** to the left of the cards, one 14px lane per session running at the same time, read
+  like a git graph: a 2px line in the project color (dashed for a headless run), a 10px node in
+  the same color on each of the session's rows, level with the heading's first line. A session's
+  line runs from its first block until its work ends, so a long block's line passes the work that
+  started while it ran, and a session's blocks hours apart stay one line. A lane is reused once
+  its session is done. Work running in from the previous day or on into the next keeps its line
+  to the list's edge
+- **Quiet stretches:** a gap of 30 minutes or more with no work is one line ("1h 35m with no
+  work", 11px `muted-ink`); the lines of sessions still going on pass through it
+- Short work and headless runs are rows like the rest; a burst of headless runs is one row ("n
+  headless runs" and its span), as it is one mark in the week view
+- `j` / `k` step through the rows (and the pane with them), and the selected row scrolls into
+  view
 
 ## Toolbar, search and filters
 
@@ -165,8 +191,8 @@ segment names the page, so its heading is for screen readers only.
 
 - **Drawer** opens from the right with 20px padding; below `lg` it overlays the screen with a backdrop.
   In the week and month calendars it also floats over the calendar (no backdrop) up to `xl`
-  ([why](decisions.md#the-drawer-floats-over-the-calendar)), and on Today too. The day view, list and
-  summary still make room for it
+  ([why](decisions.md#the-drawer-floats-over-the-calendar)), and on Today too. The list and
+  summary still make room for it, and the day page holds it as its detail pane
 - **Drawer header:** the headline in its project-colored frame, then when it happened (date and
   range in `ink`, length in `muted-ink`, no chip) and the key figures on a second line
 - **Drawer:** the selected section's summary first (its heading in `ink` rather than muted, the
@@ -186,8 +212,8 @@ segment names the page, so its heading is for screen readers only.
   A single Resolved point is shown without a bullet. Done's points are 14px `muted-ink`, each
   clamped to two lines with "Show in full" when one is cut off. Every item but the Goal gets a
   label in the drawer's small heading style. A body in neither format is shown as written. The
-  day view's block body shows only the Goal: the heading says what, the lane what came of it. A
-  block marks nothing for its open items; its tooltip counts them with their kinds ("Open 2
+  day page's rows show the first Resolved points: the heading says what, Resolved what came of
+  it. A block marks nothing for its open items; its tooltip counts them with their kinds ("Open 2
   (Question · Waiting)", kinds in a fixed order and, unlike the tags, in the UI language), and
   the filter's "Left something open" state finds them
 - **Settled from earlier (drawer):** after the summary, the earlier open items the section
