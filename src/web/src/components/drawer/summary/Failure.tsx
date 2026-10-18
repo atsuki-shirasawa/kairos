@@ -1,6 +1,6 @@
 import { summaryFailureKind } from "@shared/summaryFailure.ts";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
-import { failureHint } from "../failureHint.ts";
+import { failureHint } from "@/lib/summaryFailure.ts";
 
 /** Why the last summary attempt failed, with a suggestion of what to do about it. */
 export function SummaryFailure({ error }: { error: string }) {
