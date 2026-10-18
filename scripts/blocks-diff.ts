@@ -1,19 +1,19 @@
-// Reports how recomputing work blocks with topic splits (`topicWorkBlocks`) would change the stored
+// Reports how recomputing work blocks with the current code (`workBlocks`) would change the stored
 // ones, without writing anything: how many blocks split, join, move or go, what happens to their
 // summaries and open items, and examples to read. Run it against the everyday DB (opened read-only)
-// before switching the derived data over. Usage:
-//   bun scripts/blocks-shadow.ts [--db <path>] [--examples 10]
+// before a change to the block rules ships with a DERIVED_VERSION bump. Usage:
+//   bun scripts/blocks-diff.ts [--db <path>] [--examples 10]
 import { Database } from "bun:sqlite";
 import { parseArgs } from "node:util";
 import {
   type BlockChanges,
   carryIds,
   type StoredBlock,
-  topicWorkBlocks,
   unchanged,
   type WorkBlock,
+  workBlocks,
 } from "../src/server/ingest/segments.ts";
-import type { TopicActivityRow } from "../src/server/ingest/statements.ts";
+import type { ActivityRow } from "../src/server/ingest/statements.ts";
 import { prepareStatements } from "../src/server/ingest/statements.ts";
 import type { PrMark } from "../src/server/ingest/topics.ts";
 import { DEFAULT_DB_PATH } from "../src/server/paths.ts";
@@ -29,7 +29,7 @@ const BUCKETS: [label: string, upTo: number][] = [
 ];
 
 /** One session's stored blocks and what recomputing them gives. */
-interface SessionShadow {
+interface SessionDiff {
   sessionId: string;
   stored: StoredBlock[];
   recomputed: WorkBlock[];
@@ -47,12 +47,12 @@ function distribution(blocks: { start: number; end: number; prompts: number }[])
   return `${blocks.length} blocks (${counts.join(", ")}; most prompts ${most})`;
 }
 
-/** Recomputes one session's blocks in shadow. */
-function shadowSession(q: ReturnType<typeof prepareStatements>, sessionId: string): SessionShadow {
-  const activity = q.topicActivity.all(sessionId) as TopicActivityRow[];
+/** Recomputes one session's blocks, without storing them. */
+function recomputeSession(q: ReturnType<typeof prepareStatements>, sessionId: string): SessionDiff {
+  const activity = q.activity.all(sessionId) as ActivityRow[];
   const prs = q.prsOpened.all(sessionId) as PrMark[];
   const stored = q.storedBlocks.all(sessionId) as StoredBlock[];
-  const recomputed = topicWorkBlocks(activity, prs);
+  const recomputed = workBlocks(activity, prs);
   return { sessionId, stored, recomputed, changes: carryIds(stored, recomputed) };
 }
 
@@ -83,21 +83,21 @@ function partsOf(stored: StoredBlock, recomputed: WorkBlock[]): WorkBlock[] {
 
 /** Prints the totals: blocks before and after, and how the stored ones change. */
 function printTotals(
-  shadows: SessionShadow[],
+  diffs: SessionDiff[],
   summaries: Map<number, number>,
   items: Map<number, number>,
 ) {
-  const stored = shadows.flatMap((s) => s.stored);
-  const recomputed = shadows.flatMap((s) => s.recomputed);
+  const stored = diffs.flatMap((s) => s.stored);
+  const recomputed = diffs.flatMap((s) => s.recomputed);
   console.log(`Before: ${distribution(stored)}`);
   console.log(`After:  ${distribution(recomputed)}`);
   const byId = new Map(stored.map((b) => [b.id, b]));
-  const kept = shadows.flatMap((s) => s.changes.kept);
+  const kept = diffs.flatMap((s) => s.changes.kept);
   const same = kept.filter(({ id, block }) => unchanged(byId.get(id), block));
   const moved = kept.filter(({ id, block }) => !unchanged(byId.get(id), block));
-  const merged = shadows.flatMap((s) => s.changes.merged.map((m) => m.id));
-  const dropped = shadows.flatMap((s) => s.changes.dropped);
-  const added = shadows.reduce((n, s) => n + s.changes.added.length, 0);
+  const merged = diffs.flatMap((s) => s.changes.merged.map((m) => m.id));
+  const dropped = diffs.flatMap((s) => s.changes.dropped);
+  const added = diffs.reduce((n, s) => n + s.changes.added.length, 0);
   const has = (ids: number[], m: Map<number, number>) =>
     ids.reduce((n, id) => n + (m.get(id) ?? 0), 0);
   const rows: [string, number[]][] = [
@@ -116,8 +116,8 @@ function printTotals(
 }
 
 /** Prints the stored blocks that split into the most parts, with the parts. */
-function printSplits(shadows: SessionShadow[], limit: number) {
-  const splits = shadows
+function printSplits(diffs: SessionDiff[], limit: number) {
+  const splits = diffs
     .flatMap((s) => s.stored.map((b) => ({ b, parts: partsOf(b, s.recomputed) })))
     .filter((x) => x.parts.length > 1)
     .sort((x, y) => y.parts.length - x.parts.length || y.b.end - y.b.start - (x.b.end - x.b.start));
@@ -131,8 +131,8 @@ function printSplits(shadows: SessionShadow[], limit: number) {
 }
 
 /** Prints recomputed blocks that join several stored ones. */
-function printJoins(shadows: SessionShadow[], limit: number) {
-  const joins = shadows
+function printJoins(diffs: SessionDiff[], limit: number) {
+  const joins = diffs
     .flatMap((s) =>
       s.recomputed.map((r) => ({
         r,
@@ -155,7 +155,7 @@ const { values } = parseArgs({
 const db = new Database(values.db ?? DEFAULT_DB_PATH, { readonly: true });
 const q = prepareStatements(db);
 const sessions = q.sessionIds.all() as { id: string }[];
-const shadows = sessions.map(({ id }) => shadowSession(q, id));
+const diffs = sessions.map(({ id }) => recomputeSession(q, id));
 const summaries = countByBlock(db, "SELECT block_id AS id, 1 AS n FROM summaries");
 const items = countByBlock(
   db,
@@ -163,6 +163,6 @@ const items = countByBlock(
 );
 const limit = Number(values.examples);
 if (!Number.isInteger(limit) || limit < 0) throw new Error("--examples takes a whole number");
-printTotals(shadows, summaries, items);
-printSplits(shadows, limit);
-printJoins(shadows, limit);
+printTotals(diffs, summaries, items);
+printSplits(diffs, limit);
+printJoins(diffs, limit);

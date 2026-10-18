@@ -5,7 +5,7 @@
 import { HOUR, MINUTE } from "../../shared/dates.ts";
 import { refsOf } from "../refs.ts";
 import { isRequest } from "./activityKinds.ts";
-import type { TopicActivityRow } from "./statements.ts";
+import type { ActivityRow } from "./statements.ts";
 
 /** Blocks at most this long are never split: a topic change inside one costs the digest little. */
 export const SPLIT_LONGER_THAN_MS = HOUR;
@@ -34,7 +34,7 @@ export interface Topic {
 }
 
 /**
- * Tools whose stored input `topicActivity` loads to read the topic from. Edit tools are read from
+ * Tools whose stored input `activity` loads to read the topic from. Edit tools are read from
  * their path instead, which survives the clipping of a long input.
  */
 export const INPUT_TOPIC_TOOLS = ["Bash", "EnterWorktree"] as const;
@@ -106,7 +106,7 @@ function worktreeKeys(input: string, into: Set<string>): void {
  * What a tool call names. Bash's stored input is read as text rather than parsed, since a long
  * command is clipped mid-JSON and the refs in its body (a commit's `Closes #12`) matter most.
  */
-function toolTopic(row: TopicActivityRow, topic: Topic): void {
+function toolTopic(row: ActivityRow, topic: Topic): void {
   const input = row.input;
   if (!input) return;
   if (row.tool_name === "Bash") commandKeys(input, topic.keys);
@@ -118,7 +118,7 @@ function toolTopic(row: TopicActivityRow, topic: Topic): void {
 }
 
 /** What one activity row says its work is about. */
-export function rowTopic(row: TopicActivityRow): Topic {
+export function rowTopic(row: ActivityRow): Topic {
   const topic = emptyTopic();
   if (isRequest(row)) keysInText(row.text ?? "", topic.keys);
   else if (row.kind === "tool_use") toolTopic(row, topic);
@@ -127,12 +127,12 @@ export function rowTopic(row: TopicActivityRow): Topic {
 
 /** A run of activity with what it is about. */
 interface Stretch {
-  rows: TopicActivityRow[];
+  rows: ActivityRow[];
   topic: Topic;
 }
 
 /** A stretch of the given rows, with their topic. */
-function stretchOf(rows: TopicActivityRow[]): Stretch {
+function stretchOf(rows: ActivityRow[]): Stretch {
   const topic = emptyTopic();
   for (const row of rows) addTopic(topic, rowTopic(row));
   return { rows: [...rows], topic };
@@ -145,7 +145,7 @@ function absorb(into: Stretch, from: Stretch): void {
 }
 
 /** The first and last activity time of a run of rows. */
-function span(rows: TopicActivityRow[]): { start: number; end: number } {
+function span(rows: ActivityRow[]): { start: number; end: number } {
   return { start: rows[0]?.ts ?? 0, end: rows.at(-1)?.ts ?? 0 };
 }
 
@@ -153,8 +153,8 @@ function span(rows: TopicActivityRow[]): { start: number; end: number } {
  * A block's activity in turns, each a request and the work that answered it. Activity before the
  * first request is the first turn's.
  */
-function turns(rows: TopicActivityRow[]): Stretch[] {
-  const out: TopicActivityRow[][] = [];
+function turns(rows: ActivityRow[]): Stretch[] {
+  const out: ActivityRow[][] = [];
   for (const row of rows) {
     const last = out.at(-1);
     if (!last || (isRequest(row) && last.some(isRequest))) out.push([row]);
@@ -177,7 +177,7 @@ function attachPrs(turns: Stretch[], prs: PrMark[]): void {
 }
 
 /** A run of activity in turns, with the PRs each turn opened. */
-function topicTurns(rows: TopicActivityRow[], prs: PrMark[]): Stretch[] {
+function topicTurns(rows: ActivityRow[], prs: PrMark[]): Stretch[] {
   const out = turns(rows);
   attachPrs(out, prs);
   return out;
@@ -212,7 +212,7 @@ function foldFragments(parts: Stretch[]): Stretch[] {
  * A long block's activity split where the topic changes (see `changesTopic`), with no part shorter
  * than `MIN_PART_MS`. A block up to `SPLIT_LONGER_THAN_MS` stays whole.
  */
-export function splitByTopic(rows: TopicActivityRow[], prs: PrMark[] = []): TopicActivityRow[][] {
+export function splitByTopic(rows: ActivityRow[], prs: PrMark[] = []): ActivityRow[][] {
   const { start, end } = span(rows);
   if (end - start <= SPLIT_LONGER_THAN_MS) return [rows];
   const parts: Stretch[] = [];
@@ -224,36 +224,37 @@ export function splitByTopic(rows: TopicActivityRow[], prs: PrMark[] = []): Topi
   return foldFragments(parts).map((p) => p.rows);
 }
 
-/** A whole run of activity as one stretch, the PRs it opened included. */
-function wholeStretch(rows: TopicActivityRow[], prs: PrMark[]): Stretch {
-  const whole: Stretch = { rows: [], topic: emptyTopic() };
-  for (const turn of topicTurns(rows, prs)) absorb(whole, turn);
-  return whole;
-}
-
-/** Whether two neighbouring blocks join (see `joinFragments`). */
-function joins(before: Stretch, after: Stretch): boolean {
-  const a = span(before.rows);
-  const b = span(after.rows);
-  const short = a.end - a.start < SHORT_BLOCK_MS || b.end - b.start < SHORT_BLOCK_MS;
-  return short && b.start - a.end <= JOIN_GAP_MS && sharesTopic(before.topic, after.topic);
+/** What a whole run of activity is about, the PRs it opened included. */
+function topicOf(rows: ActivityRow[], prs: PrMark[]): Topic {
+  return topicTurns(rows, prs).reduce((acc, turn) => addTopic(acc, turn.topic), emptyTopic());
 }
 
 /**
- * Joins a fragment shorter than `SHORT_BLOCK_MS` to the block before it when the pause between them
- * is at most `JOIN_GAP_MS` and both are about the same thing (`sharesTopic`), so a short return to
- * the work after a break is summarized with it rather than on its own. Blocks are in time order.
+ * Whether two neighbouring blocks join (see `joinFragments`). Only the earlier block's length
+ * counts: it is finished once another block follows, while the later one may still be growing,
+ * and a join that held only until it grew would move the block's id and summary back and forth.
+ * The topics are read only for a pair close enough in time, since reading them costs a pass over
+ * every tool input.
  */
-export function joinFragments(
-  blocks: TopicActivityRow[][],
-  prs: PrMark[] = [],
-): TopicActivityRow[][] {
-  const out: Stretch[] = [];
+function joins(before: ActivityRow[], after: ActivityRow[], prs: PrMark[]): boolean {
+  const a = span(before);
+  const b = span(after);
+  if (a.end - a.start >= SHORT_BLOCK_MS || b.start - a.end > JOIN_GAP_MS) return false;
+  return sharesTopic(topicOf(before, prs), topicOf(after, prs));
+}
+
+/**
+ * Joins a fragment shorter than `SHORT_BLOCK_MS` to the block after it when the pause between them
+ * is at most `JOIN_GAP_MS` and both are about the same thing (`sharesTopic`), so a short start
+ * that a break interrupted is summarized with the work it led to rather than on its own. Blocks
+ * are in time order.
+ */
+export function joinFragments(blocks: ActivityRow[][], prs: PrMark[] = []): ActivityRow[][] {
+  const out: ActivityRow[][] = [];
   for (const rows of blocks) {
-    const stretch = wholeStretch(rows, prs);
     const last = out.at(-1);
-    if (last && joins(last, stretch)) absorb(last, stretch);
-    else out.push(stretch);
+    if (last && joins(last, rows, prs)) last.push(...rows);
+    else out.push([...rows]);
   }
-  return out.map((s) => s.rows);
+  return out;
 }

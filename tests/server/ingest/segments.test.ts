@@ -4,7 +4,6 @@ import {
   drawnActivity,
   fallbackTitle,
   isWork,
-  topicWorkBlocks,
   toSegments,
   workBlocks,
 } from "../../../src/server/ingest/segments.ts";
@@ -19,6 +18,8 @@ const row = (min: number, kind: string, text: string | null = null, scheduled = 
     kind,
     text,
     is_scheduled: scheduled ? 1 : 0,
+    tool_name: null,
+    input: null,
   }) satisfies ActivityRow;
 
 test("toSegments splits where the gap is longer than the interval", () => {
@@ -81,19 +82,14 @@ test("workBlocks splits activity into blocks, dropping fragments that aren't wor
     row(61, "assistant", "After compaction"),
     row(120, "command", "/review"),
   ];
-  expect(workBlocks(rows, 15 * m)).toEqual([
+  expect(workBlocks(rows, [], 15 * m)).toEqual([
     { start: 0, end: 10 * m, prompts: 1, fallbackTitle: "Start" },
     { start: 120 * m, end: 120 * m, prompts: 1, fallbackTitle: "/review" },
   ]);
 });
 
-test("topicWorkBlocks splits a long block on a topic change, then joins a fragment back", () => {
-  /** A prompt with no tool input, as `topicActivity` loads it. */
-  const ask = (min: number, text: string) => ({
-    ...row(min, "prompt", text),
-    tool_name: null,
-    input: null,
-  });
+test("workBlocks splits a long block on a topic change, then joins a fragment back", () => {
+  const ask = (min: number, text: string) => row(min, "prompt", text);
   const rows = [
     ask(0, "Fix #1"),
     ask(16, "and its tests"),
@@ -102,12 +98,13 @@ test("topicWorkBlocks splits a long block on a topic change, then joins a fragme
     ask(58, "#2 done?"),
     ask(70, "#2 one more thing"),
   ];
-  expect(topicWorkBlocks(rows, [], 20 * m)).toEqual([
+  expect(workBlocks(rows, [], 20 * m)).toEqual([
     { start: 0, end: 16 * m, prompts: 2, fallbackTitle: "Fix #1" },
     { start: 30 * m, end: 70 * m, prompts: 4, fallbackTitle: "Then #2" },
   ]);
-  // The block ends; a return to #2 after a pause joins it
-  expect(topicWorkBlocks([...rows, ask(100, "#2 again")], [], 20 * m)).toHaveLength(2);
+  // A short start on #1 before a pause joins the work on #1 after it
+  const start = [ask(-30, "#1 first look"), ask(-27, "ok")];
+  expect(workBlocks([...start, ...rows], [], 20 * m)).toHaveLength(2);
 });
 
 describe("carryIds", () => {

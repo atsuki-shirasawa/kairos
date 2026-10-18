@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { TopicActivityRow } from "../../../src/server/ingest/statements.ts";
+import type { ActivityRow } from "../../../src/server/ingest/statements.ts";
 import {
   joinFragments,
   rowTopic,
@@ -10,11 +10,7 @@ import {
 const m = 60_000;
 
 /** A row at `min` minutes. */
-const at = (
-  min: number,
-  kind: string,
-  extra: Partial<TopicActivityRow> = {},
-): TopicActivityRow => ({
+const at = (min: number, kind: string, extra: Partial<ActivityRow> = {}): ActivityRow => ({
   ts: min * m,
   kind,
   text: null,
@@ -28,11 +24,11 @@ const prompt = (min: number, text = "go on") => at(min, "prompt", { text });
 /** A Bash call at `min` minutes. */
 const bash = (min: number, command: string) =>
   at(min, "tool_use", { tool_name: "Bash", input: JSON.stringify({ command }) });
-/** An Edit call at `min` minutes; `topicActivity` loads an edit tool's path as its input. */
+/** An Edit call at `min` minutes; `activity` loads an edit tool's path as its input. */
 const edit = (min: number, path: string) => at(min, "tool_use", { tool_name: "Edit", input: path });
 
 /** The keys a row's topic has, sorted. */
-const keys = (row: TopicActivityRow) => [...rowTopic(row).keys].sort();
+const keys = (row: ActivityRow) => [...rowTopic(row).keys].sort();
 
 describe("rowTopic", () => {
   test("reads issue and PR numbers from prompts, gh calls and URLs", () => {
@@ -157,15 +153,23 @@ describe("splitByTopic", () => {
 });
 
 describe("joinFragments", () => {
-  const first = [prompt(0, "#4"), prompt(30, "more")];
+  const fragment = [prompt(0, "#4"), prompt(5, "more")];
+  const later = [prompt(40, "#4 again"), prompt(70, "go")];
 
-  test("joins a short block on the same topic after a pause", () => {
-    expect(joinFragments([first, [prompt(60, "#4 again")]])).toHaveLength(1);
+  test("joins a short block to the next one on the same topic after a pause", () => {
+    expect(joinFragments([fragment, later])).toHaveLength(1);
   });
 
-  test("keeps them apart on another topic, after a long pause, or when neither is short", () => {
-    expect(joinFragments([first, [prompt(60, "#5")]])).toHaveLength(2);
-    expect(joinFragments([first, [prompt(80, "#4")]])).toHaveLength(2);
-    expect(joinFragments([first, [prompt(60, "#4"), prompt(75, "go")]])).toHaveLength(2);
+  test("keeps them apart on another topic, after a long pause, or when the first isn't short", () => {
+    expect(joinFragments([fragment, [prompt(40, "#5")]])).toHaveLength(2);
+    expect(joinFragments([fragment, [prompt(60, "#4")]])).toHaveLength(2);
+    expect(joinFragments([[prompt(0, "#4"), prompt(30, "more")], [prompt(60, "#4")]])).toHaveLength(
+      2,
+    );
+  });
+
+  test("a short block after a long one stays apart however short it stays", () => {
+    const long = [prompt(0, "#4"), prompt(30, "more")];
+    expect(joinFragments([long, [prompt(40, "#4")]])).toHaveLength(2);
   });
 });

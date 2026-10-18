@@ -426,6 +426,18 @@ describe("GET /api/sessions/:id", () => {
     ]);
   });
 
+  test("a summary that read past its section's end (a topic split cut it short) is stale", async () => {
+    putSummary(db, SID.basic, min(45), {
+      headline: "PR とその次",
+      body: "- 目的: …",
+      model: "haiku",
+      coveredUntil: min(80),
+      createdAt: now,
+    });
+    const d = await json<SessionDetail>(`/api/sessions/${SID.basic}`);
+    expect(d.sections[1]).toMatchObject({ headline: "PR とその次", stale: true });
+  });
+
   test("per-section summaries, and headlines of sections without one", async () => {
     putSummary(db, SID.basic, min(0), {
       headline: "ログインフォームの実装",

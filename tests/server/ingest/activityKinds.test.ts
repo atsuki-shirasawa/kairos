@@ -3,7 +3,14 @@ import { isPrompt, isRequest } from "../../../src/server/ingest/activityKinds.ts
 import type { ActivityRow } from "../../../src/server/ingest/statements.ts";
 
 /** A human row of `kind`. */
-const row = (kind: string): ActivityRow => ({ ts: 0, kind, text: null, is_scheduled: 0 });
+const row = (kind: string): ActivityRow => ({
+  ts: 0,
+  kind,
+  text: null,
+  is_scheduled: 0,
+  tool_name: null,
+  input: null,
+});
 
 test.each([
   ["prompt", true, true],

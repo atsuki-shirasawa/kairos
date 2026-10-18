@@ -6,6 +6,7 @@ import { readKv, writeKv } from "../db/kv.ts";
 import type { ProjectPlacer } from "./placement.ts";
 import { carryIds, type StoredBlock, unchanged, workBlocks } from "./segments.ts";
 import type { ActivityRow, AggregateRow, Statements } from "./statements.ts";
+import type { PrMark } from "./topics.ts";
 
 /** The kv key that holds the DERIVED_VERSION the stored derived data was computed with. */
 const DERIVED_VERSION_KEY = "derived_version";
@@ -64,7 +65,9 @@ export class DerivedData {
    * stored block's id to the new block it overlaps most (see `carryIds`).
    */
   private rebuildBlocks(sessionId: string): void {
-    const blocks = workBlocks(this.q.activity.all(sessionId) as ActivityRow[], this.opts.gapMs);
+    const activity = this.q.activity.all(sessionId) as ActivityRow[];
+    const prs = this.q.prsOpened.all(sessionId) as PrMark[];
+    const blocks = workBlocks(activity, prs, this.opts.gapMs);
     const stored = this.q.storedBlocks.all(sessionId) as StoredBlock[];
     const changes = carryIds(stored, blocks);
     for (const { id, into } of changes.merged) this.mergeBlock(id, into);

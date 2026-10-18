@@ -1,6 +1,6 @@
 import { WORK_BLOCK_GAP_MS } from "../../shared/sections.ts";
 import { isPrompt, isRequest } from "./activityKinds.ts";
-import type { ActivityRow, TopicActivityRow } from "./statements.ts";
+import type { ActivityRow } from "./statements.ts";
 import { joinFragments, type PrMark, splitByTopic } from "./topics.ts";
 
 const FALLBACK_TITLE_CHARS = 120;
@@ -28,20 +28,13 @@ export interface WorkBlock {
 }
 
 /**
- * The work blocks drawn from a session's main-thread activity (sorted by time), split wherever
- * the gap is longer than `gapMs`. Fragments that aren't work (see `isWork`) are left out.
+ * The work blocks drawn from a session's main-thread activity (sorted by time): split wherever
+ * the gap is longer than `gapMs` and, in a long block, where the topic changes, with short
+ * fragments joined to a neighbour on the same topic (see `topics.ts`). Fragments that aren't work
+ * (see `isWork`) are left out. `prs` are the PRs the session opened.
  */
-export function workBlocks(activity: ActivityRow[], gapMs = WORK_BLOCK_GAP_MS): WorkBlock[] {
-  return gapPieces(activity, gapMs).map(toWorkBlock);
-}
-
-/**
- * The work blocks `workBlocks` draws, then split where the topic changes and with short fragments
- * joined to a neighbour on the same topic (see `topics.ts`). `prs` are the PRs the session opened.
- * Computed in shadow until the report on real data is reviewed; then it replaces `workBlocks`.
- */
-export function topicWorkBlocks(
-  activity: TopicActivityRow[],
+export function workBlocks(
+  activity: ActivityRow[],
   prs: PrMark[],
   gapMs = WORK_BLOCK_GAP_MS,
 ): WorkBlock[] {
@@ -50,7 +43,7 @@ export function topicWorkBlocks(
 }
 
 /** The drawn activity in pieces split on a gap longer than `gapMs`, keeping only work. */
-function gapPieces<T extends ActivityRow>(activity: T[], gapMs: number): T[][] {
+function gapPieces(activity: ActivityRow[], gapMs: number): ActivityRow[][] {
   const used = drawnActivity(activity);
   return toSegments(
     used.map((r) => r.ts),
@@ -74,7 +67,7 @@ function toWorkBlock(inside: ActivityRow[]): WorkBlock {
  * Activity that work blocks are drawn from. Automatic-run turns are not drawn, but a session with
  * only automatic runs uses everything, so it stays visible.
  */
-export function drawnActivity<T extends ActivityRow>(rows: T[]): T[] {
+export function drawnActivity(rows: ActivityRow[]): ActivityRow[] {
   const human = rows.filter((r) => r.is_scheduled === 0);
   return human.length ? human : rows;
 }

@@ -42,11 +42,12 @@ export function stillStartsAt(db: Database, blockId: number, start: number): boo
 }
 
 /**
- * Whether the summary `sm` of block `g` no longer covers it: the block runs past what was read, or
- * now starts elsewhere (recomputation moved it, or folded another block into it). SQL over a
- * `segments g` row joined with its `summaries sm` row.
+ * Whether the summary `sm` of block `g` no longer covers it: the block ends elsewhere than what was
+ * read (it ran on, or a topic split cut it short and the summary tells of work now in the next
+ * block), or now starts elsewhere (recomputation moved it, or folded another block into it). SQL
+ * over a `segments g` row joined with its `summaries sm` row.
  */
-export const STALE_SUMMARY_SQL = "(sm.covered_until < g.end OR sm.covered_from != g.start)";
+export const STALE_SUMMARY_SQL = "(sm.covered_until != g.end OR sm.covered_from != g.start)";
 
 /**
  * The block a time falls in: the last one starting at or before it (a merge is recorded up to a

@@ -81,24 +81,13 @@ export interface ActivityRow {
   is_scheduled: number;
   kind: string;
   text: string | null;
-}
-
-/** An activity row with what its tool call names, to read the work's topic from. */
-export interface TopicActivityRow extends ActivityRow {
   tool_name: string | null;
   /**
-   * The tool input as stored (JSON clipped to `LIMIT.toolInput`, so not always parseable) for the
-   * tools in `INPUT_TOPIC_TOOLS`, and the edited file's path for an edit tool.
+   * What a tool call names for the work's topic: the stored input (JSON clipped to
+   * `LIMIT.toolInput`, so not always parseable) of the tools in `INPUT_TOPIC_TOOLS`, and the
+   * edited file's path for an edit tool.
    */
   input: string | null;
-}
-
-/** Activity rows: work-block activity, with `extra` columns appended to the SELECT list. */
-function activitySql(extra: string): string {
-  return `SELECT ts, is_scheduled, kind,
-              CASE WHEN kind IN ('prompt', 'command', 'sdk_prompt', 'assistant') THEN substr(text, 1, 400) END AS text${extra}
-       FROM messages WHERE session_id = ? AND agent_id IS NULL AND is_copy = 0 AND ts IS NOT NULL AND ${notNote()}
-       ORDER BY ts, file_id, seq`;
 }
 
 /** Session columns written from meta records. */
@@ -259,14 +248,16 @@ export function prepareStatements(db: Database) {
          scheduled_runs = $scheduled, sdk_prompt_count = $sdk, first_prompt = $firstPrompt
        WHERE id = $id`,
     ),
-    // Activity used to compute work blocks. For headlines, also take the start of prompt and reply text
-    activity: p(activitySql("")),
-    // The same, with what each tool call names for its topic (see `TopicActivityRow`)
-    topicActivity: p(
-      activitySql(`, tool_name,
+    // Activity used to compute work blocks: the start of prompt and reply text for headlines, and
+    // what each tool call names to read the topic from
+    activity: p(
+      `SELECT ts, is_scheduled, kind, tool_name,
+              CASE WHEN kind IN ('prompt', 'command', 'sdk_prompt', 'assistant') THEN substr(text, 1, 400) END AS text,
               CASE WHEN kind != 'tool_use' THEN NULL
                    WHEN tool_name IN ${sqlList(INPUT_TOPIC_TOOLS)} THEN meta
-                   WHEN tool_name IN ${sqlList(EDIT_TOOL_NAMES)} THEN text END AS input`),
+                   WHEN tool_name IN ${sqlList(EDIT_TOOL_NAMES)} THEN text END AS input
+       FROM messages WHERE session_id = ? AND agent_id IS NULL AND is_copy = 0 AND ts IS NOT NULL AND ${notNote()}
+       ORDER BY ts, file_id, seq`,
     ),
     // The PRs a session opened, which tie the turn that opened one to the turns that name it
     prsOpened: p(
