@@ -1,6 +1,7 @@
 // Summarizes the fictional cases in tests/fixtures/summary-eval.ts with `claude -p`, through the
 // same ask-and-check as the summarizer, and scores the summaries: open items found, false
-// "resolved", leftovers that aren't, too many open items, unfit headlines, and format adherence.
+// "resolved", leftovers that aren't, earlier items settled or not, too many open items, unfit
+// headlines, and format adherence.
 // Not part of `bun run check`, since it calls the model. Usage:
 //   bun run eval:summary [--model haiku] [--effort low] [--runs 1] [--case <id>] [--out <file.json>]
 import { mkdirSync } from "node:fs";
@@ -35,6 +36,8 @@ import { EVAL_CASES, type EvalCase } from "../tests/fixtures/summary-eval.ts";
  */
 export interface ScoredSummary extends Pick<SummaryText, "headline" | "body"> {
   openWritten?: number;
+  /** Labels of the earlier open items the model said the section settled. */
+  closed?: string[];
 }
 
 /** One case's run as the report keeps it: the summary, or why none could be saved. */
@@ -59,7 +62,8 @@ function outcomeOf(
     return { ...at, headline: "", body: "", asks, stats, error: message };
   }
   const { headline, body } = answered.answer.summary;
-  return { ...at, headline, body, asks: answered.asks, stats: answered.stats };
+  const closed = answered.answer.closures.map((c) => c.label);
+  return { ...at, headline, body, closed, asks: answered.asks, stats: answered.stats };
 }
 
 /** How many open items an answer lists, as the model wrote them; 0 when it can't be read. */
@@ -95,6 +99,10 @@ export interface CaseScore {
   kindFit: number;
   /** Resolved items that name something the facts show as not settled. */
   falseResolved: string[];
+  /** Earlier open items said to be settled that the section didn't settle, by label. */
+  falseClosed: string[];
+  /** Earlier open items the section settled that weren't said to be, by label. */
+  missedClosed: string[];
   /** Open items that aren't the section's leftovers (backlog order, finished work). */
   falseOpen: string[];
   /** Open items that don't say which thing is left. */
@@ -140,7 +148,13 @@ function wrongLead(c: EvalCase, open: OpenItem[]): string | null {
 }
 
 /** Scores one summary against its case. Pure, so the tests can check it on the ideal summaries. */
-export function scoreCase(c: EvalCase, { headline, body, openWritten }: ScoredSummary): CaseScore {
+export function scoreCase(
+  c: EvalCase,
+  { headline, body, openWritten, closed = [] }: ScoredSummary,
+): CaseScore {
+  const settles = c.settles ?? [];
+  // A run without a summary says nothing about what it settled; a label said twice counts once
+  const said = new Set(closed);
   const parts = parseSummaryBody(body);
   const open = parts?.open ?? [];
   const resolved = parts?.resolved ?? [];
@@ -152,6 +166,8 @@ export function scoreCase(c: EvalCase, { headline, body, openWritten }: ScoredSu
     openExpected: c.open.length,
     kindFit: found.filter((o, i) => o?.kind && c.open[i]?.kinds.includes(o.kind)).length,
     falseResolved: resolved.filter((r) => has(r, c.notResolved)),
+    falseClosed: [...said].filter((l) => !settles.includes(l)),
+    missedClosed: parts ? settles.filter((l) => !said.has(l)) : [],
     falseOpen: open.filter((o) => has(o.text, c.notOpen)).map((o) => o.text),
     vagueOpen: open.filter((o) => VAGUE.test(o.text)).map((o) => o.text),
     missed: c.open.filter((_, i) => !found[i]).map((e) => e.what),
@@ -174,6 +190,8 @@ export function totals(scores: CaseScore[]) {
     openRecall: `${found}/${sum((s) => s.openExpected)}`,
     kindFit: `${sum((s) => s.kindFit)}/${found}`,
     falseResolved: sum((s) => s.falseResolved.length),
+    falseClosed: sum((s) => s.falseClosed.length),
+    missedClosed: sum((s) => s.missedClosed.length),
     falseOpen: sum((s) => s.falseOpen.length),
     vagueOpen: sum((s) => s.vagueOpen.length),
     extraOpen: sum((s) => s.extraOpen.length),
@@ -189,6 +207,8 @@ function report(s: CaseScore, headline: string): string {
     s.parsed ? null : "NOT PARSED",
     ...s.missed.map((m) => `missed open: ${m}`),
     ...s.falseResolved.map((r) => `false resolved: ${r}`),
+    ...s.falseClosed.map((l) => `closed but not settled: ${l}`),
+    ...s.missedClosed.map((l) => `settled but not closed: ${l}`),
     ...s.falseOpen.map((o) => `not a leftover: ${o}`),
     ...s.vagueOpen.map((o) => `vague: ${o}`),
     ...s.filler.map((f) => `filler: ${f}`),

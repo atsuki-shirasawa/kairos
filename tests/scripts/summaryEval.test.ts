@@ -10,13 +10,16 @@ describe("summary evaluation cases", () => {
 
   for (const c of EVAL_CASES) {
     test(`${c.id}: the ideal summary scores perfectly`, () => {
-      expect(scoreCase(c, { headline: c.idealHeadline, body: c.ideal })).toEqual({
+      const closed = c.settles ?? [];
+      expect(scoreCase(c, { headline: c.idealHeadline, body: c.ideal, closed })).toEqual({
         id: c.id,
         parsed: true,
         openFound: c.open.length,
         openExpected: c.open.length,
         kindFit: c.open.length,
         falseResolved: [],
+        falseClosed: [],
+        missedClosed: [],
         falseOpen: [],
         vagueOpen: [],
         missed: [],
@@ -28,6 +31,9 @@ describe("summary evaluation cases", () => {
       });
       // The facts reach the prompt, so a case is measured on what the summarizer really sends
       if (c.input.facts) expect(buildPrompt(c.input, c.lang)).toContain("<facts>");
+      // Only an item the prompt offers can be settled
+      const offered = c.input.earlierOpen?.map((i) => i.label) ?? [];
+      expect(closed.filter((l) => !offered.includes(l))).toEqual([]);
     });
   }
 });
@@ -64,6 +70,20 @@ describe("scoreCase", () => {
       parsed: false,
       openFound: 0,
     });
+  });
+
+  test("flags an earlier item said to be settled that wasn't, and one that was but went unsaid", () => {
+    const nearby = EVAL_CASES.find((c) => c.id === "earlier-nearby-work");
+    if (!nearby) throw new Error("case missing");
+    expect(scoreCase(nearby, { headline: "", body: nearby.ideal, closed: ["O1"] })).toMatchObject({
+      falseClosed: ["O1"],
+      missedClosed: ["O2"],
+    });
+    expect(
+      scoreCase(nearby, { headline: "", body: nearby.ideal, closed: ["O1", "O1"] }),
+    ).toMatchObject({ falseClosed: ["O1"] });
+    // A failed run has no summary, so it isn't also counted as missing the settled item
+    expect(scoreCase(nearby, { headline: "", body: "" }).missedClosed).toEqual([]);
   });
 
   const many = EVAL_CASES.find((c) => c.id === "many-leftovers");

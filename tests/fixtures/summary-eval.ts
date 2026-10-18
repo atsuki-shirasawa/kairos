@@ -39,6 +39,12 @@ export interface EvalCase {
   /** Terms the first open item must contain: the leftover that matters most. */
   leadOpen?: string[];
   /**
+   * Labels of the `input.earlierOpen` items the section settled. Saying any other one is settled
+   * counts against the summary: earlier items come from other sessions of the project too, about
+   * other work.
+   */
+  settles?: string[];
+  /**
    * A headline and body that meet every expectation. They document the case, and the tests check
    * that they score perfectly, so a case can't ask for something no summary could give.
    */
@@ -579,6 +585,141 @@ export const EVAL_CASES: EvalCase[] = [
       "- 残課題:",
       "  - [issue] 本番デプロイがデプロイ用ロールの権限エラー (403) で停止",
       "- 次の一手: デプロイ用ロールの権限を確認して本番デプロイをやり直す",
+    ].join("\n"),
+  },
+  {
+    id: "earlier-push-wait",
+    pattern:
+      "a wait for a push left open by an earlier session and settled by a later one (「main が origin より 2 コミット先、push 待ち」)",
+    lang: "ja",
+    input: {
+      sessionTitle: "通知設定画面",
+      projectName: "notes-app",
+      previous: [],
+      facts: [
+        "Commits and PRs:",
+        "- commit e4f5a6b feat: notification settings page",
+        "",
+        "Tests:",
+        "last run `bun test` passed (230 pass / 0 fail)",
+      ].join("\n"),
+      earlierOpen: [
+        {
+          label: "O1",
+          kind: "waiting",
+          text: "main が origin より 2 コミット先。ユーザーの push 待ち",
+          from: 'an earlier session ("検索の日本語対応")',
+        },
+        {
+          label: "O2",
+          kind: "todo",
+          text: "ダークモードで検索結果のハイライト色が背景に埋もれるので調整",
+          from: 'an earlier session ("検索結果のハイライト表示")',
+        },
+        {
+          label: "O3",
+          kind: "question",
+          text: "通知メールの送信元アドレスを noreply にするか",
+          from: 'an earlier session ("通知メールのテンプレート")',
+        },
+      ],
+      digest: [
+        "[User] 通知設定画面を作って。終わったら前の 2 コミットと一緒に push して",
+        "  → Write: src/pages/NotificationSettings.tsx",
+        "  → Bash: bun test",
+        "  → Bash: git commit -m 'feat: notification settings page'",
+        "  → Bash: git push origin main",
+        "    a1b2c3d..e4f5a6b  main -> main",
+        "[Claude] 通知設定画面を追加し、前の 2 コミットと合わせて main を origin に push しました。メール通知の頻度の選択肢（即時／日次）はまだ決まっていないので、ご確認ください。",
+      ].join("\n"),
+    },
+    open: [
+      {
+        what: "the choice of email notification frequencies",
+        match: ["頻度"],
+        kinds: ["question", "waiting"],
+      },
+    ],
+    notResolved: ["ハイライト", "送信元"],
+    notOpen: ["push", "ハイライト", "送信元"],
+    settles: ["O1"],
+    idealHeadline: "通知設定画面の追加と main の push",
+    ideal: [
+      "- 目的: 通知設定画面を追加し、前回のコミットと合わせて push する",
+      "- やったこと:",
+      "  - 通知設定画面 NotificationSettings.tsx を追加してコミット",
+      "  - main を origin に push（前回の 2 コミットを含む）",
+      "- 解決:",
+      "  - 通知設定画面: コミット e4f5a6b、テスト 230 件成功",
+      "- 残課題:",
+      "  - [question] メール通知の頻度の選択肢（即時か日次か）",
+      "- 次の一手: 頻度の選択肢が決まったら通知設定画面に反映",
+    ].join("\n"),
+  },
+  {
+    id: "earlier-nearby-work",
+    pattern:
+      "earlier items from parallel sessions about nearby work, which this section mentions or touches without settling",
+    lang: "en",
+    input: {
+      sessionTitle: "JSON export",
+      projectName: "ledger-app",
+      previous: [],
+      facts: [
+        "Commits and PRs:",
+        "- commit 7b8c9d0 feat: export entries as JSON",
+        "- commit 1c2d3e4 fix: set SameSite=Lax on the session cookie",
+        "",
+        "Tests:",
+        "last run `npm test` passed (Tests: 88 passed, 88 total)",
+      ].join("\n"),
+      earlierOpen: [
+        {
+          label: "O1",
+          kind: "todo",
+          text: "Add tests for the CSV export's date column",
+          from: 'an earlier session ("CSV export fixes")',
+        },
+        {
+          label: "O2",
+          kind: "issue",
+          text: "Login fails on Safari: the session cookie is dropped",
+          from: 'an earlier session ("Safari login bug")',
+        },
+        {
+          label: "O3",
+          kind: "waiting",
+          text: "Waiting for the designer's icons for the export menu",
+          from: 'an earlier session ("Export menu layout")',
+        },
+      ],
+      digest: [
+        "[User] Add a JSON export next to the CSV one, with tests",
+        "  → Write: src/export/json.ts",
+        "  → Edit: test/export.test.ts",
+        "  → Bash: npm test",
+        "  → Bash: git commit -m 'feat: export entries as JSON'",
+        "[Claude] Added the JSON export with tests for its date and amount fields. The export menu still uses placeholder icons.",
+        "",
+        "[User] Also the Safari login: set SameSite=Lax on the session cookie",
+        "  → Edit: src/auth/cookie.ts",
+        "  → Bash: npm test",
+        "  → Bash: git commit -m 'fix: set SameSite=Lax on the session cookie'",
+        "[Claude] Set SameSite=Lax on the session cookie; all 88 tests pass. I checked the login flow against the cookie test, which covers Safari's behaviour.",
+      ].join("\n"),
+    },
+    open: [],
+    notResolved: ["date column", "icon"],
+    notOpen: ["date column", "icon"],
+    settles: ["O2"],
+    idealHeadline: "JSON export and Safari login cookie fix",
+    ideal: [
+      "- Goal: Add a JSON export beside the CSV one, and fix the Safari login",
+      "- Done:",
+      "  - Added the JSON export with tests for its date and amount fields",
+      "  - Set SameSite=Lax on the session cookie",
+      "- Resolved:",
+      "  - Safari login: SameSite=Lax on the session cookie (commit 1c2d3e4), 88 tests pass",
     ].join("\n"),
   },
 ];
