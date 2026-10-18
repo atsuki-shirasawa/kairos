@@ -2,15 +2,15 @@ import type { LiveResponse, LiveSession, Project } from "@shared/api.ts";
 import { MINUTE } from "@shared/dates.ts";
 import { ChevronRight } from "lucide-react";
 import { useState } from "react";
-import { LiveEntryCard } from "@/components/live/LiveCard.tsx";
-import { LiveColumnTitle } from "@/components/live/LiveColumnTitle.tsx";
-import { TokenBand } from "@/components/live/TokenBand.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { liveMessages } from "@/i18n/messages/live.ts";
 import { todayMessages } from "@/i18n/messages/today.ts";
 import { groupByColumn, IDLE_AFTER_MS, type LiveEntry } from "@/lib/live.ts";
 import type { OpenBlock } from "@/lib/selection.ts";
 import { cn } from "@/lib/utils.ts";
+import { LiveEntryCard } from "./live/LiveCard.tsx";
+import { LiveColumnTitle } from "./live/LiveColumnTitle.tsx";
+import { TokenBand } from "./live/TokenBand.tsx";
 
 /** What every group of running sessions is given to draw its entries. */
 interface EntryList {

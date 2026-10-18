@@ -3,7 +3,7 @@ import { CalendarGrid } from "@/components/CalendarGrid.tsx";
 import { MonthGrid } from "@/components/MonthGrid.tsx";
 import { SessionList } from "@/components/SessionList.tsx";
 import { SummaryTabs, SummaryView } from "@/components/SummaryView.tsx";
-import { TodayPage } from "@/components/today/TodayPage.tsx";
+import { TodayPage } from "@/features/today/TodayPage.tsx";
 import type { LiveState } from "@/hooks/useLiveSummary.ts";
 import type { PeriodData } from "@/hooks/usePeriodData.ts";
 import type { UrlStateUpdate } from "@/hooks/useUrlState.ts";
