@@ -1,26 +1,16 @@
 // Moving between blocks: stepping to the previous/next one, and leaving the drawer.
 import type { CalendarSession } from "@shared/api.ts";
 import { useCallback, useMemo } from "react";
-import type { UrlStateUpdate } from "@/hooks/useUrlState.ts";
 import {
   type BlockRef,
+  type BlockStepping,
   burstsOf,
   orderedBlocks,
-  type RunPosition,
   runOf,
   selectedSegment,
   stepBlock,
 } from "@/lib/navigation.ts";
-
-/** The blocks either side of the selection, and how to open one. */
-export interface BlockStepping {
-  prev: BlockRef | null;
-  next: BlockRef | null;
-  /** Opens a block without pushing history; does nothing for null. */
-  goTo: (block: BlockRef | null) => void;
-  /** The burst of headless runs the selection belongs to, which the drawer steps through. */
-  run: RunPosition | null;
-}
+import type { UrlStateUpdate } from "@/lib/urlState.ts";
 
 /**
  * Steps to the previous/next block in time order (j / k and the drawer's ↑ ↓). Only blocks in

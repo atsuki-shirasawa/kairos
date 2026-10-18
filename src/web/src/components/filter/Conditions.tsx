@@ -13,12 +13,12 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import { filterMessages } from "@/i18n/messages/filter.ts";
 import {
-  conditionCount,
+  clearedFilter,
   type Filter,
+  isFiltered,
   MIN_LENGTHS,
   OUTCOMES,
   STATES,
-  withoutConditions,
 } from "@/lib/filter.ts";
 import { branchOptions, conditionCounts } from "@/lib/filterMenu.ts";
 import { BRIEF_PROMPTS } from "@/lib/projectVisibility.ts";
@@ -55,12 +55,8 @@ export function Conditions({
     <div className="flex flex-col gap-3 border-b p-3">
       <div className="flex h-6 items-center justify-between">
         <span className="font-medium text-label text-muted-foreground">{m.conditions}</span>
-        {(conditionCount(filter) > 0 || filter.hideBrief) && (
-          <Button
-            variant="ghost"
-            size="xs"
-            onClick={() => onFilter({ ...withoutConditions(filter), hideBrief: false })}
-          >
+        {isFiltered(filter) && (
+          <Button variant="ghost" size="xs" onClick={() => onFilter(clearedFilter(filter))}>
             {m.clear}
           </Button>
         )}

@@ -1,7 +1,7 @@
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { filterMessages } from "@/i18n/messages/filter.ts";
-import { type Filter, NO_FILTER, OUTCOMES, STATES, withoutConditions } from "@/lib/filter.ts";
+import { clearedFilter, type Filter, NO_FILTER, OUTCOMES, STATES } from "@/lib/filter.ts";
 
 /** One active condition: what it says and the filter without it. */
 interface Chip {
@@ -87,11 +87,7 @@ export function FilterChips({
         </span>
       ))}
       {chips.length > 1 && (
-        <Button
-          variant="ghost"
-          size="xs"
-          onClick={() => onFilter({ ...withoutConditions(filter), hideBrief: false })}
-        >
+        <Button variant="ghost" size="xs" onClick={() => onFilter(clearedFilter(filter))}>
           {m.clearAll}
         </Button>
       )}

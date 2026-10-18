@@ -19,6 +19,12 @@ import { LEGACY_PARAMS, legacyLayout } from "./legacyUrl.ts";
 import type { ListSort } from "./listTable.ts";
 import type { Layout, View } from "./view.ts";
 
+/**
+ * Patches the view state and rewrites the URL. A move to another period or layout adds a history
+ * entry on its own; `push: true` adds one for other steps too.
+ */
+export type UrlStateUpdate = (patch: Partial<UrlState>, opts?: { push?: boolean }) => void;
+
 /** Time order; left out of the URL. */
 export const DEFAULT_SORT: ListSort = { key: "start", desc: false };
 
@@ -113,6 +119,14 @@ export function serializeUrlState(s: UrlState, now: number): string {
   writeFilter(s.filter, q);
   const day = startOfDay(s.anchor) === startOfDay(now) ? null : s.anchor;
   return withQuery(journalPath(day), q);
+}
+
+/**
+ * The URL change that opens `day` in the Journal's day page from a page without a period (Today):
+ * the day as the period, and nothing open, so the page opens its own first block.
+ */
+export function openDayPage(day: number): Partial<UrlState> {
+  return { layout: "calendar", view: "day", anchor: day, session: null, at: null };
 }
 
 /**

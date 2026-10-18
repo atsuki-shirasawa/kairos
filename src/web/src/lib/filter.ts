@@ -72,6 +72,12 @@ export const withoutConditions = (f: Filter): Filter => ({
   hideBrief: f.hideBrief,
 });
 
+/** Whether "clear all" has anything to clear: a narrowing condition, or quick questions hidden. */
+export const isFiltered = (f: Filter): boolean => conditionCount(f) > 0 || f.hideBrief;
+
+/** The filter after "clear all": no narrowing conditions and quick questions shown; the keyword stays. */
+export const clearedFilter = (f: Filter): Filter => ({ ...withoutConditions(f), hideBrief: false });
+
 /** Prefix the server reads as "match edited file paths only". */
 const FILE_PREFIX = "file:";
 

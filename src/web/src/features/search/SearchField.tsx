@@ -2,13 +2,12 @@ import type { Project, SearchHit } from "@shared/api.ts";
 import { MIN_SEARCH_CHARS } from "@shared/constants.ts";
 import { FileCode, Search, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { HitSummary } from "@/components/HitSummary.tsx";
 import { useRovingFocus } from "@/hooks/useRovingFocus.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { searchMessages } from "@/i18n/messages/search.ts";
-import { projectColor } from "@/lib/colors.ts";
-import { dateLabel, hhmm } from "@/lib/dates.ts";
-import { highlightTerms, splitHighlights, visibleHits } from "@/lib/search.ts";
-import { projectLabel, projectOf } from "@/lib/selection.ts";
+import { highlightTerms, visibleHits } from "@/lib/search.ts";
+import { projectOf } from "@/lib/selection.ts";
 import { cn } from "@/lib/utils.ts";
 import type { View } from "@/lib/view.ts";
 
@@ -305,7 +304,7 @@ function Note({ children, className }: { children: React.ReactNode; className?: 
   return <p className={cn("px-3 py-3 text-body text-muted-foreground", className)}>{children}</p>;
 }
 
-/** One result: its headline, when and where, the field that matched, and a snippet. */
+/** One result as a button: picking it opens the block. */
 function HitRow({
   hit,
   terms,
@@ -319,8 +318,6 @@ function HitRow({
   onPick: () => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLButtonElement>) => void;
 }) {
-  const m = searchMessages();
-  const f = formatMessages();
   return (
     <button
       type="button"
@@ -328,48 +325,7 @@ function HitRow({
       onKeyDown={onKeyDown}
       className="flex w-full gap-2.5 rounded-md px-2 py-1.5 text-left hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
     >
-      <span
-        className="w-[3px] shrink-0 self-stretch rounded-full"
-        style={{ background: projectColor(project) }}
-      />
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="line-clamp-1 font-medium text-body">
-          <Highlight text={hit.headline} terms={terms} />
-        </span>
-        <span className="flex min-w-0 gap-2 text-label text-muted-foreground">
-          <span className="shrink-0 font-num">
-            {dateLabel(hit.start)} {hhmm(hit.start)}
-          </span>
-          <span className="min-w-0 truncate">
-            {projectLabel(project)}
-            {hit.label ? f.sessionLabel(hit.label) : ""}
-          </span>
-          {hit.field !== "headline" && (
-            <span className="ml-auto shrink-0 rounded border px-1 text-meta leading-4">
-              {m.field[hit.field]}
-            </span>
-          )}
-        </span>
-        {hit.snippet && (
-          <span className="line-clamp-2 text-label text-muted-foreground leading-relaxed">
-            <Highlight text={hit.snippet} terms={terms} />
-          </span>
-        )}
-      </span>
+      <HitSummary hit={hit} terms={terms} project={project} />
     </button>
-  );
-}
-
-/** Marks every occurrence of the search terms, ignoring case. */
-function Highlight({ text, terms }: { text: string; terms: string[] }) {
-  return splitHighlights(text, terms).map((part, i) =>
-    part.match ? (
-      // biome-ignore lint/suspicious/noArrayIndexKey: parts of one fixed string, never reordered
-      <mark key={i} className="rounded-sm bg-primary/15 text-inherit">
-        {part.text}
-      </mark>
-    ) : (
-      part.text
-    ),
   );
 }

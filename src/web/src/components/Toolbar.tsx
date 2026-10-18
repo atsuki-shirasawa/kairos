@@ -1,10 +1,11 @@
 import type { CalendarSession, Project, SearchHit } from "@shared/api.ts";
 import { SearchField, type SearchState } from "@/features/search/SearchField.tsx";
 import type { ImportProgress } from "@/hooks/useLiveUpdates.ts";
-import type { Theme } from "@/hooks/useTheme.ts";
 import type { Filter } from "@/lib/filter.ts";
 import { LAYOUTS, layoutOfPlace, placeOf } from "@/lib/layouts.ts";
 import type { LiveSummary } from "@/lib/live.ts";
+import type { ShownPeriod } from "@/lib/report.ts";
+import type { Theme } from "@/lib/themes.ts";
 import type { Layout, View } from "@/lib/view.ts";
 import { DatePicker } from "./DatePicker.tsx";
 import { FilterMenu } from "./FilterMenu.tsx";
@@ -12,7 +13,7 @@ import { AppMenu } from "./toolbar/AppMenu.tsx";
 import { Brand } from "./toolbar/Brand.tsx";
 import { LiveButton } from "./toolbar/LiveButton.tsx";
 import { PeriodNav } from "./toolbar/PeriodNav.tsx";
-import { type ShownPeriod, StandupMenu } from "./toolbar/StandupMenu.tsx";
+import { StandupMenu } from "./toolbar/StandupMenu.tsx";
 import { LayoutToggle, PlaceToggle, ViewToggle } from "./toolbar/ViewToggles.tsx";
 
 /** The shown period and how to move through it or pick another. */
@@ -30,6 +31,9 @@ export interface ToolbarFilter {
   value: Filter;
   onChange: (filter: Filter) => void;
   sessions: CalendarSession[];
+  /** Whether the filter menu is open; App owns it, since the palette opens the menu too. */
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 /** The search field and its results across every period. */
@@ -159,6 +163,8 @@ export function Toolbar({
               sessions={filter.sessions}
               filter={filter.value}
               onFilter={filter.onChange}
+              open={filter.open}
+              onOpenChange={filter.onOpenChange}
             />
           </>
         )}

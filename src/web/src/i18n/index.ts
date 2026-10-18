@@ -7,7 +7,7 @@ import { useSyncExternalStore } from "react";
 
 import { LOCALE_STORAGE_KEY, type Locale } from "./locale.ts";
 
-export { LOCALE_STORAGE_KEY, LOCALES, type Locale } from "./locale.ts";
+export { LANGUAGE_NAMES, LOCALE_STORAGE_KEY, LOCALES, type Locale } from "./locale.ts";
 
 /** Reads the saved choice. Falls back to English when storage is unavailable (private windows). */
 function load(): Locale {

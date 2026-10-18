@@ -1,28 +1,20 @@
 import { Ellipsis, Monitor, Moon, Sun } from "lucide-react";
 import type { ReactNode } from "react";
+import { KeyCap } from "@/components/KeyCap.tsx";
 import { SEGMENT, SEGMENTED } from "@/components/segmented.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.tsx";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import { useShowHeadless } from "@/hooks/queries.ts";
-import type { Theme } from "@/hooks/useTheme.ts";
-import { LOCALES, type Locale, setLocale, useLocale } from "@/i18n/index.ts";
+import { LANGUAGE_NAMES, LOCALES, type Locale, setLocale, useLocale } from "@/i18n/index.ts";
 import { toolbarMessages } from "@/i18n/messages/toolbar.ts";
 import { keyCap, SHORTCUT_GROUPS, type ShortcutGroup } from "@/lib/shortcuts.ts";
+import type { Theme } from "@/lib/themes.ts";
+import { THEMES, themeLabel } from "@/lib/themes.ts";
 import { cn } from "@/lib/utils.ts";
 
-/** The themes offered, with their labels and icons. */
-function themes(): [Theme, string, typeof Sun][] {
-  const m = toolbarMessages();
-  return [
-    ["system", m.themeSystem, Monitor],
-    ["light", m.themeLight, Sun],
-    ["dark", m.themeDark, Moon],
-  ];
-}
-
-/** Each language's name is written in that language, so it can be found from either side. */
-const LANGUAGE_NAMES: Record<Locale, string> = { en: "English", ja: "日本語" };
+/** Each theme's icon in the toggle. */
+const THEME_ICONS: Record<Theme, typeof Sun> = { system: Monitor, light: Sun, dark: Moon };
 
 /** The menu's label for each line of the shortcut list. */
 function groupLabel(group: ShortcutGroup): string {
@@ -36,6 +28,7 @@ function groupLabel(group: ShortcutGroup): string {
     step: m.shortcutStep,
     search: m.shortcutSearch,
     close: m.shortcutClose,
+    palette: m.shortcutPalette,
     menu: m.shortcutMenu,
   };
   return labels[group];
@@ -120,17 +113,21 @@ function ThemeToggle({ theme, onTheme }: { theme: Theme; onTheme: (theme: Theme)
       onValueChange={(v) => v && onTheme(v as Theme)}
       aria-label={toolbarMessages().theme}
     >
-      {themes().map(([value, label, Icon]) => (
-        <ToggleGroupItem
-          key={value}
-          value={value}
-          className={cn(SEGMENT, "px-2")}
-          aria-label={label}
-          title={label}
-        >
-          <Icon />
-        </ToggleGroupItem>
-      ))}
+      {THEMES.map((value) => {
+        const Icon = THEME_ICONS[value];
+        const label = themeLabel(value);
+        return (
+          <ToggleGroupItem
+            key={value}
+            value={value}
+            className={cn(SEGMENT, "px-2")}
+            aria-label={label}
+            title={label}
+          >
+            <Icon />
+          </ToggleGroupItem>
+        );
+      })}
     </ToggleGroup>
   );
 }
@@ -194,12 +191,7 @@ function ShortcutList() {
           <div key={label} className="contents">
             <dt className="flex gap-1">
               {keys.map((k) => (
-                <kbd
-                  key={k}
-                  className="min-w-6 rounded border bg-muted px-1.5 text-center font-num text-label leading-5"
-                >
-                  {k}
-                </kbd>
+                <KeyCap key={k}>{k}</KeyCap>
               ))}
             </dt>
             <dd className="text-muted-foreground">{label}</dd>

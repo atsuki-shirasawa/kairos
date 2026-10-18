@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { parseUrlState, serializeUrlState, startsNewEntry, type UrlState } from "@/lib/urlState.ts";
+import {
+  parseUrlState,
+  serializeUrlState,
+  startsNewEntry,
+  type UrlState,
+  type UrlStateUpdate,
+} from "@/lib/urlState.ts";
 
 /** The current location's path and query. */
 const here = () => `${location.pathname}${location.search}`;
@@ -16,12 +22,6 @@ function writeLocation(s: UrlState, push: boolean): void {
   if (push) history.pushState(null, "", url);
   else history.replaceState(null, "", url);
 }
-
-/**
- * Patches the view state and rewrites the URL. A move to another period or layout adds a history
- * entry on its own; `push: true` adds one for other steps too.
- */
-export type UrlStateUpdate = (patch: Partial<UrlState>, opts?: { push?: boolean }) => void;
 
 /**
  * The view state and a patch function that also rewrites the URL.

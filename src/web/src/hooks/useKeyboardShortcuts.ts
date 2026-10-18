@@ -1,22 +1,13 @@
-// The app-wide keyboard shortcuts. Which key does what is in lib/shortcuts.ts.
+// The app-wide keyboard shortcuts: when a key press is one, here. Which key does what is in
+// lib/shortcuts.ts, and what each does in lib/shortcutActions.ts.
 
-import { startOfDay } from "@shared/dates.ts";
 import { useEffect, useEffectEvent } from "react";
-import type { BlockStepping } from "@/hooks/useBlockNavigation.ts";
-import type { UrlStateUpdate } from "@/hooks/useUrlState.ts";
-import { shift } from "@/lib/dates.ts";
-import { LAYOUTS, layoutOfShortcut } from "@/lib/layouts.ts";
-import { type Shortcut, shortcutFor } from "@/lib/shortcuts.ts";
-import type { UrlState } from "@/lib/urlState.ts";
+import { runShortcut, type ShortcutTargets } from "@/lib/shortcutActions.ts";
+import { isPaletteKey, shortcutFor } from "@/lib/shortcuts.ts";
 
-/** What the shortcuts read and act on. */
-export interface ShortcutTargets extends BlockStepping {
-  state: Pick<UrlState, "view" | "layout" | "anchor" | "session">;
-  update: UrlStateUpdate;
-  /** null where the drawer is the page's pinned pane, so Esc goes on to whatever else wants it. */
-  closeDrawer: (() => void) | null;
-  toggleMenu: () => void;
-  focusSearch: () => void;
+/** Whether a key press lands where typing goes: a field or editable text. */
+function inField(e: KeyboardEvent): boolean {
+  return !!(e.target as HTMLElement | null)?.closest("input, textarea, [contenteditable]");
 }
 
 /**
@@ -30,10 +21,17 @@ function leftToTarget(e: KeyboardEvent): boolean {
     e.metaKey ||
     e.ctrlKey ||
     e.altKey ||
-    !!target?.closest(
-      "input, textarea, [contenteditable], [data-date-picker], [data-slot=select-content]",
-    )
+    inField(e) ||
+    !!target?.closest("[data-date-picker], [data-slot=select-content]")
   );
+}
+
+/**
+ * Whether a key press opens the palette here. ⌘K works while typing, as palettes do; Ctrl+K is
+ * left to a field, where macOS deletes to the end of the line with it; neither interrupts an IME.
+ */
+function opensPalette(e: KeyboardEvent): boolean {
+  return isPaletteKey(e) && !e.isComposing && (e.metaKey || !inField(e));
 }
 
 /**
@@ -44,81 +42,21 @@ function popoverOpen(): boolean {
   return document.querySelector("[data-slot=popover-content]") !== null;
 }
 
-/** Shortcuts that only make sense with a period on screen. */
-const PERIODLESS_IGNORED: ReadonlySet<Shortcut> = new Set([
-  "prevPeriod",
-  "nextPeriod",
-  "today",
-  "nextBlock",
-  "prevBlock",
-  // The search field narrows a period, so a page without one has no field to focus
-  "search",
-]);
-
-/** Runs a shortcut. Returns false when it doesn't apply now, so the key press passes through. */
-function run(shortcut: Shortcut, t: ShortcutTargets): boolean {
-  const { state, update } = t;
-  const layout = layoutOfShortcut(shortcut);
-  if (layout) {
-    update({ layout });
-    return true;
-  }
-  // A layout without a period (Today): moving through periods or stepping through their
-  // blocks would change a calendar nobody sees, so those keys pass through, and picking a period
-  // goes to the calendar with it
-  if (!LAYOUTS[state.layout].hasPeriod) {
-    if (PERIODLESS_IGNORED.has(shortcut)) return false;
-    if (shortcut === "month" || shortcut === "week" || shortcut === "day") {
-      update({ layout: "calendar", view: shortcut });
-      return true;
-    }
-  }
-  switch (shortcut) {
-    case "prevPeriod":
-      update({ anchor: shift(state.view, state.anchor, -1) });
-      break;
-    case "nextPeriod":
-      update({ anchor: shift(state.view, state.anchor, 1) });
-      break;
-    case "today":
-      update({ anchor: startOfDay(Date.now()) });
-      break;
-    case "month":
-      update({ view: "month" });
-      break;
-    case "week":
-      update({ view: "week" });
-      break;
-    case "day":
-      update({ view: "day" });
-      break;
-    case "nextBlock":
-      t.goTo(t.next);
-      break;
-    case "prevBlock":
-      t.goTo(t.prev);
-      break;
-    case "menu":
-      t.toggleMenu();
-      break;
-    case "search":
-      t.focusSearch();
-      break;
-    case "close":
-      if (!state.session || !t.closeDrawer || popoverOpen()) return false;
-      t.closeDrawer();
-      break;
-  }
-  return true;
-}
-
 /** Listens for the global shortcuts on the window while mounted. */
 export function useKeyboardShortcuts(targets: ShortcutTargets): void {
   // An effect event reads the latest targets without re-subscribing on every render
   const onKey = useEffectEvent((e: KeyboardEvent) => {
+    // Before the rest: it holds a modifier, and ⌘K works while typing
+    if (opensPalette(e)) {
+      e.preventDefault();
+      targets.togglePalette();
+      return;
+    }
     if (leftToTarget(e)) return;
     const shortcut = shortcutFor(e.key, e.shiftKey);
-    if (shortcut && run(shortcut, targets)) e.preventDefault();
+    // With a popover open, Esc only closes it, so the drawer isn't there to close
+    const now = { ...targets, closeDrawer: popoverOpen() ? null : targets.closeDrawer };
+    if (shortcut && runShortcut(shortcut, now)) e.preventDefault();
   });
   useEffect(() => {
     const listener = (e: KeyboardEvent) => onKey(e);

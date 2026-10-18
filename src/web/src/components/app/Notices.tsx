@@ -3,13 +3,12 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import type { ImportProgress } from "@/hooks/useLiveUpdates.ts";
 import type { PeriodData } from "@/hooks/usePeriodData.ts";
-import type { UrlStateUpdate } from "@/hooks/useUrlState.ts";
 import { appMessages } from "@/i18n/messages/app.tsx";
 import { dateLabel } from "@/lib/dates.ts";
 import { type Filter, isFocused, withoutConditions } from "@/lib/filter.ts";
 import { LAYOUTS } from "@/lib/layouts.ts";
 import { hiddenReason } from "@/lib/projectVisibility.ts";
-import type { UrlState } from "@/lib/urlState.ts";
+import type { UrlState, UrlStateUpdate } from "@/lib/urlState.ts";
 import type { View } from "@/lib/view.ts";
 
 /**

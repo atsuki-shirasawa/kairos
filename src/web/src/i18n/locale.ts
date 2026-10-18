@@ -9,3 +9,6 @@ export const LOCALES: Locale[] = ["en", "ja"];
 
 /** Where the chosen language is saved in the browser (absent means English). */
 export const LOCALE_STORAGE_KEY = "kairos.locale";
+
+/** Each language's name, written in that language so it can be found from either side. */
+export const LANGUAGE_NAMES: Record<Locale, string> = { en: "English", ja: "日本語" };

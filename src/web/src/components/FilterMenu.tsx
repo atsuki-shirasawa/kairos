@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button.tsx";
 import { Checkbox } from "@/components/ui/checkbox.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.tsx";
-import { useUpdateProject } from "@/hooks/queries.ts";
+import { useShowAllProjects, useUpdateProject } from "@/hooks/queries.ts";
 import { useLocale } from "@/i18n/index.ts";
 import { filterMessages } from "@/i18n/messages/filter.ts";
 import { PALETTE, projectColor } from "@/lib/colors.ts";
@@ -31,6 +31,8 @@ export function FilterMenu({
   sessions,
   filter,
   onFilter,
+  open,
+  onOpenChange,
 }: {
   projects: Project[];
   /** The same projects by id, to leave hidden projects' sessions out of the conditions. */
@@ -38,6 +40,9 @@ export function FilterMenu({
   sessions: CalendarSession[];
   filter: Filter;
   onFilter: (filter: Filter) => void;
+  /** App owns the open state, since the palette opens the menu too. */
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
   const m = filterMessages();
   const locale = useLocale();
@@ -49,9 +54,8 @@ export function FilterMenu({
   const { conditions, hidden } = filterBadge(filter, projects);
   const unhidden = useMemo(() => inShownProjects(sessions, projectMap), [projectMap, sessions]);
   const shown = matchingProjectRows(rows, query);
-  const showAll = () => {
-    for (const p of projects) if (p.hidden) update.mutate({ id: p.id, update: { hidden: false } });
-  };
+  const showEvery = useShowAllProjects();
+  const showAll = () => showEvery(projects);
   const badge = [
     conditions > 0 && m.conditionCount(conditions),
     hidden > 0 && m.hiddenCount(hidden),
@@ -61,7 +65,13 @@ export function FilterMenu({
   const active = conditions + hidden;
 
   return (
-    <Popover onOpenChange={(open) => !open && setQuery("")}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        onOpenChange(next);
+        if (!next) setQuery("");
+      }}
+    >
       <PopoverTrigger asChild>
         {/* Icon only; active conditions show as color and a count. The breakdown is in the tooltip */}
         <Button

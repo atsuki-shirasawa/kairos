@@ -89,3 +89,13 @@ export function runOf(bursts: BlockRef[][], ref: BlockRef | null): RunPosition |
   }
   return null;
 }
+
+/** The blocks either side of the selection, and how to open one. */
+export interface BlockStepping {
+  prev: BlockRef | null;
+  next: BlockRef | null;
+  /** Opens a block without pushing history; does nothing for null. */
+  goTo: (block: BlockRef | null) => void;
+  /** The burst of headless runs the selection belongs to, which the drawer steps through. */
+  run: RunPosition | null;
+}

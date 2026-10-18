@@ -7,10 +7,10 @@ import { SessionList } from "@/features/table/SessionList.tsx";
 import { TodayPage } from "@/features/today/TodayPage.tsx";
 import type { LiveState } from "@/hooks/useLiveSummary.ts";
 import type { PeriodData } from "@/hooks/usePeriodData.ts";
-import type { UrlStateUpdate } from "@/hooks/useUrlState.ts";
 import type { PeriodBodyProps } from "@/lib/periodBody.ts";
 import type { OpenBlock } from "@/lib/selection.ts";
-import type { UrlState } from "@/lib/urlState.ts";
+import type { UrlStateUpdate } from "@/lib/urlState.ts";
+import { openDayPage, type UrlState } from "@/lib/urlState.ts";
 import type { Layout } from "@/lib/view.ts";
 
 /** What every layout's body is given. */
@@ -88,9 +88,7 @@ function TodayBody({ state, update, data, live, now }: LayoutBodyProps) {
       selectedId={state.session}
       selectedAt={state.at}
       onSelect={openFollowingDay(update)}
-      onOpenDay={(day) =>
-        update({ layout: "calendar", view: "day", anchor: day, session: null, at: null })
-      }
+      onOpenDay={(day) => update(openDayPage(day))}
     />
   );
 }

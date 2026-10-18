@@ -1,25 +1,23 @@
-import type { CalendarSession, Project } from "@shared/api.ts";
+import type { Project } from "@shared/api.ts";
 import { Ban, Check, ChevronDown, ClipboardCopy } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.tsx";
 import { type CopyState, useCopy } from "@/hooks/useCopy.ts";
 import { useLastWorkdayDay } from "@/hooks/useLastWorkday.ts";
-import { useReportText } from "@/hooks/useReportText.ts";
+import { useStandupReport } from "@/hooks/useStandupReport.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { toolbarMessages } from "@/i18n/messages/toolbar.ts";
-import { dateLabel, type Range } from "@/lib/dates.ts";
-import { STANDUP_PERIODS, type StandupPeriod, standupRange } from "@/lib/report.ts";
+import { dateLabel } from "@/lib/dates.ts";
+import {
+  type ShownPeriod,
+  STANDUP_PERIODS,
+  type StandupPeriod,
+  standupPeriodLabel,
+  standupRange,
+} from "@/lib/report.ts";
 import { WORKDAY_LOOKBACK_DAYS } from "@/lib/today.ts";
 import { cn } from "@/lib/utils.ts";
-import type { View } from "@/lib/view.ts";
-
-/** The page's own period, which the menu offers too: its work as shown, filters applied. */
-export interface ShownPeriod extends Range {
-  view: View;
-  /** As shown, filtered; null while the period loads. */
-  sessions: CalendarSession[] | null;
-}
 
 /**
  * "Standup ▾": copies a work report as Markdown from any page, for the last workday, today or
@@ -42,11 +40,12 @@ export function StandupMenu({
   const m = toolbarMessages();
   const [open, setOpen] = useState(false);
   const [state, copy] = useCopy();
-  const build = useReportText(projects);
+  const report = useStandupReport(now, projects);
+  // Looked up here too, for the note beside the period and whether it can be copied yet
   const workday = useLastWorkdayDay(now, projects, open && ready);
-  const pick = (range: Range, sessions?: CalendarSession[]) => {
+  const pick = (text: () => Promise<string | null>) => {
     setOpen(false);
-    copy(build(range, sessions));
+    copy(text());
   };
   const label = statusLabel(state);
   return (
@@ -69,10 +68,10 @@ export function StandupMenu({
             return (
               <PeriodItem
                 key={period}
-                label={periodLabel(period)}
+                label={standupPeriodLabel(period)}
                 note={periodNote(period, workday, now)}
                 numeric={period === "lastWorkday" && typeof workday === "number"}
-                onPick={range ? () => pick(range) : null}
+                onPick={range ? () => pick(() => report.periodText(period)) : null}
               />
             );
           })}
@@ -81,7 +80,7 @@ export function StandupMenu({
               label={m.standupShown(shown.view)}
               note={m.standupShownNote}
               separated
-              onPick={shown.sessions ? () => pick(shown, shown.sessions ?? undefined) : null}
+              onPick={shown.sessions ? () => pick(() => report.shownText(shown)) : null}
             />
           )}
         </ul>
@@ -124,17 +123,6 @@ function PeriodItem({
       </Button>
     </li>
   );
-}
-
-/** A standup period's name in the menu. */
-function periodLabel(period: StandupPeriod): string {
-  const m = toolbarMessages();
-  const labels: Record<StandupPeriod, string> = {
-    lastWorkday: m.standupLastWorkday,
-    today: m.today,
-    week: m.standupWeek,
-  };
-  return labels[period];
 }
 
 /** Which day the last workday is, or that there is none; nothing for the other periods. */

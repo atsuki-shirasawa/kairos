@@ -40,6 +40,9 @@ const NAMED_KEYS: Record<string, number> = {
   ArrowDown: 40,
 };
 
+/** The ⌘ (Meta) bit of a CDP key event's modifiers. */
+const COMMAND = 4;
+
 /** Handles the tests take on page objects go in this group, released after each call. */
 const OBJECT_GROUP = "e2e";
 
@@ -121,6 +124,26 @@ export class Page {
         : { type: "rawKeyDown", key, code: key, windowsVirtualKeyCode: code };
     await this.browser.send("Input.dispatchKeyEvent", down);
     await this.browser.send("Input.dispatchKeyEvent", { type: "keyUp", key });
+    await this.browser.settled();
+  }
+
+  /**
+   * Presses a letter with ⌘ held ("k" for ⌘K). It types nothing, as with a real keyboard, and
+   * goes to the page rather than the browser, which a headless run has no menus for anyway.
+   */
+  async pressWithCommand(letter: string): Promise<void> {
+    const code = letter.toUpperCase().charCodeAt(0);
+    const key = { key: letter, code: `Key${letter.toUpperCase()}`, windowsVirtualKeyCode: code };
+    await this.browser.send("Input.dispatchKeyEvent", {
+      type: "rawKeyDown",
+      modifiers: COMMAND,
+      ...key,
+    });
+    await this.browser.send("Input.dispatchKeyEvent", {
+      type: "keyUp",
+      modifiers: COMMAND,
+      ...key,
+    });
     await this.browser.settled();
   }
 

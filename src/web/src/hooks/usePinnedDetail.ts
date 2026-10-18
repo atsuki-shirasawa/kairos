@@ -1,8 +1,8 @@
 import type { CalendarSession } from "@shared/api.ts";
 import { useEffect, useMemo, useRef } from "react";
-import type { UrlStateUpdate } from "@/hooks/useUrlState.ts";
 import { overlaps } from "@/lib/dayBlocks.ts";
 import { orderedBlocks, selectedSegment } from "@/lib/navigation.ts";
+import type { UrlStateUpdate } from "@/lib/urlState.ts";
 import { useMediaQuery, WIDE_QUERY } from "./useMediaQuery.ts";
 
 /**

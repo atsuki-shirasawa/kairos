@@ -1,4 +1,4 @@
-import type { OpenItemUpdate, ProjectUpdate, RecapRequest } from "@shared/api.ts";
+import type { OpenItemUpdate, Project, ProjectUpdate, RecapRequest } from "@shared/api.ts";
 import { MIN_SEARCH_CHARS } from "@shared/constants.ts";
 import { MINUTE } from "@shared/dates.ts";
 import {
@@ -9,13 +9,21 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Locale } from "@/i18n/index.ts";
 import { api } from "@/lib/api.ts";
 import { keys } from "@/lib/queryKeys.ts";
 
 /** Waits this long after the last keystroke before searching every period. */
 const SEARCH_DEBOUNCE_MS = 200;
+
+/** Work block times in [from, to), for the date picker's dots and finding the last workday. */
+export const spansQuery = (from: number, to: number) =>
+  queryOptions({ queryKey: keys.spans(from, to), queryFn: () => api.spans(from, to) });
+
+/** A session's detail, which the drawer shows and the resume command is built from. */
+export const sessionQuery = (id: string) =>
+  queryOptions({ queryKey: keys.session(id), queryFn: () => api.session(id) });
 
 /**
  * The period's sessions as cached: one definition for the hook and for a fetch on demand (the
@@ -68,8 +76,7 @@ export function useLive() {
  */
 export function useSpans(from: number, to: number, enabled: boolean) {
   return useQuery({
-    queryKey: keys.spans(from, to),
-    queryFn: () => api.spans(from, to),
+    ...spansQuery(from, to),
     enabled,
     placeholderData: keepPreviousData, // Keep the previous month's dots while moving between months
   });
@@ -187,11 +194,7 @@ export function useShowHeadless(): [
 
 /** One session's details for the drawer. Idle while no session is open (`id` is null). */
 export function useSession(id: string | null) {
-  return useQuery({
-    queryKey: keys.session(id ?? ""),
-    queryFn: () => api.session(id ?? ""),
-    enabled: id !== null,
-  });
+  return useQuery({ ...sessionQuery(id ?? ""), enabled: id !== null });
 }
 
 /** A session's conversation (or one subagent's when `agent` is set), paged 100 at a time. */
@@ -228,4 +231,15 @@ export function useUpdateProject() {
         client.invalidateQueries({ queryKey: keys.live }),
       ]),
   });
+}
+
+/** Shows every hidden project again, as the filter menu's and the palette's "show all" do. */
+export function useShowAllProjects(): (projects: readonly Project[]) => void {
+  const { mutate } = useUpdateProject();
+  return useCallback(
+    (projects) => {
+      for (const p of projects) if (p.hidden) mutate({ id: p.id, update: { hidden: false } });
+    },
+    [mutate],
+  );
 }

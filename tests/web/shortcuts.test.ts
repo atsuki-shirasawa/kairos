@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { keyCap, SHORTCUT_GROUPS, shortcutFor } from "../../src/web/src/lib/shortcuts.ts";
+import {
+  isPaletteKey,
+  keyCap,
+  SHORTCUT_GROUPS,
+  shortcutFor,
+} from "../../src/web/src/lib/shortcuts.ts";
 
 describe("keyCap", () => {
   test("writes each shortcut's key as the menu and tooltips show it", () => {
@@ -17,7 +22,7 @@ describe("SHORTCUT_GROUPS", () => {
   test("lists every shortcut exactly once", () => {
     const listed = SHORTCUT_GROUPS.flatMap((g) => g.shortcuts);
     expect(new Set(listed).size).toBe(listed.length);
-    expect(listed.length).toBe(15);
+    expect(listed.length).toBe(16);
   });
 
   test("keeps the menu's lines and key caps", () => {
@@ -30,6 +35,7 @@ describe("SHORTCUT_GROUPS", () => {
       ["j", "k"],
       ["/"],
       ["Esc"],
+      ["⌘K"],
       ["?"],
     ]);
   });
@@ -62,5 +68,22 @@ describe("shortcutFor", () => {
     expect(shortcutFor("x", false)).toBeNull();
     expect(shortcutFor("T", true)).toBeNull();
     expect(shortcutFor("constructor", false)).toBeNull();
+  });
+});
+
+describe("isPaletteKey", () => {
+  type Mods = { metaKey?: boolean; ctrlKey?: boolean; shiftKey?: boolean; altKey?: boolean };
+  const press = (key: string, mods: Mods = {}) =>
+    isPaletteKey({ key, metaKey: false, ctrlKey: false, shiftKey: false, altKey: false, ...mods });
+
+  test("⌘K or Ctrl+K, with Caps Lock on too; k alone is a single-key shortcut", () => {
+    expect(press("k", { metaKey: true })).toBe(true);
+    expect(press("k", { ctrlKey: true })).toBe(true);
+    expect(press("K", { metaKey: true })).toBe(true);
+    expect(press("k")).toBe(false);
+    expect(press("j", { metaKey: true })).toBe(false);
+    // Other apps' and the browser's
+    expect(press("k", { metaKey: true, shiftKey: true })).toBe(false);
+    expect(press("k", { metaKey: true, altKey: true })).toBe(false);
   });
 });

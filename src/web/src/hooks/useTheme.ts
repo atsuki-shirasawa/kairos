@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-
-/** Color theme choice. `system` follows the OS setting. */
-export type Theme = "system" | "light" | "dark";
+import type { Theme } from "@/lib/themes.ts";
 
 const KEY = "kairos.theme";
 

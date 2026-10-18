@@ -53,6 +53,7 @@ export const toolbarMessages = defineMessages({
     shortcutStep: "Open next / previous work block",
     shortcutSearch: "Search",
     shortcutClose: "Close details",
+    shortcutPalette: "Search, jump to a date or run a command",
     shortcutMenu: "This menu",
     importing: (percent: number) => `Importing ${percent}%`,
     /** The button copying a work report; its menu picks the period. */
@@ -106,6 +107,7 @@ export const toolbarMessages = defineMessages({
     shortcutStep: "次・前の作業を開く",
     shortcutSearch: "検索",
     shortcutClose: "詳細を閉じる",
+    shortcutPalette: "検索・日付へ移動・コマンドの実行",
     shortcutMenu: "このメニュー",
     importing: (percent: number) => `取り込み中 ${percent}%`,
     standup: "レポート",
