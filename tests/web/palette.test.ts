@@ -97,6 +97,8 @@ describe("paletteCommands", () => {
   test("resume and clearing the filters show only when there is something to act on", () => {
     expect(ids({})).not.toContain("resume");
     expect(ids({ sessionOpen: true })).toContain("resume");
+    expect(ids({})).not.toContain("thread");
+    expect(ids({ sessionOpen: true })).toContain("thread");
     expect(ids({ filtered: true })).toContain("clear-filters");
   });
 
@@ -178,6 +180,7 @@ describe("staysOpen", () => {
     expect(staysOpen({ kind: "resume" })).toBe(true);
     expect(staysOpen({ kind: "shortcut", shortcut: "month" })).toBe(false);
     expect(staysOpen({ kind: "filters" })).toBe(false);
+    expect(staysOpen({ kind: "thread" })).toBe(false);
   });
 });
 

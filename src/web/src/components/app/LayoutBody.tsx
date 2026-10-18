@@ -3,6 +3,7 @@ import { CalendarGrid } from "@/features/calendar/CalendarGrid.tsx";
 import { MonthGrid } from "@/features/calendar/MonthGrid.tsx";
 import { SummaryTabs, SummaryView } from "@/features/insights/SummaryView.tsx";
 import { DayPage } from "@/features/journal/DayPage.tsx";
+import { ThreadPage } from "@/features/journal/ThreadPage.tsx";
 import { SessionList } from "@/features/table/SessionList.tsx";
 import { TodayPage } from "@/features/today/TodayPage.tsx";
 import type { LiveState } from "@/hooks/useLiveSummary.ts";
@@ -28,11 +29,12 @@ const BODIES: Record<Layout, (props: LayoutBodyProps) => React.ReactNode> = {
   calendar: CalendarBody,
   summary: SummaryBody,
   table: TableBody,
+  thread: ThreadBody,
 };
 
 /**
- * What the main area shows for the layout: the home page, a calendar, the summary or its
- * table.
+ * What the main area shows for the layout: the home page, a calendar, the summary, its table or
+ * a thread.
  */
 export function LayoutBody(props: LayoutBodyProps) {
   const Body = BODIES[props.state.layout];
@@ -73,6 +75,21 @@ function TableBody(props: LayoutBodyProps) {
       sort={state.sort}
       onSort={(sort) => update({ sort })}
       tabs={<SummaryLayoutTabs {...props} />}
+    />
+  );
+}
+
+/** The thread the URL names; opening one of its blocks keeps the thread under the drawer. */
+function ThreadBody({ state, update, data, now }: LayoutBodyProps) {
+  if (!state.thread) return null;
+  return (
+    <ThreadPage
+      seed={state.thread}
+      projects={data.projectMap}
+      selectedId={state.session}
+      selectedAt={state.at}
+      now={now}
+      onSelect={(session, at) => update({ session, at }, { push: true })}
     />
   );
 }

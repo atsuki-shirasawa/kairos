@@ -14,6 +14,7 @@ import type {
   SearchResponse,
   SessionDetail,
   SpansResponse,
+  Thread,
 } from "../../src/shared/api.ts";
 import { TOKEN_BUCKET_MS } from "../../src/shared/constants.ts";
 import { DAY } from "../../src/shared/dates.ts";
@@ -248,6 +249,67 @@ describe("GET /api/prs", () => {
       [block.id],
     );
     expect((await get("/api/prs?repo=github.com/me/app&number=777")).status).toBe(404);
+  });
+});
+
+describe("threads", () => {
+  test("a thread across a continuation shows both sessions, oldest first, with their blocks", async () => {
+    const thread = await json<Thread>(`/api/sessions/${SID.continuedTo}/thread`);
+    expect(thread.seed).toBe(SID.continuedTo);
+    expect(thread.sessions.map((s) => s.id)).toEqual([SID.continuedFrom, SID.continuedTo]);
+    expect(thread.sessions.every((s) => s.segments.length > 0)).toBe(true);
+    expect(thread.links).toEqual([
+      {
+        sessionId: SID.continuedFrom,
+        from: SID.continuedTo,
+        tie: "continued",
+        pr: null,
+        branch: null,
+      },
+    ]);
+    expect(thread.truncated).toBe(false);
+  });
+
+  test("lists the items the thread's blocks left open, closed since or not", async () => {
+    const block = db
+      .query<{ id: number }, [string]>("SELECT id FROM segments WHERE session_id = ? LIMIT 1")
+      .get(SID.continuedFrom);
+    if (!block) throw new Error("the continued fixture has no block");
+    db.run(
+      `INSERT INTO open_items (block_id, opened_at, text, closed_at, closed_by)
+       VALUES (?, 1, 'write the docs', NULL, NULL), (?, 2, 'fix the test', 3, 'user')`,
+      [block.id, block.id],
+    );
+    const thread = await json<Thread>(`/api/sessions/${SID.continuedTo}/thread`);
+    expect(thread.openItems.map((i) => [i.text, i.closedBy])).toEqual([
+      ["write the docs", null],
+      ["fix the test", "user"],
+    ]);
+  });
+
+  test("an item a hidden session closed keeps how, but doesn't link to the hidden block", async () => {
+    const block = (sid: string) =>
+      db
+        .query<{ id: number }, [string]>("SELECT id FROM segments WHERE session_id = ? LIMIT 1")
+        .get(sid)?.id;
+    db.run(
+      `INSERT INTO open_items (block_id, opened_at, text, closed_at, closed_block_id, closed_by)
+       VALUES (?, 1, 'left open', 2, ?, 'model')`,
+      [block(SID.continuedFrom) ?? -1, block(SID.headless) ?? -1],
+    );
+    const [item] = (await json<Thread>(`/api/sessions/${SID.continuedTo}/thread`)).openItems;
+    expect(item).toMatchObject({ closedBy: "model", closedSessionId: null, closedStart: null });
+  });
+
+  test("the drawer counts the session's thread", async () => {
+    expect((await json<SessionDetail>(`/api/sessions/${SID.continuedFrom}`)).threadSize).toBe(2);
+    expect((await json<SessionDetail>(`/api/sessions/${SID.basic}`)).threadSize).toBe(1);
+    expect((await json<SessionDetail>(`/api/sessions/${SID.headless}`)).threadSize).toBe(0);
+  });
+
+  test("404 for an unknown or hidden session", async () => {
+    expect((await get("/api/sessions/nope/thread")).status).toBe(404);
+    expect((await get(`/api/sessions/${SID.headless}/thread`)).status).toBe(404);
   });
 });
 

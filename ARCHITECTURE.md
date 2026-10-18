@@ -188,6 +188,7 @@ Kairos shows which Claude Code sessions are running and what each is doing, with
 | GET | `/api/spans?from&to` | Only the start, end and project of work blocks overlapping the period. Used for the "days with records" dots in the date picker; assigning to days is done in the UI's local time |
 | GET | `/api/sessions/:id` | Session details (per-section summaries, artifacts, subagents) |
 | GET | `/api/sessions/:id/messages?cursor&limit` | Paginated conversation |
+| GET | `/api/sessions/:id/thread` | The session's thread: the visible sessions behind the same work, oldest first with all their blocks (as the calendar has them), how each came in (`continued`, a PR one opened and another opened or merged, the same non-trunk branch of the project, or an item one left open that the other's log closed), and the items their blocks left open. Never by directory or worktree name; hidden sessions neither join nor tie others in; at most 40 sessions. 404 for an unknown or hidden session. `GET /api/sessions/:id` counts it as `threadSize` |
 | GET | `/api/settings` | Summary language, whether `--summary-lang` fixes it, and whether headless runs are shown |
 | PATCH | `/api/settings` | `{ summaryLang?, showHeadless? }` (at least one): the UI's language, used for new summaries and recaps; whether calendar, search, navigation and the project list include headless sessions |
 | GET | `/api/recaps?from&to` | Recaps of every project with work starting in the period, written or not (body, stale, pending, error) |

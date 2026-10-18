@@ -3,6 +3,7 @@
 // The body each layout draws is mapped in components/app/LayoutBody.tsx.
 
 import type { UiPlace } from "@shared/uiUrl.ts";
+import { threadMessages } from "@/i18n/messages/thread.ts";
 import { todayMessages } from "@/i18n/messages/today.ts";
 import type { Shortcut } from "./shortcuts.ts";
 import type { Layout, View } from "./view.ts";
@@ -22,8 +23,10 @@ export interface LayoutTraits {
    * which has a path of its own.
    */
   tab: string | null;
-  /** The key that switches to it. */
-  shortcut: Shortcut;
+  /** The key that switches to it; null for a thread, which is opened from a session. */
+  shortcut: Shortcut | null;
+  /** The place it belongs to, whose path it is shown at. */
+  place: Place;
   /**
    * Whether it shows a period. Without one, the period's controls (moving, picking, search,
    * filters, the report) give way and its data isn't fetched.
@@ -57,11 +60,15 @@ export interface LayoutTraits {
   padsMonth: boolean;
 }
 
-/** The layouts, in the order the layout toggle lists the ones that have a segment. */
-export const LAYOUTS: Readonly<Record<Layout, LayoutTraits>> = {
+/**
+ * The layouts, in the order the layout toggle lists the ones that have a segment. `satisfies`
+ * keeps each one's own shortcut, so a layout named by hand has its key without a null check.
+ */
+export const LAYOUTS = {
   today: {
     tab: null,
     shortcut: "home",
+    place: "today",
     hasPeriod: false,
     lit: "today",
     // Its two columns would shrink to slivers beside the drawer
@@ -75,6 +82,7 @@ export const LAYOUTS: Readonly<Record<Layout, LayoutTraits>> = {
   calendar: {
     tab: null,
     shortcut: "calendar",
+    place: "journal",
     hasPeriod: true,
     lit: "calendar",
     // The day page is read beside it
@@ -88,6 +96,7 @@ export const LAYOUTS: Readonly<Record<Layout, LayoutTraits>> = {
   summary: {
     tab: "insights",
     shortcut: "summary",
+    place: "journal",
     hasPeriod: true,
     lit: "summary",
     drawerOverlay: () => false,
@@ -100,6 +109,7 @@ export const LAYOUTS: Readonly<Record<Layout, LayoutTraits>> = {
   table: {
     tab: "table",
     shortcut: "table",
+    place: "journal",
     hasPeriod: true,
     // A tab of the summary, so it lights the summary's segment
     lit: "summary",
@@ -110,31 +120,48 @@ export const LAYOUTS: Readonly<Record<Layout, LayoutTraits>> = {
     comparesPrevious: false,
     padsMonth: false,
   },
-};
+  thread: {
+    tab: null,
+    shortcut: null,
+    place: "thread",
+    hasPeriod: false,
+    lit: "thread",
+    // A list read top to bottom, which the drawer opens over like Today
+    drawerOverlay: () => true,
+    drawerPinned: () => false,
+    heading: () => threadMessages().heading,
+    stepping: { blocks: false, runs: false },
+    comparesPrevious: false,
+    padsMonth: false,
+  },
+} as const satisfies Readonly<Record<Layout, LayoutTraits>>;
 
-const ENTRIES = Object.entries(LAYOUTS) as [Layout, LayoutTraits][];
+const ENTRIES = Object.entries(LAYOUTS as Record<Layout, LayoutTraits>) as [Layout, LayoutTraits][];
 
 /** Every layout, in the registry's order. */
 export const LAYOUT_IDS: readonly Layout[] = ENTRIES.map(([id]) => id);
 
 /**
- * The UI's two places: Today, and the Journal, which holds every layout that shows a period (the
- * calendar, and Insights with its table).
+ * The UI's places: Today, the Journal, which holds every layout that shows a period (the
+ * calendar, and Insights with its table), and a thread's page.
  */
 export type Place = UiPlace;
 
 /** The place a layout belongs to. */
 export function placeOf(layout: Layout): Place {
-  return LAYOUTS[layout].hasPeriod ? "journal" : "today";
+  return LAYOUTS[layout].place;
 }
 
-/** The layout going to a place opens: Today, or the Journal's tab (its default unless given). */
+/**
+ * The layout going to a place opens: Today, a thread, or the Journal's tab (its default unless
+ * given).
+ */
 export function layoutOfPlace(place: Place, journalTab: Layout = JOURNAL_DEFAULT): Layout {
-  return place === "today" ? "today" : journalTab;
+  return place === "journal" ? journalTab : place;
 }
 
 /** The Journal's layout when its URL names no tab, or one it doesn't know. */
-export const JOURNAL_DEFAULT: Layout = "calendar";
+export const JOURNAL_DEFAULT = "calendar" satisfies Layout;
 
 /** The Journal's layout a `tab` value names; none, or anything unknown, is the calendar. */
 export function layoutOfTab(tab: string | null): Layout {

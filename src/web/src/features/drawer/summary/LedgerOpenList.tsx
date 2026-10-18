@@ -1,8 +1,7 @@
 import type { LedgerEntry } from "@shared/api.ts";
-import { BlockLink, HandActions, KindTag } from "@/components/OpenItemParts.tsx";
+import { ClosedLink, HandActions, KindTag } from "@/components/OpenItemParts.tsx";
 import { useOpenItemEdits } from "@/hooks/useOpenItemEdits.ts";
 import { summaryMessages } from "@/i18n/messages/summary.ts";
-import { closedHow } from "@/lib/openItems.ts";
 import { cn } from "@/lib/utils.ts";
 import { SummaryMarkdown } from "./SummaryText.tsx";
 
@@ -37,7 +36,7 @@ export function LedgerOpenList({
             >
               {item.text}
             </SummaryMarkdown>
-            {item.closedAt !== null && <ClosedHow item={item} onSelect={onSelect} />}
+            {item.closedAt !== null && <ClosedLink item={item} onSelect={onSelect} />}
             <HandActions item={item} busy={edits.busyId === item.id} onUpdate={edits.onUpdate} />
           </li>
         ))}
@@ -48,30 +47,5 @@ export function LedgerOpenList({
         </p>
       )}
     </>
-  );
-}
-
-/** How an item was closed: a link to the block that closed it when one did, otherwise plain text. */
-function ClosedHow({
-  item,
-  onSelect,
-}: {
-  item: LedgerEntry;
-  onSelect: (id: string, at: number) => void;
-}) {
-  const by = item.closedSessionId;
-  const at = item.closedStart;
-  if (by !== null && at !== null)
-    return (
-      <BlockLink
-        label={closedHow(item)}
-        title={summaryMessages().closedShow}
-        onClick={() => onSelect(by, at)}
-      />
-    );
-  return (
-    <span className="shrink-0 whitespace-nowrap text-label text-muted-foreground">
-      {closedHow(item)}
-    </span>
   );
 }

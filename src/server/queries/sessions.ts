@@ -17,6 +17,7 @@ import { type BlockScope, blockSetOf, blocksFacts, sectionRows, toSection } from
 import { projectById } from "./projects.ts";
 import { listedArtifactsSql } from "./sql.ts";
 import type { SummaryState } from "./summaryState.ts";
+import { threadSize } from "./threadMembers.ts";
 import { displayBranch, title } from "./titles.ts";
 import { sessionUsage } from "./usage.ts";
 
@@ -79,6 +80,7 @@ export interface SessionDetailParts {
   sections: Section[];
   active: boolean;
   continuedFrom: string | null;
+  threadSize: number;
   artifacts: Artifact[];
   subagents: Subagent[];
   usage: SessionDetail["usage"];
@@ -103,6 +105,7 @@ export function toSessionDetail(s: SessionRow, parts: SessionDetailParts): Sessi
     headless: s.prompt_count === 0,
     continuedFrom: parts.continuedFrom,
     continuedIn: s.continued_in,
+    threadSize: parts.threadSize,
     commits: parts.artifacts.filter((a) => a.kind === "commit"),
     prs: parts.artifacts.filter((a) => a.kind === "pr"),
     subagents: parts.subagents,
@@ -110,12 +113,19 @@ export function toSessionDetail(s: SessionRow, parts: SessionDetailParts): Sessi
   };
 }
 
+/** What the drawer reads beside the session itself: the time, summary progress and visibility. */
+export interface DetailContext {
+  now: number;
+  summaries: SummaryState;
+  /** A `visibleSessionSql` condition on alias `s`, for the sessions its thread may count. */
+  visible: string;
+}
+
 /** What the session drawer shows (sections, artifacts, subagents, usage); null if absent. */
 export function sessionDetail(
   db: Database,
   id: string,
-  now: number,
-  summaries: SummaryState,
+  { now, summaries, visible }: DetailContext,
 ): SessionDetail | null {
   const s = db.query<SessionRow, [string]>("SELECT * FROM sessions WHERE id = ?").get(id);
   if (!s) return null;
@@ -124,6 +134,7 @@ export function sessionDetail(
     sections: sections(db, id, title(s), summaries),
     active: isActive(s.ended_at, now),
     continuedFrom: predecessorOf(db, id),
+    threadSize: threadSize(db, visible, id),
     artifacts: sessionArtifacts(db, id),
     subagents: subagents(db, id),
     usage: sessionUsage(db, id),

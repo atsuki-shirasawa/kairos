@@ -8,6 +8,7 @@ import { Tag } from "@/components/ui/tag.tsx";
 import type { OnOpenItemUpdate } from "@/hooks/useOpenItemEdits.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { summaryMessages } from "@/i18n/messages/summary.ts";
+import { closedHow } from "@/lib/openItems.ts";
 import { cn } from "@/lib/utils.ts";
 import { Hint } from "./Hint.tsx";
 
@@ -130,5 +131,33 @@ function IconAction({
         <Icon />
       </Button>
     </Hint>
+  );
+}
+
+/**
+ * How an item was closed: a link to the block that closed it when one did, otherwise plain text.
+ * Every list of settled items ends its rows with it.
+ */
+export function ClosedLink({
+  item,
+  onSelect,
+}: {
+  item: LedgerEntry;
+  onSelect: (id: string, at: number) => void;
+}) {
+  const by = item.closedSessionId;
+  const at = item.closedStart;
+  if (by !== null && at !== null)
+    return (
+      <BlockLink
+        label={closedHow(item)}
+        title={summaryMessages().closedShow}
+        onClick={() => onSelect(by, at)}
+      />
+    );
+  return (
+    <span className="shrink-0 whitespace-nowrap text-label text-muted-foreground">
+      {closedHow(item)}
+    </span>
   );
 }

@@ -3,10 +3,13 @@
 // paths and parameters through this module.
 import { isoDay } from "./dates.ts";
 
-/** The UI's two places: Today, and the Journal, which shows a period around a day. */
-export const UI_PATHS = { today: "/today", journal: "/journal" } as const;
+/**
+ * The UI's places: Today, the Journal, which shows a period around a day, and a thread, the
+ * sessions behind one piece of work.
+ */
+export const UI_PATHS = { today: "/today", journal: "/journal", thread: "/thread" } as const;
 
-/** One of the UI's two places, by its name in `UI_PATHS`. */
+/** One of the UI's places, by its name in `UI_PATHS`. */
 export type UiPlace = keyof typeof UI_PATHS;
 
 /** Query parameter names the CLI and the web app share. */
@@ -29,16 +32,40 @@ export type UiPage =
       page: "journal";
       /** The shown day as written (`YYYY-MM-DD`, not checked as a date); null for today. */
       date: string | null;
+    }
+  | {
+      page: "thread";
+      /** The session the thread was opened from. */
+      session: string;
     };
 
 const TODAY_PATH = new RegExp(`^${UI_PATHS.today}/?$`);
 const JOURNAL_PATH = new RegExp(`^${UI_PATHS.journal}(?:/(\\d{4}-\\d{2}-\\d{2}))?/?$`);
+const THREAD_PATH = new RegExp(`^${UI_PATHS.thread}/([^/]+)/?$`);
 
 /** The page a path names, or null for any other path (the root among them). */
 export function readUiPath(pathname: string): UiPage | null {
   if (TODAY_PATH.test(pathname)) return { page: "today" };
   const journal = JOURNAL_PATH.exec(pathname);
-  return journal ? { page: "journal", date: journal[1] ?? null } : null;
+  if (journal) return { page: "journal", date: journal[1] ?? null };
+  const session = threadSession(pathname);
+  return session ? { page: "thread", session } : null;
+}
+
+/** The session a thread's path names, or null when it names none (or can't be decoded). */
+function threadSession(pathname: string): string | null {
+  const encoded = THREAD_PATH.exec(pathname)?.[1];
+  if (!encoded) return null;
+  try {
+    return decodeURIComponent(encoded);
+  } catch {
+    return null;
+  }
+}
+
+/** The path of the thread opened from a session (`/thread/<session>`). */
+export function threadPath(session: string): string {
+  return `${UI_PATHS.thread}/${encodeURIComponent(session)}`;
 }
 
 /** The Journal's path at a day (`/journal/2026-10-01`), or at today without one. */

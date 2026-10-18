@@ -205,6 +205,27 @@ The day is read, not placed: a list of the day's work beside the selected block'
   each opening starts from an empty field.
   The toolbar stays as it is
 
+## Thread page
+
+The sessions behind one piece of work, at `/thread/<session>`. Opened from the drawer's session
+flow ("Thread · n sessions", shown when more than the session itself is tied in) or ⌘K's "Open
+the open session's thread"; a PR leads there through the drawer of a block that opened or merged
+it. Neither place in the toolbar is lit; the toolbar has no period there.
+
+- **Head:** "Goal" in the small heading style, the Goal of the thread's earliest summarized block
+  in `text-title` semibold `ink` (a muted line while no summary has one), then the sessions,
+  blocks and dates on one `numeral` meta line
+- **Sessions:** one line each, oldest first: a dot in its project's color (its lane's below), the title (opens
+  its first block), then project, branch and how it came in ("one conversation, continued", "same
+  PR #12", "same branch fix/login", "an item one left open, the other closed"; "opened here" for the
+  one the page was opened from), 12px `muted-ink`
+- **Days:** each day the thread worked, its date as a heading, then the day page's rows and lanes
+  for the thread's blocks of that day (nothing fades: a thread has no filter)
+- **Items:** what its blocks left open, "Still open (n)" then "Settled (n)", laid out like the
+  drawer's Open list: kind tag, text, and a link to the block that left it ("since Mon, Oct 5") or
+  how it closed. No hand edits here
+- The drawer opens over the page, as on Today
+
 ## Drawer
 
 - **Drawer** opens from the right with 20px padding; below `lg` it overlays the screen with a backdrop.

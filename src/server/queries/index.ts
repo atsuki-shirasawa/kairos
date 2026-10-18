@@ -15,6 +15,7 @@ import type {
   Recap,
   SessionDetail,
   Span,
+  Thread,
 } from "../../shared/api.ts";
 import { openItemsIn, type UpdateRefusal, updateOpenItem } from "../summarize/ledger/openItems.ts";
 import { loadRecapInput, type RecapTarget } from "../summarize/recap.ts";
@@ -28,6 +29,7 @@ import { projectRecaps } from "./recaps.ts";
 import { SEARCH_LIMIT, type SearchResult, searchBlocks } from "./search.ts";
 import { hasSection, hasSession, sessionDetail } from "./sessions.ts";
 import { NO_SUMMARIES, type SummaryState } from "./summaryState.ts";
+import { threadOf } from "./threads.ts";
 
 /** Read queries behind the API, plus the few writes the UI can make (project settings). */
 export class Queries {
@@ -78,6 +80,11 @@ export class Queries {
     return openItemsIn(this.db, from, to);
   }
 
+  /** The thread the session belongs to, or null when it isn't a visible session (see `threadOf`). */
+  thread(sessionId: string): Thread | null {
+    return threadOf(this.db, this.visible(), sessionId, this.now());
+  }
+
   /** One PR's work across visible sessions, or null when the logs know nothing of it (see `prHistory`). */
   pr(ref: PrRef): PrHistory | null {
     return prHistory(this.db, this.visible(), ref);
@@ -105,7 +112,11 @@ export class Queries {
 
   /** What the session drawer shows (sections, artifacts, subagents, usage); null if absent. */
   session(id: string): SessionDetail | null {
-    return sessionDetail(this.db, id, this.now(), this.summaries);
+    return sessionDetail(this.db, id, {
+      now: this.now(),
+      summaries: this.summaries,
+      visible: this.visible(),
+    });
   }
 
   /** Whether the session exists, without loading what the drawer shows. */

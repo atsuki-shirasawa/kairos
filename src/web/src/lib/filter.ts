@@ -139,6 +139,9 @@ export function meetsConditions(
 /** Whether a block (a section of a session) passes the current filter. */
 export type SegmentMatch = (session: CalendarSession, segment: CalendarSegment) => boolean;
 
+/** Every block passes: for what has no filter (a thread) or counts work regardless of it. */
+export const MATCH_ALL: SegmentMatch = () => true;
+
 /** Key of a block in the server's search hits. */
 export const hitKey = (sessionId: string, start: number) => `${sessionId}:${start}`;
 

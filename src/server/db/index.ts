@@ -437,6 +437,11 @@ export const MIGRATIONS: string[] = [
   );
   CREATE INDEX block_refs_ref ON block_refs(repo, number);
   `,
+  // 18: sessions by project and branch, for threads (#65): sessions on the same topic branch of a
+  // project are one piece of work, and a thread looks them up from each of its members
+  `
+  CREATE INDEX sessions_branch ON sessions(project_id, branch);
+  `,
 ];
 
 /** Schema version once every migration is applied (stored in `PRAGMA user_version`). */

@@ -2,7 +2,7 @@
 // Everything is derived from the calendar response, so the summary agrees with the calendar and list.
 import type { Artifact, CalendarSession, Usage } from "@shared/api.ts";
 import { blocksOfDay, busyMs, type DayBlock } from "./dayBlocks.ts";
-import type { SegmentMatch } from "./filter.ts";
+import { MATCH_ALL, type SegmentMatch } from "./filter.ts";
 import { sumActivity, sumUsage } from "./format.ts";
 import { activityOf, counted, usageOf } from "./totals.ts";
 
@@ -45,8 +45,6 @@ export interface PeriodSummary {
   projects: ProjectSummary[];
 }
 
-const all: SegmentMatch = () => true;
-
 /** PRs are stored per session, so the same PR can come from two sessions. Keep the first by URL. */
 function uniquePrs(blocks: DayBlock[]): Artifact[] {
   const seen = new Map<string, Artifact>();
@@ -65,7 +63,7 @@ export function busyByDay(blocks: DayBlock[]): number {
 export function summarize(
   days: number[],
   sessions: CalendarSession[],
-  matches: SegmentMatch = all,
+  matches: SegmentMatch = MATCH_ALL,
 ): PeriodSummary {
   const perDay = days.map((day) => ({
     day,

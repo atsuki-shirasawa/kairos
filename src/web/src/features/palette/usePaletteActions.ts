@@ -18,7 +18,7 @@ import type { ShownPeriod } from "@/lib/report.ts";
 import { resumeCommand } from "@/lib/shell.ts";
 import { runShortcut, type ShortcutTargets } from "@/lib/shortcutActions.ts";
 import type { Theme } from "@/lib/themes.ts";
-import { openDayPage } from "@/lib/urlState.ts";
+import { openDayPage, openThread } from "@/lib/urlState.ts";
 
 /** The filter, and how the palette changes it or opens the toolbar's menu for it. */
 export interface PaletteFilter {
@@ -97,6 +97,9 @@ export function usePaletteActions({
         return;
       case "standupShown":
         copy(shown ? report.shownText(shown) : Promise.resolve(null));
+        return;
+      case "thread":
+        if (keys.state.session) keys.update(openThread(keys.state.session));
         return;
       case "resume": {
         const id = keys.state.session;

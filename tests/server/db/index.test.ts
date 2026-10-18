@@ -21,6 +21,25 @@ test("a fresh DB has every migration applied", () => {
   expect(indexes(db, "messages")).not.toContain("messages_time");
   expect(indexes(db, "sessions")).toContain("sessions_ended");
   expect(indexes(db, "block_refs")).toContain("block_refs_ref");
+  expect(indexes(db, "sessions")).toContain("sessions_branch");
+});
+
+test("migration 18 indexes sessions by project and branch, keeping an existing DB's sessions", () => {
+  const path = join(tmpdir(), `kairos-sessions-branch-${crypto.randomUUID()}.db`);
+  const old = new Database(path, { create: true });
+  for (const [i, sql] of MIGRATIONS.slice(0, 17).entries()) {
+    old.run(sql);
+    old.run(`PRAGMA user_version = ${i + 1}`);
+  }
+  old.run("INSERT INTO sessions (id, branch) VALUES ('s', 'fix/login')");
+  old.close();
+
+  const db = openDb(path);
+  expect(db.query("SELECT id, branch FROM sessions").all()).toEqual([
+    { id: "s", branch: "fix/login" },
+  ]);
+  expect(indexes(db, "sessions")).toContain("sessions_branch");
+  db.close();
 });
 
 test("migration 15 indexes sessions by when they ended, keeping an existing DB's sessions", () => {

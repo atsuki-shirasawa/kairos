@@ -34,6 +34,15 @@ describe("sessions.updated", () => {
     expect(stale(keys.settings)).toBe(false);
   });
 
+  test("refetches a thread one of whose sessions changed", () => {
+    const thread = (...ids: string[]) => ({ sessions: ids.map((id) => ({ id })) });
+    expect(stale(keys.thread("x"), thread("x", "b"))).toBe(true);
+    expect(stale(keys.thread("x"), thread("x", "y"))).toBe(false);
+    // Before it loads, the session it was opened from stands for it
+    expect(stale(keys.thread("a"))).toBe(true);
+    expect(stale(keys.thread("x"))).toBe(false);
+  });
+
   test("refetches the changed sessions' drawers and conversations, not the others'", () => {
     expect(stale(keys.session("a"))).toBe(true);
     expect(stale(keys.messages("b", "agent"))).toBe(true);

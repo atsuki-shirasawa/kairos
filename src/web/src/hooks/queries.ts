@@ -21,6 +21,17 @@ const SEARCH_DEBOUNCE_MS = 200;
 export const spansQuery = (from: number, to: number) =>
   queryOptions({ queryKey: keys.spans(from, to), queryFn: () => api.spans(from, to) });
 
+/** The thread a session belongs to, which the thread's page shows. */
+export function useThread(id: string | null) {
+  return useQuery({
+    queryKey: keys.thread(id ?? ""),
+    queryFn: () => api.thread(id ?? ""),
+    enabled: id !== null,
+    // Opening another thread keeps the one on screen until it arrives
+    placeholderData: keepPreviousData,
+  });
+}
+
 /** A session's detail, which the drawer shows and the resume command is built from. */
 export const sessionQuery = (id: string) =>
   queryOptions({ queryKey: keys.session(id), queryFn: () => api.session(id) });

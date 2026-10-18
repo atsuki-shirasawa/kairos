@@ -5,6 +5,7 @@ import { MomentNode } from "@/components/MomentNode.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
+import { threadMessages } from "@/i18n/messages/thread.ts";
 import { hhmm } from "@/lib/dates.ts";
 import { flowWindow, spansDays } from "@/lib/drawer.ts";
 import { cn } from "@/lib/utils.ts";
@@ -15,9 +16,14 @@ const FLOW_LIMIT = 6;
 /** Nodes a flow row draws for its commits and PRs before summing the rest as "+n". */
 const NODE_LIMIT = 5;
 
-/** Whether the session has anything for the flow block: several periods, a recap, or a continuation. */
+/**
+ * Whether the session has anything for the flow block: several periods, a recap, a continuation,
+ * or a thread of more than itself.
+ */
 export function hasFlow(s: SessionDetail): boolean {
-  return Boolean(s.sections.length > 1 || s.awaySummary || s.continuedFrom || s.continuedIn);
+  return Boolean(
+    s.sections.length > 1 || s.awaySummary || s.continuedFrom || s.continuedIn || s.threadSize > 1,
+  );
 }
 
 /**
@@ -28,10 +34,13 @@ export function Flow({
   session: s,
   section,
   onSelect,
+  onThread,
 }: {
   session: SessionDetail;
   section: Section | null;
   onSelect: (id: string, at: number | null) => void;
+  /** Opens the thread of the session. */
+  onThread: (id: string) => void;
 }) {
   const t = drawerMessages();
   const [expanded, setExpanded] = useState(false);
@@ -80,6 +89,8 @@ export function Flow({
           onSelect={(id) => onSelect(id, null)}
         />
       )}
+
+      {s.threadSize > 1 && <ThreadEntry size={s.threadSize} onOpen={() => onThread(s.id)} />}
     </Block>
   );
 }
@@ -193,6 +204,21 @@ function ContinuationLinks({
         </button>
       )}
     </div>
+  );
+}
+
+/** The way into the session's thread, the page of every session behind the same work. */
+function ThreadEntry({ size, onOpen }: { size: number; onOpen: () => void }) {
+  const m = threadMessages();
+  return (
+    <button
+      type="button"
+      title={m.openTitle}
+      className="mt-3 block text-body text-primary hover:underline"
+      onClick={onOpen}
+    >
+      {m.open(size)}
+    </button>
   );
 }
 

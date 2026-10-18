@@ -227,6 +227,44 @@ export interface PrHistory extends PrRef {
   blocks: PrBlock[];
 }
 
+/**
+ * What ties a session into a thread, surest first: one continued the other (`continued`), both
+ * worked on the same PR (`pr`), both ran on the same non-trunk branch of one project (`branch`),
+ * or one closed by a ref an item the other left open (`item`).
+ */
+export const THREAD_TIES = ["continued", "pr", "branch", "item"] as const;
+/** One of `THREAD_TIES`. */
+export type ThreadTie = (typeof THREAD_TIES)[number];
+
+/** How a session came into a thread: from which member, and what ties the two. */
+export interface ThreadLink {
+  sessionId: string;
+  /** The member it was reached from. */
+  from: string;
+  tie: ThreadTie;
+  /** The PR the two share, for a `pr` tie. */
+  pr: (PrRef & { url: string }) | null;
+  /** The branch the two share, for a `branch` tie. */
+  branch: string | null;
+}
+
+/**
+ * `GET /api/sessions/:id/thread`: the visible sessions behind one piece of work, found from the
+ * session by what ties them (see `ThreadTie`), never by directory or worktree name.
+ */
+export interface Thread {
+  /** The session it was opened from. */
+  seed: string;
+  /** Oldest first, each with all of its blocks. */
+  sessions: CalendarSession[];
+  /** One per session but the seed, in the order they were reached. */
+  links: ThreadLink[];
+  /** Items the thread's blocks left open, whether still open or closed since, oldest first. */
+  openItems: LedgerEntry[];
+  /** More sessions are tied in than a thread shows (see `THREAD_LIMIT`). */
+  truncated: boolean;
+}
+
 /** A commit or PR made during a session. */
 export interface Artifact {
   kind: "commit" | "pr";
@@ -397,6 +435,11 @@ export interface SessionDetail {
   headless: boolean;
   continuedFrom: string | null;
   continuedIn: string | null;
+  /**
+   * Visible sessions in its thread, itself included: 1 when nothing ties it to another, 0 when the
+   * session itself is hidden.
+   */
+  threadSize: number;
   commits: Artifact[];
   prs: Artifact[];
   subagents: Subagent[];

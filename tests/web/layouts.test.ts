@@ -60,12 +60,18 @@ describe("layoutOfShortcut", () => {
   });
 });
 
-test("only the home page has no period", () => {
+test("only the home page and a thread have no period", () => {
   expect(
     Object.entries(LAYOUTS)
       .filter(([, t]) => !t.hasPeriod)
       .map(([l]) => l),
-  ).toEqual(["today"]);
+  ).toEqual(["today", "thread"]);
+});
+
+test("a thread is a place of its own, which going to it opens", () => {
+  expect(placeOf("thread")).toBe("thread");
+  expect(layoutOfPlace("thread")).toBe("thread");
+  expect(placeOf("table")).toBe("journal");
 });
 
 test("a page without a period names its heading, and one with a period leaves it to the date", () => {

@@ -24,6 +24,7 @@ import { shift } from "@/lib/dates.ts";
 import type { Filter } from "@/lib/filter.ts";
 import { LAYOUTS } from "@/lib/layouts.ts";
 import type { ShortcutTargets } from "@/lib/shortcutActions.ts";
+import { openThread } from "@/lib/urlState.ts";
 
 /**
  * Root component: owns the URL-synced view state and wires the toolbar, the layout's body
@@ -158,6 +159,7 @@ export function App() {
             at={state.at}
             onClose={onClose}
             onSelect={(session, at) => update({ session, at }, { push: true })}
+            onThread={(session) => update(openThread(session))}
             onPrev={prev && stepping.blocks ? () => goTo(prev) : null}
             onNext={next && stepping.blocks ? () => goTo(next) : null}
             run={stepping.runs ? run : null}

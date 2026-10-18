@@ -3,12 +3,12 @@ import { ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { Hint } from "@/components/Hint.tsx";
 import { Markdown } from "@/components/Markdown.tsx";
-import { BlockLink, HandActions, KindTag } from "@/components/OpenItemParts.tsx";
+import { BlockLink, ClosedLink, HandActions, KindTag } from "@/components/OpenItemParts.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import type { OnOpenItemUpdate } from "@/hooks/useOpenItemEdits.ts";
 import { summaryMessages } from "@/i18n/messages/summary.ts";
 import { dateLabel } from "@/lib/dates.ts";
-import { closedHow, OLD_WEEKS, type ProjectOpenItems, weekOpen } from "@/lib/openItems.ts";
+import { OLD_WEEKS, type ProjectOpenItems, weekOpen } from "@/lib/openItems.ts";
 import { cn } from "@/lib/utils.ts";
 import type { View } from "@/lib/view.ts";
 
@@ -171,19 +171,11 @@ function OpenRow({
  * did), and undo for one closed by hand.
  */
 function ClosedRow({ item, onSelect, onUpdate, busyId, baseUrl }: Actions & { item: LedgerEntry }) {
-  const m = summaryMessages();
-  const how = closedHow(item);
-  const by = item.closedSessionId;
-  const at = item.closedStart;
   return (
     <li className="flex items-baseline gap-3 py-0.5">
       <KindTag item={item} />
       <ItemText item={item} baseUrl={baseUrl} muted />
-      {by !== null && at !== null ? (
-        <BlockLink label={how} title={m.closedShow} onClick={() => onSelect(by, at)} />
-      ) : (
-        <span className="shrink-0 whitespace-nowrap text-label text-muted-foreground">{how}</span>
-      )}
+      <ClosedLink item={item} onSelect={onSelect} />
       <HandActions item={item} busy={busyId === item.id} onUpdate={onUpdate} />
     </li>
   );

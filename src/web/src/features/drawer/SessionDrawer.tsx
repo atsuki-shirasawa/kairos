@@ -15,6 +15,8 @@ interface Props {
   /** null where the drawer is the page's pinned detail pane (`drawerPinned`), which stays open. */
   onClose: (() => void) | null;
   onSelect: (id: string, at: number | null) => void;
+  /** Opens a session's thread. */
+  onThread: (id: string) => void;
   /** Move to the previous / next work in time order. null at either end. */
   onPrev: (() => void) | null;
   onNext: (() => void) | null;
@@ -35,6 +37,7 @@ export function SessionDrawer({
   at,
   onClose,
   onSelect,
+  onThread,
   onPrev,
   onNext,
   run,
@@ -94,6 +97,7 @@ export function SessionDrawer({
               session={data}
               section={section}
               onSelect={onSelect}
+              onThread={onThread}
               showConversation={showConversation}
               onShowConversation={setShowConversation}
               showNumbers={showNumbers}

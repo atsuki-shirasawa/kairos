@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { NO_FILTER } from "../../src/web/src/lib/filter.ts";
 import {
   DEFAULT_SORT,
+  openThread,
   parseUrlState,
   serializeUrlState,
   startsNewEntry,
@@ -19,6 +20,7 @@ const DEFAULTS: UrlState = {
   at: null,
   sort: DEFAULT_SORT,
   filter: NO_FILTER,
+  thread: null,
 };
 
 const parse = (href: string) => parseUrlState(href, NOW);
@@ -71,7 +73,22 @@ describe("parseUrlState", () => {
       at: 42,
       sort: { key: "cost", desc: true },
       filter: { ...NO_FILTER, q: "fix" },
+      thread: null,
     });
+  });
+
+  test("a thread's path names the session it was opened from, and the open block rides along", () => {
+    expect(parse("/thread/abc?session=def&at=7")).toEqual({
+      ...DEFAULTS,
+      layout: "thread",
+      thread: "abc",
+      session: "def",
+      at: 7,
+    });
+    expect(serialize({ ...openThread("a b"), layout: "thread" })).toBe("/thread/a%20b");
+    // A thread with no session is nowhere to go, so it reads and writes as Today
+    expect(parse("/thread/").layout).toBe("today");
+    expect(serialize({ layout: "thread", thread: null })).toBe("/today");
   });
 
   test("an old link in the root's query opens what it did", () => {
@@ -136,7 +153,9 @@ test("state survives a round trip through the URL", () => {
       at: 1_700_000_000_000,
       sort: { key: "tokens", desc: true },
       filter: { ...NO_FILTER, q: "a b&c", qFiles: true, outcomes: ["pr"], branch: "main" },
+      thread: null,
     },
+    { ...DEFAULTS, layout: "thread", thread: "s/1 é", session: "s-2", at: 5 },
   ];
   for (const s of states) expect(parseUrlState(serializeUrlState(s, NOW), NOW)).toEqual(s);
 });
@@ -163,5 +182,9 @@ describe("startsNewEntry", () => {
     expect(startsNewEntry(base, { ...base, session: "s", at: NOW })).toBe(false);
     expect(startsNewEntry(base, { ...base, filter: { ...base.filter, q: "fix" } })).toBe(false);
     expect(startsNewEntry(base, { ...base, sort: { key: "start", desc: true } })).toBe(false);
+    // Another thread is another page; a block opened over it isn't
+    const thread = { ...base, ...openThread("a") };
+    expect(startsNewEntry(thread, { ...thread, thread: "b" })).toBe(true);
+    expect(startsNewEntry(thread, { ...thread, session: "a", at: 1 })).toBe(false);
   });
 });

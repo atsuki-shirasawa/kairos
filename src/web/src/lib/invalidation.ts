@@ -1,7 +1,7 @@
 // What each server event makes stale in the cache. Kept apart from the hook that listens, so the
 // rules are a table-tested function: while Claude works, sessions.updated arrives every few
 // seconds, and refetching every period on it re-ran the heaviest query over and over.
-import type { CalendarResponse, ServerEvent, SessionsChange } from "@shared/api.ts";
+import type { CalendarResponse, ServerEvent, SessionsChange, Thread } from "@shared/api.ts";
 import { overlaps } from "./dayBlocks.ts";
 import { CALENDAR_KINDS, type CachedQuery, readKey } from "./queryKeys.ts";
 
@@ -42,6 +42,8 @@ function isStaleAfterChange(change: SessionsChange, query: CachedQuery, data: un
     case "session":
     case "messages":
       return change.ids.includes(query.sessionId);
+    case "thread":
+      return touchesThread(change, query.sessionId, data as Thread | undefined);
     // A new session may bring a new project; the tool in flight, tasks and tests come from the log
     // Pick up reads when each session and project last moved, which the log moves; its query reads
     // only the last week through an index, so it is cheap to refetch
@@ -54,6 +56,16 @@ function isStaleAfterChange(change: SessionsChange, query: CachedQuery, data: un
     case "settings":
       return false;
   }
+}
+
+/**
+ * Whether a change to sessions' logs touches the thread: one of its sessions changed. A session
+ * that newly ties in changes its own log too, but which thread it joins can't be told from here, so
+ * a thread only takes it in when one of its own sessions moves as well (or on the next visit).
+ */
+function touchesThread(change: SessionsChange, seed: string, thread: Thread | undefined): boolean {
+  const ids = thread?.sessions.map((s) => s.id) ?? [seed];
+  return ids.some((id) => change.ids.includes(id));
 }
 
 /** Whether the change's time meets the period, by the calendar's own overlap test. */

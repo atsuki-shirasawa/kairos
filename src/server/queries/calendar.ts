@@ -54,6 +54,29 @@ export function calendarSessions(
   return toCalendarSessions(db, rows, scope, now);
 }
 
+/**
+ * The given sessions as the calendar shows them, with every block of theirs, by start time. The
+ * caller has already decided which sessions may be shown.
+ */
+export function calendarSessionsByIds(
+  db: Database,
+  ids: readonly string[],
+  now: number,
+): CalendarSession[] {
+  const json = JSON.stringify(ids);
+  const rows = db
+    .query<CalendarRow, [string]>(
+      `${CALENDAR_ROW_SELECT} WHERE s.id IN (SELECT value FROM json_each(?1)) ORDER BY s.started_at`,
+    )
+    .all(json);
+  const scope: BlockScope = {
+    joins: "",
+    where: "g.session_id IN (SELECT value FROM json_each(?1))",
+    params: [json],
+  };
+  return toCalendarSessions(db, rows, scope, now);
+}
+
 /** Session rows as the calendar shows them, each with its blocks in the scope. */
 function toCalendarSessions(
   db: Database,

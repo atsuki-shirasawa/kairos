@@ -16,6 +16,7 @@ export function Detail({
   session: s,
   section,
   onSelect,
+  onThread,
   showConversation,
   onShowConversation,
   showNumbers,
@@ -24,6 +25,8 @@ export function Detail({
   session: SessionDetail;
   section: Section | null;
   onSelect: (id: string, at: number | null) => void;
+  /** Opens the session's thread. */
+  onThread: (id: string) => void;
   showConversation: boolean;
   onShowConversation: (show: boolean) => void;
   showNumbers: boolean;
@@ -47,7 +50,7 @@ export function Detail({
     <div className="space-y-8">
       {section && <SectionSummary session={s} section={section} onSelect={onSelect} />}
 
-      {hasFlow(s) && <Flow session={s} section={section} onSelect={onSelect} />}
+      {hasFlow(s) && <Flow session={s} section={section} onSelect={onSelect} onThread={onThread} />}
 
       {(s.commits.length > 0 || s.prs.length > 0) && section && (
         <Outcomes session={s} section={section} />

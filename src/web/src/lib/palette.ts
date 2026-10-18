@@ -31,6 +31,7 @@ export type PaletteAction =
   | { kind: "standup"; period: StandupPeriod }
   | { kind: "standupShown" }
   | { kind: "resume" }
+  | { kind: "thread" }
   | { kind: "filters" }
   | { kind: "clearFilters" }
   | { kind: "project"; id: number; hidden: boolean }
@@ -85,18 +86,23 @@ const command = (
 const keyed = (id: string, group: PaletteGroup, label: string, shortcut: Shortcut) =>
   command(id, group, label, { kind: "shortcut", shortcut });
 
-/** Places and layouts: Today, the calendar, Insights and its table. */
-function goCommands(): PaletteCommand[] {
+/** Places and layouts: Today, the calendar, Insights and its table, and the open session's thread. */
+function goCommands({ sessionOpen }: PaletteContext): PaletteCommand[] {
   const m = toolbarMessages();
-  const layouts: [Layout, string][] = [
+  // A thread has no key: it is opened from a session
+  const layouts: [Exclude<Layout, "thread">, string][] = [
     ["today", m.home],
     ["calendar", m.calendar],
     ["summary", m.summary],
     ["table", m.shortcutTable],
   ];
-  return layouts.map(([layout, label]) =>
+  const places = layouts.map(([layout, label]) =>
     keyed(`layout-${layout}`, "go", label, LAYOUTS[layout].shortcut),
   );
+  const thread = sessionOpen
+    ? [command("thread", "go", paletteMessages().openThread, { kind: "thread" })]
+    : [];
+  return [...places, ...thread];
 }
 
 /** Period lengths, and on a page with a period, moving through it and its blocks. */
@@ -198,7 +204,7 @@ function settingCommands({ theme, locale, showHeadless }: PaletteContext): Palet
 /** Every command the page offers, in group order, before a query narrows them. */
 export function paletteCommands(ctx: PaletteContext): PaletteCommand[] {
   return [
-    ...goCommands(),
+    ...goCommands(ctx),
     ...viewCommands(ctx),
     ...copyCommands(ctx),
     ...projectCommands(ctx),

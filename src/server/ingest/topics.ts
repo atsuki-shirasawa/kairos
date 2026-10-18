@@ -3,6 +3,7 @@
 // hours across several topics, while a pause in one topic leaves a fragment too short to summarize;
 // these signals split the first at a change of topic and join the second back to its neighbour.
 import { HOUR, MINUTE } from "../../shared/dates.ts";
+import { SHARED_BRANCHES } from "../branches.ts";
 import { refsOf } from "../refs.ts";
 import { isRequest } from "./activityKinds.ts";
 import type { ActivityRow } from "./statements.ts";
@@ -40,7 +41,7 @@ export interface Topic {
 export const INPUT_TOPIC_TOOLS = ["Bash", "EnterWorktree"] as const;
 
 /** Branches every topic passes through, which say nothing about the topic. */
-const SHARED_BRANCHES = new Set(["main", "master", "develop", "development", "HEAD"]);
+const SHARED = new Set(SHARED_BRANCHES);
 
 /** `.claude/worktrees/<name>` (Claude Code's own worktrees) anywhere in a path or command. */
 const WORKTREE_RE = /\.claude\/worktrees\/([\w.-]+)/g;
@@ -87,7 +88,7 @@ function commandKeys(command: string, into: Set<string>): void {
   for (const m of command.matchAll(BRANCH_RE)) {
     const name = m[1] ?? "";
     const remote = name.startsWith("origin/");
-    if (!name.startsWith("-") && !remote && !SHARED_BRANCHES.has(name)) into.add(`br:${name}`);
+    if (!name.startsWith("-") && !remote && !SHARED.has(name)) into.add(`br:${name}`);
   }
 }
 

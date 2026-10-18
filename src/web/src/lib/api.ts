@@ -18,6 +18,7 @@ import type {
   Settings,
   SettingsUpdate,
   SpansResponse,
+  Thread,
 } from "@shared/api.ts";
 import { reopenHandler } from "./reconnect.ts";
 
@@ -84,6 +85,8 @@ export const api = {
     request<Project>(`/api/projects/${id}`, sendJson("PATCH", update)),
 
   session: (id: string) => request<SessionDetail>(`/api/sessions/${encodeURIComponent(id)}`),
+
+  thread: (id: string) => request<Thread>(`/api/sessions/${encodeURIComponent(id)}/thread`),
 
   requestSummary: (id: string, start: number) =>
     request<{ queued: true }>(

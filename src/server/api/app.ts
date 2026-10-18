@@ -13,6 +13,7 @@ import type {
   SearchResponse,
   Settings,
   SpansResponse,
+  Thread,
 } from "../../shared/api.ts";
 import { DEFAULT_SUMMARY_LANG } from "../../shared/summaryLang.ts";
 import type { EventHub } from "../events.ts";
@@ -132,6 +133,11 @@ export function createApp({ db, events, summarizer, live, now, hiddenCwds }: App
   app.get("/api/sessions/:id", (c) => {
     const session = q.session(c.req.param("id"));
     return session ? c.json(session) : c.json({ error: "session not found" }, 404);
+  });
+
+  app.get("/api/sessions/:id/thread", (c) => {
+    const thread = q.thread(c.req.param("id"));
+    return thread ? c.json<Thread>(thread) : c.json({ error: "thread not found" }, 404);
   });
 
   // Generates (or regenerates) a section summary. The result is announced via SSE summary.updated.

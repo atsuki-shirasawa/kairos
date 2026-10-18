@@ -10,7 +10,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import { todayMessages } from "@/i18n/messages/today.ts";
 import { toolbarMessages } from "@/i18n/messages/toolbar.ts";
-import { LAYOUT_IDS, LAYOUTS, layoutOfPlace, type Place } from "@/lib/layouts.ts";
+import { JOURNAL_DEFAULT, LAYOUT_IDS, LAYOUTS, type Place } from "@/lib/layouts.ts";
 import { keyCap } from "@/lib/shortcuts.ts";
 import type { Layout, View } from "@/lib/view.ts";
 
@@ -71,6 +71,7 @@ const SEGMENTS: Record<Layout, SegmentLook | null> = {
   calendar: { Icon: CalendarDays, label: (m) => m.calendar },
   summary: { Icon: ChartColumn, label: (m) => m.summary },
   table: null,
+  thread: null,
 };
 
 /** Switches the main area between the layouts that have a segment (the calendar and the summary). */
@@ -99,7 +100,8 @@ export function LayoutToggle({
     >
       {LAYOUT_IDS.map((layout) => {
         const look = SEGMENTS[layout];
-        if (!look) return null;
+        const key = LAYOUTS[layout].shortcut;
+        if (!look || !key) return null;
         const label = look.label(m);
         return (
           <ToggleGroupItem
@@ -107,7 +109,7 @@ export function LayoutToggle({
             value={layout}
             className={SEGMENT}
             aria-label={label}
-            title={`${label} (${keyCap(LAYOUTS[layout].shortcut)})`}
+            title={`${label} (${keyCap(key)})`}
           >
             <look.Icon />
           </ToggleGroupItem>
@@ -121,7 +123,7 @@ export function LayoutToggle({
 function places(): [Place, string, string][] {
   return [
     ["today", todayMessages().heading, keyCap(LAYOUTS.today.shortcut)],
-    ["journal", toolbarMessages().journal, keyCap(LAYOUTS[layoutOfPlace("journal")].shortcut)],
+    ["journal", toolbarMessages().journal, keyCap(LAYOUTS[JOURNAL_DEFAULT].shortcut)],
   ];
 }
 
