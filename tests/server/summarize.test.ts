@@ -148,6 +148,25 @@ describe("Summarizer", () => {
     expect(p).not.toContain("[User] ログインフォームを実装して"); // not the earlier section's conversation
   });
 
+  test("a run that continues a unit of work is told what the unit's earlier runs did", async () => {
+    const marker = "This run continues one piece of work (#31)";
+    await summarizer.summarize({ sessionId: SID.loopPr, start: min(2110) });
+    const pr = prompts[0] ?? "";
+    expect(pr).toContain(`${marker} that earlier runs of the loop worked on:`);
+    // The iteration isn't summarized yet, so its block's title (its report) stands in
+    expect(pr).toContain("- loop: declared 4d5e6f7 for #31");
+    // Once the PR's run is summarized, its headline stands for it
+    await summarizer.summarize({ sessionId: SID.loopReply, start: min(2170) });
+    expect(prompts[1]).toContain(
+      "- loop: declared 4d5e6f7 for #31\n- Creating the PR and renaming it\nSay what this run added",
+    );
+    // The unit's first run, and a run on its own, have no earlier runs to be told of
+    await summarizer.summarize({ sessionId: SID.loopIssue, start: min(2100) });
+    await summarizer.summarize({ sessionId: SID.loopAnswer, start: min(2160) });
+    expect(prompts[2]).not.toContain(marker);
+    expect(prompts[3]).not.toContain(marker);
+  });
+
   test("the prompt carries the section's facts ahead of the transcript", async () => {
     await summarizer.summarize({ sessionId: SID.facts, start: min(1600) });
     const p = prompts[0] ?? "";

@@ -13,7 +13,7 @@ import type { RunStats } from "./claude.ts";
 import { buildDigest, DIGEST_KINDS, type DigestMessage } from "./digest.ts";
 import { formatFacts, loadFacts } from "./facts.ts";
 import { type LedgerUpdate, recordSection } from "./ledger/record.ts";
-import { PROMPT_VERSION, type PromptInput } from "./prompt.ts";
+import { PROMPT_VERSION, type PromptInput, type UnitContext } from "./prompt.ts";
 import { type RecapInput, type RecapTarget, recapHash } from "./recap.ts";
 import { type Mode, modeOf, type SectionRef, type SectionSize, type Target } from "./target.ts";
 
@@ -408,6 +408,7 @@ export function loadSectionInput(db: Database, target: SectionRef): SectionInput
   const session = loadSessionLabel(db, target.sessionId);
   const automated = session?.run_kind === RUN_KINDS.automation;
   const previous = loadPreviousHeadlines(db, target);
+  const unit = automated && session ? loadUnitContext(db, session, target) : undefined;
   // A run reads its assignment at its start, so only its first section quotes what it read
   const quotesInputs = automated && previous.length === 0;
   const digest = buildDigest(loadMessages(db, target, end), {
@@ -424,6 +425,7 @@ export function loadSectionInput(db: Database, target: SectionRef): SectionInput
       projectName: session?.project ?? null,
       automated,
       previous,
+      ...(unit ? { unit } : {}),
       facts: factsText,
       digest,
     },
@@ -432,11 +434,16 @@ export function loadSectionInput(db: Database, target: SectionRef): SectionInput
   };
 }
 
-/** A session as a summary prompt names it: its title, its project, and what kind of run it is. */
+/**
+ * A session as a summary prompt names it: its title, its project, what kind of run it is, and the
+ * unit of work it belongs to.
+ */
 interface SessionLabel {
   title: string | null;
   project: string | null;
   run_kind: RunKind | null;
+  run_unit: string | null;
+  run_unit_ref: number | null;
 }
 
 /** The session's display title, its project's name and its run kind. */
@@ -444,7 +451,7 @@ function loadSessionLabel(db: Database, sessionId: string): SessionLabel | null 
   return db
     .query<SessionLabel, [string]>(
       `SELECT COALESCE(s.custom_title, s.agent_name, s.ai_title, substr(s.first_prompt, 1, 120)) AS title,
-              p.name AS project, s.run_kind
+              p.name AS project, s.run_kind, s.run_unit, s.run_unit_ref
        FROM sessions s LEFT JOIN projects p ON p.id = s.project_id WHERE s.id = ?`,
     )
     .get(sessionId);
@@ -452,16 +459,45 @@ function loadSessionLabel(db: Database, sessionId: string): SessionLabel | null 
 
 /** Headlines of the latest sections before this one in the same session, oldest first. */
 function loadPreviousHeadlines(db: Database, target: SectionRef): string[] {
-  return db
+  const rows = db
     .query<{ headline: string | null }, [string, number]>(
       `SELECT COALESCE(sm.headline, g.fallback_title) AS headline
        FROM segments g LEFT JOIN summaries sm ON sm.block_id = g.id
        WHERE g.session_id = ? AND g.start < ? ORDER BY g.start`,
     )
-    .all(target.sessionId, target.start)
+    .all(target.sessionId, target.start);
+  return latestHeadlines(rows);
+}
+
+/** The latest `PREVIOUS_HEADLINES` of blocks' headlines (oldest first), leaving out blocks with none. */
+function latestHeadlines(rows: { headline: string | null }[]): string[] {
+  return rows
     .map((r) => r.headline)
     .filter((h): h is string => Boolean(h))
     .slice(-PREVIOUS_HEADLINES);
+}
+
+/**
+ * The unit of work the section's run continues: headlines of the latest sections of its unit's
+ * other runs that started before it, oldest first. Undefined when the run is in no unit or is the
+ * unit's first.
+ */
+function loadUnitContext(
+  db: Database,
+  session: SessionLabel,
+  target: SectionRef,
+): UnitContext | undefined {
+  if (session.run_unit === null || session.run_unit_ref === null) return undefined;
+  const rows = db
+    .query<{ headline: string | null }, [string, string, number]>(
+      `SELECT COALESCE(sm.headline, g.fallback_title) AS headline
+       FROM sessions s JOIN segments g ON g.session_id = s.id
+       LEFT JOIN summaries sm ON sm.block_id = g.id
+       WHERE s.run_unit = ? AND s.id != ? AND g.start < ? ORDER BY g.start`,
+    )
+    .all(session.run_unit, target.sessionId, target.start);
+  const earlier = latestHeadlines(rows);
+  return earlier.length ? { ref: session.run_unit_ref, earlier } : undefined;
 }
 
 /** The main conversation's own messages in the section, leaving out subagents, copies and scheduled runs. */

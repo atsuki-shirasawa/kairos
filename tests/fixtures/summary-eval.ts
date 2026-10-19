@@ -784,4 +784,48 @@ export const EVAL_CASES: EvalCase[] = [
       "  - [todo] The CLI's --week flag keeps its own copy of the old rule",
     ].join("\n"),
   },
+  {
+    id: "automation-unit-pr",
+    pattern:
+      "the run that opens an iteration's PR, summarized as the first piece of work: it retold the issue the iteration had already done instead of the PR it opened",
+    lang: "en",
+    input: {
+      sessionTitle:
+        "/goal Open the draft pull request for the pushed branch, as your instructions say",
+      projectName: "calendar-lib",
+      automated: true,
+      previous: [],
+      unit: { ref: 87, earlier: ["ISO week number fix for early January (#87)"] },
+      facts: [
+        "Commits and PRs:",
+        "- opened PR #91 fix: ISO week numbers for the first days of January",
+      ].join("\n"),
+      digest: [
+        "[User] /goal Open the draft pull request for the pushed branch, as your instructions say",
+        "  → Bash: cat /inlet/declared.json",
+        '    ← { "issue": 87, "branch": "impl/87", "commit": "3f9a2c1" }',
+        "  → Bash: gh pr create --draft --base main --head impl/87 --title 'fix: ISO week numbers for the first days of January' --body-file /tmp/body.md",
+        "    ← https://github.com/acme/calendar-lib/pull/91",
+        "  → Bash: gh pr view 91 --json isDraft,statusCheckRollup",
+        '    ← { "isDraft": true, "statusCheckRollup": [{ "name": "test", "status": "IN_PROGRESS" }] }',
+        "[Claude] loop: opened https://github.com/acme/calendar-lib/pull/91 for #87",
+      ].join("\n"),
+    },
+    open: [
+      { what: "CI still running on the PR", match: ["CI", "check", "test"], kinds: ["waiting"] },
+    ],
+    notResolved: ["weekOf", "ISO 8601"],
+    notOpen: ["weekOf", "--week"],
+    headlineNames: ["PR"],
+    idealHeadline: "Draft PR #91 for the ISO week fix",
+    ideal: [
+      "- Goal: Open the draft PR for issue #87's fix on impl/87",
+      "- Done:",
+      "  - Opened draft PR #91 from impl/87 into main",
+      "- Resolved:",
+      "  - Draft PR for #87: PR #91 opened",
+      "- Open:",
+      "  - [waiting] The test check on PR #91 is still running",
+    ].join("\n"),
+  },
 ];
