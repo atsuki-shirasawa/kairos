@@ -3,10 +3,19 @@
 // a DERIVED_VERSION bump reaches sessions whose logs are gone.
 import type { Database } from "bun:sqlite";
 import { readKv, writeKv } from "../db/kv.ts";
+import { RUN_KINDS, type RunKind } from "../runKinds.ts";
 import type { ProjectPlacer } from "./placement.ts";
 import { type BlockOutput, blockRefs } from "./prRefs.ts";
 import { runKindOf } from "./runKinds.ts";
-import { carryIds, type StoredBlock, unchanged, workBlocks } from "./segments.ts";
+import {
+  type BlockTitler,
+  carryIds,
+  fallbackTitle,
+  replyTitle,
+  type StoredBlock,
+  unchanged,
+  workBlocks,
+} from "./segments.ts";
 import type { ActivityRow, AggregateRow, HeadlessRunRow, Statements } from "./statements.ts";
 import type { PrMark } from "./topics.ts";
 import { type TurnRow, turnSpans, type WaitRow } from "./turnSpans.ts";
@@ -22,6 +31,20 @@ export interface DerivedOptions {
   version: number;
 }
 
+/** The kind `classifyRuns` gave a session's runs (null for a person's), and the others it changed. */
+interface RunsClassified {
+  kind: RunKind | null;
+  changed: string[];
+}
+
+/**
+ * How a session's blocks are titled until summarized: an automation run's request is the loop's
+ * fixed instruction, shared by all its runs, so its blocks take their last reply instead.
+ */
+function blockTitler(kind: RunKind | null): BlockTitler {
+  return kind === RUN_KINDS.automation ? replyTitle : fallbackTitle;
+}
+
 /** Recomputes a session's derived data from its stored rows. */
 export class DerivedData {
   constructor(
@@ -31,25 +54,29 @@ export class DerivedData {
     private readonly opts: DerivedOptions,
   ) {}
 
-  /** Recomputes aggregates and work blocks from messages. */
-  refreshSession(sessionId: string): void {
+  /**
+   * Recomputes aggregates and work blocks from messages. Returns the IDs whose blocks changed: the
+   * session, then any other run of its directory whose kind it changed (see `retitleRuns`).
+   */
+  refreshSession(sessionId: string): string[] {
     if (this.q.hasPredecessor.get(sessionId)) this.markCopies(sessionId);
     this.updateAggregates(sessionId);
-    this.classifyRuns(sessionId);
-    const activity = this.q.activity.all(sessionId) as ActivityRow[];
-    this.rebuildBlocks(sessionId, activity);
+    const runs = this.classifyRuns(sessionId);
+    this.retitleRuns(runs);
+    const activity = this.activityOf(sessionId);
+    this.rebuildBlocks(sessionId, activity, blockTitler(runs.kind));
     this.linkRefs(sessionId, activity);
     this.rebuildTurnSpans(sessionId);
+    return [sessionId, ...runs.changed];
   }
 
   /** Refreshes a main session and the session continuing it, returning the IDs refreshed. */
   refreshWithContinuation(sessionId: string): string[] {
-    this.refreshSession(sessionId);
+    const refreshed = this.refreshSession(sessionId);
     // If the continued session was ingested first, this is where we learn which part is a copy
     const next = this.q.continuedIn.get(sessionId) as { id: string } | null;
-    if (!next) return [sessionId];
-    this.refreshSession(next.id);
-    return [sessionId, next.id];
+    if (!next) return refreshed;
+    return [...new Set([...refreshed, ...this.refreshSession(next.id)])];
   }
 
   /** Marks the rows of a continued session that were copied from the session it continues. */
@@ -74,22 +101,36 @@ export class DerivedData {
    * after `updateAggregates`, which decides whether the session is headless, and after its
    * artifacts are stored.
    */
-  private classifyRuns(sessionId: string): void {
+  private classifyRuns(sessionId: string): RunsClassified {
     this.q.clearRunKind.run(sessionId);
     const runs = this.q.headlessRunsBeside.all(sessionId) as HeadlessRunRow[];
     // A person's session changes no run's kind, so the directory's runs are left as they are
-    if (!runs.some((r) => r.id === sessionId)) return;
+    if (!runs.some((r) => r.id === sessionId)) return { kind: null, changed: [] };
     const kind = runKindOf(runs.map((r) => ({ startedAt: r.startedAt, made: r.made === 1 })));
-    for (const r of runs) this.q.setRunKind.run(kind, r.id);
+    const changed = runs.filter((r) => this.q.setRunKind.run(kind, r.id).changes > 0);
+    return { kind, changed: changed.map((r) => r.id).filter((id) => id !== sessionId) };
+  }
+
+  /**
+   * Rebuilds the blocks of the other runs whose kind just changed, which all took the session's
+   * kind: an automation run's blocks are titled by what it reported (see `blockTitler`).
+   */
+  private retitleRuns({ kind, changed }: RunsClassified): void {
+    for (const id of changed) this.rebuildBlocks(id, this.activityOf(id), blockTitler(kind));
+  }
+
+  /** The session's main-thread activity that blocks and refs are drawn from. */
+  private activityOf(sessionId: string): ActivityRow[] {
+    return this.q.activity.all(sessionId) as ActivityRow[];
   }
 
   /**
    * Replaces the session's work blocks with ones recomputed from its activity, carrying each
    * stored block's id to the new block it overlaps most (see `carryIds`).
    */
-  private rebuildBlocks(sessionId: string, activity: ActivityRow[]): void {
+  private rebuildBlocks(sessionId: string, activity: ActivityRow[], titleOf: BlockTitler): void {
     const prs = this.q.prsOpened.all(sessionId) as PrMark[];
-    const blocks = workBlocks(activity, prs, this.opts.gapMs);
+    const blocks = workBlocks(activity, prs, this.opts.gapMs, titleOf);
     const stored = this.q.storedBlocks.all(sessionId) as StoredBlock[];
     const changes = carryIds(stored, blocks);
     for (const { id, into } of changes.merged) this.mergeBlock(id, into);
@@ -106,7 +147,7 @@ export class DerivedData {
    * Replaces the issue / PR numbers the session's blocks touched (see `blockRefs`). Run again for a
    * session that moved to another project, since its numbers belong to that project's repository.
    */
-  linkRefs(sessionId: string, activity = this.q.activity.all(sessionId) as ActivityRow[]): void {
+  linkRefs(sessionId: string, activity = this.activityOf(sessionId)): void {
     const repo = this.placer.sessionRepo(sessionId);
     const blocks = (this.q.storedBlocks.all(sessionId) as StoredBlock[]).sort(
       (a, b) => a.start - b.start,

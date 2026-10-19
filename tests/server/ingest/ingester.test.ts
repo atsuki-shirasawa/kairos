@@ -208,14 +208,23 @@ describe("README scenarios", () => {
     expect(runKind(SID.basic)).toBeNull();
   });
 
+  test("20. containerRuns: an automation run's block is titled by its last reply", () => {
+    expect(fallbackTitles(SID.containerPr)).toEqual(["ok"]);
+    expect(fallbackTitles(SID.containerRun)).toEqual(["ok"]);
+  });
+
   test("3. headless: another run in the probe's directory on the next day makes both automation", () => {
     const dir = join(projectsDir, "-Users-me-tmp-probe");
     const next = "3a3a3a3a-3a3a-4a3a-8a3a-3a3a3a3a3a3a";
     const log = readFileSync(join(dir, `${SID.headless}.jsonl`), "utf8");
     writeFileSync(join(dir, `${next}.jsonl`), nextDay(log.replaceAll(SID.headless, next)));
-    ingester.scan();
+    const { sessions } = ingester.scan();
     expect(runKind(next)).toBe("automation");
     expect(runKind(SID.headless)).toBe("automation");
+    // The earlier run was titled as a trial; turning automation retitles its block, and the scan
+    // says so, so an open calendar refetches that day too
+    expect(fallbackTitles(SID.headless)).toEqual(["ok"]);
+    expect([...sessions]).toContain(SID.headless);
   });
 
   test("16. sdkCommand: a slash command from the SDK is the SDK input; hook text is not", () => {

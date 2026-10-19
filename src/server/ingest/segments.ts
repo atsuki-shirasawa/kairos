@@ -27,6 +27,9 @@ export interface WorkBlock {
   fallbackTitle: string | null;
 }
 
+/** How a work block is titled until a summary exists (`fallbackTitle` or `replyTitle`). */
+export type BlockTitler = (inside: ActivityRow[]) => string | null;
+
 /**
  * The work blocks drawn from a session's main-thread activity (sorted by time): split wherever
  * the gap is longer than `gapMs` and, in a long block, where the topic changes, with short
@@ -37,9 +40,10 @@ export function workBlocks(
   activity: ActivityRow[],
   prs: PrMark[],
   gapMs = WORK_BLOCK_GAP_MS,
+  titleOf: BlockTitler = fallbackTitle,
 ): WorkBlock[] {
   const parts = gapPieces(activity, gapMs).flatMap((rows) => splitByTopic(rows, prs));
-  return joinFragments(parts, prs).map(toWorkBlock);
+  return joinFragments(parts, prs).map((inside) => toWorkBlock(inside, titleOf));
 }
 
 /** The drawn activity in pieces split on a gap longer than `gapMs`, keeping only work. */
@@ -54,12 +58,12 @@ function gapPieces(activity: ActivityRow[], gapMs: number): ActivityRow[][] {
 }
 
 /** A piece of activity as a work block: its span, prompt count and fallback title. */
-function toWorkBlock(inside: ActivityRow[]): WorkBlock {
+function toWorkBlock(inside: ActivityRow[], titleOf: BlockTitler): WorkBlock {
   return {
     start: inside[0]?.ts ?? 0,
     end: inside.at(-1)?.ts ?? 0,
     prompts: inside.filter(isPrompt).length,
-    fallbackTitle: fallbackTitle(inside),
+    fallbackTitle: titleOf(inside),
   };
 }
 
@@ -92,10 +96,26 @@ export function fallbackTitle(inside: ActivityRow[]): string | null {
     prompts.find((r) => r.kind === "prompt") ??
     prompts[0] ??
     inside.find((r) => r.kind === "sdk_prompt");
-  const lastReply = inside.findLast((r) => r.kind === "assistant");
-  return (
-    (firstPrompt ?? lastReply)?.text?.trim().split("\n")[0]?.slice(0, FALLBACK_TITLE_CHARS) ?? null
-  );
+  return titleLine(firstPrompt ?? lastReply(inside));
+}
+
+/**
+ * Title for a block of an automation run until a summary exists: the first line of its last reply,
+ * else as `fallbackTitle`. Such a run's request is a script's fixed instruction, the same for
+ * every run of the loop, while the run ends by reporting what it did ("opened … for #1621").
+ */
+export function replyTitle(inside: ActivityRow[]): string | null {
+  return titleLine(lastReply(inside)) ?? fallbackTitle(inside);
+}
+
+/** The block's last reply to the request. */
+function lastReply(inside: ActivityRow[]): ActivityRow | undefined {
+  return inside.findLast((r) => r.kind === "assistant");
+}
+
+/** The first line of a row's text as a title, or null when it has none. */
+function titleLine(row: ActivityRow | undefined): string | null {
+  return row?.text?.trim().split("\n")[0]?.slice(0, FALLBACK_TITLE_CHARS) || null;
 }
 
 /** A work block as stored, with the id that summaries and open items reference. */

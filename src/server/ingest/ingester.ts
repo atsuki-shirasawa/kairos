@@ -40,7 +40,7 @@ export const PARSER_VERSION = 10;
  * Bump when the calculation of derived data that can be recomputed from the DB (aggregates, work blocks,
  * turn spans, run kinds, project assignment from the startup cwd) changes. All sessions are recomputed, even those whose logs are gone.
  */
-export const DERIVED_VERSION = 11;
+export const DERIVED_VERSION = 12;
 
 const RECAP_SUFFIX = /\s*\(disable recaps in \/config\)\s*$/;
 

@@ -4,6 +4,7 @@ import {
   drawnActivity,
   fallbackTitle,
   isWork,
+  replyTitle,
   toSegments,
   workBlocks,
 } from "../../../src/server/ingest/segments.ts";
@@ -68,9 +69,33 @@ describe("fallbackTitle", () => {
     expect(fallbackTitle([row(0, "tool_use")])).toBeNull();
   });
 
+  test("gives no title for a request whose first line is blank", () => {
+    expect(fallbackTitle([row(0, "sdk_prompt", "  ")])).toBeNull();
+  });
+
   test("keeps at most 120 characters", () => {
     expect(fallbackTitle([row(0, "prompt", "x".repeat(200))])).toBe("x".repeat(120));
   });
+});
+
+describe("replyTitle", () => {
+  test("takes the first line of the last reply over the request", () => {
+    const inside = [row(0, "sdk_prompt", "/goal Do one iteration"), row(1, "assistant", "first")];
+    expect(replyTitle([...inside, row(2, "assistant", "opened #12 for #11\nmore")])).toBe(
+      "opened #12 for #11",
+    );
+  });
+
+  test("falls back to the request when there is no reply with text", () => {
+    expect(replyTitle([row(0, "sdk_prompt", "run it"), row(1, "assistant", "  ")])).toBe("run it");
+    expect(replyTitle([row(0, "tool_use")])).toBeNull();
+  });
+});
+
+test("workBlocks titles each block with the titler it is given", () => {
+  const rows = [row(0, "sdk_prompt", "run it"), row(1, "assistant", "done")];
+  expect(workBlocks(rows, [], 15 * m).map((b) => b.fallbackTitle)).toEqual(["run it"]);
+  expect(workBlocks(rows, [], 15 * m, replyTitle).map((b) => b.fallbackTitle)).toEqual(["done"]);
 });
 
 test("workBlocks splits activity into blocks, dropping fragments that aren't work", () => {
