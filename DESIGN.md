@@ -177,8 +177,8 @@ components:
 
 # Kairos Design
 
-Direction **"Indigo hours"**, chosen on 2026-10-05 from three compared proposals
-([comparison page](https://claude.ai/artifact/Bgd1XQLQL67RRbRJH36ZaY)).
+Direction **"Indigo hours"**<!-- site:skip -->, chosen on 2026-10-05 from three compared proposals
+([comparison page](https://claude.ai/artifact/Bgd1XQLQL67RRbRJH36ZaY))<!-- /site:skip -->.
 
 This file holds the principles, the tokens and the components every screen shares. Each screen's
 layout is in [docs/design/screens.md](docs/design/screens.md), and the reasons behind the places a
