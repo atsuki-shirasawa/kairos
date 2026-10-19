@@ -32,7 +32,7 @@ export interface BackfillResult {
 }
 
 /**
- * Summarizes the given sections (from `findTargets` or `findOldFormat`) one at a time (one `claude -p` at a time, like the server does).
+ * Summarizes the given sections (from `findTargets` or `findRegenerations`) one at a time (one `claude -p` at a time, like the server does).
  * Each summary is saved as soon as it is written, so an interrupted run resumes where it stopped.
  */
 export async function backfill(

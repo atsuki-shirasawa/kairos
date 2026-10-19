@@ -118,12 +118,14 @@ export const COMMANDS: Record<string, CommandHelp> = {
       "Each summary is saved as soon as it is written, so stopping with Ctrl+C loses nothing\n" +
       "and running it again picks up the rest.\n" +
       "With --old-format it regenerates the full summaries written before open items were\n" +
-      "tracked, oldest first, so a later section settles what an earlier one left open.",
+      "tracked, oldest first, so a later section settles what an earlier one left open, and\n" +
+      "the summaries of headless runs written by an older prompt.",
     options: [
       ["since", "only blocks that started on or after this day (YYYY-MM-DD)"],
       ["until", "only blocks that started on or before this day"],
       ["limit", "at most n blocks (the newest; the oldest with --old-format)"],
       "old-format",
+      "headless",
       "dry-run",
       "summary-model",
       "summary-effort",
@@ -137,6 +139,7 @@ export const COMMANDS: Record<string, CommandHelp> = {
       "kairos summarize --since 2026-09-01",
       "kairos summarize --limit 20 --summary-lang ja",
       "kairos summarize --old-format --since 2026-10-03 --dry-run",
+      "kairos summarize --old-format --headless",
     ],
   },
   report: {

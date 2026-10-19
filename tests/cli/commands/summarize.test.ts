@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import {
-  describeOldFormat,
+  describeRegenerations,
   describeTargets,
   formatOutcome,
   summarizeFilter,
 } from "../../../src/cli/commands/summarize.ts";
-import type { NamedTarget } from "../../../src/server/summarize/store.ts";
+import type { NamedTarget, RegenerateReason } from "../../../src/server/summarize/store.ts";
 import { AUTO_SUMMARY_DAYS } from "../../../src/shared/sections.ts";
 
 const at = (d: number, h: number) => new Date(2026, 9, d, h).getTime();
@@ -58,13 +58,35 @@ test("the closing line counts every outcome", () => {
 });
 
 test("an --old-format plan counts the summaries to rewrite and why, or says none are old", () => {
-  const regen = (start: number, oldFormat: boolean) => ({ ...target(start, "summary"), oldFormat });
-  expect(describeOldFormat([regen(at(1, 9), true), regen(at(3, 9), false)], false)).toEqual([
+  const regen = (start: number, reason: RegenerateReason) => ({
+    ...target(start, "summary"),
+    reason,
+  });
+  expect(
+    describeRegenerations(
+      [regen(at(1, 9), "old-format"), regen(at(3, 9), "after-old-format")],
+      false,
+    ),
+  ).toEqual([
     "2 summaries to regenerate (2026-10-01 – 2026-10-03), oldest first: 1 in the old format, 1 after them in the same sessions",
   ]);
-  expect(describeOldFormat([regen(at(1, 9), true)], false)).toEqual([
+  expect(describeRegenerations([regen(at(1, 9), "old-format")], false)).toEqual([
     "1 summary to regenerate (2026-10-01 – 2026-10-01), oldest first: 1 in the old format",
   ]);
-  expect(describeOldFormat([], false)).toEqual(["No summary is in the old format."]);
-  expect(describeOldFormat([], true)).toEqual(["No summary in that range is in the old format."]);
+  expect(
+    describeRegenerations(
+      [
+        regen(at(2, 9), "older-prompt"),
+        regen(at(2, 10), "older-prompt"),
+        regen(at(3, 9), "headline-only"),
+      ],
+      false,
+    ),
+  ).toEqual([
+    "3 summaries to regenerate (2026-10-02 – 2026-10-03), oldest first: 2 of headless runs from an older prompt, 1 of automation runs with only a headline",
+  ]);
+  expect(describeRegenerations([], false)).toEqual(["No summary is due to be regenerated."]);
+  expect(describeRegenerations([], true)).toEqual([
+    "No summary in that range is due to be regenerated.",
+  ]);
 });

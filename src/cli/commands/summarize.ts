@@ -3,7 +3,13 @@
 import type { Database } from "bun:sqlite";
 import { SUMMARIZER_CWD } from "../../server/paths.ts";
 import type { BackfillResult } from "../../server/summarize/backfill.ts";
-import type { NamedTarget, RegenerateTarget, TargetFilter } from "../../server/summarize/store.ts";
+import type {
+  NamedTarget,
+  RegenerateFilter,
+  RegenerateReason,
+  RegenerateTarget,
+  TargetFilter,
+} from "../../server/summarize/store.ts";
 import type { Summarizer } from "../../server/summarize/summarizer.ts";
 import { DAY, isoDay } from "../../shared/dates.ts";
 import { AUTO_SUMMARY_DAYS } from "../../shared/sections.ts";
@@ -85,33 +91,42 @@ export function describeTargets(selection: Selection, narrowed: boolean): string
   return lines;
 }
 
-/** The summaries to regenerate with `--old-format`, oldest first (see `findOldFormat`). */
-export async function selectOldFormat(
+/** The summaries to regenerate with `--old-format`, oldest first (see `findRegenerations`). */
+export async function selectRegenerations(
   db: Database,
-  filter: TargetFilter,
+  filter: RegenerateFilter,
   now: number,
 ): Promise<RegenerateTarget[]> {
-  const { findOldFormat } = await import("../../server/summarize/store.ts");
-  return findOldFormat(db, now, filter);
+  const { findRegenerations } = await import("../../server/summarize/store.ts");
+  return findRegenerations(db, now, filter);
 }
+
+/** How a `--old-format` plan names the summaries regenerated for each reason. */
+const REASON_TEXT: Record<RegenerateReason, string> = {
+  "old-format": "in the old format",
+  "after-old-format": "after them in the same sessions",
+  "older-prompt": "of headless runs from an older prompt",
+  "headline-only": "of automation runs with only a headline",
+};
 
 /**
  * What a `--old-format` run is about to do: how many summaries it rewrites, from when to when, and
- * how many of them follow an old-format one in its session rather than being old themselves.
+ * how many for each reason (see `RegenerateReason`).
  */
-export function describeOldFormat(targets: RegenerateTarget[], narrowed: boolean): string[] {
+export function describeRegenerations(targets: RegenerateTarget[], narrowed: boolean): string[] {
   if (targets.length === 0)
     return [
       narrowed
-        ? "No summary in that range is in the old format."
-        : "No summary is in the old format.",
+        ? "No summary in that range is due to be regenerated."
+        : "No summary is due to be regenerated.",
     ];
-  const old = targets.filter((t) => t.oldFormat).length;
-  const after = targets.length - old;
+  const reasons = Object.entries(REASON_TEXT).flatMap(([reason, text]) => {
+    const n = targets.filter((t) => t.reason === reason).length;
+    return n ? [`${n} ${text}`] : [];
+  });
   return [
     `${plural(targets.length, "summary", "summaries")} to regenerate (${dayRange(targets)}), ` +
-      `oldest first: ${old} in the old format` +
-      (after ? `, ${after} after them in the same sessions` : ""),
+      `oldest first: ${reasons.join(", ")}`,
   ];
 }
 
@@ -134,20 +149,20 @@ export interface RunPlan {
 
 /**
  * The run `ctx` asks for: the blocks still without a summary (the running server's recent days
- * left to it), or with `--old-format` the old-format summaries, which exist already, so the
+ * left to it), or with `--old-format` the summaries to regenerate, which exist already, so the
  * server never takes them on itself.
  */
 export async function planRun(
   db: Database,
-  ctx: Pick<CliContext, "period" | "limit" | "oldFormat">,
+  ctx: Pick<CliContext, "period" | "limit" | "oldFormat" | "headless">,
   serverSummarizes: boolean,
   now: number,
 ): Promise<RunPlan> {
   const filter = summarizeFilter(ctx);
   const narrowed = Boolean(ctx.period.since || ctx.period.until);
   if (ctx.oldFormat) {
-    const targets = await selectOldFormat(db, filter, now);
-    return { selection: { targets }, lines: describeOldFormat(targets, narrowed) };
+    const targets = await selectRegenerations(db, { ...filter, headlessOnly: ctx.headless }, now);
+    return { selection: { targets }, lines: describeRegenerations(targets, narrowed) };
   }
   const selection = await selectTargets(db, filter, serverSummarizes, now);
   return { selection, lines: describeTargets(selection, narrowed) };

@@ -133,3 +133,10 @@ test("options are validated in a fixed order, summary options first", () => {
   expect(thrown(() => buildContext("summarize", line, where))).toContain("--summary-lang");
   expect(UsageError.prototype).toBeInstanceOf(CliError);
 });
+
+test("--headless narrows --old-format, and is refused without it", () => {
+  const ctx = (argv: string[]) => buildContext("summarize", parseCommandLine(argv), where);
+  expect(ctx(["summarize", "--old-format", "--headless"]).headless).toBe(true);
+  expect(ctx(["summarize", "--old-format"]).headless).toBe(false);
+  expect(thrown(() => ctx(["summarize", "--headless"]))).toContain("--old-format");
+});

@@ -5,8 +5,17 @@ import {
   backfill,
   MAX_CONSECUTIVE_FAILURES,
 } from "../../src/server/summarize/backfill.ts";
-import { findOldFormat, findTargets } from "../../src/server/summarize/store.ts";
+import { PROMPT_VERSION } from "../../src/server/summarize/prompt.ts";
+import {
+  findOldFormat,
+  findOutdatedRuns,
+  findRegenerations,
+  findTargets,
+  type RunRegeneration,
+  runRegeneration,
+} from "../../src/server/summarize/store.ts";
 import { Summarizer } from "../../src/server/summarize/summarizer.ts";
+import type { Mode } from "../../src/server/summarize/target.ts";
 import { SID } from "../fixtures/ids.ts";
 import { markdownRunner } from "./answers.ts";
 import { min, setup } from "./ingest/helpers.ts";
@@ -155,9 +164,9 @@ test("also regenerates the full summaries after an old-format one in its session
   expect(findOldFormat(db, now)).toEqual([]);
 
   putSummary(db, SID.ledgerOpen, min(1700));
-  expect(findOldFormat(db, now).map((t) => [t.start, t.oldFormat])).toEqual([
-    [min(1700), true],
-    [min(1740), false],
+  expect(findOldFormat(db, now).map((t) => [t.start, t.reason])).toEqual([
+    [min(1700), "old-format"],
+    [min(1740), "after-old-format"],
   ]);
 });
 
@@ -180,3 +189,90 @@ function headlessStart(): number {
       .get(SID.headless)?.start ?? 0
   );
 }
+
+/** The start of a session's first section. */
+function firstStart(sessionId: string): number {
+  return (
+    db
+      .query<{ start: number }, [string]>(
+        "SELECT MIN(start) AS start FROM segments WHERE session_id = ?",
+      )
+      .get(sessionId)?.start ?? 0
+  );
+}
+
+/** Marks every stored summary as written by the current prompt. */
+function markCurrent(): void {
+  db.run("UPDATE summaries SET prompt_version = ?", [PROMPT_VERSION]);
+}
+
+test("finds headless runs' summaries from an older prompt, oldest first, in the mode due now", async () => {
+  putSummary(db, SID.containerPr, firstStart(SID.containerPr), { body: "" });
+  putSummary(db, SID.headless, firstStart(SID.headless), { body: "" });
+  putSummary(db, SID.basic, min(0));
+  // A person's summary from an older prompt is in the ledger already, so it stays
+  db.run("UPDATE summaries SET prompt_version = 1");
+  putSummary(db, SID.basic, min(45));
+  const outdated = findOutdatedRuns(db, now);
+  expect(outdated.map((t) => [t.sessionId, t.mode, t.reason])).toEqual([
+    [SID.headless, "title", "older-prompt"],
+    [SID.containerPr, "title", "older-prompt"],
+  ]);
+  expect(findRegenerations(db, now).map((t) => t.sessionId)).toEqual([
+    SID.basic,
+    SID.headless,
+    SID.containerPr,
+  ]);
+  expect(findRegenerations(db, now, { limit: 1 }).map((t) => t.sessionId)).toEqual([SID.basic]);
+  expect(findRegenerations(db, now, { headlessOnly: true })).toEqual(outdated);
+
+  await backfill(db, summarizer, outdated);
+  expect(findOutdatedRuns(db, now)).toEqual([]);
+});
+
+test("finds an automation run's headline when a full summary is due now, but not a trial's", () => {
+  putSummary(db, SID.containerPr, firstStart(SID.containerPr), { body: "" });
+  putSummary(db, SID.headless, firstStart(SID.headless), { body: "" });
+  markCurrent();
+  // Short, so a headline is still all it is due
+  expect(findOutdatedRuns(db, now)).toEqual([]);
+
+  lengthen(SID.containerPr, firstStart(SID.containerPr));
+  lengthen(SID.headless, firstStart(SID.headless));
+  // As if the summaries had been written over the longer sections, so they are not stale
+  db.run("UPDATE summaries SET covered_until = (SELECT end FROM segments WHERE id = block_id)");
+  expect(findOutdatedRuns(db, now).map((t) => [t.sessionId, t.mode, t.reason])).toEqual([
+    [SID.containerPr, "summary", "headline-only"],
+  ]);
+});
+
+test("leaves a summary older than its section to the lookup the server shares", () => {
+  putSummary(db, SID.containerPr, firstStart(SID.containerPr), { coveredUntil: 0 });
+  expect(findOutdatedRuns(db, now)).toEqual([]);
+  expect(findTargets(db, now).map((t) => t.sessionId)).toContain(SID.containerPr);
+});
+
+test("leaves out Kairos's own summary runs and a run still in progress", () => {
+  putSummary(db, SID.summarizerRun, firstStart(SID.summarizerRun));
+  expect(
+    findOutdatedRuns(db, now, { hiddenCwds: ["/Users/me/tmp/scratch/kairos-data/summarizer"] }),
+  ).toEqual([]);
+  putSummary(db, SID.containerRun, firstStart(SID.containerRun));
+  const end = db
+    .query<{ end: number }, [string]>("SELECT MAX(end) AS end FROM segments WHERE session_id = ?")
+    .get(SID.containerRun)?.end;
+  expect(findOutdatedRuns(db, end ?? 0).map((t) => t.sessionId)).not.toContain(SID.containerRun);
+});
+
+test("a headless run's summary is due again when an older prompt wrote it, or a body is due now", () => {
+  const cases: [boolean, boolean, Mode, RunRegeneration | null][] = [
+    [true, true, "title", { reason: "older-prompt", mode: "title" }],
+    // A body is kept, even where a headline is all the section is due now
+    [true, false, "title", { reason: "older-prompt", mode: "summary" }],
+    [false, true, "summary", { reason: "headline-only", mode: "summary" }],
+    [false, true, "title", null],
+    [false, false, "summary", null],
+  ];
+  for (const [olderPrompt, headlineOnly, modeNow, due] of cases)
+    expect(runRegeneration({ olderPrompt, headlineOnly }, modeNow)).toEqual(due);
+});

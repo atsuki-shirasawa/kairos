@@ -5,7 +5,7 @@ import { DAY } from "../../shared/dates.ts";
 import { AUTO_SUMMARY_DAYS, isSummarizable, SECTION_IDLE_MS } from "../../shared/sections.ts";
 import { sqlList } from "../db/sqlList.ts";
 import { refsOf } from "../refs.ts";
-import { automationSql, RUN_KINDS, type RunKind } from "../runKinds.ts";
+import { automationSql, headlessSql, RUN_KINDS, type RunKind } from "../runKinds.ts";
 import type { TaskState } from "../tasks.ts";
 import { DEFAULT_HIDDEN_CWDS, visibleSessionSql } from "../visibility.ts";
 import { STALE_SUMMARY_SQL, sectionBlock, stillStartsAt } from "./blocks.ts";
@@ -13,9 +13,9 @@ import type { RunStats } from "./claude.ts";
 import { buildDigest, DIGEST_KINDS, type DigestMessage } from "./digest.ts";
 import { formatFacts, loadFacts } from "./facts.ts";
 import { type LedgerUpdate, recordSection } from "./ledger/record.ts";
-import type { PromptInput } from "./prompt.ts";
+import { PROMPT_VERSION, type PromptInput } from "./prompt.ts";
 import { type RecapInput, type RecapTarget, recapHash } from "./recap.ts";
-import { modeOf, type SectionRef, type Target } from "./target.ts";
+import { type Mode, modeOf, type SectionRef, type SectionSize, type Target } from "./target.ts";
 
 /** What a section summary is built from, and how far into the section it reaches. */
 export interface SectionInput {
@@ -99,6 +99,14 @@ const HAS_CONVERSATION_SQL = `EXISTS (
   WHERE ${SECTION_MESSAGES_SQL} AND m.kind IN ${sqlList(DIGEST_KINDS)}
 )`;
 
+/**
+ * The tool calls `modeOf` counts in the section aliased `g` of the session aliased `s`. Only an
+ * automation run's mode reads its calls, so only its sections count them.
+ */
+const TOOL_CALLS_SQL = `CASE WHEN ${automationSql("s")} THEN (
+    SELECT COUNT(*) FROM messages m WHERE ${SECTION_MESSAGES_SQL} AND m.kind = 'tool_use'
+  ) ELSE 0 END`;
+
 /** A full summary in the old format (free Markdown, before `PROMPT_VERSION`), aliased `sm`. */
 const OLD_FORMAT_SQL = "(sm.prompt_version IS NULL AND sm.body <> '')";
 
@@ -125,15 +133,12 @@ export function findTargets(db: Database, now: number, filter: TargetFilter = {}
       [number, number, number, number, number, number]
     >(
       `SELECT g.session_id, g.start, g.end, g.prompt_count, s.run_kind, p.name AS project,
-         -- Only an automation run's mode reads its calls, so only its sections count them
-         CASE WHEN ${automationSql("s")} THEN (
-           SELECT COUNT(*) FROM messages m WHERE ${SECTION_MESSAGES_SQL} AND m.kind = 'tool_use'
-         ) ELSE 0 END AS tool_calls
+         ${TOOL_CALLS_SQL} AS tool_calls
        FROM segments g
        JOIN sessions s ON s.id = g.session_id
        LEFT JOIN projects p ON p.id = s.project_id
        LEFT JOIN summaries sm ON sm.block_id = g.id
-       WHERE ${visibleSessionSql({ runs: "all", hiddenCwds: filter.hiddenCwds ?? DEFAULT_HIDDEN_CWDS })}
+       WHERE ${visibleSessionSql({ runs: "all", hiddenCwds: hiddenCwdsOf(filter) })}
          AND g.end >= ?1 AND g.end < ?6
          AND g.start >= ?2 AND g.start < ?3
          AND ${finishedSql("?4")}
@@ -155,18 +160,27 @@ export function findTargets(db: Database, now: number, filter: TargetFilter = {}
       filter.limit ?? -1,
       filter.endedBefore ?? Number.MAX_SAFE_INTEGER,
     )
-    .map((r) =>
-      namedTarget(
-        r,
-        modeOf({
-          start: r.start,
-          end: r.end,
-          promptCount: r.prompt_count,
-          toolCalls: r.tool_calls,
-          runKind: r.run_kind,
-        }),
-      ),
-    );
+    .map((r) => namedTarget(r, modeOf(sectionSize(r))));
+}
+
+/** A section row with what `modeOf` reads. */
+interface SizedRow {
+  start: number;
+  end: number;
+  prompt_count: number;
+  run_kind: RunKind | null;
+  tool_calls: number;
+}
+
+/** What `modeOf` looks at, from a section row. */
+function sectionSize(r: SizedRow): SectionSize {
+  return {
+    start: r.start,
+    end: r.end,
+    promptCount: r.prompt_count,
+    toolCalls: r.tool_calls,
+    runKind: r.run_kind,
+  };
 }
 
 /** A section row (its session, start and project's name) as a target in `mode`. */
@@ -177,9 +191,78 @@ function namedTarget(
   return { sessionId: r.session_id, start: r.start, mode, project: r.project };
 }
 
-/** A summary to regenerate, and whether it is one in the old format or one after it. */
+/**
+ * Why a summary is regenerated: it is in the old format (`old-format`), it follows one in its
+ * session (`after-old-format`), it is a headless run's from an older `PROMPT_VERSION`
+ * (`older-prompt`), or it is an automation run's headline where a full summary is due now
+ * (`headline-only`, a run once taken for a trial).
+ */
+export type RegenerateReason = "old-format" | "after-old-format" | "older-prompt" | "headline-only";
+
+/** A summary to regenerate, and why. */
 export interface RegenerateTarget extends NamedTarget {
-  oldFormat: boolean;
+  reason: RegenerateReason;
+}
+
+/**
+ * Which summaries the regenerate lookups cover. Omitted bounds don't narrow the search;
+ * `headlessOnly` (read by `findRegenerations`) leaves people's sessions out.
+ */
+export interface RegenerateFilter
+  extends Pick<TargetFilter, "startFrom" | "startBefore" | "limit" | "hiddenCwds"> {
+  headlessOnly?: boolean;
+}
+
+/** A summary written by an older prompt than the current one (null before versions), aliased `sm`. */
+const OLDER_PROMPT_SQL = `(COALESCE(sm.prompt_version, 0) < ${PROMPT_VERSION})`;
+
+/** Summarized sections (`sm`, `g`) with their session (`s`) and project (`p`). */
+const SUMMARIZED_SECTIONS_SQL = `summaries sm
+       JOIN segments g ON g.id = sm.block_id
+       JOIN sessions s ON s.id = g.session_id
+       LEFT JOIN projects p ON p.id = s.project_id`;
+
+/**
+ * What every regenerated section meets: started in [?1, ?2), finished by ?3, and with a
+ * conversation to summarize. Bound with `rangeParams`.
+ */
+const REGENERABLE_SQL = `g.start >= ?1 AND g.start < ?2
+         AND ${finishedSql("?3")} AND ${HAS_CONVERSATION_SQL}`;
+
+/** The bindings of `REGENERABLE_SQL`. */
+function rangeParams(filter: RegenerateFilter, now: number): [number, number, number] {
+  return [
+    filter.startFrom ?? 0,
+    filter.startBefore ?? Number.MAX_SAFE_INTEGER,
+    now - SECTION_IDLE_MS,
+  ];
+}
+
+/** The launch directories a lookup leaves out: the filter's, else Kairos's own. */
+function hiddenCwdsOf(filter: Pick<TargetFilter, "hiddenCwds">): readonly string[] {
+  return filter.hiddenCwds ?? DEFAULT_HIDDEN_CWDS;
+}
+
+/** The regenerate lookups' order (`ORDER BY g.start, g.session_id`), compared as SQLite does. */
+function byStartThenSession(a: RegenerateTarget, b: RegenerateTarget): number {
+  if (a.start !== b.start) return a.start - b.start;
+  if (a.sessionId === b.sessionId) return 0;
+  return a.sessionId < b.sessionId ? -1 : 1;
+}
+
+/**
+ * Every summary `kairos summarize --old-format` regenerates, oldest first: people's sessions in the
+ * old format (`findOldFormat`, unless `headlessOnly`) and headless runs from an older prompt
+ * (`findOutdatedRuns`).
+ */
+export function findRegenerations(
+  db: Database,
+  now: number,
+  filter: RegenerateFilter = {},
+): RegenerateTarget[] {
+  const { limit, headlessOnly, ...range } = filter;
+  const people = headlessOnly ? [] : findOldFormat(db, now, range);
+  return [...people, ...findOutdatedRuns(db, now, range)].sort(byStartThenSession).slice(0, limit);
 }
 
 /**
@@ -193,7 +276,7 @@ export interface RegenerateTarget extends NamedTarget {
 export function findOldFormat(
   db: Database,
   now: number,
-  filter: Pick<TargetFilter, "startFrom" | "startBefore" | "limit" | "hiddenCwds"> = {},
+  filter: RegenerateFilter = {},
 ): RegenerateTarget[] {
   const rows = db
     .query<
@@ -209,13 +292,9 @@ export function findOldFormat(
     >(
       `SELECT g.session_id, g.start, g.end, g.prompt_count, p.name AS project,
          ${OLD_FORMAT_SQL} AS old_format
-       FROM summaries sm
-       JOIN segments g ON g.id = sm.block_id
-       JOIN sessions s ON s.id = g.session_id
-       LEFT JOIN projects p ON p.id = s.project_id
-       WHERE ${visibleSessionSql({ runs: "people", hiddenCwds: filter.hiddenCwds ?? DEFAULT_HIDDEN_CWDS })}
-         AND sm.body <> '' AND g.start >= ?1 AND g.start < ?2
-         AND ${finishedSql("?3")} AND ${HAS_CONVERSATION_SQL}
+       FROM ${SUMMARIZED_SECTIONS_SQL}
+       WHERE ${visibleSessionSql({ runs: "people", hiddenCwds: hiddenCwdsOf(filter) })}
+         AND sm.body <> '' AND ${REGENERABLE_SQL}
          AND EXISTS (
            SELECT 1 FROM segments first
            JOIN summaries sm ON sm.block_id = first.id
@@ -223,15 +302,90 @@ export function findOldFormat(
              AND first.start >= ?1 AND ${OLD_FORMAT_SQL})
        ORDER BY g.start, g.session_id`,
     )
-    .all(
-      filter.startFrom ?? 0,
-      filter.startBefore ?? Number.MAX_SAFE_INTEGER,
-      now - SECTION_IDLE_MS,
-    );
+    .all(...rangeParams(filter, now));
   return rows
     .filter((r) => isSummarizable({ start: r.start, end: r.end, promptCount: r.prompt_count }))
     .slice(0, filter.limit)
-    .map((r) => ({ ...namedTarget(r, "summary"), oldFormat: r.old_format === 1 }));
+    .map((r) => ({
+      ...namedTarget(r, "summary"),
+      reason: r.old_format === 1 ? "old-format" : "after-old-format",
+    }));
+}
+
+/** What `runRegeneration` reads of a headless run's summary. */
+export interface StoredRunSummary {
+  /** Written by an older `PROMPT_VERSION` than the current one. */
+  olderPrompt: boolean;
+  /** Only a headline, no body. */
+  headlineOnly: boolean;
+}
+
+/** A headless run's summary to write again: why, and in which mode. */
+export interface RunRegeneration {
+  reason: RegenerateReason;
+  mode: Mode;
+}
+
+/**
+ * Whether a headless run's summary is due again, given the mode `modeOf` gives its section now:
+ * an older prompt wrote it, or it is a headline where a full summary is due. A summary that has a
+ * body keeps one (it may have been asked for from the drawer), so only a headline-only summary
+ * takes a `title` mode. Null when it is current.
+ */
+export function runRegeneration(stored: StoredRunSummary, modeNow: Mode): RunRegeneration | null {
+  const mode = stored.headlineOnly ? modeNow : "summary";
+  if (stored.olderPrompt) return { reason: "older-prompt", mode };
+  if (stored.headlineOnly && modeNow === "summary") return { reason: "headline-only", mode };
+  return null;
+}
+
+/**
+ * Headless runs' summaries to write again, oldest first, so each session's sections come in order
+ * and a later one sees the earlier headlines: every one from an older `PROMPT_VERSION` (written
+ * before the headline checks and an automation run's own context), and an automation run's
+ * headline where `modeOf` now gives a full summary, because its directory was taken for trials
+ * until a later run came back (see `runRegeneration`). A headline is regenerated in the mode
+ * `modeOf` gives now, so a trial run keeps a headline only; a full summary stays one. Summaries
+ * older than their section are left to `findTargets`, which the running server shares.
+ */
+export function findOutdatedRuns(
+  db: Database,
+  now: number,
+  filter: RegenerateFilter = {},
+): RegenerateTarget[] {
+  const rows = db
+    .query<
+      SizedRow & {
+        session_id: string;
+        project: string | null;
+        older: number;
+        headline_only: number;
+      },
+      [number, number, number]
+    >(
+      `SELECT g.session_id, g.start, g.end, g.prompt_count, s.run_kind, p.name AS project,
+         ${TOOL_CALLS_SQL} AS tool_calls,
+         ${OLDER_PROMPT_SQL} AS older, sm.body = '' AS headline_only
+       FROM ${SUMMARIZED_SECTIONS_SQL}
+       WHERE ${headlessSql("s")}
+         AND ${visibleSessionSql({ runs: "all", hiddenCwds: hiddenCwdsOf(filter) })}
+         AND ${REGENERABLE_SQL}
+         -- A summary older than its section is findTargets' to redo, the server's for recent days
+         AND NOT ${STALE_SUMMARY_SQL}
+         -- The candidates runRegeneration picks from; only the mode is left to decide in code
+         AND (${OLDER_PROMPT_SQL} OR (sm.body = '' AND ${automationSql("s")}))
+       ORDER BY g.start, g.session_id`,
+    )
+    .all(...rangeParams(filter, now));
+  return rows
+    .flatMap((row) => {
+      const due = runRegeneration(
+        { olderPrompt: row.older === 1, headlineOnly: row.headline_only === 1 },
+        modeOf(sectionSize(row)),
+      );
+      return due ? [{ ...namedTarget(row, due.mode), reason: due.reason }] : [];
+    })
+    .slice(0, filter.limit);
 }
 
 /** The section's headline, or null when it has no summary yet. */

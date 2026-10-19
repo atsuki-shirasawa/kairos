@@ -63,6 +63,8 @@ export interface CliContext {
   dryRun: boolean;
   /** `kairos summarize --old-format`: regenerate old-format summaries rather than fill gaps. */
   oldFormat: boolean;
+  /** `kairos summarize --old-format --headless`: regenerate only headless runs' summaries. */
+  headless: boolean;
   full: boolean;
   json: boolean;
   follow: boolean;
@@ -193,6 +195,14 @@ export function urlOf(port: number): string {
   return `http://${HOST}:${port}/`;
 }
 
+/** `--headless`, which only narrows `--old-format`, so it is refused without it. */
+function headlessOption(command: string, values: CommandLine["values"]): boolean {
+  if (values.headless !== true) return false;
+  if (values["old-format"] !== true)
+    throw new UsageError("--headless goes with --old-format", command);
+  return true;
+}
+
 /** Where the CLI runs from, which the context carries for the commands that need it. */
 export interface CliLocation {
   cliPath: string;
@@ -229,6 +239,7 @@ export function buildContext(
     ...(lines !== undefined ? { lines } : {}),
     dryRun: values["dry-run"] === true,
     oldFormat: values["old-format"] === true,
+    headless: headlessOption(command, values),
     full: values.full === true,
     json: values.json === true,
     follow: values.follow === true,

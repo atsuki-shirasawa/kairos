@@ -78,7 +78,11 @@ export const OPTIONS = {
   limit: { type: "string", placeholder: "n", help: "at most n hits" },
   "old-format": {
     type: "boolean",
-    help: "regenerate the full summaries in the old format (no open items), oldest first",
+    help: "regenerate summaries in an old format (no open items, or an older prompt), oldest first",
+  },
+  headless: {
+    type: "boolean",
+    help: "with --old-format, only the summaries of headless runs (claude -p)",
   },
   "dry-run": {
     type: "boolean",
