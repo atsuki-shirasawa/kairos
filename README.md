@@ -166,6 +166,8 @@ bun run format   # auto-fix with Biome
 
 `bun run e2e` drives the built UI in the same headless Chrome on the same week: the keyboard alone, search fading, a reload keeping the URL's state, the Live count on every page, and new work after the server restarts. It also counts axe-core's accessibility violations per page, which may not grow past `tests/e2e/axe-baseline.json`.
 
+`bun run docs` serves the documentation site (Starlight, in `site/`; run `bun install --cwd site` once). Its pages are generated from this README, ARCHITECTURE.md, DESIGN.md and `docs/design/`, and pushing to main publishes it to GitHub Pages.
+
 The fictional test logs can be regenerated with `bun tests/fixtures/generate.ts` ([details](tests/fixtures/README.md)).
 
 ## License

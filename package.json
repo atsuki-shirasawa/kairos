@@ -24,7 +24,9 @@
     "screenshots": "bun scripts/screenshots/capture.ts",
     "visual": "bun scripts/screenshots/visual.ts",
     "e2e": "bun run build && bun test ./tests/e2e/*.e2e.ts",
-    "eval:summary": "bun scripts/summary-eval.ts"
+    "eval:summary": "bun scripts/summary-eval.ts",
+    "docs": "bun run --cwd site dev",
+    "docs:build": "bun run --cwd site build"
   },
   "dependencies": {
     "@fontsource/ibm-plex-sans-condensed": "^5.3.0",

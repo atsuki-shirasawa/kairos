@@ -1,0 +1,37 @@
+---
+title: Kairos
+description: Keep the memory of your Claude Code work — what is running now, what is left to pick up, and what you did on a given day.
+template: splash
+hero:
+  tagline: Keep the memory of your Claude Code work — what is running now, what is left to pick up, and on a calendar, what you were doing on a given day and at a given time.
+  actions:
+    - text: Get started
+      link: guide/setup/
+      icon: right-arrow
+    - text: Introduction
+      link: guide/introduction/
+      variant: minimal
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+import { Image } from "astro:assets";
+import weekView from "../../assets/docs/images/screen-week.png";
+
+<Image src={weekView} alt="Kairos week view with the detail drawer" />
+
+<CardGrid>
+  <Card title="Today" icon="rocket">
+    The sessions running now, those waiting on you first, and what recent sessions left to pick up.
+  </Card>
+  <Card title="Journal" icon="open-book">
+    A month, a week or a day of your work on a calendar, each block named by its summary.
+  </Card>
+  <Card title="Summaries" icon="pencil">
+    Each work block summarized in the background with `claude -p`: what was asked, what got
+    settled and what was left open.
+  </Card>
+  <Card title="Local and read-only" icon="laptop">
+    Ingests `~/.claude/projects` read-only into SQLite on your Mac, so history outlives Claude
+    Code's log retention.
+  </Card>
+</CardGrid>
