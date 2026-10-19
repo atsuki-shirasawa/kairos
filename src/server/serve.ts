@@ -11,7 +11,8 @@ import { EventHub } from "./events.ts";
 import { Ingester } from "./ingest/ingester.ts";
 import { watchProjects } from "./ingest/watcher.ts";
 import { LiveTracker } from "./live/tracker.ts";
-import { DEFAULT_CLAUDE_DIR, DEFAULT_DB_PATH, SUMMARIZER_CWD } from "./paths.ts";
+import { DEFAULT_CLAUDE_DIR, DEFAULT_DB_PATH, PLAN_LIMITS_PATH, SUMMARIZER_CWD } from "./paths.ts";
+import { readPlanLimits, watchPlanLimits } from "./planLimits.ts";
 import { sessionsChange } from "./queries/sessions.ts";
 import { claudeRunner, type Effort } from "./summarize/claude.ts";
 import { DEFAULT_MODEL, Summarizer } from "./summarize/summarizer.ts";
@@ -60,10 +61,15 @@ export async function serve(opts: ServeOptions = {}): Promise<void> {
       onRecapUpdated: (t) => events.publish({ type: "recap.updated", ...t }),
     },
   );
-  const live = new LiveTracker(join(claudeDir, "sessions"), () =>
-    events.publish({ type: "live.updated" }),
-  );
-  const app = createApp({ db, events, summarizer, live });
+  const publishLive = () => events.publish({ type: "live.updated" });
+  const live = new LiveTracker(join(claudeDir, "sessions"), publishLive);
+  const app = createApp({
+    db,
+    events,
+    summarizer,
+    live,
+    planLimits: () => readPlanLimits(PLAN_LIMITS_PATH),
+  });
 
   // Serve the built web app if there is one. In development Vite serves it and proxies only /api here.
   if (existsSync(WEB_DIST)) {
@@ -101,6 +107,7 @@ export async function serve(opts: ServeOptions = {}): Promise<void> {
   if (stats.sessions.size) publishChange([...stats.sessions]);
 
   const stopLive = live.start();
+  const stopLimits = watchPlanLimits(PLAN_LIMITS_PATH, publishLive);
   const stopWatching = watchProjects(ingester, (ids) => {
     publishChange(ids);
     summarizer.poke();
@@ -110,6 +117,7 @@ export async function serve(opts: ServeOptions = {}): Promise<void> {
   const shutdown = () => {
     stopWatching();
     stopLive();
+    stopLimits();
     summarizer.stop();
     server.stop(true);
     db.close();

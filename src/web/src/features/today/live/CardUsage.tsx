@@ -12,6 +12,7 @@ import {
   type LiveDisplay,
 } from "@/lib/live.ts";
 import { cn } from "@/lib/utils.ts";
+import { ShareBar } from "./ShareBar.tsx";
 
 /**
  * The card's footer, under a rule: the context against its window and the model, then the current
@@ -86,12 +87,7 @@ function ContextGauge({
       <span className="font-num">
         {m.contextOf(tokensLabel(tokens), windowLabel(usage.contextWindow))}
       </span>
-      <span aria-hidden className="h-1 w-12 overflow-hidden rounded-full bg-input">
-        <span
-          className={cn("block h-full rounded-full", full ? "bg-warn" : "bg-muted-foreground")}
-          style={{ width: `${share * 100}%` }}
-        />
-      </span>
+      <ShareBar share={share} warn={full} />
     </span>
   );
 }

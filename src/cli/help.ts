@@ -189,6 +189,18 @@ export const COMMANDS: Record<string, CommandHelp> = {
     summary: "show the end of the server log",
     options: ["lines", "follow"],
   },
+  statusline: {
+    group: "Server",
+    summary: "Claude Code's status line command, recording the plan's usage limits",
+    description:
+      "Meant as Claude Code's statusLine command. It records the plan's usage limits (the 5-hour\n" +
+      "and weekly windows) from the status line input for Today's token band, then runs the\n" +
+      "status line command given after `--` on the same input, in a shell, and prints what it\n" +
+      "prints; quote a command with pipes or variables as one argument. Claude Code passes the\n" +
+      "limits only on Pro and Max plans, once a session has had a response.",
+    args: "[-- command...]",
+    examples: ["kairos statusline -- npx -y ccstatusline@latest"],
+  },
   help: {
     group: "Troubleshoot",
     summary: "show this help, or a command's (kairos help <command>)",

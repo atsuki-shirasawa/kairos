@@ -20,6 +20,12 @@ export const SUMMARIZER_CWD = join(DATA_DIR, "summarizer");
 /** SQLite database used when `--db` is not given. */
 export const DEFAULT_DB_PATH = join(DATA_DIR, "kairos.db");
 
+/** Name of the file in a data directory that holds the plan's usage limits. */
+export const PLAN_LIMITS_FILE = "plan-limits.json";
+
+/** The plan's usage limits as `kairos statusline` last saw them; the server reads them from here. */
+export const PLAN_LIMITS_PATH = join(DATA_DIR, PLAN_LIMITS_FILE);
+
 /** PID of the running server. */
 export const PID_PATH = join(DATA_DIR, "kairos.pid");
 

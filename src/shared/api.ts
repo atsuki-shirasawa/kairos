@@ -705,9 +705,39 @@ export interface LiveTokens {
   buckets: { projectId: number | null; tokens: number }[][];
 }
 
-/** `GET /api/live`. `available` is false when Claude Code's session registry can't be read. */
+/** The plan's usage-limit windows, in the order they are shown. */
+export const PLAN_WINDOW_KINDS = ["fiveHour", "sevenDay"] as const;
+
+/** One of the plan's usage-limit windows, as `PlanLimits` keys it. */
+export type PlanWindowKind = (typeof PLAN_WINDOW_KINDS)[number];
+
+/** One usage-limit window of the claude.ai plan, as Claude Code last reported it. */
+export interface PlanWindow {
+  /** Share of the window used, 0–100. */
+  usedPercent: number;
+  /** When the window starts over. */
+  resetsAt: number;
+}
+
+/**
+ * The plan's usage limits, which only Claude Code's status line input carries (Pro and Max plans,
+ * once a session has had a response). A window is null when Claude Code left it out, which it does
+ * once the window has reset and until the next response.
+ */
+export interface PlanLimits {
+  fiveHour: PlanWindow | null;
+  sevenDay: PlanWindow | null;
+  /** When Claude Code reported them: they don't move while it isn't running. */
+  seenAt: number;
+}
+
+/**
+ * `GET /api/live`. `available` is false when Claude Code's session registry can't be read;
+ * `limits` is null until the status line wrapper (`kairos statusline`) has recorded any.
+ */
 export interface LiveResponse {
   available: boolean;
   sessions: LiveSession[];
   tokens: LiveTokens;
+  limits: PlanLimits | null;
 }

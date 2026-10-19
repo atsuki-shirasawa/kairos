@@ -1,4 +1,4 @@
-import type { LiveTokens, Project } from "@shared/api.ts";
+import type { LiveTokens, PlanLimits, Project } from "@shared/api.ts";
 import { TOKEN_BUCKET_MS } from "@shared/constants.ts";
 import { MINUTE } from "@shared/dates.ts";
 import { useState } from "react";
@@ -6,6 +6,7 @@ import { liveMessages } from "@/i18n/messages/live.ts";
 import { projectColor } from "@/lib/colors.ts";
 import { hhmm } from "@/lib/dates.ts";
 import { tokensLabel, tokensPerHourLabel } from "@/lib/format.ts";
+import { staleSince } from "@/lib/planLimits.ts";
 import { projectOf } from "@/lib/selection.ts";
 import {
   axisTicks,
@@ -22,6 +23,7 @@ import {
   tokenChart,
   tokenY,
 } from "@/lib/tokenChart.ts";
+import { PlanLimitFigures } from "./PlanLimitFigures.tsx";
 
 /** The plot's height in px. The SVG stretches to the width, so only the height is fixed. */
 const PLOT_PX = 112;
@@ -41,14 +43,20 @@ const LABEL_PX = 18;
  * climb rather than a bar that dwarfs the rest. Pointing at the chart (or tapping it) names a
  * 5-minute slot and what each project added in it; screen readers get each project's share. It
  * counts every visible session, not only the running ones, and notes that cache reads are counted,
- * since they make up most of a total that would otherwise look implausibly large.
+ * since they make up most of a total that would otherwise look implausibly large. The plan's usage
+ * limits follow the figures when they have been recorded, with when they were read once that is
+ * a while ago.
  */
 export function TokenBand({
   tokens,
+  limits,
   projects,
+  now,
 }: {
   tokens: LiveTokens;
+  limits: PlanLimits | null;
   projects: ReadonlyMap<number, Project>;
+  now: number;
 }) {
   const m = liveMessages();
   const chart = tokenChart(tokens);
@@ -66,7 +74,8 @@ export function TokenBand({
           <Figure label={m.tokens.today} value={tokensLabel(tokens.today)} />
           <Figure label={m.tokens.rate} value={tokensPerHourLabel(tokens.perHour)} />
         </dl>
-        <p aria-hidden className="mb-0.5 h-4 min-w-0 flex-1 text-label">
+        {limits && <PlanLimitFigures limits={limits} now={now} />}
+        <p aria-hidden className="mb-0.5 h-4 min-w-60 flex-1 truncate text-label">
           {slot >= 0 ? (
             <SlotDetail chart={chart} slot={slot} colorOf={colorOf} nameOf={nameOf} />
           ) : (
@@ -90,9 +99,16 @@ export function TokenBand({
           )}
         </ul>
       </figure>
-      <p className="mt-1 text-label text-muted-foreground">{m.tokens.note}</p>
+      <p className="mt-1 text-label text-muted-foreground">{bandNote(limits, now)}</p>
     </section>
   );
+}
+
+/** The band's note, and when the limits were read if that is a while ago. */
+function bandNote(limits: PlanLimits | null, now: number): string {
+  const m = liveMessages();
+  const since = limits ? staleSince(limits, now) : null;
+  return since === null ? m.tokens.note : m.limits.noteAsOf(m.tokens.note, hhmm(since));
 }
 
 /** One figure of the band: its name in 12px `muted-ink` over its amount in the numeral face. */

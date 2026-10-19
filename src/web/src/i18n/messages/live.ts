@@ -80,6 +80,24 @@ export const liveMessages = defineMessages({
       /** A slot with its split by project ("atlas 1.2M"), for screen readers. */
       slotSplit: (slot: string, parts: string[]) => `${slot}: ${parts.join(", ")}`,
     },
+    limits: {
+      fiveHour: "5-hour limit",
+      sevenDay: "Weekly limit",
+      /** A window's used share ("14%"). */
+      used: (percent: number) => `${percent}%`,
+      /** When a window starts over ("resets 15:30", "resets Thu 9:00"). */
+      resets: (when: string) => `resets ${when}`,
+      /** A window whose reset time has passed since the reading. */
+      reset: "reset",
+      /** A window for screen readers ("5-hour limit: 14% used, resets 15:30"). */
+      speech: (name: string, percent: number, reset: string) =>
+        `${name}: ${percent}% used, ${reset}`,
+      /**
+       * The band's note when the reading is old, since Claude Code hasn't reported for a while
+       * ("Cache reads included, … · Limits as of 14:05").
+       */
+      noteAsOf: (note: string, time: string) => `${note} · Limits as of ${time}`,
+    },
   },
   ja: {
     button: "Live",
@@ -128,6 +146,16 @@ export const liveMessages = defineMessages({
       chart: (from: string, to: string) => `${from}〜${to} のプロジェクト別のトークン`,
       slot: (from: string, to: string, tokens: string) => `${from}〜${to} +${tokens}`,
       slotSplit: (slot: string, parts: string[]) => `${slot}：${parts.join("、")}`,
+    },
+    limits: {
+      fiveHour: "5時間の上限",
+      sevenDay: "週の上限",
+      used: (percent: number) => `${percent}%`,
+      resets: (when: string) => `${when} にリセット`,
+      reset: "リセット済み",
+      speech: (name: string, percent: number, reset: string) =>
+        `${name}：${percent}% 使用、${reset}`,
+      noteAsOf: (note: string, time: string) => `${note}・上限は ${time} 時点`,
     },
   },
 });

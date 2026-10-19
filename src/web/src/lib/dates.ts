@@ -224,6 +224,20 @@ export function elapsedLabel(ms: number): string {
 }
 
 /**
+ * A time of day, with the weekday when it isn't today ("8:43" / "Thu 8:43"). From six days away a
+ * weekday could as well be this week's, so the date names the day instead (`timeOrDateTime`).
+ */
+export function timeOrWeekdayTime(t: number, now = Date.now()): string {
+  if (isSameDay(t, now)) return hhmm(t);
+  if (Math.abs(Math.round((startOfDay(t) - startOfDay(now)) / DAY)) >= WEEKDAY_SPAN_DAYS)
+    return timeOrDateTime(t, now);
+  return dateMessages().weekdayTime(weekday(t), hhmm(t));
+}
+
+/** Days apart from which a weekday alone no longer names the day. */
+const WEEKDAY_SPAN_DAYS = 6;
+
+/**
  * A time of day, with the date when it isn't today and the year when it isn't this year
  * ("8:43" / "Oct 5 8:43" / "Dec 30, 2025 8:43").
  */

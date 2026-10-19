@@ -108,3 +108,11 @@ yours in `ink`, not `muted-ink`. The second tone is all but the same grey as the
 color (`#626b7d` against `#5e6b7d`), so in a tetsu project's row the two sides would read as one.
 `ink` stands apart from every project color in both themes, and the time that waited on you is
 the part of the strip worth seeing first.
+
+## A plan limit warns from 80% used
+
+A plan limit's share and bar in Today's token band (#68) turn `warn` from 80% used, wherever the
+sessions stand. A live card's context gauge warns only on a session waiting on you, since that is
+when you can act on it (compact or clear). A limit has no such moment: it is spent by every
+session at once, and what it leaves decides whether to start the next piece of work, so the
+warning holds on any page that shows it.

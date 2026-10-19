@@ -40,8 +40,16 @@ export function NowSection({
       <h2 id="today-now" className="font-semibold text-title tracking-tight">
         {t.now}
       </h2>
-      {/* Tokens come from the logs, so the band stays when the registry can't be read */}
-      {live && <TokenBand tokens={live.tokens} projects={list.projects} />}
+      {/* Tokens come from the logs and limits from the status line, so the band stays when the
+          registry can't be read */}
+      {live && (
+        <TokenBand
+          tokens={live.tokens}
+          limits={live.limits}
+          projects={list.projects}
+          now={list.now}
+        />
+      )}
       <NowBody live={live} running={sessions.length}>
         <SessionGroup column="attention" entries={byColumn.get("attention") ?? []} {...list} />
         <SessionGroup column="working" entries={byColumn.get("working") ?? []} {...list} />

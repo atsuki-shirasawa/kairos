@@ -17,7 +17,7 @@ import type {
   Thread,
 } from "../../src/shared/api.ts";
 import { TOKEN_BUCKET_MS } from "../../src/shared/constants.ts";
-import { DAY } from "../../src/shared/dates.ts";
+import { DAY, HOUR } from "../../src/shared/dates.ts";
 import { SID } from "../fixtures/ids.ts";
 import { min, setup } from "./ingest/helpers.ts";
 import { putSummary } from "./summaryRows.ts";
@@ -729,5 +729,18 @@ describe("GET /api/live", () => {
     const body = await json<LiveResponse>("/api/live");
     expect(body.available).toBe(true);
     expect(body.sessions.map((s) => [s.id, s.state])).toEqual([[SID.basic, "working"]]);
+  });
+  test("has no plan limits until any are recorded", async () => {
+    expect((await json<LiveResponse>("/api/live")).limits).toBeNull();
+  });
+
+  test("passes on the plan limits as last recorded", async () => {
+    const limits = {
+      fiveHour: { usedPercent: 23.5, resetsAt: now + HOUR },
+      sevenDay: null,
+      seenAt: now,
+    };
+    app = createApp({ db, events, now: () => now, planLimits: () => limits });
+    expect((await json<LiveResponse>("/api/live")).limits).toEqual(limits);
   });
 });

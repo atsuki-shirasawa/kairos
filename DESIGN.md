@@ -217,7 +217,8 @@ swaps every value for its `-dark` token under `.dark`.
   white (navy in dark) surfaces
 - **Warn (`#8a6420`):** text of numbers that need attention (snags), and the few marks that call
   for you (the asking dot, and among the running sessions what the
-  [screens spec](docs/design/screens.md#running-sessions) marks `warn`). Plain yellow ocher lacks
+  [screens spec](docs/design/screens.md#running-sessions) marks `warn`, and a plan limit from 80%
+  used, [why](docs/design/decisions.md#a-plan-limit-warns-from-80-used)). Plain yellow ocher lacks
   contrast on white, so it is darkened
 - **Destructive:** error messages only
 - **Input (`#d7dce4` / `#2e3c5a`):** text fields and select borders, where the placeholder and

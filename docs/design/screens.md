@@ -345,6 +345,15 @@ How Today's Now and the toolbar draw the sessions running now.
   left, "Tokens today" and "Rate" (per hour), each a 12px `muted-ink` label over its figure in the
   17px medium numeral face; beside them a 12px line that names what pointing shows. The band stays,
   with its note, when nothing runs or the registry can't be read
+- **Plan limits:** after "Rate", as a group of their own that moves under the token figures where
+  Now's column is narrow, when `kairos statusline` has recorded any, one figure per window ("5-hour
+  limit", "Weekly limit") in the same 12px `muted-ink` label: its used share in the 17px numeral
+  face, a 4px × 48px bar like a live card's context gauge (`muted-ink` on `input`), and "resets
+  15:30" (the weekday too on another day) in 12px numeral `muted-ink`, kept on one line. Share and
+  bar turn `warn` from 80% used, when what is left may not see the work through. A window past its
+  reset reads 0% and "reset"; one Claude Code didn't report is left out. When the reading is 10
+  minutes old or more, the band's note (prose, so not in the numeral face) adds "Limits as of
+  14:05", since the limits move only while Claude Code runs
 - **Token chart:** under the figures, across Now's column, the day's tokens as they climbed: one band
   per project stacked from the floor (largest at the bottom), each the project's block fill
   (`--mix-block` into `block-base`, as on the calendar) under a 1.5px line in the full project color

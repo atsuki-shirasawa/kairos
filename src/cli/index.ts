@@ -27,6 +27,7 @@ const COMMANDS: Record<string, () => Promise<Command>> = {
   serve: async () => (await import("./commands/server.ts")).serveCommand,
   doctor: async () => (await import("./commands/server.ts")).doctorCommand,
   logs: async () => (await import("./commands/server.ts")).logsCommand,
+  statusline: async () => (await import("./commands/statusline.ts")).statuslineCommand,
   ingest: async () => (await import("./commands/ingest.ts")).ingestCommand,
   summarize: async () => (await import("./commands/summarize.ts")).summarizeCommand,
   report: async () => (await import("./commands/browse.ts")).reportCommand,

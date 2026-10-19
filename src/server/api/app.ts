@@ -8,6 +8,7 @@ import type {
   LiveResponse,
   OpenItemsResponse,
   PickUpResponse,
+  PlanLimits,
   PrHistory,
   RecapsResponse,
   SearchResponse,
@@ -50,20 +51,30 @@ export interface LiveSource {
 
 /**
  * Dependencies of the API. `summarizer` is absent when summaries are off, and `live` when running
- * sessions aren't followed; `now` and `hiddenCwds` (launch directories never shown, by default
- * Kairos's own summarizer directory) are for tests.
+ * sessions aren't followed; `planLimits` reads the plan's usage limits as last recorded (none when
+ * absent); `now` and `hiddenCwds` (launch directories never shown, by default Kairos's own
+ * summarizer directory) are for tests.
  */
 export interface AppDeps {
   db: Database;
   events: EventHub;
   summarizer?: Summarizer;
   live?: LiveSource;
+  planLimits?: () => PlanLimits | null;
   now?: () => number;
   hiddenCwds?: readonly string[];
 }
 
 /** Builds the Hono app: Host and write guards first, then the JSON API and the SSE stream. */
-export function createApp({ db, events, summarizer, live, now, hiddenCwds }: AppDeps): Hono {
+export function createApp({
+  db,
+  events,
+  summarizer,
+  live,
+  planLimits,
+  now,
+  hiddenCwds,
+}: AppDeps): Hono {
   const q = new Queries(db, now, summarizer, hiddenCwds);
   const app = new Hono();
 
@@ -199,7 +210,8 @@ export function createApp({ db, events, summarizer, live, now, hiddenCwds }: App
     );
   });
 
-  // Running sessions. Changes are announced via SSE live.updated (and sessions.updated for the log)
+  // Running sessions and the plan's limits. Changes are announced via SSE live.updated (and
+  // sessions.updated for the log)
   app.get("/api/live", (c) => {
     const visibility = currentVisibility(db, hiddenCwds);
     const at = (now ?? Date.now)();
@@ -207,6 +219,7 @@ export function createApp({ db, events, summarizer, live, now, hiddenCwds }: App
       available: live?.available ?? false,
       sessions: live ? liveSessions(db, live.entries(), visibility, at) : [],
       tokens: liveTokens(db, visibility, at),
+      limits: planLimits?.() ?? null,
     });
   });
 

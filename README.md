@@ -60,6 +60,19 @@ Add the following to `hooks.SessionStart` in `~/.claude/settings.json`.
 
 `kairos ensure` does nothing if the server is already running (about 20ms); otherwise it starts the server in the background and returns immediately. It prints nothing, so it doesn't affect the Claude conversation. The server keeps running after Claude Code exits. It doesn't open a browser — run `kairos open` or open http://127.0.0.1:4319 when you want to look.
 
+### Plan usage limits
+
+Today's token band can show how much of your plan's 5-hour and weekly limits is used, and when each resets. Session logs don't carry the limits; Claude Code passes them only to the status line command (Pro and Max plans, once a session has had a response). So `kairos statusline` wraps your status line: it records the limits, then runs your own status line command on the same input and prints what it prints. Put it in front of your current `statusLine.command` in `~/.claude/settings.json`, after `--`:
+
+```json
+"statusLine": {
+  "type": "command",
+  "command": "'/Users/<you>/.bun/bin/kairos' statusline -- npx -y ccstatusline@latest"
+}
+```
+
+The command after `--` runs in a shell, as Claude Code runs it; quote one that uses pipes or variables as a single argument (`kairos statusline -- 'input=$(cat); echo "$input" | jq -r .model.display_name'`), so the outer shell leaves it alone. Without a status line of your own, leave out `--` and what follows; the line stays empty. The limits only move while Claude Code runs, so when the reading is more than 10 minutes old, the band says when it was taken (usage on claude.ai counts toward the same limits).
+
 ### Running sessions
 
 Today's Now lists the Claude Code sessions running now, under today's tokens: On you (asking a question or plan approval, or done with its turn) as full cards, Working (with the tool call in flight, and the subagents at work with theirs) as a line each, and Idle (nothing for 15 minutes or more) folded behind its count. Each card adds the task list's progress, the last test run, Claude Code's recap and the context size. Clicking one opens its latest work block. The toolbar's "Live" button, which opens Today, shows how many sessions are waiting on you from any page, and so does the browser tab's title, e.g. `(2) Kairos`.
@@ -81,6 +94,7 @@ No hooks are needed: Kairos reads Claude Code's own record of running sessions (
 | `kairos search <terms>` | Find work blocks by summary, title, branch, PR, commit or conversation (`file:<path>` for edited files), with links into Kairos |
 | `kairos doctor` | Check the setup: session logs, `claude`, the web build, the server and its port, the DB, the SessionStart hook, and the record of running sessions |
 | `kairos logs [-f]` | The end of the server log (`-n <lines>`, `-f` to follow) |
+| `kairos statusline -- <command>` | Claude Code's status line command: records the plan's usage limits for Today, then runs your own status line command (see [Plan usage limits](#plan-usage-limits)) |
 | `kairos ingest` | Ingest logs manually (to build the DB without running the server) |
 | `kairos summarize` | Summarize every work block that has no summary yet. The server only does the last 7 days on its own. `--since` / `--until <YYYY-MM-DD>` and `--limit <n>` narrow it; `--dry-run` only counts. `--old-format` regenerates the summaries written before open items were tracked, oldest first, so they show up in Pick up and the summary view (about $0.02 and 20 s each with haiku) |
 | `kairos help [command]` | List the commands, or one command's options (also `kairos <command> --help`) |
@@ -120,7 +134,7 @@ bun unlink                       # remove the kairos command (run in the reposit
 rm -rf ~/Library/Application\ Support/kairos ~/Library/Logs/kairos
 ```
 
-Then remove the `kairos ensure` entry from SessionStart in `~/.claude/settings.json`.
+Then remove the `kairos ensure` entry from SessionStart in `~/.claude/settings.json`, and `kairos statusline --` from the front of `statusLine.command` if you added it.
 
 ## Troubleshooting
 

@@ -18,6 +18,7 @@ import {
   startOfMonth,
   startOfWeek,
   timeOrDateTime,
+  timeOrWeekdayTime,
   weekNumber,
   yearUnlessCurrent,
 } from "../../src/web/src/lib/dates.ts";
@@ -140,6 +141,18 @@ describe("dates", () => {
     expect(timeOrDateTime(morning, DAY0 + 12 * 60 * 60_000)).toBe("8:43");
     expect(timeOrDateTime(morning, addDays(DAY0, 9))).toBe("Oct 5 8:43");
     expect(timeOrDateTime(morning, addDays(DAY0, 120))).toBe("Oct 5, 2026 8:43");
+  });
+
+  test("a time within the week carries its weekday on another day", () => {
+    const morning = DAY0 + 9 * 60 * 60_000;
+    expect(timeOrWeekdayTime(morning, DAY0 + 12 * 60 * 60_000)).toBe("9:00");
+    // Oct 5, 2026 is a Monday
+    expect(timeOrWeekdayTime(morning, addDays(DAY0, -2))).toBe("Mon 9:00");
+    // A week out, "Mon" could be today's Monday
+    expect(timeOrWeekdayTime(morning, addDays(DAY0, -6) + 12 * 60 * 60_000)).toBe("Oct 5 9:00");
+    setLocale("ja");
+    expect(timeOrWeekdayTime(morning, addDays(DAY0, -2))).toBe("月曜 9:00");
+    setLocale("en");
   });
 
   describe("in Japanese", () => {

@@ -7,7 +7,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openDb } from "../../src/server/db/index.ts";
 import { Ingester } from "../../src/server/ingest/ingester.ts";
+import { PLAN_LIMITS_FILE } from "../../src/server/paths.ts";
+import { savePlanLimits } from "../../src/server/planLimits.ts";
 import type { LiveResponse, SessionDetail } from "../../src/shared/api.ts";
+import { DAY, HOUR } from "../../src/shared/dates.ts";
 import { FROZEN_NOW_ENV, freezeDate } from "./clock.ts";
 import {
   DEMO_NOW,
@@ -183,6 +186,16 @@ function buildDb(claudeDir: string, dataDir: string): void {
   seedStressSummaries(db);
   db.run("PRAGMA wal_checkpoint(TRUNCATE)");
   db.close();
+  writeDemoLimits(dataDir);
+}
+
+/** The plan's usage limits as the status line wrapper would have just recorded them. */
+function writeDemoLimits(dataDir: string): void {
+  savePlanLimits(join(dataDir, PLAN_LIMITS_FILE), {
+    fiveHour: { usedPercent: 38, resetsAt: DEMO_NOW + 2 * HOUR },
+    sevenDay: { usedPercent: 61, resetsAt: DEMO_NOW + 3 * DAY },
+    seenAt: DEMO_NOW,
+  });
 }
 
 /** Puts the stand-in `claude` in `binDir`, which the server's PATH starts with. */

@@ -46,6 +46,8 @@ export const dateMessages = defineMessages({
     /** A time on another day: "Oct 5 8:43" / "Dec 30, 2025 8:43". */
     monthDayTime: (month: number, day: number, year: number | null, time: string) =>
       `${shortMonthEn(month)} ${day}${year === null ? "" : `, ${year}`} ${time}`,
+    /** A time on another day within the week: "Thu 9:00". */
+    weekdayTime: (weekday: string, time: string) => `${weekday} ${time}`,
   },
   ja: {
     weekdays: ["日", "月", "火", "水", "木", "金", "土"],
@@ -65,5 +67,6 @@ export const dateMessages = defineMessages({
     days: (d: number) => `${d}日`,
     monthDayTime: (month: number, day: number, year: number | null, time: string) =>
       `${year === null ? "" : `${year}/`}${month + 1}/${day} ${time}`,
+    weekdayTime: (weekday: string, time: string) => `${weekday}曜 ${time}`,
   },
 });
