@@ -187,6 +187,21 @@ describe("liveAgents", () => {
     expect(liveAgents(db, SID.subagent, "waiting", min(321))[0]?.running).toBe(false);
   });
 
+  test("carries the name a skill run in a subagent has, read from its meta file", () => {
+    const { db, projectsDir, ingest } = ingested();
+    addAgent(
+      projectsDir,
+      "askill000000001",
+      { agentType: "general-purpose", name: "code-review", description: "/code-review" },
+      [prompt("askill000000001", 320.05)],
+    );
+    ingest();
+    expect(liveAgents(db, SID.subagent, "working", min(321))[0]).toMatchObject({
+      agentType: "general-purpose",
+      name: "code-review",
+    });
+  });
+
   test("lists running subagents first, each group oldest first", () => {
     const { db, projectsDir, ingest } = ingested();
     addAgent(projectsDir, "awf0000000000002", { agentType: "b" }, [

@@ -454,6 +454,12 @@ export const MIGRATIONS: string[] = [
     PRIMARY KEY (session_id, start)
   );
   `,
+  // 20: a subagent's own name, from its meta file's `name`: a skill run in a subagent
+  // (`code-review`) has one, and its type alone (`general-purpose`) says nothing of what it does.
+  // Meta files keep no read state and are read again on every scan, so the next one fills it in
+  `
+  ALTER TABLE subagents ADD COLUMN name TEXT;
+  `,
 ];
 
 /** Schema version once every migration is applied (stored in `PRAGMA user_version`). */

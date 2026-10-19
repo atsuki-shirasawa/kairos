@@ -18,6 +18,7 @@ import {
   liveCardView,
   liveDisplay,
   livePlace,
+  rowDelegate,
   runningAgents,
   toolLabel,
   visibleLive,
@@ -231,6 +232,7 @@ describe("agentRows", () => {
   const agent = (id: string, minutes: number, over: Partial<LiveAgent> = {}): LiveAgent => ({
     id,
     agentType: "Explore",
+    name: null,
     description: null,
     callId: null,
     running: true,
@@ -271,6 +273,12 @@ describe("agentRows", () => {
     });
   });
 
+  test("names a subagent by its own name before its type", () => {
+    expect(agentRows([agent("a", 1, { name: "code-review" })], NOW).rows[0]?.name).toBe(
+      "code-review",
+    );
+  });
+
   test("takes the delegate out of the rows, for the call line to show", () => {
     const session = live("s", { agents: [agent("a", 2), agent("b", 1)], delegate: "a" });
     expect(delegateAgent(session)?.id).toBe("a");
@@ -278,6 +286,14 @@ describe("agentRows", () => {
     const none = live("s", { agents: [agent("a", 2)] });
     expect(delegateAgent(none)).toBeNull();
     expect(listedAgents(none)).toHaveLength(1);
+  });
+
+  test("gives a row's subagent line the delegate only when there is something to say of it", () => {
+    const named = live("s", { agents: [agent("a", 1)], delegate: "a" });
+    expect(rowDelegate(named)?.id).toBe("a");
+    const blank = agent("a", 1, { agentType: null, description: null, tool: null });
+    expect(rowDelegate(live("s", { agents: [blank], delegate: "a" }))).toBeNull();
+    expect(rowDelegate(live("s", { agents: [agent("a", 1)] }))).toBeNull();
   });
 
   test("counts the subagents still running", () => {

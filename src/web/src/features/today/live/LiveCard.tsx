@@ -15,7 +15,7 @@ import {
 import { type OpenBlock, projectOf } from "@/lib/selection.ts";
 import { cn } from "@/lib/utils.ts";
 import { CallLine } from "./CallLine.tsx";
-import { AgentCount, CardAgents } from "./CardAgents.tsx";
+import { AgentCount, CardAgents, RowAgents } from "./CardAgents.tsx";
 import { CardFooter, RowCache } from "./CardUsage.tsx";
 import { ProgressBar } from "./ProgressBar.tsx";
 
@@ -96,6 +96,8 @@ export function LiveCard({
       {compact && section === null && (
         <p className="pl-3.5 text-label text-muted-foreground">{m.notIngested}</p>
       )}
+      {/* An idle row stays bare: its subagents are only counted on its place line */}
+      {compact && display !== "idle" && <RowAgents session={s} />}
       {!compact && <CardNow session={s} display={display} now={now} />}
       {!compact && <CardFooter session={s} display={display} now={now} />}
     </article>

@@ -191,7 +191,7 @@ function sessionArtifacts(db: Database, sessionId: string): Artifact[] {
 function subagents(db: Database, sessionId: string): Subagent[] {
   return db
     .query<Subagent, [string]>(
-      `SELECT a.id, a.agent_type AS agentType, a.description, a.tool_use_id AS toolUseId,
+      `SELECT a.id, a.agent_type AS agentType, a.name, a.description, a.tool_use_id AS toolUseId,
               MIN(m.ts) AS startedAt, MAX(m.ts) AS endedAt
        FROM subagents a LEFT JOIN messages m ON m.session_id = a.session_id AND m.agent_id = a.id
        WHERE a.session_id = ? GROUP BY a.id ORDER BY startedAt`,

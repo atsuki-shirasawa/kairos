@@ -4,6 +4,7 @@ import { isProjectShown } from "@shared/projects.ts";
 import { WORK_BLOCK_GAP_MS } from "@shared/sections.ts";
 import { formatMessages } from "@/i18n/messages/format.ts";
 import { liveMessages } from "@/i18n/messages/live.ts";
+import { agentName } from "./agents.ts";
 import { elapsedLabel } from "./dates.ts";
 
 /**
@@ -197,7 +198,7 @@ export const AGENT_ROWS = 3;
 /** One subagent as its row on a card shows it. */
 export interface LiveAgentRow {
   agent: LiveAgent;
-  /** Its type, or a generic name when its meta file hasn't been read. */
+  /** Its name or type, or a generic name when its meta file hasn't been read. */
   name: string;
   /** How long it has run, or that it is done. */
   status: string;
@@ -208,7 +209,7 @@ export function agentRow(agent: LiveAgent, now: number): LiveAgentRow {
   const m = liveMessages();
   return {
     agent,
-    name: agent.agentType ?? m.subagent,
+    name: agentName(agent) ?? m.subagent,
     status: agent.running ? elapsedLabel(now - agent.startedAt) : m.agentDone,
   };
 }
@@ -230,6 +231,18 @@ export function agentRows(
 /** The subagent the session's turn waits on, which the card shows in place of the session's call. */
 export function delegateAgent(session: LiveSession): LiveAgent | null {
   return session.agents.find((a) => a.id === session.delegate) ?? null;
+}
+
+/**
+ * The delegate a row's subagent line names, when it has something to say: a subagent just
+ * launched may have no name, call or task read yet, and an empty line would only push the row
+ * down until the next refresh.
+ */
+export function rowDelegate(session: LiveSession): LiveAgent | null {
+  const delegate = delegateAgent(session);
+  if (!delegate) return null;
+  const said = agentName(delegate) ?? delegate.tool ?? delegate.description;
+  return said === null ? null : delegate;
 }
 
 /** The subagents a card lists under its call: all but the delegate, which the call line shows. */

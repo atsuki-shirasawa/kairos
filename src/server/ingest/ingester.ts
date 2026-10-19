@@ -230,7 +230,7 @@ export class Ingester {
     }
   }
 
-  /** Records a subagent's type and description from its meta file. */
+  /** Records a subagent's type, name and description from its meta file. */
   private ingestSubagentMeta(path: string, sessionId: string, agentId: string): string[] {
     let meta: unknown;
     try {
@@ -240,13 +240,14 @@ export class Ingester {
     }
     const m = rec(meta) ?? {};
     this.q.ensureSession.run(sessionId);
-    this.q.upsertSubagent.run(
-      agentId,
+    this.q.upsertSubagent.run({
+      id: agentId,
       sessionId,
-      str(m.agentType) ?? null,
-      str(m.description) ?? null,
-      str(m.toolUseId) ?? null,
-    );
+      agentType: str(m.agentType) ?? null,
+      name: str(m.name) ?? null,
+      description: str(m.description) ?? null,
+      toolUseId: str(m.toolUseId) ?? null,
+    });
     return []; // The calendar does not change, so do not report an update
   }
 

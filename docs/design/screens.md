@@ -17,13 +17,13 @@ segment names the page, so its heading is for screen readers only.
   17px semibold
 - **Now:** today's tokens (the chart below), then the running sessions in groups, each under its
   name and count (14px medium, the count in `numeral`, `warn` for a non-empty On you): On you
-  (asking or done with a turn) as full cards, Working as a one-line row each, since it asks nothing
-  of you yet, and Idle (nothing for 15 minutes or more) with its 12px `muted-ink` note, folded
-  behind a small ghost "Show n idle sessions" toggle, as a bare row each when open (absent when none
-  idles). The group names are short status-board words kept in English in both languages, like
-  "Live". An empty On you or Working says so in one 12px `muted-ink` line; with nothing running or
-  the registry unreadable, one 14px `muted-ink` line replaces the groups (the chart stays: tokens
-  come from the logs)
+  (asking or done with a turn) as full cards, Working as a row each (one line, two while subagents
+  do its work), since it asks nothing of you yet, and Idle (nothing for 15 minutes or more) with its
+  12px `muted-ink` note, folded behind a small ghost "Show n idle sessions" toggle, as a bare row
+  each when open (absent when none idles). The group names are short status-board words kept in
+  English in both languages, like "Live". An empty On you or Working says so in one 12px `muted-ink`
+  line; with nothing running or the registry unreadable, one 14px `muted-ink` line replaces the
+  groups (the chart stays: tokens come from the logs)
 - **Pick up:** a card per session whose latest summary left work open, so the section stays a few
   cards however many items the week left. Shown: sessions idle under 48 hours, or under 7 days in a
   project that moved in the last 3 days, minus the running ones (Now has them) and hidden
@@ -309,19 +309,22 @@ How Today's Now and the toolbar draw the sessions running now.
   with the start time under it at the right of the place line (`numeral`, with the date when not
   today)
 - **Card body, what it is doing:** the question (14px `ink`); the call in flight (tool name in
-  medium, an MCP tool as "server › tool", its summary in `muted-ink`). While the turn waits on a
-  single foreground subagent, the call line is that subagent's call instead (the session's own only
-  says a subagent runs), with "by <type>", what it was asked and how long it has run under it in
-  `muted-ink`; that subagent is then left out of the list below. A batch of subagents launched in
-  one response (parallel reviewers) shows "Subagents 2/4 done" with the tasks' bar. Then its
-  subagents as a list nested under it by indent alone (no rule: the edge, fill and footer rule
-  already frame the card), at most three rows, running ones first, then "+n more". Each subagent row has a 6px dot (pulsing
-  in the project color while it runs, a `muted-ink` ring once done), its type in medium (`muted-ink`
-  once done), what it was asked in `muted-ink`, how long it has run at the right in `numeral`
-  ("Done" once done, kept two minutes), and the call it is in under it. Then tasks as a 4px bar in
-  the project color on `input` (the card is already `muted`, which `line` barely differs from), the
-  last test (its word in `warn` when it failed), and Claude Code's recap while it isn't working
-  (three lines)
+  medium, an MCP tool as "server › tool", its summary in `muted-ink`). While one subagent stands for
+  what the session does (the single foreground one the turn waits on, or else the single background
+  one still running), its call shows as well: in place of the session's own for a foreground one
+  (which the session's call only says runs), under it for a background one; with "by <name>", what
+  it was asked and how long it has run under it in `muted-ink` (while it thinks, the session's own
+  call stands in for a foreground one, and what it was asked otherwise); that subagent is then left
+  out of the list below. A batch of subagents launched in one response (parallel reviewers) shows
+  "Subagents 2/4 done" with the tasks' bar. Then its subagents as a list nested under it by indent
+  alone (no rule: the edge, fill and footer rule already frame the card), at most three rows,
+  running ones first, then "+n more". Each subagent row has a 6px dot (pulsing in the project color
+  while it runs, a `muted-ink` ring once done), its name in medium (its own, as a skill run in a
+  subagent has, else its type; `muted-ink` once done), what it was asked in `muted-ink`, how long it
+  has run at the right in `numeral` ("Done" once done, kept two minutes), and the call it is in
+  under it. Then tasks as a 4px bar in the project color on `input` (the card is already `muted`,
+  which `line` barely differs from), the last test (its word in `warn` when it failed), and Claude
+  Code's recap while it isn't working (three lines)
 - **Card footer, gauges:** under a rule (`line`, `input` on the `muted` fill), all 12px
   `muted-ink`. The context against the model's window ("Context 148k / 1M") with a short 48px 4px
   bar after it in `muted-ink` on `input` (short and neutral, so it doesn't read as the tasks' bar),
@@ -333,10 +336,13 @@ How Today's Now and the toolbar draw the sessions running now.
   the last sixth of the cache's TTL (10 minutes of an hour), the one moment the cache asks something
   of you; elsewhere it stays `muted-ink`, or a group of idle sessions would all call for you
 - **Idle row:** a single row instead of a card: the edge with no fill (`muted` on hover), the dot,
-  the title on one line with how long it has idled at its right, and the place under it (and "Not
-  in the log yet" when there is nothing to open). The place line ends with how many subagents still
-  run (`numeral` `muted-ink`; background ones go on while the session waits) and the cache. Its
-  details are in the drawer
+  the title on one line with how long it has idled at its right, and the place under it (and "Not in
+  the log yet" when there is nothing to open). The place line ends with how many subagents still run
+  (`numeral` `muted-ink`; background ones go on while the session waits) and the cache. Its details
+  are in the drawer. The rows Today lists for Working sessions are the same, with one more line
+  while subagents do the work: "by <name>" in `muted-ink` and the delegate's call (or what it was
+  asked, while it thinks), then a batch's "Subagents 2/4 done" bar, while the place line keeps its
+  count of running subagents. Without subagents a row stays one line, and an idle row never gets it
 - **Opening:** the title is the card's button; clicking anywhere else on the card does the same
   unless it ends a text selection, so a question or command can still be copied. It opens the
   latest work block in the drawer, which floats over Today as in the week view. A session not in

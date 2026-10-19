@@ -295,6 +295,8 @@ export interface Artifact {
 export interface Subagent {
   id: string;
   agentType: string | null;
+  /** Its own name, which a skill run in a subagent has (`code-review`); null for most. */
+  name: string | null;
   description: string | null;
   toolUseId: string | null;
   /** Times of the first and last messages. */
@@ -628,9 +630,10 @@ export interface LiveSession {
   /** Its subagents running now or just finished, running ones first. */
   agents: LiveAgent[];
   /**
-   * The subagent the turn waits on, from `agents`: the call in flight launched it, it runs in the
-   * foreground, and no other foreground one runs beside it. The card shows its call in place of the
-   * session's own, which says no more than that a subagent runs.
+   * The subagent that stands for what the session does, from `agents`, whose call the card shows
+   * in place of the session's own: the one foreground subagent a pending call launched (the
+   * session's call only says a subagent runs), or, while the session runs no call itself, the one
+   * background subagent still running.
    */
   delegate: string | null;
   /** How far the newest batch of subagents launched together has got, while one still runs. */
@@ -658,6 +661,8 @@ export interface LiveAgent {
   id: string;
   /** Its type (`Explore`, a custom agent); null when its meta file hasn't been read. */
   agentType: string | null;
+  /** Its own name, which a skill run in a subagent has (`code-review`); null for most. */
+  name: string | null;
   /** What it was asked to do, as the caller described it. */
   description: string | null;
   /** The main conversation's call that launched it; null for a workflow's, or before its meta file. */

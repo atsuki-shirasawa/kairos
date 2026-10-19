@@ -140,6 +140,7 @@ describe("launchedRunning", () => {
   const agent = (id: string, over: Partial<LiveAgent>): LiveAgent => ({
     id,
     agentType: null,
+    name: null,
     description: null,
     callId: `call_${id}`,
     running: true,

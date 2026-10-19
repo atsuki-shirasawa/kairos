@@ -78,17 +78,24 @@ function pendingCalls(db: Database, sessionId: string): PendingCall[] {
 }
 
 /**
- * The subagent the turn waits on: the one running foreground subagent a pending main-conversation
- * call launched. With several (a parallel batch still going), no single one stands for what the
- * turn does; a subagent's own helpers don't count, as their calls aren't the main conversation's.
+ * The subagent that stands for what the session does, whose call the card shows. First the one
+ * running foreground subagent a pending main-conversation call launched: the turn waits on it (a
+ * subagent's own helpers don't count, as their calls aren't the main conversation's). Else the one
+ * background subagent still running: Claude Code launches subagents in the background by default
+ * and keeps the session busy meanwhile, whether or not the main conversation runs calls of its own
+ * between them. With several, no single one stands for it; while asking, the question does.
  */
 export function delegateOf(
+  state: LiveState,
   pending: readonly { id: string }[],
   agents: readonly LiveAgent[],
 ): string | null {
+  if (state === "asking") return null;
+  const running = agents.filter((a) => a.running);
   const ids = new Set(pending.map((p) => p.id));
-  const waited = agents.filter((a) => a.running && !a.background && ids.has(a.callId ?? ""));
-  return waited.length === 1 ? (waited[0]?.id ?? null) : null;
+  const waited = running.filter((a) => !a.background && ids.has(a.callId ?? ""));
+  const standing = waited.length > 0 ? waited : running.filter((a) => a.background);
+  return standing.length === 1 ? (standing[0]?.id ?? null) : null;
 }
 
 /** The first question of an AskUserQuestion call, or the plan's first line for ExitPlanMode. */
@@ -199,7 +206,7 @@ export function liveSessions(
       test: s && section !== null ? testOf(loadToolCalls(db, e.sessionId, section, now)) : null,
       recap: s?.away_summary ? oneLine(s.away_summary, RECAP_CHARS) : null,
       agents,
-      delegate: state === "working" ? delegateOf(pendingList, agents) : null,
+      delegate: delegateOf(state, pendingList, agents),
       fanOut: s ? fanOutOf(db, e.sessionId, agents, section ?? 0) : null,
     });
   }

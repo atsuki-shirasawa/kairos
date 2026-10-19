@@ -1,5 +1,6 @@
 import type { Section, SessionDetail, Subagent } from "@shared/api.ts";
 import { drawerMessages } from "@/i18n/messages/drawer.ts";
+import { agentName } from "@/lib/agents.ts";
 import { hhmm } from "@/lib/dates.ts";
 import { splitSubagents } from "@/lib/drawer.ts";
 import { cn } from "@/lib/utils.ts";
@@ -39,7 +40,7 @@ export function AgentTabs({
       </div>
       {selected?.description && (
         <p className="text-label text-muted-foreground">
-          {t.subagentTask(selected.agentType ?? t.subagent, selected.description)}
+          {t.subagentTask(agentName(selected) ?? t.subagent, selected.description)}
         </p>
       )}
     </div>
@@ -88,7 +89,7 @@ function subagentOption(a: Subagent) {
   return (
     <option key={a.id} value={a.id}>
       {a.startedAt ? `${hhmm(a.startedAt)} ` : ""}
-      {a.agentType ?? drawerMessages().subagent}
+      {agentName(a) ?? drawerMessages().subagent}
       {a.description ? `: ${a.description}` : ""}
     </option>
   );

@@ -371,6 +371,7 @@ describe("delegateOf", () => {
   const agent = (id: string, callId: string | null, over: Partial<LiveAgent> = {}): LiveAgent => ({
     id,
     agentType: null,
+    name: null,
     description: null,
     callId,
     running: true,
@@ -385,7 +386,7 @@ describe("delegateOf", () => {
   const pending = (...ids: string[]) => ids.map((id) => ({ id }));
 
   test("is the foreground subagent a pending call launched", () => {
-    expect(delegateOf(pending("c1"), [agent("a", "c1")])).toBe("a");
+    expect(delegateOf("working", pending("c1"), [agent("a", "c1")])).toBe("a");
   });
 
   test("background and finished subagents don't stand in its way", () => {
@@ -393,20 +394,49 @@ describe("delegateOf", () => {
       agent("bg", "c0", { background: true }),
       agent("done", "c0", { running: false }),
     ];
-    expect(delegateOf(pending("c1"), [...others, agent("a", "c1")])).toBe("a");
+    expect(delegateOf("working", pending("c1"), [...others, agent("a", "c1")])).toBe("a");
   });
 
   test("is the last one still running of a parallel batch, whichever call it was", () => {
     const batch = [agent("a", "c1"), agent("b", "c2", { running: false })];
-    expect(delegateOf(pending("c2", "c1"), batch)).toBe("a");
+    expect(delegateOf("working", pending("c2", "c1"), batch)).toBe("a");
   });
 
   test("leaves out a subagent's own helpers, whose calls aren't the main conversation's", () => {
-    expect(delegateOf(pending("c1"), [agent("a", "c1"), agent("helper", "inner")])).toBe("a");
+    expect(delegateOf("working", pending("c1"), [agent("a", "c1"), agent("helper", "inner")])).toBe(
+      "a",
+    );
+  });
+
+  test("with no call of its own, is the one background subagent still running", () => {
+    const bg = (id: string, over: Partial<LiveAgent> = {}) =>
+      agent(id, `call_${id}`, { background: true, ...over });
+    // Claude Code keeps a session busy while its background subagents run
+    for (const state of ["working", "waiting"] as const) {
+      expect(delegateOf(state, [], [bg("a"), bg("done", { running: false })])).toBe("a");
+      expect(delegateOf(state, [], [bg("a"), bg("b")])).toBeNull();
+    }
+  });
+
+  test("a background subagent stands for the session between and during its own calls", () => {
+    const bg = agent("a", "c1", { background: true });
+    expect(delegateOf("working", [], [bg])).toBe("a");
+    expect(delegateOf("working", pending("bash"), [bg])).toBe("a");
+  });
+
+  test("the foreground subagent the turn waits on comes before a background one", () => {
+    const list = [agent("bg", "c0", { background: true }), agent("fg", "c1")];
+    expect(delegateOf("working", pending("c1"), list)).toBe("fg");
+  });
+
+  test("while asking, the question stands for the session", () => {
+    expect(delegateOf("asking", pending("c1"), [agent("a", "c1")])).toBeNull();
   });
 
   test("is none with no pending call for it, or several running at once", () => {
-    expect(delegateOf(pending("c1"), [agent("a", "c2")])).toBeNull();
-    expect(delegateOf(pending("c1", "c2"), [agent("a", "c1"), agent("b", "c2")])).toBeNull();
+    expect(delegateOf("working", pending("c1"), [agent("a", "c2")])).toBeNull();
+    expect(
+      delegateOf("working", pending("c1", "c2"), [agent("a", "c1"), agent("b", "c2")]),
+    ).toBeNull();
   });
 });

@@ -1,14 +1,16 @@
-import type { LiveFanOut, LiveSession } from "@shared/api.ts";
+import type { LiveAgent, LiveFanOut, LiveSession } from "@shared/api.ts";
 import { StatusDot } from "@/components/ui/status-dot.tsx";
 import { liveMessages } from "@/i18n/messages/live.ts";
 import {
   agentRows,
   type LiveAgentRow,
   listedAgents,
+  rowDelegate,
   runningAgents,
   toolLabel,
 } from "@/lib/live.ts";
 import { cn } from "@/lib/utils.ts";
+import { DelegatedTo, ToolText } from "./CallText.tsx";
 import { ProgressBar } from "./ProgressBar.tsx";
 
 /**
@@ -50,8 +52,43 @@ function FanOutProgress({ fanOut }: { fanOut: LiveFanOut }) {
 }
 
 /**
- * An idle row's count of subagents still running: background ones go on while the session waits,
- * and the row has no room to list them.
+ * A row's line under its place, while subagents do its work: the one that stands for the session
+ * with the call it is in, and how far a batch launched together has got. Absent otherwise, so a
+ * row stays one line.
+ */
+export function RowAgents({ session }: { session: LiveSession }) {
+  const delegate = rowDelegate(session);
+  if (!delegate && !session.fanOut) return null;
+  return (
+    <div className="flex flex-col gap-1 pt-1 pl-3.5 text-label">
+      {delegate && <DelegateLine agent={delegate} />}
+      {session.fanOut && <FanOutProgress fanOut={session.fanOut} />}
+    </div>
+  );
+}
+
+/** The delegate on one line: who runs it, then the call it is in, or what it was asked. */
+function DelegateLine({ agent }: { agent: LiveAgent }) {
+  return (
+    <p className="flex min-w-0 gap-1.5">
+      <DelegatedTo agent={agent} />
+      {agent.tool ? (
+        <span className="truncate">
+          <ToolText tool={agent.tool} />
+        </span>
+      ) : (
+        agent.description && (
+          <span className="truncate text-muted-foreground">{agent.description}</span>
+        )
+      )}
+    </p>
+  );
+}
+
+/**
+ * A row's count of subagents still running: background ones go on while the session waits, and the
+ * row has no room to list them. It stays beside `RowAgents`, which names one and counts one batch
+ * at most.
  */
 export function AgentCount({ session }: { session: LiveSession }) {
   const m = liveMessages();

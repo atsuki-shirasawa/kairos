@@ -76,6 +76,16 @@ export type UsageRow = {
   cacheWrite1h: number;
 };
 
+/** A subagent's facts from its meta file, bound by name (see `MessageRow` for the type alias). */
+export type SubagentRow = {
+  id: string;
+  sessionId: string;
+  agentType: string | null;
+  name: string | null;
+  description: string | null;
+  toolUseId: string | null;
+};
+
 /**
  * A session's recomputed aggregates and first prompt, bound by name to update its row. The mapped
  * type copies `AggregateRow` (an interface) into a shape that fits bun:sqlite's record of bindings.
@@ -201,10 +211,11 @@ export function prepareStatements(db: Database) {
                  $input, $output, $cacheRead, $cacheWrite5m, $cacheWrite1h)
        ON CONFLICT(session_id, message_id) DO UPDATE SET output = MAX(output, excluded.output)`,
     ),
-    upsertSubagent: p(
-      `INSERT INTO subagents (id, session_id, agent_type, description, tool_use_id) VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET agent_type = excluded.agent_type, description = excluded.description,
-           tool_use_id = excluded.tool_use_id`,
+    upsertSubagent: db.prepare<null, SubagentRow>(
+      `INSERT INTO subagents (id, session_id, agent_type, name, description, tool_use_id)
+         VALUES ($id, $sessionId, $agentType, $name, $description, $toolUseId)
+         ON CONFLICT(id) DO UPDATE SET agent_type = excluded.agent_type, name = excluded.name,
+           description = excluded.description, tool_use_id = excluded.tool_use_id`,
     ),
     // Mark records in the continued session (?1) that share a uuid with the previous session as copies
     markCopiedMessages: p(

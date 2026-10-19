@@ -49,6 +49,7 @@ const artifact = (ts: number | null, kind: Artifact["kind"] = "commit"): Artifac
 const subagent = (startedAt: number | null, endedAt: number | null): Subagent => ({
   id: `a-${startedAt}`,
   agentType: null,
+  name: null,
   description: null,
   toolUseId: null,
   startedAt,

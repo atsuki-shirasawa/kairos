@@ -30,6 +30,7 @@ const STOP_KINDS = new Set(["interrupt", "error"]);
 
 interface MetaRow {
   agent_type: string | null;
+  name: string | null;
   description: string | null;
   tool_use_id: string | null;
 }
@@ -104,6 +105,7 @@ export function liveAgents(
     list.push({
       id,
       agentType: meta?.agent_type ?? null,
+      name: meta?.name ?? null,
       description: meta?.description ?? null,
       callId: meta?.tool_use_id ?? null,
       running,
@@ -117,11 +119,11 @@ export function liveAgents(
   return list.sort((a, b) => Number(b.running) - Number(a.running) || a.startedAt - b.startedAt);
 }
 
-/** The subagent's type, description and the call that started it, from its meta file. */
+/** The subagent's type, name, description and the call that started it, from its meta file. */
 function metaOf(db: Database, agentId: string): MetaRow | null {
   return db
     .query<MetaRow, [string]>(
-      "SELECT agent_type, description, tool_use_id FROM subagents WHERE id = ?",
+      "SELECT agent_type, name, description, tool_use_id FROM subagents WHERE id = ?",
     )
     .get(agentId);
 }

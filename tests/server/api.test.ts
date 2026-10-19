@@ -542,6 +542,7 @@ describe("GET /api/sessions/:id", () => {
       {
         id: "a1b2c3d4e5f60718",
         agentType: "code-reviewer",
+        name: null,
         description: "PR #42 のレビュー",
         toolUseId: "toolu_6666660001",
         startedAt: min(300.6),
