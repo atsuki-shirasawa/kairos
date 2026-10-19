@@ -12,7 +12,7 @@ bun run format     # auto-fix with Biome
 bun test tests/server/ingest/ingester.test.ts   # a single test file
 bun run dev        # API :4319 + Vite :5173. Run `kairos stop` first (same port)
 bun tests/fixtures/generate.ts                  # regenerate the fixtures
-bun run screenshots   # retake docs/images/screen-*.png from a fictional week (after `bun run build`)
+bun run screenshots   # retake docs/images/screen-*.png (light) and docs/images/dark/ from a fictional week (after `bun run build`)
 bun run visual        # visual regression: every view × light/dark × en/ja × 1440/1024 against .visual/baseline
 bun run e2e           # behaviour tests in headless Chrome (tests/e2e) and the axe accessibility ratchet
 bun run docs          # the docs site (Starlight, site/) at :4321; `bun install --cwd site` first
@@ -32,7 +32,7 @@ Finished work goes to main without a PR: when asked to merge, use `/land` (revie
 - `src/shared/` — API types, constants, and rules the server, CLI and UI must agree on (dates, PR refs, open items, close notes, summary failures, the UI's URL parameters). Put a rule here once a second layer needs it
 - `src/web/` — React 19 + Tailwind v4 + shadcn/ui (`@/` is `src/web/src`)
 - `src/web/src/i18n/` — UI language (English by default, Japanese selectable from the "⋯" menu, saved per browser). Messages live in `messages/*.ts` via `defineMessages`
-- `site/` — the GitHub Pages docs (Starlight, its own package). `scripts/sync.ts` generates the pages from README, ARCHITECTURE, DESIGN and docs/design, so edit those, not the generated files; a broken relative link or anchor fails the build. `.github/workflows/docs.yml` publishes it on push to main
+- `site/` — the GitHub Pages docs (Starlight, its own package). `scripts/sync.ts` generates the pages from README, ARCHITECTURE, DESIGN and docs/design, so edit those, not the generated files; `pages.ts` says which headings become which page and orders the sidebar (a new H2 must be placed there). `<!-- site:skip -->…<!-- /site:skip -->` keeps maintainer-only text off the site; a broken relative link or anchor fails the build. `src/styles/custom.css` mirrors the app's palette and fonts. `.github/workflows/docs.yml` publishes it on push to main
 - `tests/` mirrors `src/` (`cli/`, `server/`, `web/`). `tests/web` covers pure `lib/` logic without a DOM and imports by relative path (the `@/` alias is not used in tests); call `setLocale` when a test checks copy. `tests/e2e/` (`*.e2e.ts`, left out of `bun test`) drives the built UI by role and name with `bun run e2e`
 
 ## Data

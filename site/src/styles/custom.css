@@ -1,13 +1,164 @@
-/* The app's single indigo accent (DESIGN.md), so the docs read as the same product. Starlight's
-   default theme is dark; light overrides it. */
+/* The app's theme ("Indigo hours", DESIGN.md) on Starlight's variables, so the docs read as the
+   same product: its navy and paper neutrals, the single indigo accent, its 1px rules and type.
+   Text sizes stay Starlight's, since these pages are for long reading rather than the app's dense
+   14px UI. Starlight's default theme is dark; light overrides it. The values mirror
+   src/web/src/index.css — keep them in step when the app's palette changes. Starlight wants more
+   gray steps than the app's two text tones; the steps in between (gray-2, gray-4, white,
+   accent-high) are interpolated and only mark Starlight's own chrome. */
+
+@import "@fontsource/ibm-plex-sans-jp/400.css";
+@import "@fontsource/ibm-plex-sans-jp/500.css";
+@import "@fontsource/ibm-plex-sans-jp/600.css";
+@import "@fontsource/syne/latin-600.css";
+
+/* Plex Sans JP centers "…" as Japanese does; the app takes it from a Latin face, and so do we */
+@font-face {
+  font-family: "Latin Ellipsis";
+  src: local("Helvetica Neue"), local("Helvetica"), local("Arial");
+  unicode-range: U+2026;
+  font-weight: 100 900;
+}
+
 :root {
-  --sl-color-accent-low: #1f2c45;
+  --sl-font:
+    "Latin Ellipsis", "IBM Plex Sans JP", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+
+  /* Dark: the app's background is the page, its card the nav and sidebar */
+  --sl-color-white: #f3f6fb;
+  --sl-color-gray-1: #e3e8f2;
+  --sl-color-gray-2: #cdd4e2;
+  --sl-color-gray-3: #8f9ab0;
+  --sl-color-gray-4: #5d6a85;
+  --sl-color-gray-5: #2e3c5a;
+  --sl-color-gray-6: #172238;
+  --sl-color-black: #10182a;
+
+  --sl-color-accent-low: #22314f;
   --sl-color-accent: #8da8e8;
-  --sl-color-accent-high: #e3e8f2;
+  --sl-color-accent-high: #c9d6f5;
+  --sl-color-text-accent: #8da8e8;
+
+  --sl-color-bg-inline-code: #1f2c45;
+  --sl-color-hairline-light: #24304a;
+  --sl-color-hairline: #24304a;
+  --sl-color-hairline-shade: #10182a;
+
+  --kairos-code-bg: #172238;
 }
 
 :root[data-theme="light"] {
+  /* Light: the app's card is the page, its background the nav and sidebar */
+  --sl-color-white: #1b2333;
+  --sl-color-gray-1: #1b2333;
+  --sl-color-gray-2: #2c3547;
+  --sl-color-gray-3: #626b7d;
+  --sl-color-gray-4: #8a93a5;
+  --sl-color-gray-5: #d7dce4;
+  --sl-color-gray-6: #e2e6ec;
+  --sl-color-gray-7: #f6f7f9;
+  --sl-color-black: #ffffff;
+
   --sl-color-accent-low: #e8edf6;
   --sl-color-accent: #2e4c8c;
-  --sl-color-accent-high: #1b2333;
+  --sl-color-accent-high: #1f3566;
+  --sl-color-text-accent: #2e4c8c;
+
+  --sl-color-bg-nav: #f6f7f9;
+  --sl-color-bg-sidebar: #f6f7f9;
+  --sl-color-bg-inline-code: #eef1f5;
+  --sl-color-hairline-light: #e2e6ec;
+  --sl-color-hairline: #e2e6ec;
+  --sl-color-hairline-shade: #e2e6ec;
+
+  --kairos-code-bg: #f6f7f9;
+}
+
+/* Japanese punctuation sits tight, as in the app's body */
+body {
+  font-feature-settings: "palt";
+}
+
+/* The wordmark is Syne, as in the app's header, and nowhere else */
+.site-title {
+  font-family: "Syne", "IBM Plex Sans JP", system-ui, sans-serif;
+  font-weight: 600;
+}
+
+/* Screenshots come in both themes (sync.ts wraps them); show the one that matches */
+:root[data-theme="light"] .dark-only,
+:root:not([data-theme="light"]) .light-only {
+  display: none;
+}
+
+.sl-markdown-content img {
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 0.5rem;
+}
+
+/* Mermaid draws only in its own "default" and "dark" themes; repaint the diagrams in the app's
+   neutrals and indigo. Its styles sit under an id, so these need !important to win. */
+pre.mermaid {
+  background: transparent !important;
+}
+
+pre.mermaid svg :is(.node rect, .node polygon, .node circle, .node path, rect.actor) {
+  fill: var(--sl-color-bg-nav) !important;
+  stroke: var(--sl-color-accent) !important;
+}
+
+pre.mermaid svg :is(.cluster rect) {
+  fill: var(--sl-color-accent-low) !important;
+  stroke: var(--sl-color-hairline-light) !important;
+}
+
+pre.mermaid svg :is(.flowchart-link, .edgePath path, .messageLine0, .messageLine1, .actor-line) {
+  stroke: var(--sl-color-gray-3) !important;
+}
+
+pre.mermaid svg :is(marker path, #arrowhead path, .arrowheadPath) {
+  fill: var(--sl-color-gray-3) !important;
+  stroke: var(--sl-color-gray-3) !important;
+}
+
+/* Colors only: Mermaid sizes each box from its own font, so another face would clip the labels */
+pre.mermaid svg :is(.nodeLabel, .cluster-label, .edgeLabel, .label, span, p) {
+  color: var(--sl-color-gray-1) !important;
+}
+
+pre.mermaid svg :is(text, .messageText, .actor, .noteText, .loopText) {
+  fill: var(--sl-color-gray-1) !important;
+}
+
+pre.mermaid svg :is(.edgeLabel, .edgeLabel *, .labelBkg) {
+  background-color: var(--sl-color-bg) !important;
+}
+
+pre.mermaid svg .edgeLabel rect {
+  fill: var(--sl-color-bg) !important;
+}
+
+/* The overview flowchart is wide; at the column's width its labels shrink past reading, so it
+   keeps a readable size and scrolls sideways instead */
+pre.mermaid {
+  overflow-x: auto;
+}
+
+pre.mermaid svg[aria-roledescription^="flowchart"] {
+  min-width: 56rem;
+}
+
+pre.mermaid svg :is(.note) {
+  fill: var(--sl-color-bg-inline-code) !important;
+  stroke: var(--sl-color-hairline-light) !important;
+}
+
+pre.mermaid svg :is(.labelBox, .loopLine) {
+  fill: var(--sl-color-accent-low) !important;
+  stroke: var(--sl-color-gray-4) !important;
+}
+
+/* Starlight cycles card icons through four hues; the app keeps one accent, and so do the cards */
+.card-grid .card {
+  --sl-card-border: var(--sl-color-accent) !important;
+  --sl-card-bg: var(--sl-color-accent-low) !important;
 }

@@ -15,9 +15,11 @@ hero:
 
 import { Card, CardGrid } from "@astrojs/starlight/components";
 import { Image } from "astro:assets";
+import weekDark from "../../assets/docs/images/dark/screen-week.png";
 import weekView from "../../assets/docs/images/screen-week.png";
 
-<Image src={weekView} alt="Kairos week view with the detail drawer" />
+<Image class="light-only" src={weekView} alt="Kairos week view with the detail drawer" />
+<Image class="dark-only" src={weekDark} alt="Kairos week view with the detail drawer" />
 
 <CardGrid>
   <Card title="Today" icon="rocket">
@@ -32,6 +34,6 @@ import weekView from "../../assets/docs/images/screen-week.png";
   </Card>
   <Card title="Local and read-only" icon="laptop">
     Ingests `~/.claude/projects` read-only into SQLite on your Mac, so history outlives Claude
-    Code's log retention.
+    Code's log retention. [What leaves the machine](guide/privacy/)
   </Card>
 </CardGrid>
