@@ -27,6 +27,8 @@ export default defineConfig({
       favicon: "/favicon.svg",
       social: [{ icon: "github", label: "GitHub", href: REPO_URL }],
       customCss: ["./src/styles/custom.css"],
+      // The landing hero draws the app's mark (only the landing page has a hero)
+      components: { Hero: "./src/components/Hero.astro" },
       lastUpdated: false,
       // Code blocks sit on the app's surfaces (custom.css) instead of the theme's own navy
       expressiveCode: {

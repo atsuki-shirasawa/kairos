@@ -21,6 +21,14 @@
   },
   "overrides": [
     {
+      "includes": ["**/*.astro"],
+      "linter": {
+        "rules": {
+          "correctness": { "noUnusedImports": "off", "noUnusedVariables": "off" }
+        }
+      }
+    },
+    {
       "includes": ["src/web/src/lib/utils.ts"],
       "linter": { "rules": { "style": { "noRestrictedImports": "off" } } }
     }

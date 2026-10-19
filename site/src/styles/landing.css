@@ -1,0 +1,337 @@
+/* The landing page (src/content/docs/index.mdx), which imports it so no other page carries it.
+   Its one loud thing is the Kairos mark, cut once by its blade as the page opens; everything else
+   borrows the app's own vocabulary: the Syne wordmark, condensed figures for times, and the
+   questions of a day drawn as work blocks. */
+
+/* Only ASCII times and ⌘K are set in it */
+@import "@fontsource/ibm-plex-sans-condensed/latin-500.css";
+
+/* The app's project pigments and how much of them a block's fill takes. They mirror
+   src/web/src/index.css (--p0..--p3, --mix-block, --block-base); keep them in step with it, as
+   custom.css does with the palette. */
+:root {
+  --kx-p0: #6f8fd0;
+  --kx-p1: #57ab9b;
+  --kx-p2: #d1a650;
+  --kx-p3: #a68bd0;
+  --kx-mix: 32%;
+  --kx-block-base: oklch(0.255 0 none);
+  --kx-num: "IBM Plex Sans Condensed", "IBM Plex Sans JP", system-ui, sans-serif;
+}
+
+:root[data-theme="light"] {
+  --kx-p0: #4f6faf;
+  --kx-p1: #3f8f80;
+  --kx-p2: #c0923a;
+  --kx-p3: #8c70b5;
+  --kx-mix: 20%;
+  --kx-block-base: oklch(1 0 none);
+}
+
+/* Hero layout, as Starlight's own hero lays it out: stacked on a phone, copy beside the mark on
+   a wide screen */
+.kx-hero {
+  display: grid;
+  grid-template-columns: 100%;
+  align-items: center;
+  gap: 1rem;
+  padding-bottom: 1rem;
+}
+
+.kx-hero .stack {
+  flex-direction: column;
+  gap: clamp(1.5rem, calc(1.5rem + 1vw), 2rem);
+  text-align: center;
+}
+
+.kx-hero .copy {
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+}
+
+.kx-hero .actions {
+  gap: 1rem 2rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* The wordmark is the title, in the face the app's header sets it in */
+.kx-hero h1 {
+  font-family: "Syne", "IBM Plex Sans JP", system-ui, sans-serif;
+  font-size: clamp(3.25rem, 2rem + 6vw, 6rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--sl-color-white);
+}
+
+.kx-hero .tagline {
+  max-width: 34ch;
+  font-size: clamp(var(--sl-text-base), calc(0.0625rem + 2vw), var(--sl-text-xl));
+  line-height: 1.5;
+  color: var(--sl-color-gray-2);
+}
+
+.kx-mark {
+  position: relative;
+  width: min(62%, 17rem);
+  margin-inline: auto;
+}
+
+.kx-mark svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.kx-blade-layer {
+  position: absolute;
+  inset: 0;
+}
+
+@media (min-width: 50rem) {
+  .kx-hero {
+    grid-template-columns: 7fr 4fr;
+    gap: 3%;
+    padding-block: clamp(2.5rem, calc(1rem + 10vmin), 10rem);
+  }
+
+  .kx-mark {
+    order: 2;
+    width: min(100%, 22rem);
+  }
+
+  .kx-hero .stack {
+    text-align: start;
+  }
+
+  .kx-hero .copy {
+    align-items: flex-start;
+  }
+
+  .kx-hero .actions {
+    justify-content: flex-start;
+  }
+}
+
+/* The blade runs down the cut, and only then does the circle open along it: the moment Kairos is
+   named for. The halves are the mark's two clipped groups; each starts shifted by half the cut
+   (--kx-close, read from the mark), so the circle looks whole until the blade has passed. */
+.kx-blade {
+  stroke: var(--sl-color-white);
+  stroke-width: 0.35;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .kx-blade {
+    animation: kx-cut 1.3s cubic-bezier(0.65, 0, 0.35, 1) 0.25s both;
+  }
+
+  .kx-mark > svg:first-of-type > g {
+    animation: kx-part 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.85s both;
+  }
+
+  .kx-mark > svg:first-of-type > g:first-of-type {
+    --kx-from: var(--kx-close);
+  }
+
+  .kx-mark > svg:first-of-type > g:last-of-type {
+    --kx-from: calc(-1 * var(--kx-close));
+  }
+}
+
+/* The blade has reached the bottom at 45% (0.25s + 0.585s), just before the halves part */
+@keyframes kx-cut {
+  0% {
+    stroke-dashoffset: 1;
+    opacity: 1;
+  }
+  45% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+@keyframes kx-part {
+  from {
+    transform: translateX(var(--kx-from));
+  }
+  to {
+    transform: none;
+  }
+}
+
+/* The meaning of the name, set as a statement rather than a pull quote */
+.kx-meaning {
+  margin: 0 0 3.5rem;
+  max-width: 40rem;
+}
+
+.kx-meaning blockquote {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.kx-meaning blockquote p {
+  font-size: clamp(1.375rem, 1rem + 1.4vw, 1.875rem);
+  line-height: 1.35;
+  font-weight: 500;
+  color: var(--sl-color-white);
+  text-wrap: balance;
+}
+
+.kx-meaning figcaption {
+  margin-top: 0.75rem;
+  color: var(--sl-color-gray-3);
+  max-width: 34rem;
+}
+
+.kx-shot {
+  margin: 0 0 4.5rem;
+}
+
+.kx-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.kx-shot figcaption {
+  margin-top: 0.625rem;
+  font-size: var(--sl-text-sm);
+  color: var(--sl-color-gray-3);
+}
+
+.sl-markdown-content :is(.kx-day, .kx-setup) h2 {
+  font-size: var(--sl-text-2xl);
+  margin-bottom: 0.25rem;
+}
+
+.kx-lede {
+  color: var(--sl-color-gray-3);
+  max-width: 34rem;
+}
+
+/* A day column: times on the left in the app's figures, the questions as work blocks */
+.kx-timeline {
+  list-style: none;
+  margin: 1.75rem 0 4.5rem;
+  padding: 0;
+  max-width: 44rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+/* Starlight spaces every sibling in prose; the column sets its own rhythm */
+.sl-markdown-content .kx-slot > * {
+  margin: 0;
+}
+
+.sl-markdown-content .kx-slot {
+  display: grid;
+  grid-template-columns: 3.25rem 1fr;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+}
+
+.kx-slot time {
+  font-family: var(--kx-num);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--sl-text-sm);
+  color: var(--sl-color-gray-3);
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--sl-color-hairline);
+}
+
+.kx-p0 {
+  --kx-p: var(--kx-p0);
+}
+
+.kx-p1 {
+  --kx-p: var(--kx-p1);
+}
+
+.kx-p2 {
+  --kx-p: var(--kx-p2);
+}
+
+.kx-p3 {
+  --kx-p: var(--kx-p3);
+}
+
+/* As in the app: a 3px left edge in the project color, a fill mixed into the block base, 3px
+   radius on the left and the medium radius on the right */
+.kx-block {
+  border-left: 3px solid var(--kx-p);
+  border-radius: 3px 0.4rem 0.4rem 3px;
+  background: color-mix(in oklch, var(--kx-p) var(--kx-mix), var(--kx-block-base));
+  padding: 0.6rem 0.9rem 0.75rem;
+}
+
+.sl-markdown-content .kx-block > * {
+  margin: 0;
+}
+
+.sl-markdown-content .kx-block > * + * {
+  margin-top: 0.35rem;
+}
+
+.kx-block .kx-q {
+  font-weight: 600;
+  color: var(--sl-color-white);
+}
+
+.kx-block p:not(.kx-q) {
+  color: var(--sl-color-gray-2);
+  font-size: var(--sl-text-sm);
+  line-height: 1.6;
+}
+
+.kx-block a {
+  display: inline-block;
+  font-size: var(--sl-text-sm);
+  font-weight: 500;
+}
+
+.kx-block kbd {
+  font-family: var(--kx-num);
+  font-size: 0.85em;
+  padding: 0.05em 0.35em;
+  border: 1px solid var(--sl-color-hairline-light);
+  border-radius: 0.3rem;
+}
+
+.kx-setup {
+  max-width: 44rem;
+}
+
+.kx-setup p:last-child {
+  font-weight: 500;
+}
+
+/* On a phone the time sits above its block, so the block keeps the width to be read */
+@media (max-width: 30rem) {
+  .sl-markdown-content .kx-slot {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+
+  .kx-slot time {
+    padding-top: 0;
+    border-top: 0;
+  }
+}

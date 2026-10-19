@@ -1,0 +1,61 @@
+---
+// The landing page's hero, in place of Starlight's: the app's own mark beside the wordmark, cut
+// once by its blade as the page opens. The mark is src/web/public/favicon.svg as sync.ts copies
+// it, so the hero, the favicon and the logo are one drawing; the blade and how far the halves
+// close are read from that drawing's cut rather than written down twice.
+import { LinkButton } from "@astrojs/starlight/components";
+import mark from "../assets/logo.svg?raw";
+
+const { data } = Astro.locals.starlightRoute.entry;
+const { title = data.title, tagline, actions = [] } = data.hero ?? {};
+
+/** The cut's two edges from the mark's clip paths: where each meets the top and the bottom. */
+function cutEdges(svg: string): { top: [number, number]; bottom: [number, number] } | null {
+  const left = svg.match(/<path d="M0 0H([\d.]+)L([\d.]+) 32H0Z"\/>/);
+  const right = svg.match(/<path d="M([\d.]+) 0H32V32H([\d.]+)Z"\/>/);
+  if (!left || !right) return null;
+  return {
+    top: [Number(left[1]), Number(right[1])],
+    bottom: [Number(left[2]), Number(right[2])],
+  };
+}
+
+const edges = cutEdges(mark);
+// The blade runs down the middle of the cut; each half starts shifted by half the cut's width,
+// so the circle opens from whole
+const blade = edges && {
+  x1: (edges.top[0] + edges.top[1]) / 2,
+  x2: (edges.bottom[0] + edges.bottom[1]) / 2,
+};
+const close = edges ? (edges.top[1] - edges.top[0]) / 2 : 0;
+---
+
+<div class="hero kx-hero">
+  <div class="kx-mark" style={`--kx-close: ${close}px`}>
+    <Fragment set:html={mark} />
+    {
+      blade && (
+        <svg class="kx-blade-layer" viewBox="0 0 32 32" aria-hidden="true">
+          <line class="kx-blade" x1={blade.x1} y1="0" x2={blade.x2} y2="32" pathLength="1" />
+        </svg>
+      )
+    }
+  </div>
+  <div class="sl-flex stack">
+    <div class="sl-flex copy">
+      <h1 id="_top" data-page-title set:html={title} />
+      {tagline && <div class="tagline" set:html={tagline} />}
+    </div>
+    {
+      actions.length > 0 && (
+        <div class="sl-flex actions">
+          {actions.map(({ link: href, text, variant }) => (
+            <LinkButton {href} {variant}>
+              {text}
+            </LinkButton>
+          ))}
+        </div>
+      )
+    }
+  </div>
+</div>

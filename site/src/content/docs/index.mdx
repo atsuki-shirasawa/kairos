@@ -1,39 +1,102 @@
 ---
 title: Kairos
-description: Keep the memory of your Claude Code work — what is running now, what is left to pick up, and what you did on a given day.
+description: The memory of your Claude Code work — what is running now, what is left to pick up, and what you were doing at any hour.
 template: splash
 hero:
-  tagline: Keep the memory of your Claude Code work — what is running now, what is left to pick up, and on a calendar, what you were doing on a given day and at a given time.
+  tagline: The memory of your Claude Code work — what is running now, what is left to pick up, and what you were doing at any hour.
   actions:
-    - text: Get started
+    - text: Set up Kairos
       link: guide/setup/
-      icon: right-arrow
-    - text: Introduction
+    - text: Read the introduction
       link: guide/introduction/
       variant: minimal
 ---
 
-import { Card, CardGrid } from "@astrojs/starlight/components";
 import { Image } from "astro:assets";
+// The landing page's own styles, hero included, so no other page loads them
+import "../../styles/landing.css";
 import weekDark from "../../assets/docs/images/dark/screen-week.png";
 import weekView from "../../assets/docs/images/screen-week.png";
 
-<Image class="light-only" src={weekView} alt="Kairos week view with the detail drawer" />
-<Image class="dark-only" src={weekDark} alt="Kairos week view with the detail drawer" />
+<figure class="kx-meaning">
+  <blockquote>
+    <p>Chronos is the time a clock ticks off. Kairos is the time when something happened.</p>
+  </blockquote>
+  <figcaption>
+    Greek for “the meaningful moment”. Kairos reads your Claude Code logs and gives the hours on a
+    calendar their meaning: what you did then.
+  </figcaption>
+</figure>
 
-<CardGrid>
-  <Card title="Today" icon="rocket">
-    The sessions running now, those waiting on you first, and what recent sessions left to pick up.
-  </Card>
-  <Card title="Journal" icon="open-book">
-    A month, a week or a day of your work on a calendar, each block named by its summary.
-  </Card>
-  <Card title="Summaries" icon="pencil">
-    Each work block summarized in the background with `claude -p`: what was asked, what got
-    settled and what was left open.
-  </Card>
-  <Card title="Local and read-only" icon="laptop">
-    Ingests `~/.claude/projects` read-only into SQLite on your Mac, so history outlives Claude
-    Code's log retention. [What leaves the machine](guide/privacy/)
-  </Card>
-</CardGrid>
+<figure class="kx-shot">
+  <Image class="light-only" src={weekView} alt="Kairos week view with the detail drawer" />
+  <Image class="dark-only" src={weekDark} alt="Kairos week view with the detail drawer" />
+  <figcaption>A week of work, each block named by its summary, with one opened in the drawer.</figcaption>
+</figure>
+
+<section class="kx-day" aria-labelledby="kx-day-title">
+  <h2 id="kx-day-title">A workday with Kairos</h2>
+  <p class="kx-lede">
+    Watching and resuming happen many times a day, looking back once a day or once a week. Kairos
+    answers in that order.
+  </p>
+  <ol class="kx-timeline">
+    <li class="kx-slot kx-p0">
+      <time>09:10</time>
+      <div class="kx-block">
+        <p class="kx-q">What did I leave open yesterday?</p>
+        <p>
+          Today opens on what recent sessions left to pick up, each with the command that resumes
+          it, beside what the last workday was about.
+        </p>
+        <a href="guide/introduction/">What Today shows</a>
+      </div>
+    </li>
+    <li class="kx-slot kx-p1">
+      <time>11:30</time>
+      <div class="kx-block">
+        <p class="kx-q">Which session is waiting on me?</p>
+        <p>
+          The sessions running now, those asking you something first. How many are waiting on you
+          shows on every page and in the browser tab's title.
+        </p>
+        <a href="guide/live/">Running sessions</a>
+      </div>
+    </li>
+    <li class="kx-slot kx-p3">
+      <time>15:40</time>
+      <div class="kx-block">
+        <p class="kx-q">When did we settle on that?</p>
+        <p>
+          Search every period by summaries, prompts, PRs and branches, or <code>file:</code> for the
+          work that edited a file. <kbd>⌘K</kbd> jumps to any day.
+        </p>
+        <a href="guide/shortcuts/">Keyboard shortcuts</a>
+      </div>
+    </li>
+    <li class="kx-slot kx-p2">
+      <time>18:05</time>
+      <div class="kx-block">
+        <p class="kx-q">What do I say at standup?</p>
+        <p>
+          A Markdown report of the day — recaps, the work per project with PR links, what is still
+          open — copied from any page, or printed by <code>kairos report</code>.
+        </p>
+        <a href="guide/commands/">Commands</a>
+      </div>
+    </li>
+  </ol>
+</section>
+
+<section class="kx-setup" aria-labelledby="kx-setup-title">
+  <h2 id="kx-setup-title">On your Mac, from your own logs</h2>
+  <p>
+    Kairos reads Claude Code's logs into SQLite on your Mac and never writes them, so your history
+    outlives Claude Code's log retention. Each work block is summarized in the background with
+    <code>claude -p</code>, through your own login; those excerpts are all that leave your Mac.
+  </p>
+  <p>
+    It runs on macOS with Bun and Claude Code. <a href="guide/setup/">Set it up</a> ·{" "}
+    <a href="guide/privacy/">What leaves your Mac</a>
+  </p>
+</section>
