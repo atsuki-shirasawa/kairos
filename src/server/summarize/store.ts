@@ -5,6 +5,7 @@ import { DAY } from "../../shared/dates.ts";
 import { AUTO_SUMMARY_DAYS, isSummarizable, SECTION_IDLE_MS } from "../../shared/sections.ts";
 import { sqlList } from "../db/sqlList.ts";
 import { refsOf } from "../refs.ts";
+import { automationSql, RUN_KINDS, type RunKind } from "../runKinds.ts";
 import type { TaskState } from "../tasks.ts";
 import { DEFAULT_HIDDEN_CWDS, visibleSessionSql } from "../visibility.ts";
 import { STALE_SUMMARY_SQL, sectionBlock, stillStartsAt } from "./blocks.ts";
@@ -14,7 +15,7 @@ import { formatFacts, loadFacts } from "./facts.ts";
 import { type LedgerUpdate, recordSection } from "./ledger/record.ts";
 import type { PromptInput } from "./prompt.ts";
 import { type RecapInput, type RecapTarget, recapHash } from "./recap.ts";
-import type { SectionRef, Target } from "./target.ts";
+import { modeOf, type SectionRef, type Target } from "./target.ts";
 
 /** What a section summary is built from, and how far into the section it reaches. */
 export interface SectionInput {
@@ -31,6 +32,11 @@ export interface SectionInput {
 
 /** How many candidates one automatic lookup reads; enough to step past ones waiting on a retry. */
 const AUTO_BATCH = 50;
+/**
+ * How many of an automation run's first tool results its digest quotes: a loop reads its
+ * assignment in the first call or two, and later results are the work's own detail.
+ */
+const AUTOMATION_LEADING_RESULTS = 3;
 /** Earlier headlines given as context; more adds length without helping the summary. */
 const PREVIOUS_HEADLINES = 8;
 
@@ -77,15 +83,20 @@ function finishedSql(idleBefore: string): string {
 }
 
 /**
+ * The messages aliased `m` that the summary reads of the section aliased `g`: the main
+ * conversation's own, leaving out subagents, copies and scheduled runs, as `loadMessages` does.
+ */
+const SECTION_MESSAGES_SQL = `m.session_id = g.session_id AND m.ts BETWEEN g.start AND g.end
+    AND m.agent_id IS NULL AND m.is_copy = 0 AND m.is_scheduled = 0`;
+
+/**
  * Whether the section aliased `g` has a conversation to summarize: the same messages as
  * loadMessages / DIGEST_KINDS. A section with none (e.g. only scheduled runs) gets nothing saved,
  * so it would come back forever.
  */
 const HAS_CONVERSATION_SQL = `EXISTS (
   SELECT 1 FROM messages m
-  WHERE m.session_id = g.session_id AND m.ts BETWEEN g.start AND g.end
-    AND m.agent_id IS NULL AND m.is_copy = 0 AND m.is_scheduled = 0
-    AND m.kind IN ${sqlList(DIGEST_KINDS)}
+  WHERE ${SECTION_MESSAGES_SQL} AND m.kind IN ${sqlList(DIGEST_KINDS)}
 )`;
 
 /** A full summary in the old format (free Markdown, before `PROMPT_VERSION`), aliased `sm`. */
@@ -94,7 +105,7 @@ const OLD_FORMAT_SQL = "(sm.prompt_version IS NULL AND sm.body <> '')";
 /**
  * Finished sections whose summary is missing or older than the section, newest sessions first and
  * each session's sections in order, under the
- * same rules as automatic runs (short sections get `title` mode). Sections with no conversation to
+ * same rules as automatic runs (`modeOf`: short sections and trial runs get `title` mode). Sections with no conversation to
  * summarize are left out. Trial runs are summarized whether or not the calendar shows them, so
  * their summaries are ready when they are turned on. Shared by the automatic loop and
  * `kairos summarize`, so both agree on what still needs a summary.
@@ -107,11 +118,17 @@ export function findTargets(db: Database, now: number, filter: TargetFilter = {}
         start: number;
         end: number;
         prompt_count: number;
+        run_kind: RunKind | null;
+        tool_calls: number;
         project: string | null;
       },
       [number, number, number, number, number, number]
     >(
-      `SELECT g.session_id, g.start, g.end, g.prompt_count, p.name AS project
+      `SELECT g.session_id, g.start, g.end, g.prompt_count, s.run_kind, p.name AS project,
+         -- Only an automation run's mode reads its calls, so only its sections count them
+         CASE WHEN ${automationSql("s")} THEN (
+           SELECT COUNT(*) FROM messages m WHERE ${SECTION_MESSAGES_SQL} AND m.kind = 'tool_use'
+         ) ELSE 0 END AS tool_calls
        FROM segments g
        JOIN sessions s ON s.id = g.session_id
        LEFT JOIN projects p ON p.id = s.project_id
@@ -141,9 +158,13 @@ export function findTargets(db: Database, now: number, filter: TargetFilter = {}
     .map((r) =>
       namedTarget(
         r,
-        isSummarizable({ start: r.start, end: r.end, promptCount: r.prompt_count })
-          ? "summary"
-          : "title",
+        modeOf({
+          start: r.start,
+          end: r.end,
+          promptCount: r.prompt_count,
+          toolCalls: r.tool_calls,
+          runKind: r.run_kind,
+        }),
       ),
     );
 }
@@ -230,9 +251,15 @@ export function loadSectionInput(db: Database, target: SectionRef): SectionInput
   const block = sectionBlock(db, target);
   if (!block) return null;
   const { id: blockId, end } = block;
-  const digest = buildDigest(loadMessages(db, target, end));
-  if (!digest) return null;
   const session = loadSessionLabel(db, target.sessionId);
+  const automated = session?.run_kind === RUN_KINDS.automation;
+  const previous = loadPreviousHeadlines(db, target);
+  // A run reads its assignment at its start, so only its first section quotes what it read
+  const quotesInputs = automated && previous.length === 0;
+  const digest = buildDigest(loadMessages(db, target, end), {
+    leadingResults: quotesInputs ? AUTOMATION_LEADING_RESULTS : 0,
+  });
+  if (!digest) return null;
   const facts = loadFacts(db, target.sessionId, target.start, end);
   const factsText = formatFacts(facts);
   return {
@@ -241,7 +268,8 @@ export function loadSectionInput(db: Database, target: SectionRef): SectionInput
     prompt: {
       sessionTitle: session?.title?.split("\n")[0] ?? "(untitled)",
       projectName: session?.project ?? null,
-      previous: loadPreviousHeadlines(db, target),
+      automated,
+      previous,
       facts: factsText,
       digest,
     },
@@ -250,15 +278,19 @@ export function loadSectionInput(db: Database, target: SectionRef): SectionInput
   };
 }
 
-/** The session's display title and its project's name. */
-function loadSessionLabel(
-  db: Database,
-  sessionId: string,
-): { title: string | null; project: string | null } | null {
+/** A session as a summary prompt names it: its title, its project, and what kind of run it is. */
+interface SessionLabel {
+  title: string | null;
+  project: string | null;
+  run_kind: RunKind | null;
+}
+
+/** The session's display title, its project's name and its run kind. */
+function loadSessionLabel(db: Database, sessionId: string): SessionLabel | null {
   return db
-    .query<{ title: string | null; project: string | null }, [string]>(
+    .query<SessionLabel, [string]>(
       `SELECT COALESCE(s.custom_title, s.agent_name, s.ai_title, substr(s.first_prompt, 1, 120)) AS title,
-              p.name AS project
+              p.name AS project, s.run_kind
        FROM sessions s LEFT JOIN projects p ON p.id = s.project_id WHERE s.id = ?`,
     )
     .get(sessionId);

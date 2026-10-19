@@ -290,7 +290,7 @@ describe("prompt", () => {
       })),
       { kind: "prompt", text: "最後の依頼", tool_name: null },
     ];
-    const d = buildDigest(messages, 3000);
+    const d = buildDigest(messages, { limit: 3000 });
     expect(d.startsWith("[User] 最初の依頼")).toBe(true);
     expect(d.endsWith("[User] 最後の依頼")).toBe(true);
     expect(d).toContain("(omitted)");
@@ -300,6 +300,14 @@ describe("prompt", () => {
     expect(
       buildPrompt({ sessionTitle: "t", projectName: null, previous: [], digest: "d" }),
     ).toContain("This is the first piece of work in this session.");
+  });
+
+  test("buildPrompt tells an automation run's script instruction from a person's request", () => {
+    const input = { sessionTitle: "t", projectName: null, previous: [], digest: "d" };
+    const marker = "This is an automated run";
+    expect(buildPrompt(input)).not.toContain(marker);
+    expect(buildPrompt({ ...input, automated: true })).toContain(marker);
+    expect(buildTitlePrompt({ ...input, automated: true })).toContain(marker);
   });
 
   test("summaries are in English by default, in Japanese with lang ja", () => {

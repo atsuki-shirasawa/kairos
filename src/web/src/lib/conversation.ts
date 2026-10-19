@@ -1,6 +1,7 @@
 // How a conversation's messages become the rows the drawer lists: which ones are shown, where the
 // date changes, and the one-line text of system messages.
 import type { Message } from "@shared/api.ts";
+import { notificationSummary as summaryOf } from "@shared/notifications.ts";
 import { isSameDay } from "./dates.ts";
 
 /** A row of the conversation: a message, or a line marking that the date changed before it. */
@@ -46,6 +47,5 @@ export function firstLine(text: string | null): string {
 
 /** A notification's `<summary>`, or its first line when it has none. */
 export function notificationSummary(text: string | null): string {
-  const summary = /<summary>([\s\S]*?)<\/summary>/.exec(text ?? "")?.[1];
-  return summary?.trim() || firstLine(text);
+  return summaryOf(text ?? "") ?? firstLine(text);
 }
