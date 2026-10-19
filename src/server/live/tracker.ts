@@ -1,4 +1,4 @@
-import { type FSWatcher, watch } from "node:fs";
+import { watchDirectory } from "../dirWatch.ts";
 import { LivenessCheck, type RegistryEntry, readRegistry } from "./registry.ts";
 
 const DEBOUNCE_MS = 200;
@@ -52,24 +52,14 @@ export class LiveTracker {
   /** Reads once, then follows the directory. Returns a function that stops following it. */
   start(): () => void {
     this.refresh();
-    let timer: Timer | null = null;
-    const schedule = () => {
-      timer ??= setTimeout(() => {
-        timer = null;
-        this.refresh();
-      }, DEBOUNCE_MS);
-    };
-    let watcher: FSWatcher | null = null;
-    try {
-      watcher = watch(this.dir, schedule);
-    } catch {
-      // No registry directory (yet): polling notices when one appears
-    }
+    // No registry directory (yet) can't be watched: polling notices when one appears
+    const stopWatching = watchDirectory(this.dir, () => this.refresh(), {
+      debounceMs: DEBOUNCE_MS,
+    });
     const poll = setInterval(() => this.refresh(), POLL_MS);
     return () => {
-      watcher?.close();
+      stopWatching();
       clearInterval(poll);
-      if (timer) clearTimeout(timer);
     };
   }
 }
