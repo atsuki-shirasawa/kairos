@@ -2,7 +2,8 @@
 // Real logs can't go into the repo, so each case is written from a pattern seen in them: a plan
 // listed as done, a bare number, a vague leftover, the backlog recorded as an open item, a blocker
 // buried in a file list, "resolved" claimed against the facts, a headline that talks about the task,
-// a deliberate skip or the model's own doubt written as an open item, and too many open items. A bad
+// a deliberate skip or the model's own doubt written as an open item, too many open items, and an
+// automation run's headline that summarizes the loop's fixed instruction. A bad
 // summary found in real use becomes a new case here.
 import type { PromptInput } from "../../src/server/summarize/prompt.ts";
 import type { OpenKind } from "../../src/shared/summaryBody.ts";
@@ -44,6 +45,11 @@ export interface EvalCase {
    * other work.
    */
   settles?: string[];
+  /**
+   * Terms the headline must each contain (case-insensitive): what names the work, where a headline
+   * has been seen to name something else (an automation run's fixed instruction, say).
+   */
+  headlineNames?: string[];
   /**
    * A headline and body that meet every expectation. They document the case, and the tests check
    * that they score perfectly, so a case can't ask for something no summary could give.
@@ -720,6 +726,62 @@ export const EVAL_CASES: EvalCase[] = [
       "  - Set SameSite=Lax on the session cookie",
       "- Resolved:",
       "  - Safari login: SameSite=Lax on the session cookie (commit 1c2d3e4), 88 tests pass",
+    ].join("\n"),
+  },
+  {
+    id: "automation-iteration",
+    pattern:
+      "an automation run summarized as its fixed instruction (「Do one iteration of the loop」), while the issue it worked on was only in a tool result and the work in subagents' reports",
+    lang: "en",
+    input: {
+      sessionTitle:
+        "/goal Do one iteration of the loop, as your instructions say, until the bundle is in the outlet",
+      projectName: "calendar-lib",
+      automated: true,
+      previous: [],
+      facts: [
+        "Commits and PRs:",
+        "- commit 3f9a2c1 fix: ISO week numbers for the first days of January",
+        "",
+        "Tests:",
+        "last run `bun test` passed (140 pass / 0 fail)",
+      ].join("\n"),
+      digest: [
+        "[User] /goal Do one iteration of the loop, as your instructions say, until the bundle is in the outlet or you have reported why not",
+        "  → Bash: cat /inlet/assignment.json",
+        '    ← { "issue": 87, "title": "Week numbers are wrong for the first days of January" }',
+        "  → Bash: git switch -c impl/87",
+        "    ← Switched to a new branch 'impl/87'",
+        "  → Agent: Implement issue 87",
+        "    ← report: Fixed weekOf() to follow ISO 8601, so 2027-01-01 is week 53 of 2026; added 6 tests for January 1–4; bun test passes (140). The CLI's --week flag has its own copy of the old rule and still prints week 1 for 2027-01-01; I left it, since the issue covers the library only.",
+        "  → Agent: Review the diff",
+        "    ← report: No findings. The fix and its tests match the issue.",
+        "  → Bash: git commit -m 'fix: ISO week numbers for the first days of January'",
+        "  → Bash: git bundle create /outlet/decl.bundle main..impl/87",
+        "  → ScheduleWakeup",
+        "[Claude] loop: declared 3f9a2c1 for #87",
+      ].join("\n"),
+    },
+    open: [
+      {
+        what: "the CLI's --week flag still on the old rule",
+        match: ["--week", "CLI"],
+        kinds: ["todo", "issue"],
+      },
+    ],
+    notResolved: ["--week", "CLI"],
+    notOpen: ["iteration", "wakeup", "outlet"],
+    headlineNames: ["week"],
+    idealHeadline: "ISO week number fix for early January (#87)",
+    ideal: [
+      "- Goal: Fix issue #87, wrong week numbers for the first days of January",
+      "- Done:",
+      "  - Made weekOf() follow ISO 8601 and added 6 tests for January 1–4",
+      "  - A review subagent found nothing; committed 3f9a2c1 and bundled impl/87",
+      "- Resolved:",
+      "  - #87: weekOf() gives ISO weeks (commit 3f9a2c1), 140 tests pass",
+      "- Open:",
+      "  - [todo] The CLI's --week flag keeps its own copy of the old rule",
     ].join("\n"),
   },
 ];

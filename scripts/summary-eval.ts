@@ -1,7 +1,7 @@
 // Summarizes the fictional cases in tests/fixtures/summary-eval.ts with `claude -p`, through the
 // same ask-and-check as the summarizer, and scores the summaries: open items found, false
 // "resolved", leftovers that aren't, earlier items settled or not, too many open items, unfit
-// headlines, and format adherence.
+// headlines, headlines that don't name the work, and format adherence.
 // Not part of `bun run check`, since it calls the model. Usage:
 //   bun run eval:summary [--model haiku] [--effort low] [--runs 1] [--case <id>] [--out <file.json>]
 import { mkdirSync } from "node:fs";
@@ -122,6 +122,8 @@ export interface CaseScore {
   wrongLead: string | null;
   /** How the headline fails the rules (see `headlineFlaws`). */
   headline: HeadlineFlaw[];
+  /** The case's `headlineNames` the headline leaves out. */
+  headlineMissing: string[];
 }
 
 /** "The rest", "remaining items" and the like: a leftover that doesn't say which. */
@@ -177,6 +179,7 @@ export function scoreCase(
     wrongLead: wrongLead(c, open),
     // An output that didn't parse has no headline; it already counts as not parsed
     headline: headline ? headlineFlaws(headline, c.lang) : [],
+    headlineMissing: headline ? (c.headlineNames ?? []).filter((t) => !has(headline, [t])) : [],
   };
 }
 
@@ -199,6 +202,7 @@ export function totals(scores: CaseScore[]) {
     overOpen: sum((s) => s.overOpen),
     wrongLead: sum((s) => (s.wrongLead ? 1 : 0)),
     badHeadlines: sum((s) => (s.headline.length > 0 ? 1 : 0)),
+    headlineMissing: sum((s) => s.headlineMissing.length),
   };
 }
 
@@ -215,6 +219,7 @@ function report(s: CaseScore, headline: string): string {
     s.overOpen > 0 ? `${s.overOpen} open item(s) over the limit` : null,
     s.wrongLead ? `should not lead: ${s.wrongLead}` : null,
     s.headline.length > 0 ? `headline (${s.headline.join(", ")})` : null,
+    ...s.headlineMissing.map((t) => `headline doesn't name: ${t}`),
     ...s.extraOpen.map((o) => `(extra open: ${o})`),
   ].filter(Boolean);
   const head = `${s.id}: open ${s.openFound}/${s.openExpected}, kind ${s.kindFit}, headline "${headline}"`;

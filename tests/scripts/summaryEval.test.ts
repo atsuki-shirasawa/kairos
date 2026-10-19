@@ -28,6 +28,7 @@ describe("summary evaluation cases", () => {
         overOpen: 0,
         wrongLead: null,
         headline: [],
+        headlineMissing: [],
       });
       // The facts reach the prompt, so a case is measured on what the summarizer really sends
       if (c.input.facts) expect(buildPrompt(c.input, c.lang)).toContain("<facts>");
@@ -108,5 +109,13 @@ describe("scoreCase", () => {
     // The stored body keeps three, but the model wrote six: the cap doesn't hide that
     const kept = body.split("\n").slice(0, -1).join("\n");
     expect(scoreCase(many, { headline: "", body: kept, openWritten: 6 }).overOpen).toBe(3);
+  });
+
+  test("flags a headline that doesn't name the work, ignoring case", () => {
+    const loop = EVAL_CASES.find((c) => c.id === "automation-iteration");
+    if (!loop) throw new Error("case missing");
+    const score = (headline: string) => scoreCase(loop, { headline, body: loop.ideal });
+    expect(score("One iteration of the loop").headlineMissing).toEqual(["week"]);
+    expect(score("ISO WEEK numbers for early January").headlineMissing).toEqual([]);
   });
 });
