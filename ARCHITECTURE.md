@@ -224,9 +224,9 @@ The summary layout: period totals against the previous period, time by day and b
 
 ![Summary view](docs/images/screen-summary.png)
 
-The page of running sessions: what waits on you, what is working, and idle sessions as single rows:
+Today, with the sessions running now: what waits on you, what is working, and idle sessions as single rows:
 
-![Running sessions](docs/images/screen-live.png)
+![Today, with the sessions running now](docs/images/screen-today.png)
 
 The screenshots are taken from a fictional week (`scripts/screenshots/demo.ts`) with `bun run screenshots`. The server, the capture and the page run on a clock stopped at a fixed time after that week (`clock.ts`), so relative times and the running sessions come out the same on every run. The sessions shown as running get logs in the few hours before that time and stand-in processes registered just before Today's shot, since the page lists a session only while its PID exists. Retake them when the UI changes visibly.
 
