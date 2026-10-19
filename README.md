@@ -17,7 +17,11 @@ A personal web app that keeps the memory of your Claude Code work: what is runni
 
 ![Kairos week view with the detail drawer](docs/images/screen-week.png)
 
+<!-- site:skip -->
+
 Design docs: [Architecture](ARCHITECTURE.md) / [Design](DESIGN.md) ([screens](docs/design/screens.md), [decisions](docs/design/decisions.md))
+
+<!-- /site:skip -->
 
 ## Goals
 
@@ -32,14 +36,18 @@ Design docs: [Architecture](ARCHITECTURE.md) / [Design](DESIGN.md) ([screens](do
 
 **Not in scope:** task management for open items (no snooze, due dates or priorities: an item is done, won't be done, or was never an open item, and old ones fade out on their own), detailed cost and token analysis (only period totals and estimates are shown), team sharing or public access, acting on sessions (Kairos copies the resume command but never runs it), and syncing across machines. It is built for one personal Mac.
 
+<!-- site:skip -->
+
 Ideas for later: a monthly heat map, logs from other tools such as Codex, notes and tags on blocks.
+
+<!-- /site:skip -->
 
 ## Setup
 
 Requirements: macOS, [Bun](https://bun.sh) 1.3 or later, Claude Code (logged in; used for summaries)
 
 ```sh
-git clone <this repo> ~/dev/kairos && cd ~/dev/kairos
+git clone https://github.com/atsuki-shirasawa/kairos.git ~/dev/kairos && cd ~/dev/kairos
 bun install
 bun run build      # build the web UI (dist/web)
 bun link           # put the kairos command in ~/.bun/bin
@@ -60,6 +68,38 @@ Add the following to `hooks.SessionStart` in `~/.claude/settings.json`.
 
 `kairos ensure` does nothing if the server is already running (about 20ms); otherwise it starts the server in the background and returns immediately. It prints nothing, so it doesn't affect the Claude conversation. The server keeps running after Claude Code exits. It doesn't open a browser — run `kairos open` or open http://127.0.0.1:4319 when you want to look.
 
+### Updating
+
+```sh
+git pull && bun install && kairos rebuild
+```
+
+### Uninstalling
+
+```sh
+kairos stop
+bun unlink                       # remove the kairos command (run in the repository)
+rm -rf ~/Library/Application\ Support/kairos ~/Library/Logs/kairos
+```
+
+Then remove the `kairos ensure` entry from SessionStart in `~/.claude/settings.json`, and `kairos statusline --` from the front of `statusLine.command` if you added it.
+
+## Running sessions and plan limits
+
+### Running sessions
+
+Today's Now lists the Claude Code sessions running now, under today's tokens:
+
+- **On you** — asking a question or plan approval, or done with its turn — as full cards
+- **Working** — with the tool call in flight, and the subagents at work with theirs — as a line each
+- **Idle** — nothing for 15 minutes or more — folded behind its count
+
+Each card adds the task list's progress, the last test run, Claude Code's recap and the context size. Clicking one opens its latest work block. The toolbar's "Live" button, which opens Today, shows how many sessions are waiting on you from any page, and so does the browser tab's title, e.g. `(2) Kairos`.
+
+![Today, with the sessions running now](docs/images/screen-today.png)
+
+No hooks are needed: Kairos reads Claude Code's own record of running sessions (`~/.claude/sessions/<pid>.json`, read-only) alongside the logs. That record is undocumented, so a Claude Code update may change it; if it can't be read, Today says so (and `kairos doctor` warns). Whether a session is waiting on a permission prompt can't be told from these files, so such a session shows as working.
+
 ### Plan usage limits
 
 Today's token band can show how much of your plan's 5-hour and weekly limits is used, and when each resets. Session logs don't carry the limits; Claude Code passes them only to the status line command (Pro and Max plans, once a session has had a response). So `kairos statusline` wraps your status line: it records the limits, then runs your own status line command on the same input and prints what it prints. Put it in front of your current `statusLine.command` in `~/.claude/settings.json`, after `--`:
@@ -71,17 +111,11 @@ Today's token band can show how much of your plan's 5-hour and weekly limits is 
 }
 ```
 
-The command after `--` runs in a shell, as Claude Code runs it; quote one that uses pipes or variables as a single argument (`kairos statusline -- 'input=$(cat); echo "$input" | jq -r .model.display_name'`), so the outer shell leaves it alone. Without a status line of your own, leave out `--` and what follows; the line stays empty. The limits only move while Claude Code runs, so when the reading is more than 10 minutes old, the band says when it was taken (usage on claude.ai counts toward the same limits).
+- The command after `--` runs in a shell, as Claude Code runs it. Quote one that uses pipes or variables as a single argument (`kairos statusline -- 'input=$(cat); echo "$input" | jq -r .model.display_name'`), so the outer shell leaves it alone
+- Without a status line of your own, leave out `--` and what follows; the line stays empty
+- The limits only move while Claude Code runs, so when the reading is more than 10 minutes old, the band says when it was taken (usage on claude.ai counts toward the same limits)
 
-### Running sessions
-
-Today's Now lists the Claude Code sessions running now, under today's tokens: On you (asking a question or plan approval, or done with its turn) as full cards, Working (with the tool call in flight, and the subagents at work with theirs) as a line each, and Idle (nothing for 15 minutes or more) folded behind its count. Each card adds the task list's progress, the last test run, Claude Code's recap and the context size. Clicking one opens its latest work block. The toolbar's "Live" button, which opens Today, shows how many sessions are waiting on you from any page, and so does the browser tab's title, e.g. `(2) Kairos`.
-
-![Today, with the sessions running now](docs/images/screen-today.png)
-
-No hooks are needed: Kairos reads Claude Code's own record of running sessions (`~/.claude/sessions/<pid>.json`, read-only) alongside the logs. That record is undocumented, so a Claude Code update may change it; if it can't be read, Today says so (and `kairos doctor` warns). Whether a session is waiting on a permission prompt can't be told from these files, so such a session shows as working.
-
-## Usage
+## Commands
 
 | Command | What it does |
 |---|---|
@@ -96,22 +130,58 @@ No hooks are needed: Kairos reads Claude Code's own record of running sessions (
 | `kairos logs [-f]` | The end of the server log (`-n <lines>`, `-f` to follow) |
 | `kairos statusline -- <command>` | Claude Code's status line command: records the plan's usage limits for Today, then runs your own status line command (see [Plan usage limits](#plan-usage-limits)) |
 | `kairos ingest` | Ingest logs manually (to build the DB without running the server) |
-| `kairos summarize` | Summarize every work block that has no summary yet. The server only does the last 7 days on its own. `--since` / `--until <YYYY-MM-DD>` and `--limit <n>` narrow it; `--dry-run` only counts. `--old-format` regenerates the summaries written before open items were tracked, oldest first, so they show up in Pick up and the summary view, along with headless runs' summaries written by an older prompt (`--headless` takes only those) (about $0.02 and 20 s each with haiku) |
+| `kairos summarize` | Summarize every work block that has no summary yet; the server only does the last 7 days on its own (about $0.02 and 20 s each with haiku). See `kairos summarize --help` for narrowing it down and for regenerating older summaries |
 | `kairos help [command]` | List the commands, or one command's options (also `kairos <command> --help`) |
 
-Server options (`open`, `restart`, `rebuild`, `ensure`, `serve`): `--summary-model <model>` (default: haiku), `--summary-effort <low|medium|high|xhigh|max>` (how hard the model thinks; default: low), `--summary-lang <en|ja>` (language of the summaries; by default they follow the language chosen in the UI, English until one is chosen), `--no-auto-summary` (don't summarize automatically; only when requested with the button in the UI), `--port <n>` (default: 4319), `--claude-dir <path>` (Claude Code config directory; default: `~/.claude`), `--db <path>` (DB file; default: under the data directory)
+### Server options
+
+`open`, `restart`, `rebuild`, `ensure` and `serve` take these:
+
+| Option | Default | What it does |
+|---|---|---|
+| `--summary-model <model>` | `haiku` | The model that writes summaries |
+| `--summary-effort <low\|medium\|high\|xhigh\|max>` | `low` | How hard the model thinks |
+| `--summary-lang <en\|ja>` | the UI's language | The language of summaries; by default they follow the language chosen in the UI, English until one is chosen |
+| `--no-auto-summary` | off | Don't summarize automatically; only when requested with the button in the UI |
+| `--port <n>` | `4319` | The port on `127.0.0.1` |
+| `--claude-dir <path>` | `~/.claude` | Claude Code's config directory |
+| `--db <path>` | under the data directory | The DB file |
 
 Changing the language (in the UI or with `--summary-lang`) doesn't rewrite existing summaries. They stay as they are, and you can regenerate any of them from the drawer.
 
-Keyboard shortcuts: `⌘K` the command palette (search work, jump to a day such as `9/30` or `last tue`, and run any toolbar action, each row showing its key), `h` the Today page (or click the mark), `←` `→` previous/next period, `t` move the period to today, `m` month view, `w` week view, `d` day page, `c` calendar, `s` summary (totals, time by day and project, what was done, and recaps), `n` the sessions running now, `l` the summary as a table (one row per block with sortable numbers), `j` `k` next/previous work block, `/` search (the shown period, plus every period in the list under the field; `↓` to pick), `Esc` close details, `?` menu with theme, language and shortcuts
+## Keyboard shortcuts
 
-### Updating
+`?` opens the menu with the theme, the language and this list.
 
-```sh
-git pull && bun install && kairos rebuild
-```
+| Key | What it does |
+|---|---|
+| `⌘K` | The command palette: search work, jump to a day (`9/30`, `last tue`), and run any toolbar action, each row showing its key |
+| `/` | Search the shown period, plus every period in the list under the field (`↓` to pick) |
+| `Esc` | Close details |
+| `j` `k` | Next / previous work block |
+| **Places** | |
+| `h` | The Today page (or click the mark) |
+| `n` | The sessions running now |
+| **Period** | |
+| `←` `→` | Previous / next period |
+| `t` | Move the period to today |
+| `m` / `w` / `d` | Month view / week view / day page |
+| **Layout** | |
+| `c` | Calendar |
+| `s` | Summary: totals, time by day and project, what was done, and recaps |
+| `l` | The summary as a table: one row per block with sortable numbers |
 
-## Where data lives
+## Privacy and data
+
+Kairos runs on your Mac and only for you:
+
+- It **reads** Claude Code's logs (`~/.claude/projects`) and its record of running sessions, and never writes under `~/.claude`
+- The server listens on `127.0.0.1` only, and refuses requests from other sites open in the same browser
+- **What leaves the machine:** the conversation excerpts (up to about 60,000 characters per work block) passed to `claude -p` for summaries and recaps, sent through your own Claude Code login. Nothing else is fetched or sent. `--no-auto-summary` stops the automatic summaries, so only the ones you ask for in the UI are sent
+
+How each of these is enforced is in [Architecture, Security](ARCHITECTURE.md#10-security).
+
+### Where data lives
 
 | Kind | Location |
 |---|---|
@@ -124,17 +194,7 @@ Set `KAIROS_DATA_DIR` to put the DB, PID and log somewhere else together (e.g. t
 
 ### About Claude Code's log retention
 
-Kairos keeps what it ingested in its DB, so the calendar, summaries and conversations don't disappear even if you don't extend Claude Code's `cleanupPeriodDays`. However, sessions whose original logs are gone can't be re-read when Kairos updates its interpretation rules (`PARSER_VERSION`). If that matters to you, extend `cleanupPeriodDays` as well.
-
-### Uninstalling
-
-```sh
-kairos stop
-bun unlink                       # remove the kairos command (run in the repository)
-rm -rf ~/Library/Application\ Support/kairos ~/Library/Logs/kairos
-```
-
-Then remove the `kairos ensure` entry from SessionStart in `~/.claude/settings.json`, and `kairos statusline --` from the front of `statusLine.command` if you added it.
+Kairos keeps what it ingested in its DB, so the calendar, summaries and conversations don't disappear even if you don't extend Claude Code's `cleanupPeriodDays`. However, when an update to Kairos changes how logs are read, it re-reads them from the original files, and sessions whose original logs are gone can't be re-read. If that matters to you, extend `cleanupPeriodDays` as well.
 
 ## Troubleshooting
 
@@ -148,25 +208,18 @@ Start with `kairos doctor`, which checks most of the table below, then `kairos l
 | Summaries say "Couldn't summarize" | The drawer tells you why. Usually `claude` isn't logged in (run `claude` in a terminal and log in) or isn't installed (install it, then `kairos restart`). Press the button in the drawer to try again |
 | Recent work is missing or looks stale | Ingest runs on file changes; `kairos restart` re-reads anything changed since the last run |
 | The DB looks broken, or you want to start over | `kairos stop`, delete `~/Library/Application Support/kairos/kairos.db*`, then `kairos open`. Everything is ingested again, but **sessions whose original logs Claude Code already deleted are gone for good**, and only the last 7 days are re-summarized automatically (run `kairos summarize` for the rest) |
-| `bun run dev` fails to start the API | The background server holds the same port. Run `kairos stop` first |
 
 ## Development
 
-```sh
-bun run dev      # start the API (:4319) and Vite (:5173) together. The UI is at http://127.0.0.1:5173
-bun run check    # Biome (lint and format) + type check + tests
-bun run format   # auto-fix with Biome
-```
-
-`bun run dev` uses the same port as the background server, so run `kairos stop` first.
-
-`bun run screenshots` retakes the screenshots in `docs/images/` from a fictional week, plus a few sessions shown as running (stand-in `sleep` processes registered like Claude Code's; needs `bun run build` and Google Chrome).
-
-`bun run visual` shoots every view of the same week and a crowded stress day in light / dark, English / Japanese and two widths, and compares them with the baseline in `.visual/baseline` (needs Google Chrome; it builds the UI itself). When a change is intended, look at `.visual/diff`, then run `bun run visual --update`.
-
-`bun run e2e` drives the built UI in the same headless Chrome on the same week: the keyboard alone, search fading, a reload keeping the URL's state, the Live count on every page, and new work after the server restarts. It also counts axe-core's accessibility violations per page, which may not grow past `tests/e2e/axe-baseline.json`.
-
-`bun run docs` serves the documentation site (Starlight, in `site/`; run `bun install --cwd site` once). Its pages are generated from this README, ARCHITECTURE.md, DESIGN.md and `docs/design/`, and pushing to main publishes it to GitHub Pages.
+| Command | What it does |
+|---|---|
+| `bun run dev` | Start the API (:4319) and Vite (:5173) together; the UI is at http://127.0.0.1:5173. It uses the background server's port, so run `kairos stop` first |
+| `bun run check` | Biome (lint and format), type check, the JSDoc and type-scale checks, and tests |
+| `bun run format` | Auto-fix with Biome |
+| `bun run screenshots` | Retake the screenshots in `docs/images/` (light) and `docs/images/dark/` from a fictional week, plus a few sessions shown as running (stand-in `sleep` processes registered like Claude Code's). Needs `bun run build` and Google Chrome |
+| `bun run visual` | Shoot every view of the same week and a crowded stress day in light / dark, English / Japanese and two widths, and compare them with the baseline in `.visual/baseline` (needs Google Chrome; it builds the UI itself). When a change is intended, look at `.visual/diff`, then run `bun run visual --update` |
+| `bun run e2e` | Drive the built UI in headless Chrome on the same week: the keyboard alone, search fading, a reload keeping the URL's state, the Live count on every page, and new work after the server restarts. It also counts axe-core's accessibility violations per page, which may not grow past `tests/e2e/axe-baseline.json` |
+| `bun run docs` | Serve the documentation site (Starlight, in `site/`; run `bun install --cwd site` once). Its pages are generated from this README, ARCHITECTURE.md, DESIGN.md and `docs/design/`, and pushing to main publishes it to GitHub Pages |
 
 The fictional test logs can be regenerated with `bun tests/fixtures/generate.ts` ([details](tests/fixtures/README.md)).
 
