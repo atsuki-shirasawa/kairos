@@ -18,7 +18,7 @@ export const calendarMessages = defineMessages({
     rangeDuration: (range: string, duration: string) => `${range} (${duration})`,
     notMatching: "Doesn't match the filter",
     headless: "Headless run: started by claude -p or the SDK, with no prompt from you",
-    notSummarized: "Not summarized yet, so the first prompt is shown as the heading",
+    notSummarized: "Not summarized yet, so a line from the conversation is shown as the heading",
     /**
      * Heading of one mark standing for a burst of headless runs, or for the runs of one unit of
      * work, named by the issue or PR number (`ref`) that tied them.
@@ -51,7 +51,7 @@ export const calendarMessages = defineMessages({
     rangeDuration: (range: string, duration: string) => `${range}（${duration}）`,
     notMatching: "絞り込みの条件に合いません",
     headless: "ヘッドレス実行: claude -p や SDK から始まり、あなたの発言はありません",
-    notSummarized: "要約前のため、最初の発言を見出しにしています",
+    notSummarized: "要約前のため、会話の一文を見出しにしています",
     runs: (n: number, ref: number | null) =>
       ref === null ? `ヘッドレス実行 ${n} 件` : `#${ref} の実行 ${n} 件`,
     runsHint: "クリックで最初の実行を開き、残りは詳細で切り替えられます",

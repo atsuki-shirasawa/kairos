@@ -40,7 +40,7 @@ export interface BlockLook {
   project: Project | undefined;
   /** Not matching the search or filter. */
   faded: boolean;
-  /** Not summarized yet, so the heading is the raw first prompt. */
+  /** Not summarized yet, so the heading is the block's own title (a line from its conversation). */
   dim: boolean;
 }
 
@@ -115,7 +115,7 @@ export function markFacts(
     open: [],
     note: m.runsHint,
     faded: look.faded,
-    // A burst's heading is its count, not a first prompt waiting for a summary
+    // A burst's heading is its count, not a block title waiting for a summary
     dim: false,
   };
 }
