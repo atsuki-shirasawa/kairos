@@ -6,6 +6,7 @@ import type {
   CalendarSegment,
   CalendarSession,
   Project,
+  RunUnit,
   Section,
   SessionDetail,
   SessionsChange,
@@ -43,6 +44,8 @@ export interface SessionRow {
   prompt_count: number;
   sdk_prompt_count: number;
   scheduled_runs: number;
+  run_unit: string | null;
+  run_unit_ref: number | null;
 }
 
 /** Whether a session that last did something at `endedAt` still counts as in progress. */
@@ -55,6 +58,13 @@ export interface CalendarSessionParts {
   continued: boolean;
   active: boolean;
   segments: CalendarSegment[];
+}
+
+/** The unit of work a session's row names, or null when it names none. */
+function runUnitOf(r: SessionRow): RunUnit | null {
+  return r.run_unit !== null && r.run_unit_ref !== null
+    ? { id: r.run_unit, ref: r.run_unit_ref }
+    : null;
 }
 
 /** A session row as the calendar shows it. */
@@ -70,6 +80,7 @@ export function toCalendarSession(r: SessionRow, parts: CalendarSessionParts): C
     promptCount: r.prompt_count,
     scheduledRuns: r.scheduled_runs,
     headless: isHeadless(r),
+    unit: runUnitOf(r),
     continued: parts.continued,
     active: parts.active,
     segments: parts.segments,

@@ -24,6 +24,7 @@ function session(id: string, ...segments: [number, number][]): CalendarSession {
     branch: null,
     scheduledRuns: 0,
     headless: false,
+    unit: null,
     continued: false,
     title: id,
     startedAt: segments[0]?.[0] ?? 0,

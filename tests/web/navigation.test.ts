@@ -46,6 +46,7 @@ function session(id: string, ...spans: [number, number][]): CalendarSession {
     branch: null,
     scheduledRuns: 0,
     headless: false,
+    unit: null,
     continued: false,
     title: id,
     startedAt: segments[0]?.start ?? 0,
@@ -105,6 +106,7 @@ describe("burstsOf / runOf", () => {
   const headless = (id: string, h: number) => ({
     ...session(id, [at(h), at(h) + 5_000]),
     headless: true,
+    unit: null,
   });
   const burst = [headless("r1", 10), headless("r2", 10.01), headless("r3", 10.02)];
   const refs = (ss: CalendarSession[]) => ss.map((s) => ({ id: s.id, at: s.startedAt }));
@@ -112,6 +114,7 @@ describe("burstsOf / runOf", () => {
   test("places a run within its burst", () => {
     expect(runOf(burstsOf(burst), { id: "r2", at: at(10.01) })).toEqual({
       index: 1,
+      ref: null,
       runs: refs(burst),
     });
   });
@@ -130,6 +133,44 @@ describe("burstsOf / runOf", () => {
       headless("c", 24.0),
       headless("d", 24.01),
     ];
-    expect(burstsOf(late)).toEqual([refs(late.slice(0, 2)), refs(late.slice(2))]);
+    expect(burstsOf(late)).toEqual([
+      { ref: null, runs: refs(late.slice(0, 2)) },
+      { ref: null, runs: refs(late.slice(2)) },
+    ]);
+  });
+
+  test("steps through a unit of work's runs across days, long ones too, and only those", () => {
+    const unit = { id: "u1", ref: 31 };
+    const iteration = { ...session("u1", [at(9), at(9.4)]), headless: true, unit };
+    const pr = { ...headless("u2", 9.5), unit };
+    const reply = { ...headless("u3", 33), unit };
+    const other = headless("x", 9.51);
+    const bursts = burstsOf([iteration, pr, other, reply]);
+    expect(runOf(bursts, { id: "u2", at: at(9.5) })).toEqual({
+      index: 1,
+      ref: 31,
+      runs: refs([iteration, pr, reply]),
+    });
+    // A run outside the unit doesn't join it, though it ran a minute later
+    expect(runOf(bursts, { id: "x", at: at(9.51) })).toBeNull();
+  });
+
+  test("steps through a unit's runs one each, at a run's first block", () => {
+    const unit = { id: "u1", ref: 31 };
+    const twoBlocks = {
+      ...session("u1", [at(9), at(9.1)], [at(11), at(11.1)]),
+      headless: true,
+      unit,
+    };
+    const pr = { ...headless("u2", 12), unit };
+    expect(burstsOf([twoBlocks, pr])).toEqual([
+      {
+        ref: 31,
+        runs: [
+          { id: "u1", at: at(9) },
+          { id: "u2", at: at(12) },
+        ],
+      },
+    ]);
   });
 });

@@ -50,6 +50,7 @@ function session(id: string, projectId: number | null, ...segments: Seg[]): Cale
     branch: null,
     scheduledRuns: 0,
     headless: false,
+    unit: null,
     continued: false,
     title: id,
     startedAt: segments[0]?.start ?? 0,

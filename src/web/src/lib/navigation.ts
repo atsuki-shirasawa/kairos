@@ -3,6 +3,7 @@ import type { CalendarSegment, CalendarSession } from "@shared/api.ts";
 import { startOfDay } from "@shared/dates.ts";
 import { overlaps } from "./dayBlocks.ts";
 import { isMark, runGroups } from "./marks.ts";
+import { unitGroups, unitRef } from "./runUnits.ts";
 
 /** How a block is addressed. Matches `session` and `at` in the URL. */
 export interface BlockRef {
@@ -52,40 +53,80 @@ export function stepBlock(
   );
 }
 
-/** Where a block sits in a burst of headless runs drawn as one mark: its index, and every run. */
-export interface RunPosition {
-  index: number;
+/**
+ * Runs the drawer steps through: a burst of headless runs drawn as one mark, or the runs of one
+ * unit of work, with the number that tied them (null for a burst).
+ */
+export interface RunBurst {
+  ref: number | null;
   runs: BlockRef[];
 }
 
+/** Where a block sits among the runs it is stepped through with (see `RunBurst`): its index too. */
+export interface RunPosition extends RunBurst {
+  index: number;
+}
+
+/** A headless run's block as `runGroups` reads it. */
+type RunMark = { session: CalendarSession; segment: CalendarSegment };
+
 /**
- * Every burst of two or more headless runs (see `runGroups`) in `sessions`, as the calendar draws
- * them: grouped within each day, since each day column groups its own marks.
+ * Every set of two or more runs the drawer steps through in `sessions`: each unit of work's runs
+ * (see `runGroups`) across days, long ones too, in time order, each at its first block; then every
+ * burst of other headless runs as the calendar draws them, grouped within each day, since each day
+ * column groups its own marks.
  */
-export function burstsOf(sessions: CalendarSession[]): BlockRef[][] {
-  const byDay = new Map<number, { session: CalendarSession; segment: CalendarSegment }[]>();
+export function burstsOf(sessions: CalendarSession[]): RunBurst[] {
+  return [...unitRuns(sessions), ...markBursts(sessions)];
+}
+
+/**
+ * Each unit of work's runs in time order, when it has two or more, each at its first block: the
+ * stepper counts runs, and ↑ ↓ reach a run's other blocks.
+ */
+function unitRuns(sessions: CalendarSession[]): RunBurst[] {
+  const firsts = sessions.flatMap((session) => {
+    const [segment] = session.segments;
+    return segment ? [{ session, segment }] : [];
+  });
+  return [...unitGroups(firsts).values()]
+    .filter((runs) => runs.length > 1)
+    .map((runs) => ({
+      ref: unitRef(runs),
+      runs: refsOf(runs.sort((a, b) => a.segment.start - b.segment.start)),
+    }));
+}
+
+/** The bursts of headless runs outside any unit that the calendar draws as one mark, per day. */
+function markBursts(sessions: CalendarSession[]): RunBurst[] {
+  const byDay = new Map<number, RunMark[]>();
   for (const session of sessions)
     for (const segment of session.segments) {
       const mark = { session, segment };
-      if (!session.headless || !isMark(mark)) continue;
+      if (!session.headless || session.unit || !isMark(mark)) continue;
       const day = startOfDay(segment.start);
       byDay.set(day, [...(byDay.get(day) ?? []), mark]);
     }
   return [...byDay.values()]
     .flatMap((marks) => runGroups(marks.sort((a, b) => a.segment.start - b.segment.start)))
     .filter((g) => g.length > 1)
-    .map((g) => g.map((m) => ({ id: m.session.id, at: m.segment.start })));
+    .map((g) => ({ ref: null, runs: refsOf(g) }));
+}
+
+/** The blocks of runs as the refs the drawer opens. */
+function refsOf(marks: RunMark[]): BlockRef[] {
+  return marks.map((m) => ({ id: m.session.id, at: m.segment.start }));
 }
 
 /**
- * The burst (from `burstsOf`) holding the block at `ref`, so the drawer can step through the runs
- * one mark stands for. null when the block is not part of a burst.
+ * The runs (from `burstsOf`) holding the block at `ref`, so the drawer can step through the runs
+ * one mark or one unit of work stands for. null when the block is not among any.
  */
-export function runOf(bursts: BlockRef[][], ref: BlockRef | null): RunPosition | null {
+export function runOf(bursts: RunBurst[], ref: BlockRef | null): RunPosition | null {
   if (!ref) return null;
-  for (const runs of bursts) {
-    const index = runs.findIndex((r) => r.id === ref.id && r.at === ref.at);
-    if (index !== -1) return { index, runs };
+  for (const burst of bursts) {
+    const index = burst.runs.findIndex((r) => r.id === ref.id && r.at === ref.at);
+    if (index !== -1) return { ...burst, index };
   }
   return null;
 }

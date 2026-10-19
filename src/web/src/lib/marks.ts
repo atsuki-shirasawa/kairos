@@ -1,6 +1,7 @@
 // Short work drawn as marks on a day column's edge (or beside a month cell's date) instead of cards.
 import { MINUTE } from "@shared/dates.ts";
 import type { DayBlock } from "./dayBlocks.ts";
+import { unitGroups } from "./runUnits.ts";
 import { isWorking } from "./selection.ts";
 
 /**
@@ -43,14 +44,26 @@ interface OpenBurst<T> {
 }
 
 /**
- * Groups marks (sorted by start) for drawing: headless runs of the same project, each starting
- * within `RUN_GAP_MS` of the burst's latest end and within `RUN_SPAN_MS` of its first start,
- * become one group; every other mark is a group of its own. A burst of runs a few seconds apart
- * drawn one mark each became a ladder, pushed 6px per mark down the strip and far from when it
- * happened. Other marks in between don't break a burst. Runs with no project are never grouped:
- * nothing says two of them come from the same script.
+ * Groups marks (sorted by start) for drawing: the runs of one unit of work (`CalendarSession.unit`)
+ * become one group however far apart they ran, since they are one piece of work; other marks group
+ * as `timeBursts` does. Groups come in the order of their first marks.
  */
 export function runGroups<T extends Pick<DayBlock, "session" | "segment">>(marks: T[]): T[][] {
+  const units = [...unitGroups(marks).values()];
+  const bursts = timeBursts(marks.filter((m) => !m.session.unit));
+  const startOf = (g: T[]) => g[0]?.segment.start ?? 0;
+  return [...units, ...bursts].sort((a, b) => startOf(a) - startOf(b));
+}
+
+/**
+ * Groups marks (sorted by start) by time: headless runs of the same project, each starting within
+ * `RUN_GAP_MS` of the burst's latest end and within `RUN_SPAN_MS` of its first start, become one
+ * group; every other mark is a group of its own. A burst of runs a few seconds apart drawn one
+ * mark each became a ladder, pushed 6px per mark down the strip and far from when it happened.
+ * Other marks in between don't break a burst. Runs with no project are never grouped: nothing says
+ * two of them come from the same script.
+ */
+function timeBursts<T extends Pick<DayBlock, "session" | "segment">>(marks: T[]): T[][] {
   const groups: T[][] = [];
   const open = new Map<number, OpenBurst<T>>();
   for (const m of marks) {

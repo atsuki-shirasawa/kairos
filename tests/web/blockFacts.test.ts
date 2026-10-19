@@ -19,6 +19,7 @@ function blocks(...spans: [number, number][]): PlacedBlock[] {
     spans.map(([from, to], i) => ({
       ...session(`s${i}`, [at(from), at(to)]),
       headless: true,
+      unit: null,
     })),
     DAY0,
   );
@@ -72,6 +73,17 @@ describe("markFacts", () => {
       dim: false,
     });
     expect(facts.note).not.toBeNull();
+  });
+
+  test("the runs of one unit of work are headed by its number", () => {
+    const unit = { id: "s0", ref: 31 };
+    const runs = blocks([9, 9.1], [9.5, 9.55]).map((b) => ({
+      ...b,
+      session: { ...b.session, unit },
+    }));
+    const [first] = runs;
+    if (!first) throw new Error("no block laid out");
+    expect(markFacts(runs, first, { ...look, hourPx: 48 }).label).toBe("#31 · 2 runs");
   });
 });
 

@@ -63,6 +63,7 @@ function session(
     promptCount: 1,
     scheduledRuns: 0,
     headless: false,
+    unit: null,
     continued: false,
     active: false,
     segments,

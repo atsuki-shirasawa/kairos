@@ -55,6 +55,7 @@ export function session(
     branch: null,
     scheduledRuns: 0,
     headless: false,
+    unit: null,
     continued: false,
     title: `${id} title`,
     startedAt: 0,

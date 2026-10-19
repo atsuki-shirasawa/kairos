@@ -19,8 +19,12 @@ export const calendarMessages = defineMessages({
     notMatching: "Doesn't match the filter",
     headless: "Headless run: started by claude -p or the SDK, with no prompt from you",
     notSummarized: "Not summarized yet, so the first prompt is shown as the heading",
-    /** Heading of one mark standing for a burst of headless runs. */
-    runs: (n: number) => `${n} headless runs`,
+    /**
+     * Heading of one mark standing for a burst of headless runs, or for the runs of one unit of
+     * work, named by the issue or PR number (`ref`) that tied them.
+     */
+    runs: (n: number, ref: number | null) =>
+      ref === null ? `${n} headless runs` : `#${ref} · ${n} runs`,
     runsHint: "Click to open the first; the drawer steps through the rest",
     /** Last row of a block's commits and PRs in the day view, for those that don't fit. */
     moreMoments: (n: number) => `+${n} more`,
@@ -48,7 +52,8 @@ export const calendarMessages = defineMessages({
     notMatching: "絞り込みの条件に合いません",
     headless: "ヘッドレス実行: claude -p や SDK から始まり、あなたの発言はありません",
     notSummarized: "要約前のため、最初の発言を見出しにしています",
-    runs: (n: number) => `ヘッドレス実行 ${n} 件`,
+    runs: (n: number, ref: number | null) =>
+      ref === null ? `ヘッドレス実行 ${n} 件` : `#${ref} の実行 ${n} 件`,
     runsHint: "クリックで最初の実行を開き、残りは詳細で切り替えられます",
     moreMoments: (n: number) => `ほか ${n} 件`,
     momentAria: (pr: boolean, time: string, ref: string | null, title: string | null) =>

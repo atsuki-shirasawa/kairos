@@ -112,13 +112,13 @@ function HeadlessTag() {
 }
 
 /**
- * "Run 3 of 14" with ‹ › for a burst of headless runs, which the calendar draws as one mark. The
- * ↑ ↓ controls walk all work in time order and may leave the burst when other work is interleaved;
- * these stay inside it.
+ * "Run 3 of 14" with ‹ › for a burst of headless runs, which the calendar draws as one mark, or
+ * "#31 · run 2 of 3" for the runs of one unit of work. The ↑ ↓ controls walk all work in time
+ * order and may leave the burst when other work is interleaved; these stay inside it.
  */
 function RunStepper({ run, onRun }: { run: RunPosition; onRun: (run: BlockRef) => void }) {
   const t = drawerMessages();
-  const { index, runs } = run;
+  const { index, runs, ref } = run;
   const step = (dir: -1 | 1) => {
     const target = runs[index + dir];
     return target ? () => onRun(target) : null;
@@ -128,7 +128,7 @@ function RunStepper({ run, onRun }: { run: RunPosition; onRun: (run: BlockRef) =
       <IconButton label={t.prevRun} onClick={step(-1)}>
         <ChevronLeft />
       </IconButton>
-      <span className="font-num">{t.runOf(index + 1, runs.length)}</span>
+      <span className="font-num">{t.runOf(index + 1, runs.length, ref)}</span>
       <IconButton label={t.nextRun} onClick={step(1)}>
         <ChevronRight />
       </IconButton>

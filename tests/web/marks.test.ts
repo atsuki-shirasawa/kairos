@@ -70,6 +70,24 @@ describe("runGroups", () => {
     expect(ids(runGroups(marks))).toEqual([["long", "short", "next"]]);
   });
 
+  test("a unit of work's runs are one group however far apart, and join no other burst", () => {
+    const unit = { id: "a", ref: 31 };
+    const inUnit = (id: string, start: number) => {
+      const m = run(id, start);
+      return { ...m, session: { ...m.session, unit } };
+    };
+    const marks = [
+      inUnit("a", sec(9, 0)),
+      run("x", sec(9, 0, 20)),
+      run("y", sec(9, 1)),
+      inUnit("b", sec(11, 30)),
+    ];
+    expect(ids(runGroups(marks))).toEqual([
+      ["a", "b"],
+      ["x", "y"],
+    ]);
+  });
+
   test("runs with no project are never grouped", () => {
     const marks = [run("a", sec(10, 25), null), run("b", sec(10, 25, 20), null)];
     expect(ids(runGroups(marks))).toEqual([["a"], ["b"]]);

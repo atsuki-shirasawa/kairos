@@ -7,6 +7,7 @@ import { artifactRef } from "./artifacts.ts";
 import { hhmm } from "./dates.ts";
 import type { PlacedBlock } from "./layout.ts";
 import { blockMoments, type Moment } from "./moments.ts";
+import { runCount, unitRef } from "./runUnits.ts";
 import { projectLabel } from "./selection.ts";
 
 /** "10:00–11:30", or a single time when the block starts and ends in the same minute. */
@@ -74,16 +75,17 @@ export interface BurstSpan {
 
 /**
  * The heading and span of a burst of runs (sorted by start), which the calendar's mark and the
- * day page's row both show for it.
+ * day page's row both show for it. The runs of one unit of work are headed by its number.
  */
 export function burstSpan(
-  runs: readonly Pick<PlacedBlock, "dayStart" | "start" | "end">[],
+  runs: readonly Pick<PlacedBlock, "dayStart" | "start" | "end" | "session">[],
 ): BurstSpan {
-  const first = runs[0] ?? { dayStart: 0, start: 0, end: 0 };
+  const [first] = runs;
+  if (!first) return { label: calendarMessages().runs(0, null), range: "", durationMs: 0 };
   // Runs can overlap, so the burst ends with whichever run ends last, not the one starting last
   const end = Math.max(...runs.map((b) => b.end));
   return {
-    label: calendarMessages().runs(runs.length),
+    label: calendarMessages().runs(runCount(runs), unitRef(runs)),
     range: timeRange({ ...first, end }),
     durationMs: end - first.start,
   };

@@ -21,6 +21,14 @@ One mark per headless run turned a script firing `claude -p` every few seconds i
 an hour down the strip. Runs of a project starting within minutes of each other are drawn as one
 stacked mark, and the drawer steps through them.
 
+## A unit of work's runs are one mark
+
+A loop's iteration, the run that opens its PR a few minutes later and the reply to its review the
+next morning are one piece of work, yet time put them apart, and by time alone the loop's back to
+back runs on other issues would join them. Runs are grouped by the issue or PR number their reports
+name instead, so one mark is drawn at the first run's time even when the next comes hours later:
+what the mark stands for is the piece of work, which the drawer then steps through run by run.
+
 ## The week view shows a time range only when selected
 
 The grid already places a block in time, and the tooltip and drawer give the exact range, so in the

@@ -27,6 +27,7 @@ function session(
     branch: null,
     scheduledRuns: 0,
     headless: false,
+    unit: null,
     continued: false,
     title: id,
     startedAt: segments[0]?.start ?? 0,

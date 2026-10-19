@@ -133,11 +133,24 @@ export interface CalendarSession {
    * are always returned; trial runs (probes and checks) only while `Settings.showTrials` is on.
    */
   headless: boolean;
+  /** The unit of work an automation run belongs to; null for a run on its own or a person's work. */
+  unit: RunUnit | null;
   /** Continued from an earlier session, or continued into a later one. */
   continued: boolean;
   /** Shortly after the last activity (likely still in progress). */
   active: boolean;
   segments: CalendarSegment[];
+}
+
+/**
+ * One piece of automated work across several runs of a loop (an iteration on an issue, the run
+ * that opens its PR, the reply to its review), tied by the number their reports name.
+ */
+export interface RunUnit {
+  /** The unit's first run, which names it. */
+  id: string;
+  /** The issue or PR number that tied the runs (the issue the first run was on). */
+  ref: number;
 }
 
 /**

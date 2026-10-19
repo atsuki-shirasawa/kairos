@@ -109,10 +109,14 @@ export const drawerMessages = defineMessages({
     hintOther: "Try again later. If it keeps failing, check ~/Library/Logs/kairos/server.log.",
     headless: "Headless",
     headlessTitle: "Started by claude -p or the SDK, with no prompt from you",
-    /** Position in a burst of headless runs drawn as one mark on the calendar. */
-    runOf: (n: number, total: number) => `Run ${n} of ${total}`,
-    prevRun: "Previous headless run",
-    nextRun: "Next headless run",
+    /**
+     * Position in a burst of headless runs drawn as one mark on the calendar, or among the runs of
+     * one unit of work, named by the number (`ref`) that tied them.
+     */
+    runOf: (n: number, total: number, ref: number | null) =>
+      ref === null ? `Run ${n} of ${total}` : `#${ref} · run ${n} of ${total}`,
+    prevRun: "Previous run",
+    nextRun: "Next run",
     active: "Active",
   },
   ja: {
@@ -219,9 +223,10 @@ export const drawerMessages = defineMessages({
       "時間をおいて、もう一度試してください。続くときは ~/Library/Logs/kairos/server.log を確認してください。",
     headless: "ヘッドレス",
     headlessTitle: "claude -p や SDK から始まり、あなたの発言はありません",
-    runOf: (n: number, total: number) => `実行 ${n} / ${total}`,
-    prevRun: "前のヘッドレス実行",
-    nextRun: "次のヘッドレス実行",
+    runOf: (n: number, total: number, ref: number | null) =>
+      ref === null ? `実行 ${n} / ${total}` : `#${ref} の実行 ${n} / ${total}`,
+    prevRun: "前の実行",
+    nextRun: "次の実行",
     active: "作業中",
   },
 });

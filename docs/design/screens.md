@@ -69,7 +69,12 @@ segment names the page, so its heading is for screen readers only.
   "n headless runs" with the span; clicking opens the first run (the first matching one during a
   search), and in the calendar layout the drawer's header gets a "Run n of m" line with ‹ › under
   the headline to step through the burst (↑ ↓ still walk all work). A loop's iterations, minutes
-  or hours apart, stay one mark each at their real time
+  or hours apart, stay one mark each at their real time, unless they are one unit of work
+- **A unit of work's runs are one mark.** Automation runs tied by the issue or PR their reports
+  name (an iteration, its PR, the reply to its review; `CalendarSession.unit`) are grouped however
+  far apart they ran, drawn at the first run's time like a burst. ([why](decisions.md#a-unit-of-works-runs-are-one-mark))
+  Its tooltip says "#31 · 3 runs", counting runs rather than blocks, and the drawer's line reads
+  "#31 · run 2 of 3", stepping through every run of the unit, across days and long ones too
 - **A block's height is its real length.** Blocks shorter than the minimum height (room for one
   heading) fill only their real length at full strength; the rest is a label area with a faint fill
   (40% of the block fill) and a faint left edge, so the card keeps its shape instead of looking cut off
@@ -143,7 +148,8 @@ The day is read, not placed: a list of the day's work beside the selected block'
 - **Quiet stretches:** a gap of 30 minutes or more with no work is one line ("1h 35m with no
   work", 11px `muted-ink`); the lines of sessions still going on pass through it
 - Short work and headless runs are rows like the rest; a burst of headless runs is one row ("n
-  headless runs" and its span), as it is one mark in the week view
+  headless runs" and its span), as it is one mark in the week view, and so are a unit of work's
+  runs that day, long ones too ("#31 · 3 runs")
 - `j` / `k` step through the rows (and the pane with them), and the selected row scrolls into
   view
 
