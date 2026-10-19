@@ -91,7 +91,8 @@ segment names the page, so its heading is for screen readers only.
   lines and "+n more"); what doesn't fit, including marks past six, becomes "+n more", which opens
   the day. Tooltips, selection and filter fading are the week view's
 - **Day column headers** put the weekday above the date number: beside it, "5 月" reads as May in Japanese
-- **Work block:** heading (summary headline, or the first prompt before summarizing). The time
+- **Work block:** heading (summary headline, or before summarizing a line from the conversation: the
+  first prompt, or an automation run's last reply). The time
   range in `numeral` follows on the selected block when there is room
   ([why](decisions.md#the-week-view-shows-a-time-range-only-when-selected)). The heading gives up lines to the time range rather than
   overlapping it. Unsummarized blocks use the dim fill and muted text, except the latest block of a
