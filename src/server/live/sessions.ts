@@ -1,8 +1,15 @@
 // Joins the running sessions from Claude Code's registry with what Kairos has ingested of them:
 // the project and title, the tool call in flight, the task list, the last test run, the cost and
-// the subagents at work.
+// the subagents at work, with the one the turn waits on and how far a batch of them has got.
 import type { Database } from "bun:sqlite";
-import type { LiveSession, LiveState, LiveTasks, LiveTest, LiveTool } from "../../shared/api.ts";
+import type {
+  LiveAgent,
+  LiveSession,
+  LiveState,
+  LiveTasks,
+  LiveTest,
+  LiveTool,
+} from "../../shared/api.ts";
 import { ASK_USER_TOOL } from "../askUser.ts";
 import { knownTitle } from "../queries/titles.ts";
 import { taskStates } from "../tasks.ts";
@@ -11,6 +18,7 @@ import { oneLine } from "../text.ts";
 import { loadTaskCalls, loadToolCalls, type ToolCall } from "../toolCalls.ts";
 import type { SessionVisibility } from "../visibility.ts";
 import { liveAgents } from "./agents.ts";
+import { fanOutOf } from "./fanOut.ts";
 import type { RegistryEntry } from "./registry.ts";
 import { logTail, toolOf } from "./tail.ts";
 import { latestResponse, liveUsage } from "./usage.ts";
@@ -47,23 +55,40 @@ interface SessionRow {
 
 /** A tool call made in the main conversation that has no result yet, with its stored input. */
 interface PendingCall extends LiveTool {
+  id: string;
   input: string | null;
 }
 
 /**
- * The newest main-conversation tool call still waiting for its result, unless a new turn started
- * after it. Reads only the conversation's tail.
+ * The main-conversation tool calls still waiting for their results, newest first. One before the
+ * latest turn start was cut off (Esc writes no result), not waiting. Reads only the conversation's
+ * tail.
  */
-function pendingCall(db: Database, sessionId: string): PendingCall | null {
+function pendingCalls(db: Database, sessionId: string): PendingCall[] {
   const rows = logTail(db, sessionId, null, TAIL_MESSAGES);
   const answered = new Set<string>();
+  const pending: PendingCall[] = [];
   for (const r of rows) {
-    if (TURN_STARTS.has(r.kind)) return null;
+    if (TURN_STARTS.has(r.kind)) break;
     if (r.kind === "tool_result" && r.tool_use_id) answered.add(r.tool_use_id);
     if (r.kind === "tool_use" && r.tool_use_id && !answered.has(r.tool_use_id))
-      return { ...toolOf(r), input: r.meta };
+      pending.push({ ...toolOf(r), id: r.tool_use_id, input: r.meta });
   }
-  return null;
+  return pending;
+}
+
+/**
+ * The subagent the turn waits on: the one running foreground subagent a pending main-conversation
+ * call launched. With several (a parallel batch still going), no single one stands for what the
+ * turn does; a subagent's own helpers don't count, as their calls aren't the main conversation's.
+ */
+export function delegateOf(
+  pending: readonly { id: string }[],
+  agents: readonly LiveAgent[],
+): string | null {
+  const ids = new Set(pending.map((p) => p.id));
+  const waited = agents.filter((a) => a.running && !a.background && ids.has(a.callId ?? ""));
+  return waited.length === 1 ? (waited[0]?.id ?? null) : null;
 }
 
 /** The first question of an AskUserQuestion call, or the plan's first line for ExitPlanMode. */
@@ -141,10 +166,12 @@ export function liveSessions(
       !PERSONAL_KINDS.has(e.kind) || (s !== null && s.prompt_count === 0 && s.sdk_prompt_count > 0);
     if (headless && !visibility.headless) continue;
     if (s?.project_hidden === 1) continue;
-    const pending = s ? pendingCall(db, e.sessionId) : null;
+    const pendingList = s ? pendingCalls(db, e.sessionId) : [];
+    const pending = pendingList[0] ?? null;
     const state = stateOf(e, pending);
     const section = s ? latestSection(db, e.sessionId) : null;
     const latest = s ? latestResponse(db, e.sessionId) : null;
+    const agents = s ? liveAgents(db, e.sessionId, state, now) : [];
     list.push({
       id: e.sessionId,
       pid: e.pid,
@@ -171,7 +198,9 @@ export function liveSessions(
       tasks: s ? tasksOf(db, e.sessionId, now) : null,
       test: s && section !== null ? testOf(loadToolCalls(db, e.sessionId, section, now)) : null,
       recap: s?.away_summary ? oneLine(s.away_summary, RECAP_CHARS) : null,
-      agents: s ? liveAgents(db, e.sessionId, state, now) : [],
+      agents,
+      delegate: state === "working" ? delegateOf(pendingList, agents) : null,
+      fanOut: s ? fanOutOf(db, e.sessionId, agents, section ?? 0) : null,
     });
   }
   return list;

@@ -309,9 +309,13 @@ How Today's Now and the toolbar draw the sessions running now.
   with the start time under it at the right of the place line (`numeral`, with the date when not
   today)
 - **Card body, what it is doing:** the question (14px `ink`); the call in flight (tool name in
-  medium, an MCP tool as "server › tool", its summary in `muted-ink`); its subagents as a list
-  nested under it by indent alone (no rule: the edge, fill and footer rule already frame the card),
-  at most three rows, running ones first, then "+n more". Each subagent row has a 6px dot (pulsing
+  medium, an MCP tool as "server › tool", its summary in `muted-ink`). While the turn waits on a
+  single foreground subagent, the call line is that subagent's call instead (the session's own only
+  says a subagent runs), with "by <type>", what it was asked and how long it has run under it in
+  `muted-ink`; that subagent is then left out of the list below. A batch of subagents launched in
+  one response (parallel reviewers) shows "Subagents 2/4 done" with the tasks' bar. Then its
+  subagents as a list nested under it by indent alone (no rule: the edge, fill and footer rule
+  already frame the card), at most three rows, running ones first, then "+n more". Each subagent row has a 6px dot (pulsing
   in the project color while it runs, a `muted-ink` ring once done), its type in medium (`muted-ink`
   once done), what it was asked in `muted-ink`, how long it has run at the right in `numeral`
   ("Done" once done, kept two minutes), and the call it is in under it. Then tasks as a 4px bar in

@@ -8,11 +8,13 @@ import {
   cacheState,
   columnOf,
   contextShare,
+  delegateAgent,
   dirName,
   documentTitle,
   groupByColumn,
   IDLE_AFTER_MS,
   type LiveDisplay,
+  listedAgents,
   liveCardView,
   liveDisplay,
   livePlace,
@@ -46,6 +48,8 @@ function live(id: string, over: Partial<LiveSession> = {}): LiveSession {
     test: null,
     recap: null,
     agents: [],
+    delegate: null,
+    fanOut: null,
     ...over,
   };
 }
@@ -228,6 +232,7 @@ describe("agentRows", () => {
     id,
     agentType: "Explore",
     description: null,
+    callId: null,
     running: true,
     background: false,
     tool: null,
@@ -264,6 +269,15 @@ describe("agentRows", () => {
       name: "サブエージェント",
       status: "完了",
     });
+  });
+
+  test("takes the delegate out of the rows, for the call line to show", () => {
+    const session = live("s", { agents: [agent("a", 2), agent("b", 1)], delegate: "a" });
+    expect(delegateAgent(session)?.id).toBe("a");
+    expect(listedAgents(session).map((a) => a.id)).toEqual(["b"]);
+    const none = live("s", { agents: [agent("a", 2)] });
+    expect(delegateAgent(none)).toBeNull();
+    expect(listedAgents(none)).toHaveLength(1);
   });
 
   test("counts the subagents still running", () => {

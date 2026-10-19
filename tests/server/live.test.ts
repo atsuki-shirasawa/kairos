@@ -9,11 +9,20 @@ import {
   type RegistryEntry,
   readRegistry,
 } from "../../src/server/live/registry.ts";
-import { liveSessions } from "../../src/server/live/sessions.ts";
+import { delegateOf, liveSessions } from "../../src/server/live/sessions.ts";
 import { LiveTracker } from "../../src/server/live/tracker.ts";
+import type { LiveAgent } from "../../src/shared/api.ts";
 import { SID } from "../fixtures/ids.ts";
 import { min, setup } from "./ingest/helpers.ts";
-import { appendResponse, VISIBLE } from "./live/helpers.ts";
+import {
+  addAgent,
+  appendMain,
+  appendResponse,
+  call,
+  ingested as ingestedSubagents,
+  prompt,
+  VISIBLE,
+} from "./live/helpers.ts";
 
 /** A registry entry for `sessionId`, as Claude Code writes it, with overrides. */
 function entry(sessionId: string, over: Partial<RegistryEntry> = {}): RegistryEntry {
@@ -247,6 +256,25 @@ describe("liveSessions", () => {
     });
   });
 
+  test("while the turn waits on one subagent, names it as the delegate", () => {
+    const { db, projectsDir, ingest } = ingestedSubagents();
+    appendMain(projectsDir, call("main", 320, "toolu_fg", "Agent", { description: "Fix" }));
+    addAgent(
+      projectsDir,
+      "adeleg0000000001",
+      { agentType: "general-purpose", toolUseId: "toolu_fg" },
+      [
+        prompt("adeleg0000000001", 320.05),
+        call("adeleg0000000001", 321, "toolu_deleg_bash", "Bash", { command: "bun test" }),
+      ],
+    );
+    ingest();
+    const busy = entry(SID.subagent, { status: "busy" });
+    const [live] = liveSessions(db, [busy], VISIBLE, min(322));
+    expect(live).toMatchObject({ tool: { name: "Agent" }, delegate: "adeleg0000000001" });
+    expect(liveSessions(db, [entry(SID.subagent)], VISIBLE, min(322))[0]?.delegate).toBeNull();
+  });
+
   test("shows the call in flight while working, and a pending question as asking", () => {
     const { db, projectsDir, ingest } = ingested();
     appendCall(projectsDir, 1, "Bash", { command: "bun run build", description: "Build" });
@@ -335,5 +363,50 @@ describe("liveSessions", () => {
     // No breakdown means the default 5-minute write
     expect(usage).toMatchObject({ model: "x-1", cacheExpiresAt: min(1701) + 5 * 60_000 });
     expect(usage?.perHourTokens).toBe(1_400 * 4);
+  });
+});
+
+describe("delegateOf", () => {
+  /** A running foreground subagent launched by `callId`, with overrides. */
+  const agent = (id: string, callId: string | null, over: Partial<LiveAgent> = {}): LiveAgent => ({
+    id,
+    agentType: null,
+    description: null,
+    callId,
+    running: true,
+    background: false,
+    tool: null,
+    startedAt: 0,
+    lastAt: 0,
+    tokens: 0,
+    ...over,
+  });
+
+  const pending = (...ids: string[]) => ids.map((id) => ({ id }));
+
+  test("is the foreground subagent a pending call launched", () => {
+    expect(delegateOf(pending("c1"), [agent("a", "c1")])).toBe("a");
+  });
+
+  test("background and finished subagents don't stand in its way", () => {
+    const others = [
+      agent("bg", "c0", { background: true }),
+      agent("done", "c0", { running: false }),
+    ];
+    expect(delegateOf(pending("c1"), [...others, agent("a", "c1")])).toBe("a");
+  });
+
+  test("is the last one still running of a parallel batch, whichever call it was", () => {
+    const batch = [agent("a", "c1"), agent("b", "c2", { running: false })];
+    expect(delegateOf(pending("c2", "c1"), batch)).toBe("a");
+  });
+
+  test("leaves out a subagent's own helpers, whose calls aren't the main conversation's", () => {
+    expect(delegateOf(pending("c1"), [agent("a", "c1"), agent("helper", "inner")])).toBe("a");
+  });
+
+  test("is none with no pending call for it, or several running at once", () => {
+    expect(delegateOf(pending("c1"), [agent("a", "c2")])).toBeNull();
+    expect(delegateOf(pending("c1", "c2"), [agent("a", "c1"), agent("b", "c2")])).toBeNull();
   });
 });

@@ -3,6 +3,7 @@
 // query over a whole set of blocks (see `BlockSet`), not one per block.
 import type { Database } from "bun:sqlite";
 import type { Activity, Artifact } from "../../shared/api.ts";
+import { AGENT_TOOLS } from "../agentTools.ts";
 import { sqlList } from "../db/sqlList.ts";
 import { EDIT_TOOL_NAMES } from "../editTools.ts";
 import {
@@ -117,7 +118,7 @@ function messageCounts(db: Database, set: BlockSet): Map<string, MessageCounts> 
         `${withBlocks(set)}
          SELECT ${BLOCK_COLUMNS},
                 SUM(m.kind = 'tool_use') AS toolCalls,
-                SUM(m.kind = 'tool_use' AND m.agent_id IS NULL AND m.tool_name IN ('Agent', 'Task')) AS subagents,
+                SUM(m.kind = 'tool_use' AND m.agent_id IS NULL AND m.tool_name IN ${sqlList(AGENT_TOOLS)}) AS subagents,
                 SUM(m.kind = 'tool_result' AND m.is_error = 1) AS toolErrors,
                 SUM(m.kind = 'interrupt') AS interrupts,
                 SUM(m.kind = 'error') AS apiErrors,

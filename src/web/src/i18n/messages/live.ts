@@ -54,6 +54,10 @@ export const liveMessages = defineMessages({
     agentsMore: (n: number) => `+${n} more`,
     /** An idle row's count of subagents still running. */
     agentsRunning: (n: number) => (n === 1 ? "1 subagent running" : `${n} subagents running`),
+    /** How many of a batch of subagents launched together have finished. */
+    agentsDone: (done: number, total: number) => `Subagents ${done}/${total} done`,
+    /** Who runs the call shown in place of the session's own, and what it was asked. */
+    delegatedTo: (name: string) => `by ${name}`,
     /** The tokens of the current work block so far. */
     blockTokens: (tokens: string) => `This block ${tokens}`,
     fast: "Fast",
@@ -131,6 +135,8 @@ export const liveMessages = defineMessages({
     agentDone: "完了",
     agentsMore: (n: number) => `ほか ${n} 件`,
     agentsRunning: (n: number) => `サブエージェント ${n} 件実行中`,
+    agentsDone: (done: number, total: number) => `サブエージェント ${done}/${total} 完了`,
+    delegatedTo: (name: string) => `${name} が実行`,
     blockTokens: (tokens: string) => `このブロック ${tokens}`,
     fast: "Fast",
     cacheLeft: (left: string) => `キャッシュ残り ${left}`,

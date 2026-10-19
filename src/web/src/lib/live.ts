@@ -203,6 +203,16 @@ export interface LiveAgentRow {
   status: string;
 }
 
+/** A subagent as a card shows it: its name, and how long it has run or that it is done. */
+export function agentRow(agent: LiveAgent, now: number): LiveAgentRow {
+  const m = liveMessages();
+  return {
+    agent,
+    name: agent.agentType ?? m.subagent,
+    status: agent.running ? elapsedLabel(now - agent.startedAt) : m.agentDone,
+  };
+}
+
 /**
  * The subagent rows of a card: the first `AGENT_ROWS` (the server lists running ones first), and
  * how many more were left out.
@@ -211,15 +221,20 @@ export function agentRows(
   agents: readonly LiveAgent[],
   now: number,
 ): { rows: LiveAgentRow[]; more: number } {
-  const m = liveMessages();
   return {
-    rows: agents.slice(0, AGENT_ROWS).map((agent) => ({
-      agent,
-      name: agent.agentType ?? m.subagent,
-      status: agent.running ? elapsedLabel(now - agent.startedAt) : m.agentDone,
-    })),
+    rows: agents.slice(0, AGENT_ROWS).map((agent) => agentRow(agent, now)),
     more: Math.max(0, agents.length - AGENT_ROWS),
   };
+}
+
+/** The subagent the session's turn waits on, which the card shows in place of the session's call. */
+export function delegateAgent(session: LiveSession): LiveAgent | null {
+  return session.agents.find((a) => a.id === session.delegate) ?? null;
+}
+
+/** The subagents a card lists under its call: all but the delegate, which the call line shows. */
+export function listedAgents(session: LiveSession): LiveAgent[] {
+  return session.agents.filter((a) => a.id !== session.delegate);
 }
 
 /** How many of the subagents still run. */

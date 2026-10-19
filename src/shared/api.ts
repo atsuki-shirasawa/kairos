@@ -627,6 +627,20 @@ export interface LiveSession {
   recap: string | null;
   /** Its subagents running now or just finished, running ones first. */
   agents: LiveAgent[];
+  /**
+   * The subagent the turn waits on, from `agents`: the call in flight launched it, it runs in the
+   * foreground, and no other foreground one runs beside it. The card shows its call in place of the
+   * session's own, which says no more than that a subagent runs.
+   */
+  delegate: string | null;
+  /** How far the newest batch of subagents launched together has got, while one still runs. */
+  fanOut: LiveFanOut | null;
+}
+
+/** Subagents launched in one response (parallel reviewers, say): how many have finished. */
+export interface LiveFanOut {
+  done: number;
+  total: number;
 }
 
 /** A tool call that hasn't returned yet. `text` is its one-line summary (a command, a path). */
@@ -646,6 +660,8 @@ export interface LiveAgent {
   agentType: string | null;
   /** What it was asked to do, as the caller described it. */
   description: string | null;
+  /** The main conversation's call that launched it; null for a workflow's, or before its meta file. */
+  callId: string | null;
   running: boolean;
   /** Launched to run on its own: the session's turn doesn't wait for it. */
   background: boolean;

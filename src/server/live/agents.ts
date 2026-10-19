@@ -105,6 +105,7 @@ export function liveAgents(
       id,
       agentType: meta?.agent_type ?? null,
       description: meta?.description ?? null,
+      callId: meta?.tool_use_id ?? null,
       running,
       background,
       tool: running ? phase.tool : null,

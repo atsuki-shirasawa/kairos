@@ -1,25 +1,51 @@
-import type { LiveSession } from "@shared/api.ts";
+import type { LiveFanOut, LiveSession } from "@shared/api.ts";
 import { StatusDot } from "@/components/ui/status-dot.tsx";
 import { liveMessages } from "@/i18n/messages/live.ts";
-import { agentRows, type LiveAgentRow, runningAgents, toolLabel } from "@/lib/live.ts";
+import {
+  agentRows,
+  type LiveAgentRow,
+  listedAgents,
+  runningAgents,
+  toolLabel,
+} from "@/lib/live.ts";
 import { cn } from "@/lib/utils.ts";
+import { ProgressBar } from "./ProgressBar.tsx";
 
 /**
- * The card's subagents, nested under what the session itself does: running ones first, each with
- * what it was asked and the call it is in, then those that finished a moment ago, dimmed. Past
- * `AGENT_ROWS` the rest fold into a count, so a fan-out of dozens doesn't swamp the column.
+ * The card's subagents, nested under what the session itself does: how far a batch launched
+ * together has got, then running ones first, each with what it was asked and the call it is in,
+ * then those that finished a moment ago, dimmed. The delegate is left out, since the call line
+ * shows it. Past `AGENT_ROWS` the rest fold into a count, so a fan-out of dozens doesn't swamp the
+ * column.
  */
 export function CardAgents({ session, now }: { session: LiveSession; now: number }) {
   const m = liveMessages();
-  const { rows, more } = agentRows(session.agents, now);
-  if (rows.length === 0) return null;
+  const { rows, more } = agentRows(listedAgents(session), now);
+  if (rows.length === 0 && !session.fanOut) return null;
   return (
-    <ul aria-label={m.subagents} className="flex flex-col gap-1 pl-3 text-label">
-      {rows.map((row) => (
-        <AgentRow key={row.agent.id} row={row} />
-      ))}
-      {more > 0 && <li className="text-muted-foreground">{m.agentsMore(more)}</li>}
-    </ul>
+    <div className="flex flex-col gap-1">
+      {session.fanOut && <FanOutProgress fanOut={session.fanOut} />}
+      {rows.length > 0 && (
+        <ul aria-label={m.subagents} className="flex flex-col gap-1 pl-3 text-label">
+          {rows.map((row) => (
+            <AgentRow key={row.agent.id} row={row} />
+          ))}
+          {more > 0 && <li className="text-muted-foreground">{m.agentsMore(more)}</li>}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** How many of a batch of subagents launched together have finished. */
+function FanOutProgress({ fanOut }: { fanOut: LiveFanOut }) {
+  const m = liveMessages();
+  return (
+    <ProgressBar
+      label={m.agentsDone(fanOut.done, fanOut.total)}
+      done={fanOut.done}
+      total={fanOut.total}
+    />
   );
 }
 

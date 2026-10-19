@@ -11,12 +11,13 @@ import {
   type LiveDisplay,
   type LiveEntry,
   liveCardView,
-  toolLabel,
 } from "@/lib/live.ts";
 import { type OpenBlock, projectOf } from "@/lib/selection.ts";
 import { cn } from "@/lib/utils.ts";
+import { CallLine } from "./CallLine.tsx";
 import { AgentCount, CardAgents } from "./CardAgents.tsx";
 import { CardFooter, RowCache } from "./CardUsage.tsx";
+import { ProgressBar } from "./ProgressBar.tsx";
 
 /**
  * A session placed in its column, as its card: works out its project and card view, so every page
@@ -201,9 +202,9 @@ function CardHeading({
 }
 
 /**
- * What the session is doing now: the question it asks, or the call it runs, and its subagents; then
- * its tasks, the last test, and Claude Code's recap while it waits. Context and tokens go in the
- * footer.
+ * What the session is doing now: the question it asks, or the call it runs (its delegate's, while a
+ * subagent does the work), and its subagents; then its tasks, the last test, and Claude Code's
+ * recap while it waits. Context and tokens go in the footer.
  */
 function CardNow({
   session: s,
@@ -218,12 +219,7 @@ function CardNow({
   return (
     <div className="flex flex-col gap-1.5 text-label">
       {s.question && <p className="text-body">{s.question}</p>}
-      {s.tool && (
-        <p className="line-clamp-2 break-all">
-          <span className="font-medium">{toolLabel(s.tool.name)}</span>{" "}
-          <span className="text-muted-foreground">{s.tool.text}</span>
-        </p>
-      )}
+      <CallLine session={s} now={now} />
       <CardAgents session={s} now={now} />
       {s.tasks && <TaskProgress tasks={s.tasks} />}
       {s.test && (
@@ -242,23 +238,12 @@ function CardNow({
   );
 }
 
-/**
- * Tasks done out of all, as a thin bar in the project color on the input tone (the card is already
- * `muted`, and `border` barely differs from it), and the one in progress.
- */
+/** Tasks done out of all, and the one in progress. */
 function TaskProgress({ tasks }: { tasks: NonNullable<LiveSession["tasks"]> }) {
   const m = liveMessages();
   return (
     <div>
-      <div className="flex items-center gap-2">
-        <span className="shrink-0 font-num">{m.tasks(tasks.done, tasks.total)}</span>
-        <span className="h-1 flex-1 overflow-hidden rounded-full bg-input">
-          <span
-            className="block h-full rounded-full bg-[var(--c)]"
-            style={{ width: `${(tasks.done / Math.max(tasks.total, 1)) * 100}%` }}
-          />
-        </span>
-      </div>
+      <ProgressBar label={m.tasks(tasks.done, tasks.total)} done={tasks.done} total={tasks.total} />
       {tasks.current && <p className="mt-0.5 truncate text-muted-foreground">{tasks.current}</p>}
     </div>
   );
