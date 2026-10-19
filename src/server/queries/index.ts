@@ -44,7 +44,7 @@ export class Queries {
 
   /**
    * Condition keeping the sessions the calendar shows, on the sessions table aliased `s`.
-   * Read per query, so turning headless sessions on or off applies to the next request.
+   * Read per query, so turning trial runs on or off applies to the next request.
    */
   private visible(): string {
     return visibleSessionSql(currentVisibility(this.db, this.hiddenCwds));

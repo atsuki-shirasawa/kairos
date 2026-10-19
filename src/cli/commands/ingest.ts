@@ -4,6 +4,11 @@ import type { Database } from "bun:sqlite";
 import { statSync } from "node:fs";
 import { join } from "node:path";
 import type { Ingester } from "../../server/ingest/ingester.ts";
+import {
+  DEFAULT_HIDDEN_CWDS,
+  DEFAULT_SHOWN_RUNS,
+  visibleSessionSql,
+} from "../../server/visibility.ts";
 import type { CliContext } from "../args.ts";
 
 /** What one scan of the logs did. */
@@ -52,7 +57,11 @@ function countRows(db: Database): DbCounts {
   const n = (sql: string) => db.query<{ n: number }, []>(sql).get()?.n ?? 0;
   return {
     sessions: n("SELECT COUNT(*) AS n FROM sessions"),
-    onCalendar: n("SELECT COUNT(*) AS n FROM sessions WHERE prompt_count > 0"),
+    // The calendar's default: a person's sessions and automation runs, never Kairos's own runs
+    onCalendar: n(
+      `SELECT COUNT(*) AS n FROM sessions s
+       WHERE ${visibleSessionSql({ runs: DEFAULT_SHOWN_RUNS, hiddenCwds: DEFAULT_HIDDEN_CWDS })}`,
+    ),
     messages: n("SELECT COUNT(*) AS n FROM messages"),
     artifacts: n("SELECT COUNT(*) AS n FROM artifacts"),
   };

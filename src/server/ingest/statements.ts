@@ -4,6 +4,7 @@ import { blockOutputsUntilSql } from "../db/blockOutputs.ts";
 import { notNote } from "../db/notes.ts";
 import { sqlList } from "../db/sqlList.ts";
 import { EDIT_TOOL_NAMES } from "../editTools.ts";
+import { headlessSql } from "../runKinds.ts";
 import { CLOSED_BY } from "../summarize/ledger/closers.ts";
 import { PROMPT_KINDS } from "./activityKinds.ts";
 import { INPUT_TOPIC_TOOLS } from "./topics.ts";
@@ -21,6 +22,13 @@ export interface StateRow {
 export interface SessionRepoRow {
   repo: string | null;
   launch_cwd: string | null;
+}
+
+/** A headless run of one launch directory, as `runKindOf` reads it (`made` is 0 or 1). */
+export interface HeadlessRunRow {
+  id: string;
+  startedAt: number | null;
+  made: number;
 }
 
 /** Startup facts of a session that are recorded only once. */
@@ -275,6 +283,21 @@ export function prepareStatements(db: Database) {
       "INSERT INTO turn_spans (session_id, start, end, who) VALUES ($sessionId, $start, $end, $who)",
     ),
     sessionIds: p("SELECT id FROM sessions"),
+    // A person's session has no run kind; a headless one gets its kind from `headlessRunsBeside`
+    clearRunKind: p(
+      `UPDATE sessions SET run_kind = NULL WHERE id = ? AND NOT ${headlessSql("sessions")}`,
+    ),
+    // The headless runs launched where session ?1 was (only ?1 itself when no launch directory
+    // is recorded), and whether each made a commit or PR
+    headlessRunsBeside: p(
+      `SELECT s.id, s.started_at AS startedAt,
+              EXISTS (SELECT 1 FROM artifacts a WHERE a.session_id = s.id AND a.is_copy = 0) AS made
+       FROM sessions s
+       WHERE ${headlessSql("s")}
+         AND (s.id = ?1 OR s.launch_cwd = (SELECT launch_cwd FROM sessions WHERE id = ?1))`,
+    ),
+    // Skips rows already of that kind, so a refresh rewrites nothing in a settled directory
+    setRunKind: p("UPDATE sessions SET run_kind = ?1 WHERE id = ?2 AND run_kind IS NOT ?1"),
     hasPredecessor: p("SELECT 1 FROM sessions WHERE continued_in = ? LIMIT 1"),
     // ID of the continuing session, if it is in the DB
     continuedIn: p(

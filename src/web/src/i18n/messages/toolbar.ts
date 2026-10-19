@@ -39,9 +39,9 @@ export const toolbarMessages = defineMessages({
     themeLight: "Light",
     themeDark: "Dark",
     language: "Language",
-    headlessRuns: "Headless runs",
-    headlessRunsTitle:
-      "Sessions started by claude -p or the Agent SDK, with no prompt from you. Hidden by default",
+    trialRuns: "Trial runs",
+    trialRunsTitle:
+      "Headless runs (claude -p or the Agent SDK) that look like probes or checks: run in one sitting, with no commit or PR. Hidden by default; automated work always shows",
     hide: "Hide",
     show: "Show",
     shortcuts: "Keyboard shortcuts",
@@ -93,9 +93,9 @@ export const toolbarMessages = defineMessages({
     themeLight: "ライト",
     themeDark: "ダーク",
     language: "言語",
-    headlessRuns: "ヘッドレス実行",
-    headlessRunsTitle:
-      "claude -p や Agent SDK から始まり、あなたの発言がないセッション。初期状態では表示しません",
+    trialRuns: "試行実行",
+    trialRunsTitle:
+      "検証や動作確認とみられるヘッドレス実行（claude -p や Agent SDK）で、一度にまとめて実行され、コミットも PR もないもの。初期状態では非表示。自動化された作業は常に表示します",
     hide: "非表示",
     show: "表示",
     shortcuts: "キーボード操作",

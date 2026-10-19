@@ -21,7 +21,7 @@ export function PaletteHost({
   ...targets
 }: PaletteTargets & { dialog: PaletteDialog; onOpenHit: (hit: SearchHit) => void }) {
   const locale = useLocale();
-  const { run, status, showHeadless } = usePaletteActions(targets);
+  const { run, status, showTrials } = usePaletteActions(targets);
   const { keys, projects, shown, filter, theme } = targets;
   const { layout, view, session } = keys.state;
   const shownReady = shown?.sessions != null;
@@ -35,7 +35,7 @@ export function PaletteHost({
         projects: projects.list,
         theme: theme.value,
         locale,
-        showHeadless,
+        showTrials,
         reportReady: projects.ready,
         shownReady,
       }),
@@ -49,7 +49,7 @@ export function PaletteHost({
       projects.ready,
       theme.value,
       locale,
-      showHeadless,
+      showTrials,
       shownReady,
     ],
   );

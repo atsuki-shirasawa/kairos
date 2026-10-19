@@ -31,7 +31,7 @@ export const paletteMessages = defineMessages({
     showAllProjects: "Show every project",
     theme: (name: string) => `Theme: ${name}`,
     language: (name: string) => `Language: ${name}`,
-    headless: (show: boolean) => (show ? "Show headless runs" : "Hide headless runs"),
+    trials: (show: boolean) => (show ? "Show trial runs" : "Hide trial runs"),
     shortcuts: "Keyboard shortcuts",
     /** A row's state after it ran a copy. */
     copied: "Copied",
@@ -65,7 +65,7 @@ export const paletteMessages = defineMessages({
     showAllProjects: "すべてのプロジェクトを表示",
     theme: (name: string) => `テーマ：${name}`,
     language: (name: string) => `言語：${name}`,
-    headless: (show: boolean) => (show ? "ヘッドレス実行を表示" : "ヘッドレス実行を非表示"),
+    trials: (show: boolean) => (show ? "試行実行を表示" : "試行実行を非表示"),
     shortcuts: "キーボード操作",
     copied: "コピーしました",
     nothingToCopy: "コピーするものがありません",

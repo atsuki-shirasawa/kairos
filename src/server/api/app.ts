@@ -23,9 +23,9 @@ import { liveSessions } from "../live/sessions.ts";
 import { liveTokens } from "../live/usage.ts";
 import { Queries } from "../queries/index.ts";
 import {
-  storedShowHeadless,
+  storedShowTrials,
   storedSummaryLang,
-  storeShowHeadless,
+  storeShowTrials,
   storeSummaryLang,
 } from "../settings.ts";
 import type { Summarizer } from "../summarize/summarizer.ts";
@@ -132,12 +132,12 @@ export function createApp({
   app.get("/api/settings", (c) => c.json<Settings>(currentSettings(db, summarizer)));
 
   // The UI sends its language here, so summaries follow it (existing summaries are kept), and
-  // whether to show headless sessions
+  // whether to show trial runs
   app.patch("/api/settings", async (c) => {
     const update = parseSettingsUpdate(await readJson(c));
     if (!update) return c.json({ error: "invalid request" }, 400);
     if (update.summaryLang) storeSummaryLang(db, update.summaryLang);
-    if (update.showHeadless !== undefined) storeShowHeadless(db, update.showHeadless);
+    if (update.showTrials !== undefined) storeShowTrials(db, update.showTrials);
     return c.json<Settings>(currentSettings(db, summarizer));
   });
 
@@ -233,7 +233,7 @@ function currentSettings(db: Database, summarizer: Summarizer | undefined): Sett
   return {
     summaryLang: summarizer?.lang ?? storedSummaryLang(db) ?? DEFAULT_SUMMARY_LANG,
     summaryLangFixed: summarizer?.langFixed ?? false,
-    showHeadless: storedShowHeadless(db),
+    showTrials: storedShowTrials(db),
   };
 }
 

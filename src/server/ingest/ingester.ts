@@ -38,9 +38,9 @@ import { usageCounts } from "./usage.ts";
 export const PARSER_VERSION = 10;
 /**
  * Bump when the calculation of derived data that can be recomputed from the DB (aggregates, work blocks,
- * turn spans, project assignment from the startup cwd) changes. All sessions are recomputed, even those whose logs are gone.
+ * turn spans, run kinds, project assignment from the startup cwd) changes. All sessions are recomputed, even those whose logs are gone.
  */
-export const DERIVED_VERSION = 10;
+export const DERIVED_VERSION = 11;
 
 const RECAP_SUFFIX = /\s*\(disable recaps in \/config\)\s*$/;
 

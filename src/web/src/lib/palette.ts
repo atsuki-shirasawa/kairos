@@ -38,7 +38,7 @@ export type PaletteAction =
   | { kind: "allProjects" }
   | { kind: "theme"; theme: Theme }
   | { kind: "locale"; locale: Locale }
-  | { kind: "headless"; show: boolean };
+  | { kind: "trials"; show: boolean };
 
 /** One row of the palette that isn't a search hit. */
 export interface PaletteCommand {
@@ -70,8 +70,8 @@ export interface PaletteContext {
   projects: readonly Project[];
   theme: Theme;
   locale: Locale;
-  /** Whether headless runs show; null until the settings load. */
-  showHeadless: boolean | null;
+  /** Whether trial runs show; null until the settings load. */
+  showTrials: boolean | null;
 }
 
 /** A command, built from its action. */
@@ -177,7 +177,7 @@ function projectCommands({ layout, filtered, projects }: PaletteContext): Palett
 }
 
 /** The "⋯" menu's settings, each offered as the change it makes, and its shortcut list. */
-function settingCommands({ theme, locale, showHeadless }: PaletteContext): PaletteCommand[] {
+function settingCommands({ theme, locale, showTrials }: PaletteContext): PaletteCommand[] {
   const p = paletteMessages();
   const themes = THEMES.filter((t) => t !== theme).map((t) =>
     command(`theme-${t}`, "settings", p.theme(themeLabel(t)), { kind: "theme", theme: t }),
@@ -188,17 +188,17 @@ function settingCommands({ theme, locale, showHeadless }: PaletteContext): Palet
       locale: l,
     }),
   );
-  const headless =
-    showHeadless === null
+  const trials =
+    showTrials === null
       ? []
       : [
-          command("headless", "settings", p.headless(!showHeadless), {
-            kind: "headless",
-            show: !showHeadless,
+          command("trials", "settings", p.trials(!showTrials), {
+            kind: "trials",
+            show: !showTrials,
           }),
         ];
   const shortcuts = keyed("shortcuts", "settings", p.shortcuts, "menu");
-  return [...themes, ...locales, ...headless, shortcuts];
+  return [...themes, ...locales, ...trials, shortcuts];
 }
 
 /** Every command the page offers, in group order, before a query narrows them. */
@@ -327,7 +327,7 @@ export interface PaletteInputs {
   projects: readonly Project[];
   theme: Theme;
   locale: Locale;
-  showHeadless: boolean | null;
+  showTrials: boolean | null;
   reportReady: boolean;
   shownReady: boolean;
 }

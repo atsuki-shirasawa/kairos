@@ -12,6 +12,7 @@ import type {
   Subagent,
 } from "../../shared/api.ts";
 import { MINUTE } from "../../shared/dates.ts";
+import { isHeadless } from "../runKinds.ts";
 import { sessionCloses, sessionOpens } from "../summarize/ledger/openItems.ts";
 import { type BlockScope, blockSetOf, blocksFacts, sectionRows, toSection } from "./blocks.ts";
 import { projectById } from "./projects.ts";
@@ -40,6 +41,7 @@ export interface SessionRow {
   started_at: number | null;
   ended_at: number | null;
   prompt_count: number;
+  sdk_prompt_count: number;
   scheduled_runs: number;
 }
 
@@ -67,7 +69,7 @@ export function toCalendarSession(r: SessionRow, parts: CalendarSessionParts): C
     endedAt: r.ended_at ?? 0,
     promptCount: r.prompt_count,
     scheduledRuns: r.scheduled_runs,
-    headless: r.prompt_count === 0,
+    headless: isHeadless(r),
     continued: parts.continued,
     active: parts.active,
     segments: parts.segments,
@@ -102,7 +104,7 @@ export function toSessionDetail(s: SessionRow, parts: SessionDetailParts): Sessi
     active: parts.active,
     promptCount: s.prompt_count,
     scheduledRuns: s.scheduled_runs,
-    headless: s.prompt_count === 0,
+    headless: isHeadless(s),
     continuedFrom: parts.continuedFrom,
     continuedIn: s.continued_in,
     threadSize: parts.threadSize,

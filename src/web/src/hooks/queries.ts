@@ -157,7 +157,7 @@ export function useUpdateOpenItem() {
   });
 }
 
-/** The server's settings (summary language, headless visibility), shared by the hooks below. */
+/** The server's settings (summary language, whether trial runs show), shared by the hooks below. */
 function useSettings() {
   return useQuery({ queryKey: keys.settings, queryFn: api.settings });
 }
@@ -180,11 +180,11 @@ export function useSummaryLangSync(locale: Locale) {
 }
 
 /**
- * Whether headless sessions (claude -p / SDK runs) are shown, and a setter. A server setting, so
+ * Whether trial runs (headless probes and checks; automation runs always show) are shown, and a setter. A server setting, so
  * the calendar, search and navigation all follow it; changing it refetches everything under
  * "calendar". `show` is false until the settings have loaded, which `loaded` tells.
  */
-export function useShowHeadless(): [
+export function useShowTrials(): [
   show: boolean,
   setShow: (show: boolean) => void,
   loaded: boolean,
@@ -192,7 +192,7 @@ export function useShowHeadless(): [
   const client = useQueryClient();
   const { data } = useSettings();
   const { mutate } = useMutation({
-    mutationFn: (show: boolean) => api.updateSettings({ showHeadless: show }),
+    mutationFn: (show: boolean) => api.updateSettings({ showTrials: show }),
     onSuccess: (settings) => {
       client.setQueryData(keys.settings, settings);
       void client.invalidateQueries({ queryKey: keys.allCalendar });
@@ -200,7 +200,7 @@ export function useShowHeadless(): [
       void client.invalidateQueries({ queryKey: keys.live });
     },
   });
-  return [data?.showHeadless ?? false, mutate, data !== undefined];
+  return [data?.showTrials ?? false, mutate, data !== undefined];
 }
 
 /** One session's details for the drawer. Idle while no session is open (`id` is null). */

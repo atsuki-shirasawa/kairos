@@ -1,8 +1,9 @@
 import type { Database } from "bun:sqlite";
 import { beforeEach, describe, expect, test } from "bun:test";
-import { appendFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Ingester } from "../../../src/server/ingest/ingester.ts";
+import { DAY } from "../../../src/shared/dates.ts";
 import { SID } from "../../fixtures/ids.ts";
 import { min, noRemotes, setup } from "./helpers.ts";
 
@@ -37,6 +38,27 @@ function session(id: string): SessionRow {
     .get(id);
   if (!row) throw new Error(`session not found: ${id}`);
   return row;
+}
+
+function runKind(id: string): string | null {
+  return (
+    db
+      .query<{ run_kind: string | null }, [string]>("SELECT run_kind FROM sessions WHERE id = ?")
+      .get(id)?.run_kind ?? null
+  );
+}
+
+/** A log with every record's timestamp moved one day later. */
+function nextDay(jsonl: string): string {
+  return jsonl
+    .split("\n")
+    .map((line) => {
+      if (!line) return line;
+      const r = JSON.parse(line) as { timestamp?: string };
+      if (r.timestamp) r.timestamp = new Date(Date.parse(r.timestamp) + DAY).toISOString();
+      return JSON.stringify(r);
+    })
+    .join("\n");
 }
 
 function segments(id: string): [number, number][] {
@@ -176,6 +198,24 @@ describe("README scenarios", () => {
     expect(sdkPrompts(SID.headless)).toEqual(["Run exactly this one Bash command: echo ok"]);
     expect(segments(SID.headless)).toEqual([[min(120), min(120.2)]]);
     expect(fallbackTitles(SID.headless)).toEqual(["Run exactly this one Bash command: echo ok"]);
+  });
+
+  test("3, 20. headless runs are trials unless their directory made a PR or ran on two days", () => {
+    expect(runKind(SID.headless)).toBe("trial");
+    expect(runKind(SID.containerPr)).toBe("automation");
+    // Made nothing itself, but shares the directory of the run that opened a PR
+    expect(runKind(SID.containerRun)).toBe("automation");
+    expect(runKind(SID.basic)).toBeNull();
+  });
+
+  test("3. headless: another run in the probe's directory on the next day makes both automation", () => {
+    const dir = join(projectsDir, "-Users-me-tmp-probe");
+    const next = "3a3a3a3a-3a3a-4a3a-8a3a-3a3a3a3a3a3a";
+    const log = readFileSync(join(dir, `${SID.headless}.jsonl`), "utf8");
+    writeFileSync(join(dir, `${next}.jsonl`), nextDay(log.replaceAll(SID.headless, next)));
+    ingester.scan();
+    expect(runKind(next)).toBe("automation");
+    expect(runKind(SID.headless)).toBe("automation");
   });
 
   test("16. sdkCommand: a slash command from the SDK is the SDK input; hook text is not", () => {

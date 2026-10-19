@@ -320,8 +320,21 @@ describe("liveSessions", () => {
     const all = [headless, sdk, hidden];
     expect(liveSessions(db, all, { ...VISIBLE, hiddenCwds: ["/hidden"] }, 0)).toEqual([]);
     expect(
-      liveSessions(db, all, { headless: true, hiddenCwds: ["/hidden"] }, 0).map((s) => s.id),
+      liveSessions(db, all, { runs: "all", hiddenCwds: ["/hidden"] }, 0).map((s) => s.id),
     ).toEqual([headless.sessionId, sdk.sessionId]);
+  });
+
+  test("shows automation runs by default, even one not ingested yet", () => {
+    const { db } = ingested();
+    const ingestedRun = entry(SID.containerRun, { kind: "sdk", cwd: "/work/checkout" });
+    const newRun = entry("0f0f0f0f-0f0f-4f0f-8f0f-0f0f0f0f0f0f", {
+      kind: "sdk",
+      cwd: "/work/checkout",
+    });
+    expect(liveSessions(db, [ingestedRun, newRun], VISIBLE, 0).map((s) => s.id)).toEqual([
+      ingestedRun.sessionId,
+      newRun.sessionId,
+    ]);
   });
 
   test("leaves out sessions of hidden projects", () => {

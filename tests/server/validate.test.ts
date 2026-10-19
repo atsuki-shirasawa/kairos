@@ -45,13 +45,13 @@ describe("parseSearchQuery", () => {
 describe("parseSettingsUpdate", () => {
   test.each<[string, unknown, unknown]>([
     ["a language", { summaryLang: "ja" }, { summaryLang: "ja" }],
-    ["headless visibility", { showHeadless: false }, { showHeadless: false }],
-    ["both", { summaryLang: "en", showHeadless: true }, { summaryLang: "en", showHeadless: true }],
+    ["headless visibility", { showTrials: false }, { showTrials: false }],
+    ["both", { summaryLang: "en", showTrials: true }, { summaryLang: "en", showTrials: true }],
     ["unknown keys only", { theme: "dark" }, null],
     ["an empty body", {}, null],
     ["an unsupported language", { summaryLang: "fr" }, null],
-    ["a non-boolean flag", { showHeadless: "yes" }, null],
-    ["one bad field among good ones", { summaryLang: "en", showHeadless: 1 }, null],
+    ["a non-boolean flag", { showTrials: "yes" }, null],
+    ["one bad field among good ones", { summaryLang: "en", showTrials: 1 }, null],
     ["null", null, null],
     ["a string", "ja", null],
   ])("%s", (_name, body, expected) => {

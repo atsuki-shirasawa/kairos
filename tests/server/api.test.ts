@@ -318,12 +318,12 @@ describe("headless sessions", () => {
     (await json<CalendarResponse>(`/api/calendar?from=${DAY_FROM}&to=${DAY_TO}`)).sessions.map(
       (s) => s.id,
     );
-  const showHeadless = async (show: boolean) =>
-    expect((await patch("/api/settings", { showHeadless: show })).status).toBe(200);
+  const showTrials = async (show: boolean) =>
+    expect((await patch("/api/settings", { showTrials: show })).status).toBe(200);
 
   test("are hidden until the setting is turned on, then shown flagged as headless", async () => {
     expect(await calendarIds()).not.toContain(SID.headless);
-    await showHeadless(true);
+    await showTrials(true);
     const res = await json<CalendarResponse>(`/api/calendar?from=${DAY_FROM}&to=${DAY_TO}`);
     const headless = res.sessions.find((s) => s.id === SID.headless);
     expect(headless).toMatchObject({
@@ -334,12 +334,12 @@ describe("headless sessions", () => {
     expect(res.sessions.find((s) => s.id === SID.basic)?.headless).toBe(false);
     // Their projects join the filter too
     expect((await json<Project[]>("/api/projects")).map((p) => p.name)).toContain("probe");
-    await showHeadless(false);
+    await showTrials(false);
     expect(await calendarIds()).not.toContain(SID.headless);
   });
 
   test("never include Kairos's own summary runs", async () => {
-    await showHeadless(true);
+    await showTrials(true);
     const ids = await calendarIds();
     expect(ids).toContain(SID.sdkCommand);
     expect(ids).not.toContain(SID.summarizerRun);
@@ -349,14 +349,14 @@ describe("headless sessions", () => {
   test("are searchable by their SDK input once shown", async () => {
     const search = () => json<SearchResponse>(`/api/search?q=${encodeURIComponent("echo ok")}`);
     expect((await search()).hits.map((h) => h.sessionId)).not.toContain(SID.headless);
-    await showHeadless(true);
+    await showTrials(true);
     expect((await search()).hits).toContainEqual(
       expect.objectContaining({ sessionId: SID.headless, field: "headline" }),
     );
   });
 
   test("rejects a non-boolean setting", async () => {
-    expect((await patch("/api/settings", { showHeadless: "yes" })).status).toBe(400);
+    expect((await patch("/api/settings", { showTrials: "yes" })).status).toBe(400);
     expect((await patch("/api/settings", {})).status).toBe(400);
   });
 });
@@ -416,8 +416,10 @@ describe("GET /api/calendar", () => {
     expect(ids).toContain(SID.loop);
     expect(ids).not.toContain(SID.headless);
     expect(ids).not.toContain(SID.blog); // the next day
-    // A project with only headless sessions (probe) is left out of the filter too
+    // A project with only trial runs (probe) is left out of the filter too; the container's
+    // runs opened a PR, so they are automation and their project (github.com/me/app) shows
     expect((await json<Project[]>("/api/projects")).map((p) => p.name).sort()).toEqual([
+      "app",
       "app",
       "blog",
     ]);
@@ -426,7 +428,8 @@ describe("GET /api/calendar", () => {
   test("returns the nearest work blocks before and after, so an empty range can jump", async () => {
     const day = await json<CalendarResponse>(`/api/calendar?from=${DAY_FROM}&to=${DAY_TO}`);
     expect(day.prev).toBeNull();
-    expect(day.next).toBe(Date.UTC(2026, 8, 29, 1)); // blog on the next day
+    // The container's runs later that day are automation, so they come before blog's next day
+    expect(day.next).toBe(min(906));
     const later = DAY_FROM + 7 * 24 * 60 * 60_000;
     const empty = await json<CalendarResponse>(
       `/api/calendar?from=${later}&to=${later + 24 * 60 * 60_000}`,

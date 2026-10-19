@@ -5,7 +5,8 @@ import { isSummaryLang, type SummaryLang } from "../shared/summaryLang.ts";
 import { readKv, writeKv } from "./db/kv.ts";
 
 const SUMMARY_LANG = "summary_lang";
-const SHOW_HEADLESS = "show_headless";
+// Named for when the one toggle showed every headless run; kept so the stored choice carries over
+const SHOW_TRIALS = "show_headless";
 
 /** The language chosen in the UI for summaries, or null if it was never set. */
 export function storedSummaryLang(db: Database): SummaryLang | null {
@@ -18,12 +19,12 @@ export function storeSummaryLang(db: Database, lang: SummaryLang): void {
   writeKv(db, SUMMARY_LANG, lang);
 }
 
-/** Whether the calendar also shows headless sessions (automatic runs). Off until turned on. */
-export function storedShowHeadless(db: Database): boolean {
-  return readKv(db, SHOW_HEADLESS) === "1";
+/** Whether the calendar also shows trial runs (headless probes and checks). Off until turned on. */
+export function storedShowTrials(db: Database): boolean {
+  return readKv(db, SHOW_TRIALS) === "1";
 }
 
-/** Saves whether headless sessions are shown. A server setting, so search and navigation agree. */
-export function storeShowHeadless(db: Database, show: boolean): void {
-  writeKv(db, SHOW_HEADLESS, show ? "1" : "0");
+/** Saves whether trial runs are shown. A server setting, so search and navigation agree. */
+export function storeShowTrials(db: Database, show: boolean): void {
+  writeKv(db, SHOW_TRIALS, show ? "1" : "0");
 }

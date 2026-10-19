@@ -36,7 +36,7 @@ const CTX: PaletteContext = {
   projects: [project(1, "atlas"), project(2, "harbor", true)],
   theme: "system",
   locale: "en",
-  showHeadless: false,
+  showTrials: false,
 };
 
 const ids = (ctx: Partial<PaletteContext>, query = "") =>
@@ -72,7 +72,7 @@ describe("paletteCommands", () => {
       "theme-light",
       "theme-dark",
       "locale-ja",
-      "headless",
+      "trials",
       "shortcuts",
     ]);
     const keys = Object.fromEntries(
@@ -115,8 +115,8 @@ describe("paletteCommands", () => {
     expect(ids({ shownReady: false })).toContain("standup-week");
   });
 
-  test("headless runs wait for the settings before offering a change", () => {
-    expect(ids({ showHeadless: null })).not.toContain("headless");
+  test("trial runs wait for the settings before offering a change", () => {
+    expect(ids({ showTrials: null })).not.toContain("trials");
   });
 });
 
@@ -201,7 +201,7 @@ describe("paletteContext", () => {
       projects: [],
       theme: "dark",
       locale: "ja",
-      showHeadless: null,
+      showTrials: null,
       reportReady: false,
       shownReady: false,
     });

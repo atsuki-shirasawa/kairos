@@ -460,6 +460,14 @@ export const MIGRATIONS: string[] = [
   `
   ALTER TABLE subagents ADD COLUMN name TEXT;
   `,
+  // 21: what kind of run a headless session is (#69): 'automation' when its launch directory runs
+  // headless on more than one day or one of those runs made a commit or PR, else 'trial'; NULL
+  // for a person's session. A run's kind depends on the other runs of its directory, so it is
+  // derived (the DERIVED_VERSION bump fills existing rows). The index finds a directory's runs
+  `
+  ALTER TABLE sessions ADD COLUMN run_kind TEXT;
+  CREATE INDEX sessions_launch_cwd ON sessions(launch_cwd);
+  `,
 ];
 
 /** Schema version once every migration is applied (stored in `PRAGMA user_version`). */

@@ -5,7 +5,7 @@ import { SEGMENT, SEGMENTED } from "@/components/segmented.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.tsx";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
-import { useShowHeadless } from "@/hooks/queries.ts";
+import { useShowTrials } from "@/hooks/queries.ts";
 import { LANGUAGE_NAMES, LOCALES, type Locale, setLocale, useLocale } from "@/i18n/index.ts";
 import { toolbarMessages } from "@/i18n/messages/toolbar.ts";
 import { keyCap, SHORTCUT_GROUPS, type ShortcutGroup } from "@/lib/shortcuts.ts";
@@ -43,7 +43,7 @@ function shortcuts(): [string[], string][] {
 }
 
 /**
- * The "⋯" menu: theme, language, whether headless runs show, and the keyboard shortcuts. The
+ * The "⋯" menu: theme, language, whether trial runs show, and the keyboard shortcuts. The
  * caller owns the open state because `?` opens it too.
  */
 export function AppMenu({
@@ -72,8 +72,8 @@ export function AppMenu({
         <SettingRow label={m.language}>
           <LanguageToggle />
         </SettingRow>
-        <SettingRow label={m.headlessRuns} title={m.headlessRunsTitle}>
-          <HeadlessToggle />
+        <SettingRow label={m.trialRuns} title={m.trialRunsTitle}>
+          <TrialsToggle />
         </SettingRow>
         <ShortcutList />
       </PopoverContent>
@@ -154,10 +154,10 @@ function LanguageToggle() {
   );
 }
 
-/** Hides or shows headless runs (claude -p / SDK sessions). Saved on the server. */
-function HeadlessToggle() {
+/** Hides or shows trial runs (headless probes and checks). Saved on the server. */
+function TrialsToggle() {
   const m = toolbarMessages();
-  const [show, setShow, loaded] = useShowHeadless();
+  const [show, setShow, loaded] = useShowTrials();
   return (
     <ToggleGroup
       type="single"
@@ -168,7 +168,7 @@ function HeadlessToggle() {
       onValueChange={(v) => v && setShow(v === "show")}
       // Until the settings load, "Hide" would only be a guess
       disabled={!loaded}
-      aria-label={m.headlessRuns}
+      aria-label={m.trialRuns}
     >
       <ToggleGroupItem value="hide" className={cn(SEGMENT, "px-2")}>
         {m.hide}

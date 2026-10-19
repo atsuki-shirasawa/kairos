@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   sessionQuery,
   useShowAllProjects,
-  useShowHeadless,
+  useShowTrials,
   useUpdateProject,
 } from "@/hooks/queries.ts";
 import { type CopyState, useCopy } from "@/hooks/useCopy.ts";
@@ -58,8 +58,8 @@ export interface PaletteActions {
   run: (action: PaletteAction) => void;
   /** How the last copy went, said at the palette's foot; null when there is nothing to say. */
   status: string | null;
-  /** Whether headless runs show; null until the settings load. */
-  showHeadless: boolean | null;
+  /** Whether trial runs show; null until the settings load. */
+  showTrials: boolean | null;
 }
 
 /**
@@ -76,7 +76,7 @@ export function usePaletteActions({
   const client = useQueryClient();
   const [copyState, copy] = useCopy();
   const report = useStandupReport(keys.now, projects.byId);
-  const [show, setShow, loaded] = useShowHeadless();
+  const [show, setShow, loaded] = useShowTrials();
   const { mutate: updateProject } = useUpdateProject();
   const showAll = useShowAllProjects();
 
@@ -130,12 +130,12 @@ export function usePaletteActions({
       case "locale":
         setLocale(action.locale);
         return;
-      case "headless":
+      case "trials":
         setShow(action.show);
         return;
     }
   };
-  return { run, status: copyStatus(copyState), showHeadless: loaded ? show : null };
+  return { run, status: copyStatus(copyState), showTrials: loaded ? show : null };
 }
 
 /** What the palette says after a copy; null before one or once the moment has passed. */

@@ -5,8 +5,9 @@ import type { Database } from "bun:sqlite";
 import { readKv, writeKv } from "../db/kv.ts";
 import type { ProjectPlacer } from "./placement.ts";
 import { type BlockOutput, blockRefs } from "./prRefs.ts";
+import { runKindOf } from "./runKinds.ts";
 import { carryIds, type StoredBlock, unchanged, workBlocks } from "./segments.ts";
-import type { ActivityRow, AggregateRow, Statements } from "./statements.ts";
+import type { ActivityRow, AggregateRow, HeadlessRunRow, Statements } from "./statements.ts";
 import type { PrMark } from "./topics.ts";
 import { type TurnRow, turnSpans, type WaitRow } from "./turnSpans.ts";
 
@@ -34,6 +35,7 @@ export class DerivedData {
   refreshSession(sessionId: string): void {
     if (this.q.hasPredecessor.get(sessionId)) this.markCopies(sessionId);
     this.updateAggregates(sessionId);
+    this.classifyRuns(sessionId);
     const activity = this.q.activity.all(sessionId) as ActivityRow[];
     this.rebuildBlocks(sessionId, activity);
     this.linkRefs(sessionId, activity);
@@ -63,6 +65,22 @@ export class DerivedData {
     const agg = this.q.aggregate.get(sessionId) as AggregateRow;
     const first = this.q.firstPrompt.get(sessionId) as { text: string } | null;
     this.q.updateAggregate.run({ ...agg, firstPrompt: first?.text ?? null, id: sessionId });
+  }
+
+  /**
+   * Sets the run kind of the session and of every other headless run launched where it was (see
+   * `runKindOf`): one more run, on a new day or with a PR, can turn its directory's earlier trial
+   * runs into automation. A person's session has none, and refreshing one touches no run. Runs
+   * after `updateAggregates`, which decides whether the session is headless, and after its
+   * artifacts are stored.
+   */
+  private classifyRuns(sessionId: string): void {
+    this.q.clearRunKind.run(sessionId);
+    const runs = this.q.headlessRunsBeside.all(sessionId) as HeadlessRunRow[];
+    // A person's session changes no run's kind, so the directory's runs are left as they are
+    if (!runs.some((r) => r.id === sessionId)) return;
+    const kind = runKindOf(runs.map((r) => ({ startedAt: r.startedAt, made: r.made === 1 })));
+    for (const r of runs) this.q.setRunKind.run(kind, r.id);
   }
 
   /**

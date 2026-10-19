@@ -129,8 +129,8 @@ export interface CalendarSession {
   /** Turns started by `/loop` or a scheduled task. */
   scheduledRuns: number;
   /**
-   * An automatic run: no user prompt, started through the SDK (e.g. `claude -p`). Only returned
-   * while `Settings.showHeadless` is on.
+   * A headless run: no user prompt, started through the SDK (e.g. `claude -p`). Automation runs
+   * are always returned; trial runs (probes and checks) only while `Settings.showTrials` is on.
    */
   headless: boolean;
   /** Continued from an earlier session, or continued into a later one. */
@@ -450,7 +450,7 @@ export interface SessionDetail {
   active: boolean;
   promptCount: number;
   scheduledRuns: number;
-  /** An automatic run (see `CalendarSession.headless`). */
+  /** A headless run (see `CalendarSession.headless`). */
   headless: boolean;
   continuedFrom: string | null;
   continuedIn: string | null;
@@ -542,14 +542,17 @@ export interface Settings {
   summaryLang: SummaryLang;
   /** Fixed with `kairos serve --summary-lang`; the UI's language doesn't change it. */
   summaryLangFixed: boolean;
-  /** Also show automatic runs (headless sessions) on the calendar, in search and in navigation. */
-  showHeadless: boolean;
+  /**
+   * Also show trial runs (headless probes and checks) on the calendar, in search and in
+   * navigation. Automation runs show either way.
+   */
+  showTrials: boolean;
 }
 
 /** `PATCH /api/settings` body: the settings to change (at least one). */
 export interface SettingsUpdate {
   summaryLang?: SummaryLang;
-  showHeadless?: boolean;
+  showTrials?: boolean;
 }
 
 /**

@@ -78,9 +78,9 @@ export function parseSettingsUpdate(body: unknown): SettingsUpdate | null {
     if (!isSummaryLang(b.summaryLang)) return null;
     update.summaryLang = b.summaryLang;
   }
-  if ("showHeadless" in b) {
-    if (typeof b.showHeadless !== "boolean") return null;
-    update.showHeadless = b.showHeadless;
+  if ("showTrials" in b) {
+    if (typeof b.showTrials !== "boolean") return null;
+    update.showTrials = b.showTrials;
   }
   return Object.keys(update).length ? update : null;
 }

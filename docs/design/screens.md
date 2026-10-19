@@ -93,8 +93,8 @@ segment names the page, so its heading is for screen readers only.
   session still running, which is only waiting for its summary; the week, month, day page and list
   use this one rule (`isDim` in `lib/selection.ts`), and a mark's tooltip notes it. A pulsing project-colored
   dot marks work in progress. Selected: a 2px `primary` outline over the normal fill, nothing more
-  ([why](decisions.md#the-selected-block-is-only-outlined)). A headless run (`claude -p` / SDK, shown only when
-  turned on in the "⋯" menu) keeps its project's color and fill but gets a dashed left edge: the
+  ([why](decisions.md#the-selected-block-is-only-outlined)). A headless run (`claude -p` / SDK; automation runs always
+  show, trial runs (probes and checks) only when turned on in the "⋯" menu) keeps its project's color and fill but gets a dashed left edge: the
   solid edge is the branch of work you prompted (in the week and month views alike, and as a dashed lane on the day page; a mark
   breaks into two dashes instead). The tooltip says why, and the drawer heading carries a
   "Headless" `Tag` beside the project line. Filtered-out blocks fade to 30% opacity and drop behind matching ones where they

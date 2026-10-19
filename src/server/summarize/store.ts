@@ -95,8 +95,8 @@ const OLD_FORMAT_SQL = "(sm.prompt_version IS NULL AND sm.body <> '')";
  * Finished sections whose summary is missing or older than the section, newest sessions first and
  * each session's sections in order, under the
  * same rules as automatic runs (short sections get `title` mode). Sections with no conversation to
- * summarize are left out. Headless sessions are summarized whether or not the calendar shows them,
- * so their summaries are ready when they are turned on. Shared by the automatic loop and
+ * summarize are left out. Trial runs are summarized whether or not the calendar shows them, so
+ * their summaries are ready when they are turned on. Shared by the automatic loop and
  * `kairos summarize`, so both agree on what still needs a summary.
  */
 export function findTargets(db: Database, now: number, filter: TargetFilter = {}): NamedTarget[] {
@@ -116,7 +116,7 @@ export function findTargets(db: Database, now: number, filter: TargetFilter = {}
        JOIN sessions s ON s.id = g.session_id
        LEFT JOIN projects p ON p.id = s.project_id
        LEFT JOIN summaries sm ON sm.block_id = g.id
-       WHERE ${visibleSessionSql({ headless: true, hiddenCwds: filter.hiddenCwds ?? DEFAULT_HIDDEN_CWDS })}
+       WHERE ${visibleSessionSql({ runs: "all", hiddenCwds: filter.hiddenCwds ?? DEFAULT_HIDDEN_CWDS })}
          AND g.end >= ?1 AND g.end < ?6
          AND g.start >= ?2 AND g.start < ?3
          AND ${finishedSql("?4")}
@@ -192,7 +192,7 @@ export function findOldFormat(
        JOIN segments g ON g.id = sm.block_id
        JOIN sessions s ON s.id = g.session_id
        LEFT JOIN projects p ON p.id = s.project_id
-       WHERE ${visibleSessionSql({ headless: false, hiddenCwds: filter.hiddenCwds ?? DEFAULT_HIDDEN_CWDS })}
+       WHERE ${visibleSessionSql({ runs: "people", hiddenCwds: filter.hiddenCwds ?? DEFAULT_HIDDEN_CWDS })}
          AND sm.body <> '' AND g.start >= ?1 AND g.start < ?2
          AND ${finishedSql("?3")} AND ${HAS_CONVERSATION_SQL}
          AND EXISTS (

@@ -2,11 +2,12 @@
 // subagents under fixture 6's session, and the calendar's default visibility.
 import { appendFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type { SessionVisibility } from "../../../src/server/visibility.ts";
 import { SID } from "../../fixtures/ids.ts";
 import { min, setup } from "../ingest/helpers.ts";
 
-/** The calendar's default visibility: interactive sessions, no hidden directories. */
-export const VISIBLE = { headless: false, hiddenCwds: [] };
+/** The calendar's default visibility: a person's sessions and automation runs, no hidden directories. */
+export const VISIBLE: SessionVisibility = { runs: "automation", hiddenCwds: [] };
 
 /** Appends a text response with `usage` (Claude API field names) to the facts session's log. */
 export function appendResponse(

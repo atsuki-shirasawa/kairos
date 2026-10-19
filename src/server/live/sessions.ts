@@ -12,11 +12,12 @@ import type {
 } from "../../shared/api.ts";
 import { ASK_USER_TOOL } from "../askUser.ts";
 import { knownTitle } from "../queries/titles.ts";
+import { automationSql, type RunKind } from "../runKinds.ts";
 import { taskStates } from "../tasks.ts";
 import { lastTestRun } from "../testRuns.ts";
 import { oneLine } from "../text.ts";
 import { loadTaskCalls, loadToolCalls, type ToolCall } from "../toolCalls.ts";
-import type { SessionVisibility } from "../visibility.ts";
+import { isRunShown, type SessionVisibility } from "../visibility.ts";
 import { liveAgents } from "./agents.ts";
 import { fanOutOf } from "./fanOut.ts";
 import type { RegistryEntry } from "./registry.ts";
@@ -49,8 +50,7 @@ interface SessionRow {
   ai_title: string | null;
   first_prompt: string | null;
   away_summary: string | null;
-  prompt_count: number;
-  sdk_prompt_count: number;
+  run_kind: RunKind | null;
 }
 
 /** A tool call made in the main conversation that has no result yet, with its stored input. */
@@ -150,6 +150,21 @@ function stateOf(entry: RegistryEntry, pending: PendingCall | null): LiveState {
 }
 
 /**
+ * The run kind of a running session: as stored once its log is ingested, else, for an SDK run
+ * not ingested yet, automation when its directory already runs automation and trial otherwise.
+ * Null for a person's session.
+ */
+function liveRunKind(
+  automatedDir: (cwd: string) => boolean,
+  e: RegistryEntry,
+  s: SessionRow | null,
+): RunKind | null {
+  if (s?.run_kind) return s.run_kind;
+  if (PERSONAL_KINDS.has(e.kind)) return null;
+  return automatedDir(e.cwd) ? "automation" : "trial";
+}
+
+/**
  * Running sessions to show, in the registry's order (the UI orders them by state). A session
  * whose log Kairos hasn't ingested yet is still listed, with what the registry knows.
  */
@@ -161,17 +176,18 @@ export function liveSessions(
 ): LiveSession[] {
   const sessionQuery = db.query<SessionRow, [string]>(
     `SELECT s.project_id, p.hidden AS project_hidden, s.label, s.branch, s.custom_title,
-            s.agent_name, s.ai_title, s.first_prompt, s.away_summary, s.prompt_count,
-            s.sdk_prompt_count
+            s.agent_name, s.ai_title, s.first_prompt, s.away_summary, s.run_kind
      FROM sessions s LEFT JOIN projects p ON p.id = s.project_id WHERE s.id = ?`,
   );
+  const automatedQuery = db.query<{ x: number }, [string]>(
+    `SELECT 1 AS x FROM sessions s WHERE s.launch_cwd = ? AND ${automationSql("s")} LIMIT 1`,
+  );
+  const automatedDir = (cwd: string) => automatedQuery.get(cwd) !== null;
   const list: LiveSession[] = [];
   for (const e of entries) {
     if (visibility.hiddenCwds.includes(e.cwd)) continue;
     const s = sessionQuery.get(e.sessionId);
-    const headless =
-      !PERSONAL_KINDS.has(e.kind) || (s !== null && s.prompt_count === 0 && s.sdk_prompt_count > 0);
-    if (headless && !visibility.headless) continue;
+    if (!isRunShown(liveRunKind(automatedDir, e, s), visibility.runs)) continue;
     if (s?.project_hidden === 1) continue;
     const pendingList = s ? pendingCalls(db, e.sessionId) : [];
     const pending = pendingList[0] ?? null;

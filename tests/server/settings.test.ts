@@ -43,7 +43,7 @@ describe("summary language", () => {
     expect((await (await app.request(`${URL_BASE}/api/settings`)).json()) as Settings).toEqual({
       summaryLang: "en",
       summaryLangFixed: false,
-      showHeadless: false,
+      showTrials: false,
     });
 
     const res = await patch(app, { summaryLang: "ja" });
@@ -63,7 +63,7 @@ describe("summary language", () => {
     expect((await (await app.request(`${URL_BASE}/api/settings`)).json()) as Settings).toEqual({
       summaryLang: "en",
       summaryLangFixed: true,
-      showHeadless: false,
+      showTrials: false,
     });
   });
 
