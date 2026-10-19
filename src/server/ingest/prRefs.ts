@@ -69,11 +69,26 @@ function urlRefs(text: string): NamedRef[] {
   });
 }
 
-/** The numbers bare `#N` in a text mentions, URLs left out (see `REF_URL_RE`). */
-function mentions(text: string, repo: string): NamedRef[] {
+/** The numbers bare `#N` in a text names, URLs left out (see `REF_URL_RE`). */
+function mentionedNumbers(text: string): number[] {
   return refsOf(text.replace(REF_URL_RE, " "))
     .filter((ref) => ref.startsWith("#"))
-    .map((ref) => ({ repo, number: Number(ref.slice(1)), how: "mentioned" as const }));
+    .map((ref) => Number(ref.slice(1)));
+}
+
+/** The numbers bare `#N` in a text mentions, URLs left out (see `REF_URL_RE`). */
+function mentions(text: string, repo: string): NamedRef[] {
+  return mentionedNumbers(text).map((number) => ({ repo, number, how: "mentioned" as const }));
+}
+
+/**
+ * Every issue and PR number a text names, bare `#N` and issue / PR URLs alike, whatever their
+ * repository: for telling whether two texts are about the same work, not for storing a ref.
+ */
+export function namedNumbers(text: string): number[] {
+  const inUrls = [...text.matchAll(REF_URL_RE)].flatMap(([url]) => refsOf(url));
+  const urlNumbers = inUrls.filter((ref) => ref.startsWith("#")).map((ref) => Number(ref.slice(1)));
+  return [...new Set([...mentionedNumbers(text), ...urlNumbers])];
 }
 
 /** The numbers a request names: PR URLs it works on, and #N it mentions. */

@@ -27,6 +27,10 @@ function write(launchCwd: string, b: LogBuilder, tail = ""): void {
  * Marks a session as launched through the SDK (`claude -p`, the Agent SDK): real headless logs
  * carry `entrypoint: "sdk-cli"` on every chain record, where the builder writes `cli`.
  */
+/** The fixed instructions of scenario 25's loop, the same on every run. */
+const ITERATE = "/goal Do one iteration of the loop, as your instructions say";
+const OPEN_PR = "/goal Open the draft pull request for the pushed branch";
+
 function launchedBySdk(b: LogBuilder): void {
   for (const r of b.records) if ("entrypoint" in r) r.entrypoint = "sdk-cli";
 }
@@ -741,6 +745,36 @@ function turns(): void {
   write(APP, b);
 }
 
+// ---------------------------------------------------------------- 25. a loop's runs on one issue
+function loopRuns(): void {
+  // An automated loop in a container checkout: every run starts from the same fixed instruction
+  // and says in its last reply which issue or PR it was on. The iteration, its PR and the reply to
+  // the PR's review are one piece of work; a run that names no number sits between them
+  const cwd = "/work/loop";
+  const runs: [string, number, string, string][] = [
+    [SID.loopIssue, 2100, ITERATE, "loop: declared 4d5e6f7 for #31"],
+    [SID.loopPr, 2110, OPEN_PR, "loop: opened https://github.com/me/bot/pull/32 for #31"],
+    [SID.loopAnswer, 2160, ITERATE, "loop: answered 1 finding(s) on 4d5e6f7"],
+    [
+      SID.loopReply,
+      2170,
+      ITERATE,
+      "loop: replied https://github.com/me/bot/pull/32#issuecomment-9 on #32",
+    ],
+    [SID.loopNext, 2200, ITERATE, "loop: declared 8a9b0c1 for #35"],
+  ];
+  for (const [id, minute, request, report] of runs) {
+    const b = new LogBuilder(id, cwd);
+    b.systemUser(minute, request, { promptSource: "sdk", turnOrigin: "sdk" });
+    b.bash(minute + 1, "cat /inlet/assignment.json", '{ "issue": 31 }');
+    if (id === SID.loopPr)
+      b.ghPrCreate(minute + 2, "gh pr create --draft --fill", { number: 32, repository: "me/bot" });
+    b.text(minute + 3, report);
+    launchedBySdk(b);
+    write(cwd, b);
+  }
+}
+
 if (import.meta.main) {
   rmSync(ROOT, { recursive: true, force: true });
   for (const scenario of [
@@ -768,6 +802,7 @@ if (import.meta.main) {
     ledger,
     outsideRuns,
     turns,
+    loopRuns,
   ]) {
     scenario();
   }

@@ -468,6 +468,16 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE sessions ADD COLUMN run_kind TEXT;
   CREATE INDEX sessions_launch_cwd ON sessions(launch_cwd);
   `,
+  // 22: the unit of work an automation run belongs to (#72): one piece of work spans several runs
+  // of a loop (an iteration, the run that opens its PR, the reply to its review), tied by the issue
+  // or PR number their reports and refs name. `run_unit` is the unit's first run, `run_unit_ref`
+  // the number that tied it; both NULL for a run on its own. Derived from the directory's runs
+  // (the DERIVED_VERSION bump fills existing rows); the index finds a unit's runs
+  `
+  ALTER TABLE sessions ADD COLUMN run_unit TEXT;
+  ALTER TABLE sessions ADD COLUMN run_unit_ref INTEGER;
+  CREATE INDEX sessions_run_unit ON sessions(run_unit);
+  `,
 ];
 
 /** Schema version once every migration is applied (stored in `PRAGMA user_version`). */

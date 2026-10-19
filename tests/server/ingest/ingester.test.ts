@@ -227,6 +227,44 @@ describe("README scenarios", () => {
     expect([...sessions]).toContain(SID.headless);
   });
 
+  test("25. loopRuns: runs naming the same issue or PR are one unit of work", () => {
+    const unit = (id: string) =>
+      db
+        .query<{ unit: string | null; ref: number | null }, [string]>(
+          "SELECT run_unit AS unit, run_unit_ref AS ref FROM sessions WHERE id = ?",
+        )
+        .get(id);
+    const one = { unit: SID.loopIssue, ref: 31 };
+    expect(unit(SID.loopIssue)).toEqual(one);
+    expect(unit(SID.loopPr)).toEqual(one);
+    expect(unit(SID.loopReply)).toEqual(one);
+    expect(unit(SID.loopAnswer)).toEqual({ unit: null, ref: null });
+    expect(unit(SID.loopNext)).toEqual({ unit: null, ref: null });
+    expect(unit(SID.containerPr)).toEqual({ unit: null, ref: null });
+  });
+
+  test("25. loopRuns: a run that reports another issue breaks the unit, and the scan says so", () => {
+    const file = join(projectsDir, "-work-loop", `${SID.loopIssue}.jsonl`);
+    const reply = {
+      type: "assistant",
+      uuid: "gave-up",
+      sessionId: SID.loopIssue,
+      timestamp: new Date(min(2104)).toISOString(),
+      message: { role: "assistant", content: [{ type: "text", text: "loop: gave up on #77" }] },
+    };
+    appendFileSync(file, `${JSON.stringify(reply)}\n`);
+    const refreshed = ingester.ingestFile(file);
+    const unitOf = (id: string) =>
+      db
+        .query<{ u: string | null }, [string]>("SELECT run_unit AS u FROM sessions WHERE id = ?")
+        .get(id)?.u;
+    expect(unitOf(SID.loopIssue)).toBeNull();
+    // The PR's runs are a unit of their own now, which the open calendar must refetch
+    expect(unitOf(SID.loopPr)).toBe(SID.loopPr);
+    expect(unitOf(SID.loopReply)).toBe(SID.loopPr);
+    expect(refreshed).toEqual(expect.arrayContaining([SID.loopIssue, SID.loopPr, SID.loopReply]));
+  });
+
   test("16. sdkCommand: a slash command from the SDK is the SDK input; hook text is not", () => {
     expect(session(SID.sdkCommand)).toMatchObject({
       prompt_count: 0,
@@ -578,6 +616,8 @@ describe("project identity (git remote)", () => {
       },
       // A container checkout, named after the repository of the PR opened in it
       { path: "/work/checkout", name: "app", repo: "github.com/me/app", color: null },
+      // The loop's checkout (scenario 25) was placed by its first run, before any PR
+      { path: "/work/loop", name: "loop", repo: null, color: null },
     ]);
     const label = (id: string) =>
       fresh.db
@@ -610,6 +650,8 @@ describe("project identity (git remote)", () => {
       },
       // A container checkout, named after the repository of the PR opened in it
       { path: "/work/checkout", name: "app", repo: "github.com/me/app", color: null },
+      // The loop's checkout (scenario 25) was placed by its first run, before any PR
+      { path: "/work/loop", name: "loop", repo: null, color: null },
     ]);
     expect(session(SID.blog)).toMatchObject({ project: "/Users/me/dev/app", label: "blog" });
     expect(session(SID.relocated).label).toBe("refactor-api");

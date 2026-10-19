@@ -24,6 +24,24 @@ test("a fresh DB has every migration applied", () => {
   expect(indexes(db, "sessions")).toContain("sessions_branch");
 });
 
+test("migration 22 gives sessions a unit of work, null until derived data is recomputed", () => {
+  const path = join(tmpdir(), `kairos-run-unit-${crypto.randomUUID()}.db`);
+  const old = new Database(path, { create: true });
+  for (const [i, sql] of MIGRATIONS.slice(0, 21).entries()) {
+    old.run(sql);
+    old.run(`PRAGMA user_version = ${i + 1}`);
+  }
+  old.run("INSERT INTO sessions (id, run_kind) VALUES ('s', 'automation')");
+  old.close();
+
+  const db = openDb(path);
+  expect(db.query("SELECT id, run_kind, run_unit, run_unit_ref FROM sessions").all()).toEqual([
+    { id: "s", run_kind: "automation", run_unit: null, run_unit_ref: null },
+  ]);
+  expect(indexes(db, "sessions")).toContain("sessions_run_unit");
+  db.close();
+});
+
 test("migration 20 gives subagents a name, null until their meta file is read again", () => {
   const path = join(tmpdir(), `kairos-subagent-name-${crypto.randomUUID()}.db`);
   const old = new Database(path, { create: true });

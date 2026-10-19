@@ -2,11 +2,13 @@
 // session aggregates and work blocks. It can be recomputed from the DB at any time, which is how
 // a DERIVED_VERSION bump reaches sessions whose logs are gone.
 import type { Database } from "bun:sqlite";
+import type { RunUnit } from "../../shared/api.ts";
 import { readKv, writeKv } from "../db/kv.ts";
 import { RUN_KINDS, type RunKind } from "../runKinds.ts";
 import type { ProjectPlacer } from "./placement.ts";
 import { type BlockOutput, blockRefs } from "./prRefs.ts";
 import { runKindOf } from "./runKinds.ts";
+import { runNumbers, runUnits } from "./runUnits.ts";
 import {
   type BlockTitler,
   carryIds,
@@ -16,7 +18,13 @@ import {
   unchanged,
   workBlocks,
 } from "./segments.ts";
-import type { ActivityRow, AggregateRow, HeadlessRunRow, Statements } from "./statements.ts";
+import type {
+  ActivityRow,
+  AggregateRow,
+  AutomationRunRow,
+  HeadlessRunRow,
+  Statements,
+} from "./statements.ts";
 import type { PrMark } from "./topics.ts";
 import { type TurnRow, turnSpans, type WaitRow } from "./turnSpans.ts";
 
@@ -45,6 +53,12 @@ function blockTitler(kind: RunKind | null): BlockTitler {
   return kind === RUN_KINDS.automation ? replyTitle : fallbackTitle;
 }
 
+/** The numbers an automation run names, from its row (see `runNumbers`). */
+function rowNumbers(r: AutomationRunRow): number[] {
+  const refs = r.refNumbers ? r.refNumbers.split(",").map(Number) : [];
+  return runNumbers(r.lastReply, refs);
+}
+
 /** Recomputes a session's derived data from its stored rows. */
 export class DerivedData {
   constructor(
@@ -56,7 +70,7 @@ export class DerivedData {
 
   /**
    * Recomputes aggregates and work blocks from messages. Returns the IDs whose blocks changed: the
-   * session, then any other run of its directory whose kind it changed (see `retitleRuns`).
+   * session, then any other run of its directory whose kind or unit of work it changed.
    */
   refreshSession(sessionId: string): string[] {
     if (this.q.hasPredecessor.get(sessionId)) this.markCopies(sessionId);
@@ -67,7 +81,8 @@ export class DerivedData {
     this.rebuildBlocks(sessionId, activity, blockTitler(runs.kind));
     this.linkRefs(sessionId, activity);
     this.rebuildTurnSpans(sessionId);
-    return [sessionId, ...runs.changed];
+    const regrouped = this.groupRuns(sessionId, runs);
+    return [...new Set([sessionId, ...runs.changed, ...regrouped])];
   }
 
   /** Refreshes a main session and the session continuing it, returning the IDs refreshed. */
@@ -117,6 +132,30 @@ export class DerivedData {
    */
   private retitleRuns({ kind, changed }: RunsClassified): void {
     for (const id of changed) this.rebuildBlocks(id, this.activityOf(id), blockTitler(kind));
+  }
+
+  /**
+   * Sets the unit of work of every automation run launched where the session was (see `runUnits`),
+   * returning the other runs whose unit changed. Runs after `linkRefs`, since a run's refs are
+   * among the numbers that tie it. Runs that aren't automation, the session's own and any whose
+   * kind it just changed, belong to no unit.
+   */
+  private groupRuns(sessionId: string, runs: RunsClassified): string[] {
+    if (runs.kind !== RUN_KINDS.automation) {
+      const ids = [sessionId, ...runs.changed];
+      const cleared = ids.filter((id) => this.setUnit(id, null));
+      return cleared.filter((id) => id !== sessionId);
+    }
+    const rows = this.q.automationRunsBeside.all(sessionId) as AutomationRunRow[];
+    const units = runUnits(rows.map((r) => ({ id: r.id, numbers: rowNumbers(r) })));
+    const changed = [...units].filter(([id, unit]) => this.setUnit(id, unit)).map(([id]) => id);
+    return changed.filter((id) => id !== sessionId);
+  }
+
+  /** Stores a run's unit of work (null for none), returning whether it changed. */
+  private setUnit(id: string, unit: RunUnit | null): boolean {
+    const row = { id, unit: unit?.id ?? null, ref: unit?.ref ?? null };
+    return this.q.setRunUnit.run(row).changes > 0;
   }
 
   /** The session's main-thread activity that blocks and refs are drawn from. */

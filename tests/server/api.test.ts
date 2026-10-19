@@ -417,11 +417,13 @@ describe("GET /api/calendar", () => {
     expect(ids).not.toContain(SID.headless);
     expect(ids).not.toContain(SID.blog); // the next day
     // A project with only trial runs (probe) is left out of the filter too; the container's
-    // runs opened a PR, so they are automation and their project (github.com/me/app) shows
+    // runs opened a PR, so they are automation and their project (github.com/me/app) shows, as
+    // does the loop's (scenario 25)
     expect((await json<Project[]>("/api/projects")).map((p) => p.name).sort()).toEqual([
       "app",
       "app",
       "blog",
+      "loop",
     ]);
   });
 
@@ -434,8 +436,8 @@ describe("GET /api/calendar", () => {
     const empty = await json<CalendarResponse>(
       `/api/calendar?from=${later}&to=${later + 24 * 60 * 60_000}`,
     );
-    // The last work block is the turns scenario's, at 1960 min
-    expect(empty).toMatchObject({ sessions: [], prev: Date.UTC(2026, 8, 29, 8, 40), next: null });
+    // The last work block is the loop's last run (scenario 25), at 2200 min
+    expect(empty).toMatchObject({ sessions: [], prev: Date.UTC(2026, 8, 29, 12, 40), next: null });
   });
 
   test("returns work blocks, titles and labels", async () => {

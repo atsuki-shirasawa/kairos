@@ -1,10 +1,11 @@
 import type { Database, Statement } from "bun:sqlite";
+import type { PrTouch } from "../../shared/api.ts";
 import { ASK_USER_TOOL } from "../askUser.ts";
 import { blockOutputsUntilSql } from "../db/blockOutputs.ts";
 import { notNote } from "../db/notes.ts";
 import { sqlList } from "../db/sqlList.ts";
 import { EDIT_TOOL_NAMES } from "../editTools.ts";
-import { headlessSql } from "../runKinds.ts";
+import { automationSql, headlessSql } from "../runKinds.ts";
 import { CLOSED_BY } from "../summarize/ledger/closers.ts";
 import { PROMPT_KINDS } from "./activityKinds.ts";
 import { INPUT_TOPIC_TOOLS } from "./topics.ts";
@@ -22,6 +23,14 @@ export interface StateRow {
 export interface SessionRepoRow {
   repo: string | null;
   launch_cwd: string | null;
+}
+
+/** An automation run of a launch directory, as `runNumbers` reads it. */
+export interface AutomationRunRow {
+  id: string;
+  lastReply: string | null;
+  /** The numbers its blocks' refs hold, comma-separated; null when there are none. */
+  refNumbers: string | null;
 }
 
 /** A headless run of one launch directory, as `runKindOf` reads it (`made` is 0 or 1). */
@@ -298,6 +307,29 @@ export function prepareStatements(db: Database) {
     ),
     // Skips rows already of that kind, so a refresh rewrites nothing in a settled directory
     setRunKind: p("UPDATE sessions SET run_kind = ?1 WHERE id = ?2 AND run_kind IS NOT ?1"),
+    // The automation runs launched where session ?1 was (only ?1 itself when no launch directory is
+    // recorded), in start order, with the head of each one's last reply and the numbers its blocks
+    // worked on, opened or merged (see `runNumbers`): a mention, such as an issue the loop's fixed
+    // instruction names, would tie every run
+    automationRunsBeside: p(
+      `SELECT s.id,
+              (SELECT substr(m.text, 1, 400) FROM messages m
+               WHERE m.session_id = s.id AND m.agent_id IS NULL AND m.is_copy = 0
+                 AND m.kind = 'assistant' AND m.text != '' AND m.ts IS NOT NULL
+               ORDER BY m.ts DESC LIMIT 1) AS lastReply,
+              (SELECT group_concat(DISTINCT r.number) FROM block_refs r
+               JOIN segments g ON g.id = r.block_id
+               WHERE g.session_id = s.id AND r.how != '${"mentioned" satisfies PrTouch}') AS refNumbers
+       FROM sessions s
+       WHERE ${automationSql("s")}
+         AND (s.id = ?1 OR s.launch_cwd = (SELECT launch_cwd FROM sessions WHERE id = ?1))
+       ORDER BY s.started_at, s.id`,
+    ),
+    // Skips rows already in that unit, so a refresh rewrites nothing in a settled directory
+    setRunUnit: p(
+      `UPDATE sessions SET run_unit = $unit, run_unit_ref = $ref
+       WHERE id = $id AND (run_unit IS NOT $unit OR run_unit_ref IS NOT $ref)`,
+    ),
     hasPredecessor: p("SELECT 1 FROM sessions WHERE continued_in = ? LIMIT 1"),
     // ID of the continuing session, if it is in the DB
     continuedIn: p(
